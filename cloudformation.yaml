@@ -18,6 +18,14 @@ Parameters:
     Type: String
     Default: Z0938756375Q47T4PTZG2
     Description: Route53 Hosted Zone ID
+  GoogleClientId:
+    Type: String
+    NoEcho: true
+    Description: Google OAuth Client ID
+  GoogleClientSecret:
+    Type: String
+    NoEcho: true
+    Description: Google OAuth Client Secret
 
 Resources:
   WebsiteBucket:
@@ -136,6 +144,82 @@ Resources:
         - AttributeName: timestamp
           KeyType: RANGE
 
+  ApiKeysTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub '${AppName}-apikeys'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: PK
+          AttributeType: S
+        - AttributeName: SK
+          AttributeType: S
+        - AttributeName: GSI1PK
+          AttributeType: S
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+        - AttributeName: SK
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: GSI1
+          KeySchema:
+            - AttributeName: GSI1PK
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub '${AppName}-users'
+      AutoVerifiedAttributes:
+        - email
+      Schema:
+        - Name: email
+          Required: true
+          Mutable: false
+
+  UserPoolDomain:
+    Type: AWS::Cognito::UserPoolDomain
+    Properties:
+      Domain: !Sub '${AppName}-auth-${AWS::AccountId}'
+      UserPoolId: !Ref UserPool
+
+  GoogleIdentityProvider:
+    Type: AWS::Cognito::UserPoolIdentityProvider
+    Properties:
+      UserPoolId: !Ref UserPool
+      ProviderName: Google
+      ProviderType: Google
+      ProviderDetails:
+        client_id: !Ref GoogleClientId
+        client_secret: !Ref GoogleClientSecret
+        authorize_scopes: email openid profile
+      AttributeMapping:
+        email: email
+        username: sub
+
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    DependsOn: GoogleIdentityProvider
+    Properties:
+      ClientName: !Sub '${AppName}-client'
+      UserPoolId: !Ref UserPool
+      AllowedOAuthFlows:
+        - implicit
+      AllowedOAuthScopes:
+        - email
+        - openid
+        - profile
+      AllowedOAuthFlowsUserPoolClient: true
+      CallbackURLs:
+        - !Sub 'https://${LandingDomain}/auth/callback'
+      LogoutURLs:
+        - !Sub 'https://${LandingDomain}'
+      SupportedIdentityProviders:
+        - Google
+
   LambdaExecutionRole:
     Type: AWS::IAM::Role
     Properties:
@@ -162,6 +246,15 @@ Resources:
                 Action:
                   - 'dynamodb:PutItem'
                 Resource: !GetAtt UsageTable.Arn
+              - Effect: Allow
+                Action:
+                  - 'dynamodb:Query'
+                  - 'dynamodb:GetItem'
+                  - 'dynamodb:PutItem'
+                  - 'dynamodb:UpdateItem'
+                Resource:
+                  - !GetAtt ApiKeysTable.Arn
+                  - !Sub '${ApiKeysTable.Arn}/index/*'
 
   PdfFunction:
     Type: AWS::Lambda::Function
@@ -289,3 +382,11 @@ Outputs:
     Value: !Ref CloudFrontDistribution
   PdfBucketName:
     Value: !Ref PdfBucket
+  UserPoolId:
+    Value: !Ref UserPool
+  UserPoolClientId:
+    Value: !Ref UserPoolClient
+  CognitoDomain:
+    Value: !Sub 'https://${AppName}-auth-${AWS::AccountId}.auth.${AWS::Region}.amazoncognito.com'
+  ApiKeysTableName:
+    Value: !Ref ApiKeysTable

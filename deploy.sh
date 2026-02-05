@@ -28,12 +28,22 @@ docker push ${ECR_REPO}:latest
 cd ..
 
 echo "Deploying CloudFormation stack..."
-aws cloudformation deploy \
-  --template-file cloudformation.yaml \
-  --stack-name ${STACK_NAME} \
-  --capabilities CAPABILITY_IAM \
-  --region ${REGION} \
-  --profile ${PROFILE}
+if [ -f "parameters.json" ]; then
+  aws cloudformation deploy \
+    --template-file cloudformation.yaml \
+    --stack-name ${STACK_NAME} \
+    --capabilities CAPABILITY_IAM \
+    --region ${REGION} \
+    --profile ${PROFILE} \
+    --parameter-overrides file://parameters.json
+else
+  aws cloudformation deploy \
+    --template-file cloudformation.yaml \
+    --stack-name ${STACK_NAME} \
+    --capabilities CAPABILITY_IAM \
+    --region ${REGION} \
+    --profile ${PROFILE}
+fi
 
 echo "Updating Lambda function with new image..."
 aws lambda update-function-code \
