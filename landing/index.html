@@ -31,6 +31,61 @@
                 <p>AWS infrastructure</p>
             </div>
         </div>
+
+        <div class="demo-section">
+            <h2>Try It Now</h2>
+            <form id="pdfForm">
+                <textarea id="htmlInput" placeholder="Enter HTML content..." rows="8"><h1>Hello World</h1>
+<p>This is a test PDF document.</p></textarea>
+                <button type="submit" id="generateBtn">Generate PDF</button>
+            </form>
+            <div id="result" class="result hidden"></div>
+            <div id="error" class="error hidden"></div>
+        </div>
     </div>
+
+    <script>
+        const form = document.getElementById('pdfForm');
+        const btn = document.getElementById('generateBtn');
+        const result = document.getElementById('result');
+        const error = document.getElementById('error');
+        const htmlInput = document.getElementById('htmlInput');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            btn.disabled = true;
+            btn.textContent = 'Generating...';
+            result.classList.add('hidden');
+            error.classList.add('hidden');
+
+            try {
+                const response = await fetch('https://api.renderpdf.vberkoz.com/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ html: htmlInput.value })
+                });
+
+                if (!response.ok) {
+                    const err = await response.json();
+                    throw new Error(err.error || 'Failed to generate PDF');
+                }
+
+                const data = await response.json();
+                result.innerHTML = `
+                    <p>✓ PDF Generated</p>
+                    <a href="${data.url}" target="_blank" class="download-btn">Download PDF</a>
+                    <p class="meta">Size: ${(data.size / 1024).toFixed(1)} KB | ID: ${data.requestId.substring(0, 8)}</p>
+                `;
+                result.classList.remove('hidden');
+            } catch (err) {
+                error.textContent = '✗ ' + err.message;
+                error.classList.remove('hidden');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Generate PDF';
+            }
+        });
+    </script>
 </body>
 </html>

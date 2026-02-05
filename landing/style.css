@@ -86,3 +86,90 @@ h1 {
         font-size: 0.75rem;
     }
 }
+
+.demo-section {
+    margin-top: 60px;
+    background: rgba(255, 255, 255, 0.1);
+    padding: 40px;
+    border-radius: 8px;
+    backdrop-filter: blur(10px);
+}
+
+.demo-section h2 {
+    font-size: 2rem;
+    margin-bottom: 20px;
+}
+
+#htmlInput {
+    width: 100%;
+    padding: 15px;
+    border: none;
+    border-radius: 4px;
+    font-family: 'Monaco', 'Courier New', monospace;
+    font-size: 0.9rem;
+    background: rgba(0, 0, 0, 0.3);
+    color: #fff;
+    resize: vertical;
+}
+
+#generateBtn {
+    width: 100%;
+    padding: 15px;
+    margin-top: 15px;
+    border: none;
+    border-radius: 4px;
+    background: #fff;
+    color: #667eea;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+
+#generateBtn:hover:not(:disabled) {
+    transform: translateY(-2px);
+}
+
+#generateBtn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.result, .error {
+    margin-top: 20px;
+    padding: 20px;
+    border-radius: 4px;
+}
+
+.result {
+    background: rgba(76, 175, 80, 0.2);
+}
+
+.error {
+    background: rgba(244, 67, 54, 0.2);
+}
+
+.hidden {
+    display: none;
+}
+
+.download-btn {
+    display: inline-block;
+    margin: 15px 0;
+    padding: 12px 30px;
+    background: #4caf50;
+    color: #fff;
+    text-decoration: none;
+    border-radius: 4px;
+    font-weight: 600;
+}
+
+.download-btn:hover {
+    background: #45a049;
+}
+
+.meta {
+    font-size: 0.85rem;
+    opacity: 0.8;
+    margin-top: 10px;
+}
