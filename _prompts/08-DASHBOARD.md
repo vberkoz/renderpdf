@@ -1,8 +1,49 @@
-# MODULE 8: USER DASHBOARD
+# MODULE 8: USER DASHBOARD - IDEMPOTENT
 **Reference:** 07-AUTH-LAMBDA.md
 
-## Tasks
-1. Create `dashboard/` folder structure:
+**AI Context:** Browser localStorage, URL hash parsing, JWT decode (client-side), CORS handling
+**Focus:** Client-side token management, secure storage patterns, error handling
+
+## Reasoning
+Dashboard must handle:
+- **OAuth flow**: Implicit grant with hash fragment parsing
+- **Token management**: Store securely, handle expiration
+- **API key lifecycle**: Generate, display (once), revoke
+- **User experience**: Clear feedback, error recovery
+
+Security considerations:
+- Tokens in localStorage (acceptable for implicit grant)
+- API keys shown only once (copy-to-clipboard)
+- No sensitive data in URL or console logs
+- Proper logout (clear all stored data)
+
+UX flow optimization:
+1. **Login**: Redirect to Cognito → Google → callback
+2. **Token parsing**: Extract from URL hash, store locally
+3. **Dashboard load**: Check tokens, redirect if missing
+4. **Key management**: Generate/list/revoke with clear feedback
+5. **API testing**: Built-in form to test PDF generation
+
+Implementation strategy:
+- If missing: Create complete auth flow
+- If broken: Fix specific issues (token parsing, API calls)
+- If outdated: Update to match current API endpoints
+- Always: Test full flow from login to PDF generation
+
+Error scenarios to handle:
+- OAuth errors (user cancellation, invalid config)
+- Expired tokens (redirect to login)
+- API failures (network, server errors)
+- Invalid responses (malformed JSON)
+
+## State Detection
+- Check if `dashboard/` folder structure exists
+- Verify HTML/CSS/JS files are complete
+- Test authentication flow functionality
+- Validate API integration works
+
+## Tasks (Conditional)
+1. **If missing**: Create `dashboard/` folder structure:
    ```
    dashboard/
    ├── index.html       # Main dashboard page
@@ -12,76 +53,36 @@
    └── app.js           # Dashboard logic
    ```
 
-2. Implement `dashboard/login.html`:
-   - Google Sign-In button
-   - Redirects to Cognito hosted UI:
-     ```javascript
-     const authUrl = `${COGNITO_DOMAIN}/oauth2/authorize?` +
-       `identity_provider=Google&` +
-       `redirect_uri=${CALLBACK_URL}&` +
-       `response_type=token&` +  // Implicit grant
-       `client_id=${CLIENT_ID}&` +
-       `scope=email+openid+profile`;
-     ```
+2. **If missing/broken**: Implement authentication pages:
+   - `login.html` - Google Sign-In with Cognito redirect
+   - `callback.html` - Parse tokens from URL hash
+   - `index.html` - Protected dashboard with API key management
 
-3. Implement `dashboard/callback.html`:
-   - Parses tokens from URL hash fragment:
-     ```javascript
-     const hash = window.location.hash.substring(1);
-     const params = new URLSearchParams(hash);
-     const idToken = params.get('id_token');
-     const accessToken = params.get('access_token');
-     ```
-   - Decodes id_token to get user email
-   - Stores tokens in localStorage
-   - Redirects to dashboard
-
-4. Implement `dashboard/index.html`:
-   - Protected route (checks localStorage for tokens)
-   - Header: user email + logout button
-   - API Keys section:
-     - List existing keys (masked: `sk_...xyz123`)
-     - "Generate New Key" button
-     - Copy to clipboard button
-     - Revoke button (sets isActive=false)
-   - Test API section:
-     - HTML textarea input
-     - "Generate PDF" button
-     - Uses selected API key
-     - Downloads PDF on success
-
-5. Implement `dashboard/app.js`:
+3. **If missing/broken**: Implement `app.js`:
    - Authentication check on page load
-   - API key CRUD functions:
-     ```javascript
-     async function generateApiKey() {
-       const response = await fetch(`${API_URL}/api-keys`, {
-         method: 'POST',
-         headers: { 'Authorization': `Bearer ${idToken}` }
-       });
-       return response.json();
-     }
-     ```
-   - Token refresh logic (if needed)
-   - Logout clears localStorage
+   - API key CRUD functions
+   - Token refresh logic
+   - Logout functionality
 
-6. Implement `dashboard/style.css`:
-   - Clean, modern UI (similar to FuelSync)
+4. **If missing/outdated**: Implement `style.css`:
+   - Clean, modern UI
    - Card-based layout for API keys
    - Mobile responsive
    - Dark/light theme support
 
+5. **If exists**: Test and update only broken functionality
+
 ## Verification
 ```bash
 open dashboard/login.html
+# Manual test: login → generate key → test API → logout
 ```
-Test: login → generate key → test API → logout
 
 ## Success Criteria
-- Google Sign-In redirects to Cognito
-- Tokens parsed from URL hash
-- API keys display and generate
+- Google Sign-In redirects to Cognito correctly
+- Tokens parsed from URL hash successfully
+- API keys display and generate properly
 - Copy to clipboard works
 - Revoke updates UI immediately
 - Logout clears session
-- Mobile responsive
+- Mobile responsive design

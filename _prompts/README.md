@@ -1,165 +1,182 @@
-# HOW TO USE THESE PROMPTS
+# HOW TO USE THESE PROMPTS (IDEMPOTENT)
 
-## Workflow (Execute in Order)
+## Idempotent Strategy
+
+**SAFE TO RE-RUN**: All prompts detect existing state and only fill gaps or fix issues.
+
+### Benefits
+- **Resume from failures** without breaking existing code
+- **Iterative development** - refine components incrementally  
+- **Team collaboration** - multiple developers can run same prompts
+- **Error recovery** - fix issues without manual cleanup
+
+### Execution Pattern
+Each prompt follows: **Detect → Fill Gaps → Verify**
+
+---
+
+## Workflow (Execute in Any Order)
 
 ### Step 0: Setup
 ```bash
-# Read the master plan
 cat _prompts/00-MASTER-PLAN.md
 ```
-**AI Instruction:** "Read this file. Acknowledge the architecture. Do not generate code yet."
+**AI Instruction:** "Read this file. Acknowledge the architecture. Detect current project state."
 
 ---
 
-### Step 1: Infrastructure
+### Step 1: Infrastructure (Idempotent)
 ```bash
-# Execute infrastructure module
 cat _prompts/01-INFRASTRUCTURE.md
 ```
-**AI Instruction:** "Implement the CloudFormation template based on this prompt."
+**AI Instruction:** "Check existing CloudFormation stack. Create/update only missing components."
 
-**Checkpoint:**
+**Verification:**
 ```bash
 aws cloudformation validate-template --template-body file://cloudformation.yaml
+aws cloudformation describe-stacks --stack-name renderpdf
 ```
-✅ **MUST PASS** before proceeding to Step 2.
 
 ---
 
-### Step 2: Lambda Function
+### Step 2: Lambda Function (Idempotent)
 ```bash
 cat _prompts/02-LAMBDA-FUNCTION.md
 ```
-**AI Instruction:** "Implement the Lambda function and local test."
+**AI Instruction:** "Check existing Lambda code. Update only broken/missing functionality."
 
-**Checkpoint:**
+**Verification:**
 ```bash
-cd api && go test -v
+cd api && go mod tidy && go test -v
 ```
-✅ **MUST PASS** before proceeding to Step 3.
 
 ---
 
-### Step 3: Deployment
+### Step 3: Deployment (Idempotent)
 ```bash
 cat _prompts/03-DEPLOYMENT.md
 ```
-**AI Instruction:** "Create the deployment script."
+**AI Instruction:** "Check deployment script. Skip unchanged components during deployment."
 
-**Checkpoint:**
+**Verification:**
 ```bash
 ./deploy.sh
 ```
-✅ **MUST COMPLETE** and output API URL.
 
 ---
 
-### Step 4: Testing
+### Step 4: Testing (Idempotent)
 ```bash
 cat _prompts/04-TESTING.md
 ```
-**AI Instruction:** "Create E2E test scripts."
+**AI Instruction:** "Check test scripts exist. Run tests and update only if failures detected."
 
-**Checkpoint:**
+**Verification:**
 ```bash
-./test-api.sh
+./test-api.sh && ./test-local.sh
 ```
-✅ **ALL TESTS MUST PASS**.
 
 ---
 
-### Step 5: Landing Page (Optional)
+### Step 5: Landing Page (Idempotent)
 ```bash
 cat _prompts/05-LANDING-PAGE.md
 ```
-**AI Instruction:** "Enhance the landing page with interactive form."
+**AI Instruction:** "Check landing page functionality. Update only broken features."
 
-**Checkpoint:**
-Open `landing/index.html` in browser and test.
+**Verification:**
+Open `landing/index.html` and test form submission.
 
 ---
 
-### Step 6: Authentication Infrastructure
+### Step 6: Authentication Infrastructure (Idempotent)
 ```bash
 cat _prompts/06-AUTH-INFRASTRUCTURE.md
 ```
-**AI Instruction:** "Add Cognito and API key infrastructure to CloudFormation."
+**AI Instruction:** "Check Cognito setup. Add only missing auth components."
 
-**Checkpoint:**
+**Verification:**
 ```bash
 aws cloudformation validate-template --template-body file://cloudformation.yaml
+aws cognito-idp describe-user-pool --user-pool-id <pool-id>
 ```
-✅ **MUST PASS** before proceeding to Step 7.
 
 ---
 
-### Step 7: Authentication Lambda Functions
+### Step 7: Authentication Lambda (Idempotent)
 ```bash
 cat _prompts/07-AUTH-LAMBDA.md
 ```
-**AI Instruction:** "Implement Lambda authorizer and API key management functions."
+**AI Instruction:** "Check auth functions exist. Implement only missing/broken components."
 
-**Checkpoint:**
+**Verification:**
 ```bash
-cd auth && go test -v
+cd auth && go mod tidy && go test -v
 ```
-✅ **MUST PASS** before proceeding to Step 8.
 
 ---
 
-### Step 8: User Dashboard
+### Step 8: Dashboard (Idempotent)
 ```bash
 cat _prompts/08-DASHBOARD.md
 ```
-**AI Instruction:** "Create dashboard for Google login and API key management."
+**AI Instruction:** "Check dashboard files. Update only broken functionality."
 
-**Checkpoint:**
-Open `dashboard/login.html` in browser and verify UI loads.
+**Verification:**
+Open `dashboard/login.html` and test authentication flow.
 
 ---
 
-### Step 9: Authentication Deployment
+### Step 9: Auth Deployment (Idempotent)
 ```bash
 cat _prompts/09-AUTH-DEPLOYMENT.md
 ```
-**AI Instruction:** "Update deployment script for authentication components."
+**AI Instruction:** "Check auth deployment status. Deploy only changed components."
 
-**Checkpoint:**
+**Verification:**
 ```bash
 ./deploy.sh
+aws s3 ls s3://bucket-name/dashboard/
 ```
-✅ **MUST COMPLETE** and output Cognito + Dashboard URLs.
 
 ---
 
-### Step 10: Authentication Testing
+### Step 10: Auth Testing (Idempotent)
 ```bash
 cat _prompts/10-AUTH-TESTING.md
 ```
-**AI Instruction:** "Create E2E tests for authentication flow."
+**AI Instruction:** "Check auth tests exist. Run tests and report results."
 
-**Checkpoint:**
+**Verification:**
 ```bash
-./test-auth.sh
+./test-auth.sh && ./test-dashboard.sh
 ```
-✅ **ALL AUTH TESTS MUST PASS**.
 
 ---
 
 ## Key Principles
 
-1. **Never skip checkpoints** - If a test fails, fix it before moving forward
-2. **One module at a time** - Don't ask AI to implement multiple modules simultaneously
-3. **Paste errors back** - If checkpoint fails, paste the error to AI: "Fix this before Module X"
-4. **Keep context** - Reference previous modules: "Based on the Lambda function we built in Module 2..."
+1. **Idempotent by design** - Safe to re-run any prompt multiple times
+2. **State detection first** - Always check what exists before creating
+3. **Incremental updates** - Fill gaps without breaking existing functionality
+4. **Preserve data** - Never destroy existing configurations or data
+5. **Verify after changes** - Test functionality after any modifications
 
-## Regression Testing
+## Recovery Patterns
 
-After any changes, re-run all checkpoints:
+**Partial failure**: Re-run specific module to complete missing pieces
+**Code corruption**: Re-run module to restore functionality
+**Configuration drift**: Re-run to align with desired state
+**Team sync**: Anyone can run prompts to get up-to-date state
+
+## Full System Verification
+
 ```bash
+# Verify entire system health
 aws cloudformation validate-template --template-body file://cloudformation.yaml
-cd api && go test -v
-cd auth && go test -v
+cd api && go mod tidy && go test -v
+cd ../auth && go mod tidy && go test -v
+cd ..
 ./deploy.sh
 ./test-api.sh
 ./test-auth.sh

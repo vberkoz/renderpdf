@@ -1,6 +1,47 @@
-# MASTER PLAN & ARCHITECTURE
+# MASTER PLAN & ARCHITECTURE (IDEMPOTENT)
 **Project:** HTML to PDF Service  
 **Goal:** Feature-as-a-Service API that converts HTML to PDF using serverless AWS infrastructure.
+
+**AI Context:** AWS serverless patterns, system architecture design, authentication flows
+**Focus:** High-level design decisions, not implementation details
+
+## Reasoning
+This is a Feature-as-a-Service (FaaS) requiring:
+- **Scalability**: Serverless handles variable load automatically
+- **Cost efficiency**: Pay-per-use model for PDF generation
+- **Security**: API key authentication prevents abuse
+- **Reliability**: Stateless design enables horizontal scaling
+
+Architecture decisions:
+- Lambda over EC2: No server management, automatic scaling
+- chromedp over wkhtmltopdf: Better CSS/JS support for modern HTML
+- S3 over database storage: Cost-effective for large PDF files
+- DynamoDB over RDS: Serverless-native, faster cold starts
+- Cognito over custom auth: Managed OAuth, reduced complexity
+
+## Execution Strategy
+**IDEMPOTENT**: Detect existing state → Fill gaps → Verify functionality
+
+### State Detection
+- Check CloudFormation stack exists
+- Verify Lambda function deployed
+- Validate API Gateway endpoints
+- Confirm S3 bucket and DynamoDB table
+- Test authentication flow
+
+### Gap Filling
+- Create missing infrastructure components
+- Deploy missing Lambda functions
+- Add missing environment variables
+- Update outdated configurations
+- Fix broken integrations
+
+### Verification
+- Test PDF generation endpoint
+- Validate authentication flow
+- Confirm S3 storage working
+- Check DynamoDB logging
+- Verify dashboard functionality
 
 ## Tech Stack (Strict)
 * **Language:** Go
@@ -24,8 +65,11 @@
 8. Dashboard allows users to generate and manage API keys.
 9. Single table design for DynamoDB (PK/SK pattern).
 
-## Deployment
-Single script (`deploy.sh`) handles build, package, and CloudFormation stack update.
+## Deployment (Idempotent)
+`deploy.sh` detects current state and applies only necessary changes:
+- Skip build if code unchanged
+- Update only modified CloudFormation resources
+- Preserve existing data and configurations
 
 ## Authentication Flow (FuelSync Pattern)
 1. User clicks "Sign in with Google" on login page
