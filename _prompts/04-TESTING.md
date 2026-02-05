@@ -2,7 +2,7 @@
 **Reference:** 03-DEPLOYMENT.md
 
 **AI Context:** Bash test scripts, curl HTTP testing, PDF binary validation
-**Focus:** Automated testing, clear pass/fail criteria, no manual steps
+**Focus:** Automated deployed API testing, clear pass/fail criteria, no manual steps
 
 ## Reasoning
 Testing strategy must cover:
@@ -40,16 +40,11 @@ Decision logic:
    - Verifies PDF is valid (file signature check)
    - Tests with multiple HTML samples from `doc-examples/`
 
-2. **If missing**: Create `test-local.sh` for pre-deployment testing:
-   - Uses SAM CLI or Go test to invoke Lambda locally
-   - No AWS deployment required
-
-3. **If exists**: Run tests and update only if failures detected
+2. **If exists**: Run tests and update only if failures detected
 
 ## Verification
 ```bash
 ./test-api.sh
-./test-local.sh
 ```
 
 ## Success Criteria

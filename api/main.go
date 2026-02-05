@@ -82,13 +82,17 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 }
 
 func generatePDF(ctx context.Context, html string) ([]byte, error) {
-	// Check if Chrome binary exists
-	if _, err := os.Stat("/opt/google/chrome/chrome"); os.IsNotExist(err) {
-		return nil, fmt.Errorf("chrome binary not found at /opt/google/chrome/chrome")
+	chromePath := "/usr/bin/google-chrome-stable"
+	if _, err := os.Stat(chromePath); os.IsNotExist(err) {
+		chromePath = "/opt/google/chrome/chrome"
+		if _, err := os.Stat(chromePath); os.IsNotExist(err) {
+			return nil, fmt.Errorf("chrome binary not found")
+		}
 	}
+	fmt.Printf("Using Chrome at: %s\n", chromePath)
 
 	opts := []chromedp.ExecAllocatorOption{
-		chromedp.ExecPath("/opt/google/chrome/chrome"),
+		chromedp.ExecPath(chromePath),
 		chromedp.NoSandbox,
 		chromedp.NoFirstRun,
 		chromedp.NoDefaultBrowserCheck,
@@ -97,20 +101,27 @@ func generatePDF(ctx context.Context, html string) ([]byte, error) {
 		chromedp.Flag("disable-dev-shm-usage", true),
 		chromedp.Flag("disable-software-rasterizer", true),
 		chromedp.Flag("no-zygote", true),
+		chromedp.Flag("single-process", true),
 		chromedp.UserDataDir("/tmp/chrome-data"),
 		chromedp.WindowSize(1920, 1080),
 	}
 
-	allocCtx, cancel := chromedp.NewExecAllocator(ctx, opts...)
-	defer cancel()
+	fmt.Println("Creating Chrome allocator...")
+	allocCtx, allocCancel := chromedp.NewExecAllocator(ctx, opts...)
+	defer allocCancel()
 
-	taskCtx, cancel := chromedp.NewContext(allocCtx)
-	defer cancel()
+	fmt.Println("Creating Chrome context...")
+	taskCtx, taskCancel := chromedp.NewContext(allocCtx)
+	defer taskCancel()
+
+	timeoutCtx, timeoutCancel := context.WithTimeout(taskCtx, 25*time.Second)
+	defer timeoutCancel()
 
 	var buf []byte
 	escaped := url.PathEscape(html)
 
-	err := chromedp.Run(taskCtx,
+	fmt.Println("Running chromedp...")
+	err := chromedp.Run(timeoutCtx,
 		chromedp.Navigate("data:text/html;charset=utf-8,"+escaped),
 		chromedp.ActionFunc(func(ctx context.Context) error {
 			return emulation.SetDeviceMetricsOverride(
