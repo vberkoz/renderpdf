@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset=\"UTF-8\">
+  <title>Sales Report</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 40px
+    }
+
+    h1 {
+      color: #333;
+      border-bottom: 2px solid #4CAF50;
+      padding-bottom: 10px
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 20px 0
+    }
+
+    th,
+    td {
+      border: 1px solid #ddd;
+      padding: 12px;
+      text-align: left
+    }
+
+    th {
+      background: #4CAF50;
+      color: white
+    }
+
+    tr:nth-child(even) {
+      background: #f9f9f9
+    }
+
+    tfoot {
+      font-weight: bold;
+      background: #e8f5e9
+    }
+  </style>
+</head>
+
+<body>
+  <h1>Q1 Sales Report</h1>
+  <p><strong>Period:</strong> January - March 2024</p>
+  <table>
+    <thead>
+      <tr>
+        <th>Product</th>
+        <th>Units Sold</th>
+        <th>Revenue</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Widget A</td>
+        <td>1,250</td>
+        <td>$25,000</td>
+      </tr>
+      <tr>
+        <td>Widget B</td>
+        <td>890</td>
+        <td>$17,800</td>
+      </tr>
+      <tr>
+        <td>Widget C</td>
+        <td>2,100</td>
+        <td>$42,000</td>
+      </tr>
+    </tbody>
+    <tfoot>
+      <tr>
+        <td>Total</td>
+        <td>4,240</td>
+        <td>$84,800</td>
+      </tr>
+    </tfoot>
+  </table>
+</body>
+
+</html>

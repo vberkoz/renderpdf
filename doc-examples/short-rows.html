@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Short Rows Table</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        table { border-collapse: collapse; margin: 20px 0; }
+        th, td { border: 1px solid #333; padding: 10px; text-align: left; }
+        th { background: #4CAF50; color: white; }
+        .note { background: #FFF9C4; font-style: italic; }
+        .subtotal { background: #E3F2FD; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>Invoice #2024-001</h1>
+    
+    <table>
+        <tr>
+            <th style="width:50%">Item</th>
+            <th style="width:15%">Qty</th>
+            <th style="width:15%">Price</th>
+            <th style="width:20%">Total</th>
+        </tr>
+        <tr>
+            <td>Web Development</td>
+            <td>40</td>
+            <td>$100</td>
+            <td>$4,000</td>
+        </tr>
+        <tr>
+            <td>Design Services</td>
+            <td>20</td>
+            <td>$80</td>
+            <td>$1,600</td>
+        </tr>
+        <tr class="note">
+            <td colspan="2">Note: Rush delivery applied</td>
+        </tr>
+        <tr>
+            <td>Hosting (Annual)</td>
+            <td>1</td>
+            <td>$500</td>
+            <td>$500</td>
+        </tr>
+        <tr class="subtotal">
+            <td colspan="3">Subtotal</td>
+            <td>$6,100</td>
+        </tr>
+        <tr class="subtotal">
+            <td colspan="3">Tax (10%)</td>
+            <td>$610</td>
+        </tr>
+        <tr class="subtotal">
+            <td colspan="3" style="background:#4CAF50;color:white;">Grand Total</td>
+            <td style="background:#4CAF50;color:white;">$6,710</td>
+        </tr>
+    </table>
+</body>
+</html>

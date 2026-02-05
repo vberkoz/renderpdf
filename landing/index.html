@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RenderPDF - HTML to PDF API</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>RenderPDF</h1>
+        <p class="tagline">Convert HTML to PDF via API</p>
+        
+        <div class="code-block">
+            <pre><code>curl -X POST https://api.renderpdf.vberkoz.com/generate \
+  -H "Content-Type: application/json" \
+  -d '{"html":"&lt;h1&gt;Hello World&lt;/h1&gt;"}'</code></pre>
+        </div>
+
+        <div class="features">
+            <div class="feature">
+                <h3>Fast</h3>
+                <p>Serverless Lambda with Go</p>
+            </div>
+            <div class="feature">
+                <h3>Simple</h3>
+                <p>REST API, JSON in/out</p>
+            </div>
+            <div class="feature">
+                <h3>Reliable</h3>
+                <p>AWS infrastructure</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
