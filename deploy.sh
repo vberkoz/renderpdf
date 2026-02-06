@@ -68,6 +68,9 @@ if [ -n "$WEBSITE_BUCKET" ]; then
   echo "Deploying landing page to S3..."
   aws s3 sync landing/ s3://${WEBSITE_BUCKET}/ --profile ${PROFILE} --delete --cache-control "no-cache"
   
+  echo "Deploying dashboard to S3..."
+  aws s3 sync dashboard/ s3://${WEBSITE_BUCKET}/ --profile ${PROFILE} --cache-control "no-cache"
+  
   if [ -n "$CLOUDFRONT_ID" ]; then
     echo "Invalidating CloudFront cache..."
     aws cloudfront create-invalidation --distribution-id ${CLOUDFRONT_ID} --paths "/*" --profile ${PROFILE} --query 'Invalidation.Id' --output text

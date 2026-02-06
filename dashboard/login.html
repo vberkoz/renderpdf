@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - RenderPDF</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <h1>RenderPDF</h1>
+            <p>Convert HTML to PDF with a simple API</p>
+            <button id="loginBtn" class="btn-primary">Sign in with Google</button>
+        </div>
+    </div>
+
+    <script>
+        const COGNITO_DOMAIN = 'https://renderpdf-auth-653268860643.auth.us-east-1.amazoncognito.com';
+        const CLIENT_ID = '756oip5460mrcai5kptbune4b5';
+        const REDIRECT_URI = window.location.origin + '/auth/callback';
+
+        document.getElementById('loginBtn').addEventListener('click', () => {
+            const authUrl = `${COGNITO_DOMAIN}/oauth2/authorize?` +
+                `client_id=${CLIENT_ID}&` +
+                `response_type=token&` +
+                `scope=email+openid+profile&` +
+                `redirect_uri=${encodeURIComponent(REDIRECT_URI)}&` +
+                `identity_provider=Google`;
+            window.location.href = authUrl;
+        });
+    </script>
+</body>
+</html>

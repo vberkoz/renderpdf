@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - RenderPDF</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav>
+        <h1>RenderPDF</h1>
+        <button id="logoutBtn" class="btn-secondary">Logout</button>
+    </nav>
+
+    <div class="container">
+        <div class="card">
+            <h2>API Keys</h2>
+            <button id="generateKeyBtn" class="btn-primary">Generate New API Key</button>
+            <div id="keysList"></div>
+        </div>
+
+        <div class="card" id="newKeyCard" style="display:none;">
+            <h3>⚠️ Save Your API Key</h3>
+            <p>This key will only be shown once. Copy it now!</p>
+            <div class="key-display">
+                <code id="newKeyValue"></code>
+                <button id="copyKeyBtn" class="btn-primary">Copy</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Test API</h2>
+            <textarea id="htmlInput" placeholder="Enter HTML to convert...">&lt;h1&gt;Test PDF&lt;/h1&gt;</textarea>
+            <button id="testApiBtn" class="btn-primary">Generate PDF</button>
+            <div id="testResult"></div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
