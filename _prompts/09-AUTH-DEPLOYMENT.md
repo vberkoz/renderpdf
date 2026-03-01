@@ -64,7 +64,7 @@ Validation steps:
 ## Verification
 ```bash
 ./deploy.sh
-aws s3 ls s3://bucket-name/dashboard/
+aws s3 ls s3://renderpdf-dashboard-*/
 ```
 
 ## Success Criteria
@@ -73,3 +73,122 @@ aws s3 ls s3://bucket-name/dashboard/
 - Dashboard accessible via S3 URL
 - CORS configured correctly
 - Environment variables set properly
+
+---
+
+## Current Deployment Status
+
+### ✅ Deployed Components
+
+**Infrastructure:**
+- S3 buckets: PDFs, landing, dashboard (separate buckets)
+- DynamoDB tables: usage tracking, API keys with GSI
+- Lambda functions: PDF generation, authorizer, API keys
+- API Gateway with custom authorizer
+- CloudFront distributions: landing, dashboard
+- Route53 DNS records
+- SSL certificates
+- Cognito User Pool with Google OAuth
+
+**Lambda Functions:**
+- `renderpdf-generate` - PDF generation (2048MB, 60s timeout)
+- `renderpdf-authorizer` - API key validation (256MB, 10s timeout)
+- `renderpdf-apikeys` - API key management (256MB, 10s timeout)
+
+**Frontend:**
+- Landing page at https://renderpdf.vberkoz.com
+- Dashboard at https://dashboard.renderpdf.vberkoz.com
+- API at https://api.renderpdf.vberkoz.com
+
+### 🔧 Required Configuration
+
+**1. Google OAuth Setup:**
+
+Create OAuth 2.0 Client ID in Google Cloud Console:
+- Application type: Web application
+- Authorized redirect URI:
+  ```
+  https://renderpdf-auth-653268860643.auth.us-east-1.amazoncognito.com/oauth2/idpresponse
+  ```
+
+Update `parameters.json`:
+```json
+[
+  {
+    "ParameterKey": "GoogleClientId",
+    "ParameterValue": "YOUR_GOOGLE_CLIENT_ID"
+  },
+  {
+    "ParameterKey": "GoogleClientSecret",
+    "ParameterValue": "YOUR_GOOGLE_CLIENT_SECRET"
+  }
+]
+```
+
+**2. Update Cognito Callback URL:**
+
+```bash
+aws cognito-idp update-user-pool-client \
+  --user-pool-id us-east-1_kW5g1rpG7 \
+  --client-id 756oip5460mrcai5kptbune4b5 \
+  --callback-urls "https://dashboard.renderpdf.vberkoz.com/auth/callback" \
+  --logout-urls "https://dashboard.renderpdf.vberkoz.com" \
+  --allowed-o-auth-flows implicit \
+  --allowed-o-auth-scopes email openid profile \
+  --allowed-o-auth-flows-user-pool-client \
+  --supported-identity-providers Google \
+  --region us-east-1 \
+  --profile basil
+```
+
+### 📊 AWS Resources
+
+**Cognito:**
+- User Pool: `renderpdf-users` (us-east-1_kW5g1rpG7)
+- Client ID: 756oip5460mrcai5kptbune4b5
+- Domain: renderpdf-auth-653268860643
+
+**DynamoDB Tables:**
+- `renderpdf-usage` - PDF generation tracking
+- `renderpdf-apikeys` - API key storage with GSI1 for lookups
+
+**S3 Buckets:**
+- `renderpdf-pdfs-653268860643` - Generated PDFs
+- `renderpdf-website-653268860643` - Landing page
+- `renderpdf-dashboard-653268860643` - Dashboard files
+
+### 🚀 Deployment Steps
+
+1. Configure Google OAuth credentials in `parameters.json`
+2. Update Cognito callback URL (command above)
+3. Run `./deploy.sh` to deploy all changes
+4. Wait for DNS/SSL certificate propagation (~5-10 minutes)
+5. Test authentication flow at https://dashboard.renderpdf.vberkoz.com
+6. Generate API key and test PDF generation
+
+### 🧪 Testing
+
+```bash
+# Test PDF generation API
+./test-api.sh
+
+# Test Lambda functions
+cd api && go test -v
+cd ../auth && go test -v
+
+# Validate CloudFormation
+aws cloudformation validate-template --template-body file://cloudformation.yaml
+
+# Check deployed files
+aws s3 ls s3://renderpdf-dashboard-653268860643/ --profile basil
+```
+
+### 📝 Implementation Notes
+
+- All Lambda functions use Docker images stored in ECR
+- API Gateway uses custom authorizer for x-api-key validation
+- Dashboard uses implicit OAuth grant flow (tokens in URL hash)
+- API keys are SHA-256 hashed before storage
+- CloudFront provides CDN and SSL termination
+- Separate S3 buckets for landing and dashboard
+- Dashboard default root object: login.html

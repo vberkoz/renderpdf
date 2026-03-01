@@ -18,7 +18,7 @@
     <script>
         const COGNITO_DOMAIN = 'https://renderpdf-auth-653268860643.auth.us-east-1.amazoncognito.com';
         const CLIENT_ID = '756oip5460mrcai5kptbune4b5';
-        const REDIRECT_URI = window.location.origin + '/auth/callback';
+        const REDIRECT_URI = 'https://dashboard.renderpdf.vberkoz.com/auth/callback.html';
 
         document.getElementById('loginBtn').addEventListener('click', () => {
             const authUrl = `${COGNITO_DOMAIN}/oauth2/authorize?` +

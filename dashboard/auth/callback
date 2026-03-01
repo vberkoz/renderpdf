@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Authenticating...</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <h2>Authenticating...</h2>
+            <p>Please wait while we complete your sign-in.</p>
+        </div>
+    </div>
+
+    <script>
+        console.log('Callback page loaded');
+        const hash = window.location.hash.substring(1);
+        console.log('Hash:', hash);
+        const params = new URLSearchParams(hash);
+        
+        const idToken = params.get('id_token');
+        const accessToken = params.get('access_token');
+        const error = params.get('error');
+        const errorDescription = params.get('error_description');
+
+        console.log('ID Token:', idToken ? 'Present' : 'Missing');
+        console.log('Access Token:', accessToken ? 'Present' : 'Missing');
+        console.log('Error:', error);
+
+        if (error) {
+            console.error('OAuth Error:', error, errorDescription);
+            alert('Authentication failed: ' + error + (errorDescription ? '\n' + errorDescription : ''));
+            window.location.href = '/login.html';
+        } else if (idToken && accessToken) {
+            console.log('Saving tokens to localStorage');
+            localStorage.setItem('id_token', idToken);
+            localStorage.setItem('access_token', accessToken);
+            console.log('Tokens saved, redirecting to index.html');
+            window.location.href = '/index.html';
+        } else {
+            console.error('No tokens found. Hash:', hash);
+            alert('Invalid authentication response. Check console for details.');
+            window.location.href = '/login.html';
+        }
+    </script>
+</body>
+</html>

@@ -40,22 +40,29 @@ type APIKeyInfo struct {
 }
 
 func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
-	userId := request.RequestContext.Authorizer["userId"].(string)
+	userId := request.RequestContext.Authorizer["claims"].(map[string]interface{})["sub"].(string)
+
+	corsHeaders := map[string]string{
+		"Access-Control-Allow-Origin":      "https://dashboard.renderpdf.vberkoz.com",
+		"Access-Control-Allow-Credentials": "true",
+		"Content-Type":                     "application/json",
+	}
 
 	switch request.HTTPMethod {
 	case "POST":
-		return createKey(userId)
+		return createKey(userId, corsHeaders)
 	case "GET":
-		return listKeys(userId)
+		return listKeys(userId, corsHeaders)
 	case "DELETE":
 		keyId := request.PathParameters["id"]
-		return deleteKey(userId, keyId)
+		return deleteKey(userId, keyId, corsHeaders)
 	default:
-		return events.APIGatewayProxyResponse{StatusCode: 405}, nil
+		return events.APIGatewayProxyResponse{StatusCode: 405, Headers: corsHeaders}, nil
 	}
 }
+}
 
-func createKey(userId string) (events.APIGatewayProxyResponse, error) {
+func createKey(userId string, headers map[string]string) (events.APIGatewayProxyResponse, error) {
 	keyId := uuid.New().String()
 	apiKey := generateAPIKey()
 	hashedKey := hashKey(apiKey)
@@ -74,7 +81,7 @@ func createKey(userId string) (events.APIGatewayProxyResponse, error) {
 	})
 
 	if err != nil {
-		return events.APIGatewayProxyResponse{StatusCode: 500, Body: err.Error()}, nil
+		return events.APIGatewayProxyResponse{StatusCode: 500, Body: err.Error(), Headers: headers}, nil
 	}
 
 	resp := CreateKeyResponse{KeyID: keyId, APIKey: apiKey}
@@ -83,11 +90,11 @@ func createKey(userId string) (events.APIGatewayProxyResponse, error) {
 	return events.APIGatewayProxyResponse{
 		StatusCode: 200,
 		Body:       string(body),
-		Headers:    map[string]string{"Content-Type": "application/json"},
+		Headers:    headers,
 	}, nil
 }
 
-func listKeys(userId string) (events.APIGatewayProxyResponse, error) {
+func listKeys(userId string, headers map[string]string) (events.APIGatewayProxyResponse, error) {
 	result, err := ddb.Query(&dynamodb.QueryInput{
 		TableName:              aws.String(tableName),
 		KeyConditionExpression: aws.String("PK = :pk AND begins_with(SK, :sk)"),
@@ -98,7 +105,7 @@ func listKeys(userId string) (events.APIGatewayProxyResponse, error) {
 	})
 
 	if err != nil {
-		return events.APIGatewayProxyResponse{StatusCode: 500, Body: err.Error()}, nil
+		return events.APIGatewayProxyResponse{StatusCode: 500, Body: err.Error(), Headers: headers}, nil
 	}
 
 	keys := []APIKeyInfo{}
@@ -122,11 +129,11 @@ func listKeys(userId string) (events.APIGatewayProxyResponse, error) {
 	return events.APIGatewayProxyResponse{
 		StatusCode: 200,
 		Body:       string(body),
-		Headers:    map[string]string{"Content-Type": "application/json"},
+		Headers:    headers,
 	}, nil
 }
 
-func deleteKey(userId, keyId string) (events.APIGatewayProxyResponse, error) {
+func deleteKey(userId, keyId string, headers map[string]string) (events.APIGatewayProxyResponse, error) {
 	_, err := ddb.UpdateItem(&dynamodb.UpdateItemInput{
 		TableName: aws.String(tableName),
 		Key: map[string]*dynamodb.AttributeValue{
@@ -140,10 +147,10 @@ func deleteKey(userId, keyId string) (events.APIGatewayProxyResponse, error) {
 	})
 
 	if err != nil {
-		return events.APIGatewayProxyResponse{StatusCode: 500, Body: err.Error()}, nil
+		return events.APIGatewayProxyResponse{StatusCode: 500, Body: err.Error(), Headers: headers}, nil
 	}
 
-	return events.APIGatewayProxyResponse{StatusCode: 204}, nil
+	return events.APIGatewayProxyResponse{StatusCode: 204, Headers: headers}, nil
 }
 
 func main() {
