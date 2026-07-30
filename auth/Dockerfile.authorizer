@@ -2,7 +2,8 @@ FROM golang:1.24 AS builder
 WORKDIR /build
 COPY go.mod go.sum ./
 RUN go mod download
-COPY authorizer.go utils.go ./
+COPY authorizer.go authorizer_test.go utils.go ./
+RUN go test -tags authorizer ./...
 RUN CGO_ENABLED=0 GOOS=linux go build -tags authorizer -o bootstrap authorizer.go utils.go
 
 FROM public.ecr.aws/lambda/provided:al2023

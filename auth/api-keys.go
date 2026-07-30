@@ -60,7 +60,6 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		return events.APIGatewayProxyResponse{StatusCode: 405, Headers: corsHeaders}, nil
 	}
 }
-}
 
 func createKey(userId string, headers map[string]string) (events.APIGatewayProxyResponse, error) {
 	keyId := uuid.New().String()

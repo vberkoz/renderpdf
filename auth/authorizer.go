@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -22,7 +23,7 @@ var (
 )
 
 func handler(ctx context.Context, event events.APIGatewayCustomAuthorizerRequestTypeRequest) (events.APIGatewayCustomAuthorizerResponse, error) {
-	apiKey := event.Headers["x-api-key"]
+	apiKey := headerValue(event.Headers, "x-api-key")
 	if apiKey == "" {
 		return generatePolicy("", "Deny", event.MethodArn), nil
 	}
@@ -65,6 +66,15 @@ func handler(ctx context.Context, event events.APIGatewayCustomAuthorizerRequest
 	})
 
 	return generatePolicy(userId, "Allow", event.MethodArn), nil
+}
+
+func headerValue(headers map[string]string, name string) string {
+	for key, value := range headers {
+		if strings.EqualFold(key, name) {
+			return value
+		}
+	}
+	return ""
 }
 
 func generatePolicy(principalID, effect, resource string) events.APIGatewayCustomAuthorizerResponse {

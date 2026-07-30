@@ -1,0 +1,10 @@
+[
+  {
+    "ParameterKey": "GoogleClientId",
+    "ParameterValue": "YOUR_GOOGLE_CLIENT_ID"
+  },
+  {
+    "ParameterKey": "GoogleClientSecret",
+    "ParameterValue": "YOUR_GOOGLE_CLIENT_SECRET"
+  }
+]

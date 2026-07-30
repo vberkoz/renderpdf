@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/url"
 	"os"
 	"regexp"
@@ -19,8 +20,8 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/chromedp/cdproto/page"
 	"github.com/chromedp/cdproto/emulation"
+	"github.com/chromedp/cdproto/page"
 	"github.com/chromedp/chromedp"
 	"github.com/google/uuid"
 )
@@ -35,27 +36,83 @@ type Response struct {
 	Size      int64  `json:"size"`
 }
 
+type dynamoDBAPI interface {
+	GetItem(*dynamodb.GetItemInput) (*dynamodb.GetItemOutput, error)
+	PutItem(*dynamodb.PutItemInput) (*dynamodb.PutItemOutput, error)
+	UpdateItem(*dynamodb.UpdateItemInput) (*dynamodb.UpdateItemOutput, error)
+}
+
 var (
-	bucketName = os.Getenv("BUCKET_NAME")
-	tableName  = os.Getenv("TABLE_NAME")
-	sess       = session.Must(session.NewSession())
-	s3Client   = s3.New(sess)
-	ddbClient  = dynamodb.New(sess)
+	bucketName             = os.Getenv("BUCKET_NAME")
+	tableName              = os.Getenv("TABLE_NAME")
+	sess                   = session.Must(session.NewSession())
+	s3Client               = s3.New(sess)
+	ddbClient  dynamoDBAPI = dynamodb.New(sess)
 )
 
 func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+	corsHeaders := map[string]string{
+		"Content-Type":                  "application/json",
+		"Access-Control-Allow-Origin":   "*",
+		"Access-Control-Allow-Headers":  "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token",
+		"Access-Control-Allow-Methods":  "POST,OPTIONS",
+		"Access-Control-Expose-Headers": "X-Trial-Limit,X-Trial-Remaining",
+	}
+	isTrial := isTrialRequest(request)
+	if trialModeOnly() && !isTrial {
+		return errorResponse(404, "Not found", corsHeaders), nil
+	}
+	if isTrial && len(request.Body) > (2*trialMaxHTMLBytes())+64*1024 {
+		return errorResponse(413, "HTML exceeds the trial size limit", corsHeaders), nil
+	}
+
 	var req Request
 	if err := json.Unmarshal([]byte(request.Body), &req); err != nil {
-		return events.APIGatewayProxyResponse{StatusCode: 400, Body: "Invalid request"}, nil
+		return errorResponse(400, "Invalid request", corsHeaders), nil
+	}
+	if strings.TrimSpace(req.HTML) == "" {
+		return errorResponse(400, "HTML is required", corsHeaders), nil
+	}
+	if isTrial && len(req.HTML) > trialMaxHTMLBytes() {
+		return errorResponse(413, "HTML exceeds the trial size limit", corsHeaders), nil
 	}
 
 	requestID := uuid.New().String()
+	var quota *trialQuota
+	if isTrial {
+		slot, err := acquireTrialSlot(requestID, time.Now().UTC())
+		if err != nil {
+			if err == errTrialCapacityReached {
+				corsHeaders["Retry-After"] = "10"
+				return errorResponse(503, "Trial capacity is busy; try again shortly", corsHeaders), nil
+			}
+			fmt.Printf("Trial capacity error: %v\n", err)
+			return errorResponse(503, "Trial service temporarily unavailable", corsHeaders), nil
+		}
+		defer releaseTrialSlot(slot)
+
+		quota, err = consumeTrialQuota(trialViewerIP(request), time.Now().UTC())
+		if err != nil {
+			if err == errTrialLimitExceeded {
+				corsHeaders["X-Trial-Limit"] = fmt.Sprintf("%d", trialDailyLimit())
+				corsHeaders["X-Trial-Remaining"] = "0"
+				return errorResponse(429, "Daily trial limit reached", corsHeaders), nil
+			}
+			fmt.Printf("Trial quota error: %v\n", err)
+			return errorResponse(503, "Trial service temporarily unavailable", corsHeaders), nil
+		}
+		corsHeaders["X-Trial-Limit"] = fmt.Sprintf("%d", quota.Limit)
+		corsHeaders["X-Trial-Remaining"] = fmt.Sprintf("%d", quota.Remaining)
+	}
+
 	html := injectPrintCSS(req.HTML)
 	html = ensureColgroup(html)
 	html = rewriteTfoot(html)
 	pdfBytes, err := generatePDF(ctx, html)
 	if err != nil {
-		return events.APIGatewayProxyResponse{StatusCode: 500, Body: err.Error()}, nil
+		refundTrialQuota(quota)
+		restoreTrialRemainingHeader(quota, corsHeaders)
+		return errorResponse(500, err.Error(), corsHeaders), nil
 	}
 
 	key := fmt.Sprintf("%s.pdf", requestID)
@@ -65,11 +122,17 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		Body:   bytes.NewReader(pdfBytes),
 	})
 	if err != nil {
-		return events.APIGatewayProxyResponse{StatusCode: 500, Body: err.Error()}, nil
+		refundTrialQuota(quota)
+		restoreTrialRemainingHeader(quota, corsHeaders)
+		return errorResponse(500, err.Error(), corsHeaders), nil
 	}
 
 	url := fmt.Sprintf("https://%s.s3.amazonaws.com/%s", bucketName, key)
-	trackUsage(requestID, int64(len(pdfBytes)))
+	plan := "api"
+	if isTrial {
+		plan = "trial"
+	}
+	trackUsage(requestID, int64(len(pdfBytes)), plan)
 
 	resp := Response{RequestID: requestID, URL: url, Size: int64(len(pdfBytes))}
 	body, _ := json.Marshal(resp)
@@ -77,15 +140,35 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 	return events.APIGatewayProxyResponse{
 		StatusCode: 200,
 		Body:       string(body),
-		Headers: map[string]string{
-			"Content-Type":                "application/json",
-			"Access-Control-Allow-Origin": "*",
-		},
+		Headers:    corsHeaders,
 	}, nil
 }
 
+func errorResponse(status int, message string, headers map[string]string) events.APIGatewayProxyResponse {
+	body, _ := json.Marshal(map[string]string{"error": message})
+	return events.APIGatewayProxyResponse{StatusCode: status, Body: string(body), Headers: headers}
+}
+
+func restoreTrialRemainingHeader(quota *trialQuota, headers map[string]string) {
+	if quota != nil {
+		headers["X-Trial-Remaining"] = fmt.Sprintf("%d", min(quota.Limit, quota.Remaining+1))
+	}
+}
+
+func trialViewerIP(request events.APIGatewayProxyRequest) string {
+	for name, value := range request.Headers {
+		if strings.EqualFold(name, "X-RenderPDF-Viewer-IP") {
+			if ip := net.ParseIP(strings.TrimSpace(value)); ip != nil {
+				return ip.String()
+			}
+		}
+	}
+
+	return request.RequestContext.Identity.SourceIP
+}
+
 func generatePDF(ctx context.Context, html string) ([]byte, error) {
-	chromePath := "/usr/bin/google-chrome-stable"
+	chromePath := "/opt/chrome-headless-shell-linux64/chrome-headless-shell"
 	if _, err := os.Stat(chromePath); os.IsNotExist(err) {
 		chromePath = "/opt/google/chrome/chrome"
 		if _, err := os.Stat(chromePath); os.IsNotExist(err) {
@@ -93,18 +176,35 @@ func generatePDF(ctx context.Context, html string) ([]byte, error) {
 		}
 	}
 	fmt.Printf("Using Chrome at: %s\n", chromePath)
+	os.Setenv("DBUS_SYSTEM_BUS_ADDRESS", "unix:path=/dev/null")
+	os.Setenv("DBUS_SESSION_BUS_ADDRESS", "unix:path=/dev/null")
 
+	os.RemoveAll("/tmp/chrome-data")
+	os.MkdirAll("/tmp/chrome-data", 0755)
+
+	var browserOutput bytes.Buffer
 	opts := []chromedp.ExecAllocatorOption{
 		chromedp.ExecPath(chromePath),
+		chromedp.CombinedOutput(&browserOutput),
+		chromedp.WSURLReadTimeout(30 * time.Second),
 		chromedp.NoSandbox,
 		chromedp.NoFirstRun,
 		chromedp.NoDefaultBrowserCheck,
 		chromedp.Headless,
 		chromedp.DisableGPU,
 		chromedp.Flag("disable-dev-shm-usage", true),
-		chromedp.Flag("disable-software-rasterizer", true),
+		chromedp.Flag("disable-setuid-sandbox", true),
 		chromedp.Flag("no-zygote", true),
 		chromedp.Flag("single-process", true),
+		chromedp.Flag("disable-extensions", true),
+		chromedp.Flag("disable-background-networking", true),
+		chromedp.Flag("disable-default-apps", true),
+		chromedp.Flag("disable-sync", true),
+		chromedp.Flag("disable-translate", true),
+		chromedp.Flag("hide-scrollbars", true),
+		chromedp.Flag("mute-audio", true),
+		chromedp.Flag("no-first-run", true),
+		chromedp.Flag("safebrowsing-disable-auto-update", true),
 		chromedp.UserDataDir("/tmp/chrome-data"),
 		chromedp.WindowSize(1920, 1080),
 	}
@@ -114,10 +214,28 @@ func generatePDF(ctx context.Context, html string) ([]byte, error) {
 	defer allocCancel()
 
 	fmt.Println("Creating Chrome context...")
-	taskCtx, taskCancel := chromedp.NewContext(allocCtx)
+	taskCtx, taskCancel := chromedp.NewContext(
+		allocCtx,
+		chromedp.WithLogf(func(format string, args ...interface{}) {
+			fmt.Printf("chromedp: "+format+"\n", args...)
+		}),
+		chromedp.WithErrorf(func(format string, args ...interface{}) {
+			fmt.Printf("chromedp ERROR: "+format+"\n", args...)
+		}),
+	)
 	defer taskCancel()
 
-	timeoutCtx, timeoutCancel := context.WithTimeout(taskCtx, 25*time.Second)
+	fmt.Println("Starting browser...")
+	// Start the browser first with a timeout
+	startCtx, startCancel := context.WithTimeout(taskCtx, 35*time.Second)
+	defer startCancel()
+
+	if err := chromedp.Run(startCtx); err != nil {
+		return nil, fmt.Errorf("failed to start browser: %v: %s", err, browserOutput.String())
+	}
+	fmt.Println("Browser started successfully")
+
+	timeoutCtx, timeoutCancel := context.WithTimeout(taskCtx, 40*time.Second)
 	defer timeoutCancel()
 
 	var buf []byte
@@ -232,13 +350,15 @@ func injectPrintCSS(html string) string {
 	return css + html
 }
 
-func trackUsage(requestID string, size int64) {
+func trackUsage(requestID string, size int64, plan string) {
 	ddbClient.PutItem(&dynamodb.PutItemInput{
 		TableName: aws.String(tableName),
 		Item: map[string]*dynamodb.AttributeValue{
-			"requestId": {S: aws.String(requestID)},
-			"timestamp": {N: aws.String(fmt.Sprintf("%d", time.Now().Unix()))},
-			"size":      {N: aws.String(fmt.Sprintf("%d", size))},
+			"requestId":  {S: aws.String(requestID)},
+			"timestamp":  {N: aws.String(fmt.Sprintf("%d", time.Now().Unix()))},
+			"size":       {N: aws.String(fmt.Sprintf("%d", size))},
+			"entityType": {S: aws.String("PDF_REQUEST")},
+			"plan":       {S: aws.String(plan)},
 		},
 	})
 }
