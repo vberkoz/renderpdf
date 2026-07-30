@@ -1,75 +1,223 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Token Debug</title>
-    <style>
-        body { font-family: monospace; padding: 20px; }
-        pre { background: #f4f4f4; padding: 10px; border-radius: 4px; }
-        .error { color: red; }
-        .success { color: green; }
-    </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Inspect the active RenderPDF Cognito session and API access.">
+    <title>RenderPDF | Session Diagnostics</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <script data-project="renderpdf" data-source="dashboard-debug" src="https://analytics.vberkoz.com/track.js" defer></script>
 </head>
-<body>
-    <h1>Token Debug</h1>
-    <div id="output"></div>
-    
+<body class="dashboard-page debug-page">
+    <div class="dashboard-shell">
+        <header class="dashboard-topbar">
+            <a class="dashboard-brand" href="/" aria-label="RenderPDF home">
+                <span class="dashboard-brand-mark" aria-hidden="true"></span>
+                RenderPDF
+            </a>
+            <nav class="dashboard-nav" aria-label="Primary navigation">
+                <a href="/app/">Dashboard</a>
+                <a href="/docs/api/">API docs</a>
+                <button id="clearSessionBtn" class="dashboard-logout" type="button">Clear session</button>
+            </nav>
+        </header>
+
+        <main>
+            <section class="dashboard-hero debug-hero" aria-labelledby="debug-title">
+                <div>
+                    <p class="dashboard-eyebrow">Internal tool / Authentication</p>
+                    <h1 id="debug-title">Session diagnostics.</h1>
+                    <p class="dashboard-lead">Inspect Cognito claims and verify access to the authenticated API-key endpoint.</p>
+                </div>
+                <aside id="debugSummary" class="session-card debug-summary" data-state="pending" aria-live="polite">
+                    <div class="session-status"><span aria-hidden="true"></span><b id="summaryState">Checking session</b></div>
+                    <strong id="summaryIdentity">RenderPDF developer</strong>
+                    <p id="summaryCopy">Reading the ID token stored in this browser.</p>
+                </aside>
+            </section>
+
+            <section class="debug-grid" aria-label="Session diagnostics">
+                <article class="workspace-panel debug-checks-panel">
+                    <header class="panel-header panel-header-compact">
+                        <div>
+                            <p class="panel-kicker">01 / Validation</p>
+                            <h2>Token checks</h2>
+                            <p>These values must match the active RenderPDF Cognito configuration.</p>
+                        </div>
+                        <span id="checksBadge" class="debug-badge">Waiting</span>
+                    </header>
+                    <div id="checksList" class="debug-checks" aria-live="polite"></div>
+                </article>
+
+                <article class="workspace-panel debug-payload-panel">
+                    <header class="panel-header panel-header-compact">
+                        <div>
+                            <p class="panel-kicker">02 / Claims</p>
+                            <h2>Decoded payload</h2>
+                            <p>Review locally stored token claims. Avoid sharing this output publicly.</p>
+                        </div>
+                        <span class="endpoint-route"><span>JWT</span><code>id_token</code></span>
+                    </header>
+                    <pre id="payloadOutput" class="debug-payload">No ID token found.</pre>
+                </article>
+
+                <article class="workspace-panel debug-api-panel">
+                    <header class="panel-header">
+                        <div>
+                            <p class="panel-kicker">03 / API probe</p>
+                            <h2>Test authenticated access</h2>
+                            <p>Send the current ID token to the API-key management endpoint.</p>
+                        </div>
+                        <button id="testApiBtn" class="dashboard-button dashboard-button-primary" type="button">
+                            Test API access <span aria-hidden="true">-&gt;</span>
+                        </button>
+                    </header>
+                    <div id="apiResult" class="dashboard-result debug-api-result" role="status" aria-live="polite" hidden></div>
+                </article>
+            </section>
+        </main>
+
+        <footer class="dashboard-footer">
+            <p>RenderPDF / Session diagnostics</p>
+            <div>
+                <a href="/app/">Developer workspace</a>
+                <a href="/docs/api/">Documentation</a>
+                <a href="https://vberkoz.com/">vberkoz.com</a>
+            </div>
+        </footer>
+    </div>
+
     <script>
-        const output = document.getElementById('output');
+        const EXPECTED_ISSUER = 'https://cognito-idp.us-east-1.amazonaws.com/us-east-1_S5G3bsO7s';
+        const EXPECTED_AUDIENCE = '78pkhoj4ml959gb80coslgm42t';
+
+        const checksList = document.getElementById('checksList');
+        const payloadOutput = document.getElementById('payloadOutput');
+        const checksBadge = document.getElementById('checksBadge');
+        const debugSummary = document.getElementById('debugSummary');
+        const summaryState = document.getElementById('summaryState');
+        const summaryIdentity = document.getElementById('summaryIdentity');
+        const summaryCopy = document.getElementById('summaryCopy');
+        const testApiBtn = document.getElementById('testApiBtn');
+        const apiResult = document.getElementById('apiResult');
         const idToken = localStorage.getItem('id_token');
-        
+
+        const decodeToken = (token) => {
+            const encodedPayload = token.split('.')[1];
+            const base64 = encodedPayload.replace(/-/g, '+').replace(/_/g, '/');
+            return JSON.parse(decodeURIComponent(atob(base64).split('').map((character) =>
+                `%${character.charCodeAt(0).toString(16).padStart(2, '0')}`
+            ).join('')));
+        };
+
+        const renderCheck = (check, index) => {
+            const row = document.createElement('div');
+            row.className = check.pass ? 'debug-check is-success' : 'debug-check is-error';
+
+            const number = document.createElement('span');
+            number.textContent = String(index + 1).padStart(2, '0');
+
+            const detail = document.createElement('div');
+            const name = document.createElement('strong');
+            name.textContent = check.name;
+            const value = document.createElement('code');
+            value.textContent = String(check.value ?? 'Missing');
+            detail.append(name, value);
+
+            const state = document.createElement('b');
+            state.textContent = check.pass ? 'Pass' : `Expected ${check.expected}`;
+            row.append(number, detail, state);
+            checksList.appendChild(row);
+        };
+
+        const showSessionError = (message) => {
+            debugSummary.dataset.state = 'error';
+            summaryState.textContent = 'Session unavailable';
+            summaryIdentity.textContent = 'No valid ID token';
+            summaryCopy.textContent = message;
+            checksBadge.textContent = 'Unavailable';
+            checksBadge.dataset.state = 'error';
+            testApiBtn.disabled = true;
+
+            const notice = document.createElement('div');
+            notice.className = 'dashboard-notice';
+            notice.dataset.state = 'error';
+            notice.textContent = message;
+            checksList.replaceChildren(notice);
+        };
+
         if (!idToken) {
-            output.innerHTML = '<p class="error">No id_token found in localStorage</p>';
+            showSessionError('Sign in through RenderPDF before running session diagnostics.');
         } else {
             try {
-                const payload = JSON.parse(atob(idToken.split('.')[1]));
-                
+                const payload = decodeToken(idToken);
                 const checks = [
-                    { name: 'Token Use', value: payload.token_use, expected: 'id', pass: payload.token_use === 'id' },
-                    { name: 'Issuer', value: payload.iss, expected: 'https://cognito-idp.us-east-1.amazonaws.com/us-east-1_kW5g1rpG7', pass: payload.iss === 'https://cognito-idp.us-east-1.amazonaws.com/us-east-1_kW5g1rpG7' },
-                    { name: 'Audience', value: payload.aud, expected: '756oip5460mrcai5kptbune4b5', pass: payload.aud === '756oip5460mrcai5kptbune4b5' },
-                    { name: 'Expiry', value: new Date(payload.exp * 1000).toLocaleString(), expected: 'Future', pass: payload.exp * 1000 > Date.now() }
+                    { name: 'Token use', value: payload.token_use, expected: 'id', pass: payload.token_use === 'id' },
+                    { name: 'Issuer', value: payload.iss, expected: EXPECTED_ISSUER, pass: payload.iss === EXPECTED_ISSUER },
+                    { name: 'Audience', value: payload.aud, expected: EXPECTED_AUDIENCE, pass: payload.aud === EXPECTED_AUDIENCE },
+                    { name: 'Expiry', value: new Date(payload.exp * 1000).toLocaleString(), expected: 'a future time', pass: payload.exp * 1000 > Date.now() }
                 ];
-                
-                let html = '<h2>Token Validation</h2>';
-                checks.forEach(check => {
-                    html += `<p class="${check.pass ? 'success' : 'error'}">
-                        ${check.pass ? '✓' : '✗'} ${check.name}: ${check.value}
-                        ${!check.pass ? ` (Expected: ${check.expected})` : ''}
-                    </p>`;
-                });
-                
-                html += '<h2>Full Payload</h2><pre>' + JSON.stringify(payload, null, 2) + '</pre>';
-                html += '<h2>Test API Call</h2><button onclick="testAPI()">Test GET /api-keys</button><div id="apiResult"></div>';
-                
-                output.innerHTML = html;
-            } catch (e) {
-                output.innerHTML = '<p class="error">Failed to decode token: ' + e.message + '</p>';
+
+                checks.forEach(renderCheck);
+                payloadOutput.textContent = JSON.stringify(payload, null, 2);
+
+                const allPassed = checks.every((check) => check.pass);
+                debugSummary.dataset.state = allPassed ? 'success' : 'error';
+                summaryState.textContent = allPassed ? 'Session valid' : 'Session needs attention';
+                summaryIdentity.textContent = payload.email || payload.sub || 'RenderPDF developer';
+                summaryCopy.textContent = allPassed
+                    ? 'All Cognito identity checks passed.'
+                    : 'One or more token claims do not match the active configuration.';
+                checksBadge.textContent = allPassed ? '4 / 4 passed' : `${checks.filter((check) => check.pass).length} / 4 passed`;
+                checksBadge.dataset.state = allPassed ? 'success' : 'error';
+            } catch (error) {
+                showSessionError(`The stored ID token could not be decoded: ${error.message}`);
             }
         }
-        
-        async function testAPI() {
-            const idToken = localStorage.getItem('id_token');
-            const resultDiv = document.getElementById('apiResult');
-            resultDiv.innerHTML = '<p>Testing...</p>';
-            
+
+        testApiBtn.addEventListener('click', async () => {
+            testApiBtn.disabled = true;
+            testApiBtn.textContent = 'Testing access...';
+            apiResult.hidden = false;
+            apiResult.dataset.state = 'pending';
+            apiResult.textContent = 'Calling GET /api/v1/api-keys with the current ID token.';
+
             try {
-                const response = await fetch('https://api.renderpdf.vberkoz.com/api-keys', {
-                    headers: {
-                        'Authorization': `Bearer ${idToken}`
-                    }
+                const response = await fetch('/api/v1/api-keys', {
+                    headers: { 'Authorization': `Bearer ${idToken}` }
                 });
-                
                 const text = await response.text();
-                resultDiv.innerHTML = `
-                    <p class="${response.ok ? 'success' : 'error'}">
-                        Status: ${response.status} ${response.statusText}
-                    </p>
-                    <pre>${text}</pre>
-                `;
-            } catch (e) {
-                resultDiv.innerHTML = `<p class="error">Error: ${e.message}</p>`;
+                let body = text;
+                try {
+                    body = JSON.stringify(JSON.parse(text), null, 2);
+                } catch (error) {
+                    // Keep non-JSON responses readable as plain text.
+                }
+
+                apiResult.dataset.state = response.ok ? 'success' : 'error';
+                apiResult.replaceChildren();
+                const status = document.createElement('strong');
+                status.textContent = `${response.status} ${response.statusText}`;
+                const output = document.createElement('pre');
+                output.textContent = body || 'Empty response body';
+                apiResult.append(status, output);
+            } catch (error) {
+                apiResult.dataset.state = 'error';
+                apiResult.textContent = `API request failed: ${error.message}`;
+            } finally {
+                testApiBtn.disabled = !idToken;
+                testApiBtn.textContent = 'Test API access ->';
             }
-        }
+        });
+
+        document.getElementById('clearSessionBtn').addEventListener('click', () => {
+            localStorage.removeItem('id_token');
+            localStorage.removeItem('access_token');
+            window.location.replace('/app/login');
+        });
     </script>
 </body>
 </html>

@@ -3,35 +3,100 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Authenticating...</title>
+    <meta name="description" content="Completing your secure RenderPDF sign-in.">
+    <title>RenderPDF | Completing sign-in</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
+    <script data-project="renderpdf" data-source="dashboard-callback" src="https://analytics.vberkoz.com/track.js" defer></script>
 </head>
-<body>
-    <div class="container">
-        <div class="card">
-            <h2>Authenticating...</h2>
-            <p>Please wait while we complete your sign-in.</p>
-        </div>
+<body class="auth-page callback-page">
+    <div class="auth-shell">
+        <header class="auth-topbar">
+            <a class="auth-brand" href="/" aria-label="RenderPDF home">
+                <span class="auth-brand-mark" aria-hidden="true"></span>
+                RenderPDF
+            </a>
+            <nav class="auth-nav" aria-label="Primary navigation">
+                <a href="/">Home</a>
+                <a href="/docs/api/">API docs</a>
+            </nav>
+        </header>
+
+        <main class="auth-main callback-main">
+            <section class="auth-intro" aria-labelledby="callback-title">
+                <p class="auth-eyebrow">Secure account handoff</p>
+                <h1 id="callback-title">Completing sign-in.</h1>
+                <p class="auth-lead">RenderPDF is validating the Cognito response and preparing your developer workspace.</p>
+                <div class="auth-points" aria-label="Authentication steps">
+                    <span>Validate session</span>
+                    <span>Store tokens locally</span>
+                    <span>Open dashboard</span>
+                </div>
+            </section>
+
+            <section id="callbackCard" class="auth-card callback-card" data-state="pending" aria-live="polite">
+                <div class="callback-indicator" aria-hidden="true"><span></span></div>
+                <div class="auth-card-heading">
+                    <p class="auth-eyebrow">OAuth / Cognito</p>
+                    <h2 id="statusTitle">Authenticating</h2>
+                    <p id="statusMessage">Please wait while we verify your account response.</p>
+                </div>
+                <div class="callback-progress" aria-hidden="true"><span></span></div>
+                <a id="retryLink" class="callback-action" href="/app/login" hidden>
+                    Return to sign in <span aria-hidden="true">-&gt;</span>
+                </a>
+                <p class="auth-fineprint">Authentication tokens stay in this browser and are used only to access your RenderPDF workspace.</p>
+            </section>
+        </main>
+
+        <footer class="auth-footer">
+            <p>RenderPDF / Secure account access</p>
+            <div>
+                <a href="/docs/api/">Documentation</a>
+                <a href="/">Free playground</a>
+                <a href="https://vberkoz.com/">vberkoz.com</a>
+            </div>
+        </footer>
     </div>
 
     <script>
         const hash = window.location.hash.substring(1);
         const params = new URLSearchParams(hash);
-        
         const idToken = params.get('id_token');
         const accessToken = params.get('access_token');
         const error = params.get('error');
+        const errorDescription = params.get('error_description');
+
+        const callbackCard = document.getElementById('callbackCard');
+        const statusTitle = document.getElementById('statusTitle');
+        const statusMessage = document.getElementById('statusMessage');
+        const retryLink = document.getElementById('retryLink');
+
+        const showFailure = (title, message) => {
+            callbackCard.dataset.state = 'error';
+            statusTitle.textContent = title;
+            statusMessage.textContent = message;
+            retryLink.hidden = false;
+            document.title = 'RenderPDF | Sign-in error';
+        };
+
+        if (window.location.hash) {
+            window.history.replaceState(null, '', window.location.pathname);
+        }
 
         if (error) {
-            alert('Authentication failed: ' + error);
-            window.location.href = '/login.html';
+            showFailure('Sign-in could not be completed', errorDescription || error);
         } else if (idToken && accessToken) {
             localStorage.setItem('id_token', idToken);
             localStorage.setItem('access_token', accessToken);
-            window.location.href = '/index.html';
+            callbackCard.dataset.state = 'success';
+            statusTitle.textContent = 'Account verified';
+            statusMessage.textContent = 'Opening your RenderPDF workspace now.';
+            window.setTimeout(() => window.location.replace('/app/'), 350);
         } else {
-            alert('Invalid authentication response');
-            window.location.href = '/login.html';
+            showFailure('Invalid authentication response', 'The sign-in response did not include the required account tokens. Please start again.');
         }
     </script>
 </body>

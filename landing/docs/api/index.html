@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="RenderPDF API reference, authentication guide, request schema, and examples.">
+    <title>RenderPDF | API Reference</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <script data-project="renderpdf" data-source="docs" src="https://analytics.vberkoz.com/track.js" defer></script>
+</head>
+<body>
+    <div class="shell">
+        <header class="topbar">
+            <a class="brand" href="/" aria-label="RenderPDF home">
+                <span class="brand-mark" aria-hidden="true"></span>
+                RenderPDF
+            </a>
+            <nav class="topnav" aria-label="Primary navigation">
+                <a href="/" >Home</a>
+                <a href="/docs/api/" aria-current="page">API docs</a>
+                <a href="/app/">Dashboard</a>
+                <a href="https://github.com/vberkoz/renderpdf">GitHub</a>
+            </nav>
+        </header>
+
+        <main>
+            <section class="docs-hero">
+                <div>
+                    <p class="eyebrow">Developer reference / v1</p>
+                    <h1>RenderPDF API</h1>
+                    <p class="lead">Convert HTML into a downloadable PDF with one synchronous request. Start without a key using the trial endpoint, then move to authenticated generation when you are ready.</p>
+                </div>
+                <div class="base-url-card">
+                    <span>Base URL</span>
+                    <code>https://renderpdf.vberkoz.com/api/v1</code>
+                    <a href="https://renderpdf.vberkoz.com/api/v1/">Check API status -&gt;</a>
+                </div>
+            </section>
+
+            <div class="docs-layout">
+                <aside class="sidebar">
+                    <p class="sidebar-title">On this page</p>
+                    <nav aria-label="Documentation sections">
+                        <a href="#quick-start">Quick start</a>
+                        <a href="#authentication">Authentication</a>
+                        <a href="#generate">Generate PDF</a>
+                        <a href="#trial">Anonymous trial</a>
+                        <a href="#response">Response</a>
+                        <a href="#errors">Errors</a>
+                        <a href="#api-keys">API keys</a>
+                    </nav>
+                    <div class="sidebar-note">
+                        <strong>Need an API key?</strong>
+                        <p>Create and revoke keys from the dashboard.</p>
+                        <a href="/app/">Open dashboard -&gt;</a>
+                    </div>
+                </aside>
+
+                <div class="content">
+                    <section class="doc-section" id="quick-start">
+                        <div class="section-heading">
+                            <p class="eyebrow">01 / Start here</p>
+                            <h2>Quick start</h2>
+                            <p>Use the anonymous endpoint to render a first document without creating an account.</p>
+                        </div>
+                        <div class="code-block">
+                            <div class="code-header">
+                                <span>Terminal</span>
+                                <button type="button" class="copy-button" data-copy-target="quick-start-code">Copy</button>
+                            </div>
+                            <pre id="quick-start-code"><code>curl -X POST https://renderpdf.vberkoz.com/api/v1/trial/generate \
+  -H "Content-Type: application/json" \
+  -d '{"html":"&lt;h1&gt;Hello World&lt;/h1&gt;"}'</code></pre>
+                        </div>
+                        <div class="callout">
+                            <span class="callout-mark" aria-hidden="true">i</span>
+                            <p>The trial allows 3 successful PDFs per public IP per UTC day. Failed renders are refunded automatically.</p>
+                        </div>
+                    </section>
+
+                    <section class="doc-section" id="authentication">
+                        <div class="section-heading">
+                            <p class="eyebrow">02 / Access</p>
+                            <h2>Authentication</h2>
+                            <p>The production generate endpoint requires an API key in the <code>x-api-key</code> request header.</p>
+                        </div>
+                        <div class="property-row">
+                            <code>x-api-key</code>
+                            <span class="required">required</span>
+                            <p>Your active RenderPDF API key.</p>
+                        </div>
+                        <div class="code-block compact">
+                            <div class="code-header">
+                                <span>Header</span>
+                                <button type="button" class="copy-button" data-copy-target="auth-code">Copy</button>
+                            </div>
+                            <pre id="auth-code"><code>x-api-key: YOUR_API_KEY</code></pre>
+                        </div>
+                        <p class="section-footnote">Do not expose production API keys in client-side code or public repositories.</p>
+                    </section>
+
+                    <section class="doc-section endpoint-section" id="generate">
+                        <div class="endpoint-heading">
+                            <div>
+                                <p class="eyebrow">03 / Endpoint</p>
+                                <h2>Generate PDF</h2>
+                            </div>
+                            <div class="route"><span class="method">POST</span><code>/generate</code></div>
+                        </div>
+                        <p class="section-copy">Renders the supplied HTML with headless Chromium, uploads the PDF, and returns its download URL.</p>
+
+                        <h3>Request body</h3>
+                        <div class="property-row">
+                            <code>html</code>
+                            <span class="type">string</span>
+                            <span class="required">required</span>
+                            <p>The complete HTML document or fragment to render.</p>
+                        </div>
+
+                        <div class="code-block">
+                            <div class="code-header">
+                                <span>cURL</span>
+                                <button type="button" class="copy-button" data-copy-target="generate-code">Copy</button>
+                            </div>
+                            <pre id="generate-code"><code>curl -X POST https://renderpdf.vberkoz.com/api/v1/generate \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: YOUR_API_KEY" \
+  -d '{"html":"&lt;main&gt;&lt;h1&gt;Invoice #1042&lt;/h1&gt;&lt;/main&gt;"}'</code></pre>
+                        </div>
+                    </section>
+
+                    <section class="doc-section endpoint-section" id="trial">
+                        <div class="endpoint-heading">
+                            <div>
+                                <p class="eyebrow">04 / Endpoint</p>
+                                <h2>Anonymous trial</h2>
+                            </div>
+                            <div class="route"><span class="method">POST</span><code>/trial/generate</code></div>
+                        </div>
+                        <p class="section-copy">Uses the same renderer without an API key. Trial requests are rate-limited by a privacy-preserving hash of the viewer IP.</p>
+                        <div class="limits-grid">
+                            <div>
+                                <span>Daily limit</span>
+                                <strong>3 PDFs</strong>
+                            </div>
+                            <div>
+                                <span>HTML size</span>
+                                <strong>1 MB max</strong>
+                            </div>
+                            <div>
+                                <span>Reset</span>
+                                <strong>00:00 UTC</strong>
+                            </div>
+                        </div>
+                        <h3>Quota response headers</h3>
+                        <div class="headers-list">
+                            <div><code>X-Trial-Limit</code><span>Maximum successful trial renders per day.</span></div>
+                            <div><code>X-Trial-Remaining</code><span>Successful renders remaining for the current UTC day.</span></div>
+                        </div>
+                    </section>
+
+                    <section class="doc-section" id="response">
+                        <div class="section-heading">
+                            <p class="eyebrow">05 / Output</p>
+                            <h2>Response</h2>
+                            <p>Successful generate requests return HTTP <code>200</code> and a JSON object describing the stored PDF.</p>
+                        </div>
+                        <div class="response-grid">
+                            <div class="headers-list">
+                                <div><code>requestId</code><span>Unique identifier for this render.</span></div>
+                                <div><code>url</code><span>Public S3 download URL for the PDF.</span></div>
+                                <div><code>size</code><span>Generated file size in bytes.</span></div>
+                            </div>
+                            <div class="code-block">
+                                <div class="code-header"><span>200 / application/json</span></div>
+                                <pre><code>{
+  "requestId": "7db7...",
+  "url": "https://.../7db7.pdf",
+  "size": 29827
+}</code></pre>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="doc-section" id="errors">
+                        <div class="section-heading">
+                            <p class="eyebrow">06 / Failures</p>
+                            <h2>Errors</h2>
+                            <p>Error responses include a short JSON message in the <code>error</code> field.</p>
+                        </div>
+                        <div class="error-table" role="table" aria-label="API errors">
+                            <div class="table-row table-head" role="row"><span>Status</span><span>Meaning</span></div>
+                            <div class="table-row" role="row"><code>400</code><span>Invalid JSON, missing HTML, or an empty document.</span></div>
+                            <div class="table-row" role="row"><code>403</code><span>Missing, invalid, or inactive API key.</span></div>
+                            <div class="table-row" role="row"><code>413</code><span>Trial HTML exceeds the 1 MB limit.</span></div>
+                            <div class="table-row" role="row"><code>429</code><span>Daily anonymous trial limit reached.</span></div>
+                            <div class="table-row" role="row"><code>500</code><span>PDF generation or storage failed.</span></div>
+                            <div class="table-row" role="row"><code>503</code><span>Trial capacity is busy; retry shortly.</span></div>
+                        </div>
+                    </section>
+
+                    <section class="doc-section" id="api-keys">
+                        <div class="section-heading">
+                            <p class="eyebrow">07 / Management</p>
+                            <h2>API keys</h2>
+                            <p>Authenticated dashboard users can create, list, and revoke keys through the management API.</p>
+                        </div>
+                        <div class="endpoint-list">
+                            <div><span class="method method-get">GET</span><code>/api-keys</code><p>List keys</p></div>
+                            <div><span class="method">POST</span><code>/api-keys</code><p>Create a key</p></div>
+                            <div><span class="method method-delete">DELETE</span><code>/api-keys/{id}</code><p>Revoke a key</p></div>
+                        </div>
+                        <div class="callout">
+                            <span class="callout-mark" aria-hidden="true">i</span>
+                            <p>API-key management uses the dashboard login session, not the <code>x-api-key</code> header.</p>
+                        </div>
+                    </section>
+                </div>
+            </div>
+        </main>
+
+        <footer class="footer">
+            <p>RenderPDF / API reference v1</p>
+            <div>
+                <a href="/">Home</a>
+                <a href="/app/">Dashboard</a>
+                <a href="https://vberkoz.com/">vberkoz.com</a>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        document.querySelectorAll('.copy-button').forEach((button) => {
+            button.addEventListener('click', async () => {
+                const target = document.getElementById(button.dataset.copyTarget);
+                if (!target) return;
+
+                try {
+                    await navigator.clipboard.writeText(target.innerText);
+                    button.textContent = 'Copied';
+                    window.setTimeout(() => { button.textContent = 'Copy'; }, 1600);
+                } catch (error) {
+                    button.textContent = 'Select text';
+                }
+            });
+        });
+    </script>
+</body>
+</html>
