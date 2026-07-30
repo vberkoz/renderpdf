@@ -26,12 +26,35 @@ Serverless API that converts HTML to PDF using AWS Lambda (Go), API Gateway, S3,
 ./deploy.sh
 ```
 
+Canonical script location: `/Users/basilsergius/projects/renderpdf/scripts/deploy.sh`
+
+Supporting docs:
+- `/Users/basilsergius/projects/renderpdf/AGENTS.md`
+- `/Users/basilsergius/projects/renderpdf/docs/repo-map.md`
+- `/Users/basilsergius/projects/renderpdf/docs/service-map.md`
+- `/Users/basilsergius/projects/renderpdf/docs/edit-surfaces.md`
+- `/Users/basilsergius/projects/renderpdf/docs/change-recipes.md`
+- `/Users/basilsergius/projects/renderpdf/docs/VERIFICATION.md`
+- `/Users/basilsergius/projects/renderpdf/docs/ARCHITECTURE.md`
+- `/Users/basilsergius/projects/renderpdf/docs/CONTRIBUTING.md`
+- `/Users/basilsergius/projects/renderpdf/docs/AGENT-RULES.md`
+
 ## Usage
 
 ### Generate PDF from HTML
 
+Try the anonymous endpoint without an API key. It is limited to 3 successful PDFs per source IP per UTC day and accepts up to 1 MB of HTML:
+
 ```bash
-curl -X POST https://api.renderpdf.vberkoz.com/generate \
+curl -X POST https://renderpdf.vberkoz.com/api/v1/trial/generate \
+  -H "Content-Type: application/json" \
+  -d '{"html":"<h1>Hello World</h1>"}'
+```
+
+For authenticated usage, create an API key in the dashboard:
+
+```bash
+curl -X POST https://renderpdf.vberkoz.com/api/v1/generate \
   -H "Content-Type: application/json" \
   -H "x-api-key: YOUR_API_KEY" \
   -d '{"html":"<h1>Hello World</h1>"}'
@@ -68,9 +91,10 @@ Environment variables:
 
 ## Domains
 
-- Landing: https://renderpdf.vberkoz.com
-- Dashboard: https://dashboard.renderpdf.vberkoz.com
-- API: https://api.renderpdf.vberkoz.com
+- Landing: https://renderpdf.vberkoz.com/
+- Dashboard: https://renderpdf.vberkoz.com/app/
+- API: https://renderpdf.vberkoz.com/api/v1/
+- Docs: https://renderpdf.vberkoz.com/docs/api
 
 ## License
 
