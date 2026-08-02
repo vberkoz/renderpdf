@@ -22,6 +22,10 @@ Parameters:
     Type: String
     NoEcho: true
     Description: Google OAuth Client Secret
+  StatsAllowedEmail:
+    Type: String
+    Default: vberkoz@gmail.com
+    Description: Cognito email address permitted to view private statistics
 
 Resources:
   WebsiteBucket:
@@ -170,6 +174,7 @@ Resources:
                 - Content-Type
                 - Origin
                 - X-RenderPDF-Viewer-IP
+                - CloudFront-Viewer-Country
                 - X-Api-Key
                 - Access-Control-Request-Headers
                 - Access-Control-Request-Method
@@ -223,11 +228,24 @@ Resources:
           AttributeType: S
         - AttributeName: timestamp
           AttributeType: N
+        - AttributeName: GSI1PK
+          AttributeType: S
+        - AttributeName: GSI1SK
+          AttributeType: S
       KeySchema:
         - AttributeName: requestId
           KeyType: HASH
         - AttributeName: timestamp
           KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: AnalyticsDateIndex
+          KeySchema:
+            - AttributeName: GSI1PK
+              KeyType: HASH
+            - AttributeName: GSI1SK
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
 
   ApiKeysTable:
     Type: AWS::DynamoDB::Table
@@ -333,8 +351,11 @@ Resources:
                 Action:
                   - 'dynamodb:GetItem'
                   - 'dynamodb:PutItem'
+                  - 'dynamodb:Query'
                   - 'dynamodb:UpdateItem'
-                Resource: !GetAtt UsageTable.Arn
+                Resource:
+                  - !GetAtt UsageTable.Arn
+                  - !Sub '${UsageTable.Arn}/index/*'
               - Effect: Allow
                 Action:
                   - 'dynamodb:Query'
@@ -353,7 +374,7 @@ Resources:
       Role: !GetAtt LambdaExecutionRole.Arn
       Code:
         ImageUri: !Sub '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${AppName}:latest'
-      MemorySize: 2048
+      MemorySize: 3008
       Timeout: 60
       Environment:
         Variables:
@@ -368,7 +389,7 @@ Resources:
       Role: !GetAtt LambdaExecutionRole.Arn
       Code:
         ImageUri: !Sub '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${AppName}:latest'
-      MemorySize: 2048
+      MemorySize: 3008
       Timeout: 60
       Environment:
         Variables:
@@ -405,6 +426,30 @@ Resources:
       Environment:
         Variables:
           API_KEYS_TABLE: !Ref ApiKeysTable
+          TABLE_NAME: !Ref UsageTable
+
+  AnalyticsFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      # Changing this function from an image package to a ZIP requires a
+      # replacement. Use a new physical name so CloudFormation can create the
+      # replacement before deleting the old custom-named function.
+      FunctionName: !Sub '${AppName}-analytics-node'
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Code:
+        # The deployment script replaces this bootstrap handler with the
+        # complete ZIP artifact after the stack update. Keeping a tiny inline
+        # artifact makes first-time stack creation independent of S3 state.
+        ZipFile: |
+          exports.handler = async () => ({ statusCode: 503, body: JSON.stringify({ error: 'Analytics Lambda is initializing' }) });
+      MemorySize: 256
+      Timeout: 15
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref UsageTable
+          STATS_ALLOWED_EMAIL: !Ref StatsAllowedEmail
 
   RestApi:
     Type: AWS::ApiGateway::RestApi
@@ -439,6 +484,13 @@ Resources:
       RestApiId: !Ref RestApi
       ParentId: !Ref ApiV1Resource
       PathPart: api-keys
+
+  AnalyticsResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestApi
+      ParentId: !Ref ApiV1Resource
+      PathPart: analytics
 
   ApiResource:
     Type: AWS::ApiGateway::Resource
@@ -657,9 +709,61 @@ Resources:
         IntegrationHttpMethod: POST
         Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ApiKeysFunction.Arn}/invocations'
 
+  AnalyticsOptionsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref AnalyticsResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: MOCK
+        RequestTemplates:
+          application/json: '{"statusCode": 204}'
+        IntegrationResponses:
+          - StatusCode: 204
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,Authorization'"
+              method.response.header.Access-Control-Allow-Methods: "'GET,POST,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'https://renderpdf.vberkoz.com'"
+            ResponseTemplates:
+              application/json: ''
+      MethodResponses:
+        - StatusCode: 204
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
+  AnalyticsGetMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref AnalyticsResource
+      HttpMethod: GET
+      AuthorizationType: COGNITO_USER_POOLS
+      AuthorizerId: !Ref CognitoAuthorizer
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AnalyticsFunction.Arn}/invocations'
+
+  AnalyticsPostMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref AnalyticsResource
+      HttpMethod: POST
+      AuthorizationType: COGNITO_USER_POOLS
+      AuthorizerId: !Ref CognitoAuthorizer
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AnalyticsFunction.Arn}/invocations'
+
   # API Gateway deployments are immutable snapshots. Bump this logical ID when
   # routes or methods change so CloudFormation publishes them to the prod stage.
-  ApiDeploymentV4:
+  ApiDeploymentV7:
     Type: AWS::ApiGateway::Deployment
     DependsOn:
       - ApiRootGetMethod
@@ -673,6 +777,10 @@ Resources:
       - ApiKeysPostMethod
       - ApiKeysGetMethod
       - ApiKeyDeleteMethod
+      - AnalyticsResource
+      - AnalyticsOptionsMethod
+      - AnalyticsGetMethod
+      - AnalyticsPostMethod
     Properties:
       RestApiId: !Ref RestApi
       StageName: prod
@@ -705,6 +813,14 @@ Resources:
     Type: AWS::Lambda::Permission
     Properties:
       FunctionName: !Ref ApiKeysFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/*'
+
+  LambdaAnalyticsPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref AnalyticsFunction
       Action: lambda:InvokeFunction
       Principal: apigateway.amazonaws.com
       SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/*'

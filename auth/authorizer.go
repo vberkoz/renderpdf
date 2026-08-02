@@ -65,7 +65,11 @@ func handler(ctx context.Context, event events.APIGatewayCustomAuthorizerRequest
 		},
 	})
 
-	return generatePolicy(userId, "Allow", event.MethodArn), nil
+	policy := generatePolicy(userId, "Allow", event.MethodArn)
+	if item["keyId"] != nil && item["keyId"].S != nil {
+		policy.Context["apiKeyId"] = *item["keyId"].S
+	}
+	return policy, nil
 }
 
 func headerValue(headers map[string]string, name string) string {

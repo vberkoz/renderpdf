@@ -11,6 +11,7 @@ PARAMETERS_FILE="${ROOT_DIR}/parameters.json"
 FALLBACK_PARAMETERS_FILE="${ROOT_DIR}/infra/parameters.json"
 
 STACK_NAME="renderpdf"
+ANALYTICS_FUNCTION_NAME="${STACK_NAME}-analytics-node"
 REGION="us-east-1"
 PROFILE="basil"
 ACCOUNT_ID=$(aws sts get-caller-identity --profile ${PROFILE} --query Account --output text)
@@ -45,6 +46,12 @@ echo "Building auth Lambda images..."
 cd "${ROOT_DIR}/auth"
 docker build --platform linux/amd64 -f Dockerfile.authorizer -t ${STACK_NAME}-authorizer:latest .
 docker build --platform linux/amd64 -f Dockerfile.apikeys -t ${STACK_NAME}-apikeys:latest .
+
+ANALYTICS_ZIP="$(mktemp -t renderpdf-analytics.XXXXXX).zip"
+trap 'rm -f "${ANALYTICS_ZIP}"' EXIT
+echo "Packaging native Node.js analytics Lambda..."
+cd "${ROOT_DIR}/analytics"
+zip -q -j "${ANALYTICS_ZIP}" index.js package.json
 
 echo "Creating ECR repository if not exists..."
 aws ecr describe-repositories --repository-names ${STACK_NAME} --region ${REGION} --profile ${PROFILE} 2>/dev/null || \
@@ -128,6 +135,14 @@ aws lambda update-function-code \
   --query 'LastUpdateStatus' \
   --output text 2>/dev/null || echo "API keys function not yet created"
 
+aws lambda update-function-code \
+  --function-name ${ANALYTICS_FUNCTION_NAME} \
+  --zip-file fileb://${ANALYTICS_ZIP} \
+  --region ${REGION} \
+  --profile ${PROFILE} \
+  --query 'LastUpdateStatus' \
+  --output text 2>/dev/null || echo "Analytics function not yet created"
+
 echo "Waiting for Lambda update to complete..."
 aws lambda wait function-updated \
   --function-name ${STACK_NAME}-generate \
@@ -138,6 +153,11 @@ aws lambda wait function-updated \
   --function-name ${STACK_NAME}-trial-generate \
   --region ${REGION} \
   --profile ${PROFILE}
+
+aws lambda wait function-updated \
+  --function-name ${ANALYTICS_FUNCTION_NAME} \
+  --region ${REGION} \
+  --profile ${PROFILE} 2>/dev/null || true
 
 echo "Getting stack outputs..."
 WEBSITE_BUCKET=$(aws cloudformation describe-stacks --stack-name ${STACK_NAME} --region ${REGION} --profile ${PROFILE} --query 'Stacks[0].Outputs[?OutputKey==`WebsiteBucketName`].OutputValue' --output text 2>/dev/null || echo "")

@@ -14,6 +14,8 @@ Verification index for this repository.
   - smoke test exists through `scripts/test-api.sh`
 - `dashboard/`
   - no automated test script exists today
+- `analytics/`
+  - Node.js syntax and container build validation should run from the analytics folder.
 - `landing/`
   - no automated test script exists today
 
@@ -105,6 +107,20 @@ cd /Users/basilsergius/projects/renderpdf && ./scripts/verify-auth.sh
 - Notes:
   - current automated coverage is limited to `auth/utils_test.go`
   - there is no committed end-to-end auth verification script today
+
+### Analytics
+
+- Run:
+
+```bash
+cd /Users/basilsergius/projects/renderpdf/analytics && node --check index.js
+```
+
+- Manual checks after deployment:
+  - open `/stats/` and sign in with the configured `StatsAllowedEmail` account
+  - confirm aggregate PDF requests and bytes load
+  - confirm another Cognito account receives an access-denied response
+  - refresh and confirm a `stats_view` event is saved
 
 ### How To Test `dashboard/`
 

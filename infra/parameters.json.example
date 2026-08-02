@@ -6,5 +6,9 @@
   {
     "ParameterKey": "GoogleClientSecret",
     "ParameterValue": "YOUR_GOOGLE_CLIENT_SECRET"
+  },
+  {
+    "ParameterKey": "StatsAllowedEmail",
+    "ParameterValue": "vberkoz@gmail.com"
   }
 ]

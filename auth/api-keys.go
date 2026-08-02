@@ -19,6 +19,7 @@ import (
 
 var (
 	tableName = os.Getenv("API_KEYS_TABLE")
+	usageTableName = os.Getenv("TABLE_NAME")
 	sess      = session.Must(session.NewSession())
 	ddb       = dynamodb.New(sess)
 )
@@ -82,6 +83,7 @@ func createKey(userId string, headers map[string]string) (events.APIGatewayProxy
 	if err != nil {
 		return events.APIGatewayProxyResponse{StatusCode: 500, Body: err.Error(), Headers: headers}, nil
 	}
+	saveAnalyticsEvent(userId, "api_key_created")
 
 	resp := CreateKeyResponse{KeyID: keyId, APIKey: apiKey}
 	body, _ := json.Marshal(resp)
@@ -91,6 +93,26 @@ func createKey(userId string, headers map[string]string) (events.APIGatewayProxy
 		Body:       string(body),
 		Headers:    headers,
 	}, nil
+}
+
+func saveAnalyticsEvent(customerID, eventName string) {
+	if usageTableName == "" { return }
+	now := time.Now().UTC()
+	eventID := uuid.NewString()
+	_, err := ddb.PutItem(&dynamodb.PutItemInput{
+		TableName: aws.String(usageTableName),
+		Item: map[string]*dynamodb.AttributeValue{
+			"requestId":  {S: aws.String("ANALYTICS#" + eventID)},
+			"timestamp":  {N: aws.String(fmt.Sprintf("%d", now.Unix()))},
+			"entityType": {S: aws.String("ANALYTICS")},
+			"eventName":  {S: aws.String(eventName)},
+			"customerId": {S: aws.String(customerID)},
+			"GSI1PK":     {S: aws.String("ANALYTICS#" + now.Format("2006-01-02"))},
+			"GSI1SK":     {S: aws.String(fmt.Sprintf("%020d#%s", now.UnixNano(), eventID))},
+			"expiresAt":  {N: aws.String(fmt.Sprintf("%d", now.Add(90*24*time.Hour).Unix()))},
+		},
+	})
+	if err != nil { fmt.Printf("Analytics event write skipped: %v\n", err) }
 }
 
 func listKeys(userId string, headers map[string]string) (events.APIGatewayProxyResponse, error) {

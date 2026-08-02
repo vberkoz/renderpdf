@@ -14,6 +14,9 @@
 - `auth/`
   - Go Lambda authorizer for `x-api-key`.
   - Go Lambda for authenticated API-key management.
+- `analytics/`
+  - Node.js Lambda for authenticated analytics event writes and aggregate reads.
+  - Reads the shared usage table through `AnalyticsDateIndex`.
 - `infra/cloudformation.yaml`
   - Defines buckets, CloudFront, API Gateway, Lambda functions, DynamoDB tables, Cognito resources, and DNS/cert wiring.
 
@@ -40,6 +43,12 @@
 - Client uses the returned key against `/api/v1/generate`.
 - Authorizer Lambda validates `x-api-key` against DynamoDB.
 - Main API Lambda processes the request only if authorization passes.
+
+### Analytics Flow
+
+- Successful PDF requests write `PDF_REQUEST` records to the shared usage table.
+- The analytics Lambda writes `ANALYTICS` events to the same table with a 90-day TTL.
+- The `/stats/` page redirects through Cognito sign-in and reads aggregate data through `GET /api/v1/analytics`; the analytics Lambda permits only the configured stats email address.
 
 ## Source Of Truth
 

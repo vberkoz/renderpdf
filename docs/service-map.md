@@ -30,6 +30,19 @@
 - Tests:
   - `scripts/verify-auth.sh`
 
+### Analytics
+
+- Purpose:
+  - Save authenticated analytics events and aggregate PDF usage from the shared usage table.
+- Source:
+  - `analytics/index.js`
+- Build/runtime entrypoints:
+  - Node.js 22 managed Lambda runtime
+  - `scripts/deploy.sh`
+- API:
+  - `GET /api/v1/analytics`
+  - `POST /api/v1/analytics`
+
 ### Dashboard
 
 - Purpose:
