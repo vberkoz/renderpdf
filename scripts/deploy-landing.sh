@@ -35,8 +35,7 @@ fi
 echo "Deploying landing page to S3 bucket: ${WEBSITE_BUCKET}"
 aws s3 sync "${ROOT_DIR}/landing/" s3://${WEBSITE_BUCKET}/ \
   --profile ${PROFILE} \
-  --cache-control "no-cache" \
-  --delete
+  --cache-control "no-cache"
 
 if [ -n "$CLOUDFRONT_ID" ]; then
   echo "Invalidating CloudFront cache (Distribution ID: ${CLOUDFRONT_ID})..."
