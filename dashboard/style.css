@@ -277,10 +277,10 @@ textarea {
     max-width: 10ch;
     margin: 0;
     color: var(--auth-ink);
-    font-size: 2.25rem;
-    font-weight: 900;
-    letter-spacing: -0.025em;
-    line-height: 2.5rem;
+    font-size: clamp(3.2rem, 6vw, 5.6rem);
+    font-weight: 700;
+    letter-spacing: -0.065em;
+    line-height: 0.94;
     text-wrap: balance;
 }
 
@@ -509,7 +509,7 @@ textarea {
         padding: 52px 0;
     }
 
-    .auth-intro h1 { max-width: none; }
+    .auth-intro h1 { max-width: 12ch; }
     .auth-card {
         max-width: 620px;
     }
@@ -533,6 +533,10 @@ textarea {
 
     .auth-card { grid-row: 1; }
     .auth-intro { grid-row: 2; }
+
+    .auth-intro h1 {
+        font-size: clamp(2.8rem, 15vw, 4rem);
+    }
 
     .auth-card {
         padding: 20px;
@@ -675,13 +679,13 @@ textarea {
 }
 
 .dashboard-hero h1 {
-    max-width: 10ch;
-    margin: 0;
+    max-width: 14ch;
+    margin: 12px 0 15px;
     color: var(--dashboard-ink);
-    font-size: 2.25rem;
-    font-weight: 900;
-    letter-spacing: -0.025em;
-    line-height: 2.5rem;
+    font-size: clamp(3rem, 6.5vw, 5.4rem);
+    font-weight: 700;
+    letter-spacing: -0.065em;
+    line-height: 0.94;
     text-wrap: balance;
 }
 
@@ -1207,6 +1211,10 @@ textarea {
         padding: 42px 0 34px;
     }
 
+    .dashboard-hero h1 {
+        font-size: clamp(2.8rem, 14vw, 4.3rem);
+    }
+
     .session-card { max-width: 440px; }
 
     .panel-header,
@@ -1381,7 +1389,7 @@ textarea {
 }
 
 /* Session diagnostics workspace. */
-.debug-hero h1 { max-width: 10ch; }
+.debug-hero h1 { max-width: 11ch; }
 
 .debug-summary p {
     margin: 0;
