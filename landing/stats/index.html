@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="description" content="RenderPDF service analytics.">
+    <title>RenderPDF | Stats</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <main>
+        <header>
+            <a href="/" aria-label="RenderPDF home">RenderPDF</a>
+            <p aria-live="polite">
+                <span id="refreshStatus" data-state="pending">Checking access...</span>
+            </p>
+        </header>
+
+        <section aria-labelledby="stats-title">
+            <p>Service telemetry</p>
+            <h1 id="stats-title">RenderPDF statistics</h1>
+            <p>Live PDF request volume, renderer performance, and API availability.</p>
+        </section>
+
+        <section aria-label="RenderPDF statistics">
+            <article>
+                <h2>Requests today</h2>
+                <p id="requestsToday">—</p>
+                <p>All request outcomes</p>
+            </article>
+            <article>
+                <h2>Last 7 days</h2>
+                <p id="requestsLast7Days">—</p>
+                <p>PDF requests</p>
+            </article>
+            <article>
+                <h2>Last 30 days</h2>
+                <p id="requestsLast30Days">—</p>
+                <p>PDF requests</p>
+            </article>
+            <article>
+                <h2>Trial / authenticated</h2>
+                <p id="planSplit">—</p>
+                <p>Requests in the last 30 days</p>
+            </article>
+            <article>
+                <h2>Success rate</h2>
+                <p id="successRate">—</p>
+                <p>Successful PDF responses</p>
+            </article>
+            <article>
+                <h2>Average / p95 render</h2>
+                <p id="renderTime">—</p>
+                <p>Milliseconds</p>
+            </article>
+            <article>
+                <h2>Average PDF size</h2>
+                <p id="averagePdfSize">—</p>
+                <p>Successful responses</p>
+            </article>
+            <article>
+                <h2>Errors / timeouts</h2>
+                <p id="errorsTimeouts">—</p>
+                <p>Tracked renderer failures</p>
+            </article>
+            <article>
+                <h2>Trial to signup</h2>
+                <p id="trialConversion">—</p>
+                <p>API-key creation proxy</p>
+            </article>
+        </section>
+
+        <section aria-label="Detailed statistics">
+            <article>
+                <p>Volume</p>
+                <h2>Daily usage</h2>
+                <p id="windowLabel">Last 30 days</p>
+                <div id="dailyChart" aria-label="Daily request chart"></div>
+                <p>Total, trial, and authenticated requests</p>
+            </article>
+
+            <article>
+                <p>Reliability</p>
+                <h2>API heartbeat</h2>
+                <p id="apiBadge" data-state="pending">Pending</p>
+                <dl>
+                    <div><dt>Endpoint</dt><dd><code>/api/v1/</code></dd></div>
+                    <div><dt>Version</dt><dd id="apiVersion">Checking...</dd></div>
+                    <div><dt>Response time</dt><dd id="responseTime">Checking...</dd></div>
+                </dl>
+                <p id="accessMessage" hidden></p>
+            </article>
+
+            <article>
+                <h2>Top API keys</h2>
+                <div id="topApiKeys"><p>Private breakdown</p></div>
+            </article>
+
+            <article>
+                <h2>Top customers</h2>
+                <div id="topCustomers"><p>Private breakdown</p></div>
+            </article>
+
+            <article>
+                <h2>User country</h2>
+                <div id="countries"><p>Waiting for analytics...</p></div>
+            </article>
+        </section>
+
+        <footer>
+            <span>Last checked <time id="checkedAt">—</time></span>
+            <span>RenderPDF / service stats</span>
+        </footer>
+    </main>
+
+    <script>
+        const refreshStatus = document.getElementById('refreshStatus');
+        const apiBadge = document.getElementById('apiBadge');
+        const apiVersion = document.getElementById('apiVersion');
+        const responseTime = document.getElementById('responseTime');
+        const checkedAt = document.getElementById('checkedAt');
+        const accessMessage = document.getElementById('accessMessage');
+        const numberFormat = new Intl.NumberFormat();
+        const COGNITO_DOMAIN = 'https://renderpdf-auth-653268860643.auth.us-east-1.amazoncognito.com';
+        const COGNITO_CLIENT_ID = '78pkhoj4ml959gb80coslgm42t';
+        const COGNITO_REDIRECT_URI = 'https://renderpdf.vberkoz.com/app/callback';
+
+        function decodeTokenPayload(token) {
+            try {
+                const encodedPayload = token.split('.')[1];
+                const base64 = encodedPayload.replace(/-/g, '+').replace(/_/g, '/');
+                return JSON.parse(decodeURIComponent(atob(base64).split('').map((character) =>
+                    `%${character.charCodeAt(0).toString(16).padStart(2, '0')}`
+                ).join('')));
+            } catch {
+                return null;
+            }
+        }
+
+        function startSignIn() {
+            localStorage.setItem('post_login_redirect', '/stats/');
+            const authUrl = `${COGNITO_DOMAIN}/oauth2/authorize?` +
+                `client_id=${COGNITO_CLIENT_ID}&` +
+                'response_type=token&scope=email+openid+profile&' +
+                `redirect_uri=${encodeURIComponent(COGNITO_REDIRECT_URI)}&identity_provider=Google`;
+            window.location.replace(authUrl);
+        }
+
+        function sessionToken() {
+            const token = localStorage.getItem('id_token');
+            const payload = token ? decodeTokenPayload(token) : null;
+            if (!payload || (payload.exp && payload.exp * 1000 <= Date.now())) return '';
+            return token;
+        }
+
+        function formatBytes(bytes) {
+            if (!bytes) return '0 B';
+            const units = ['B', 'KB', 'MB', 'GB'];
+            const index = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+            return `${(bytes / (1024 ** index)).toFixed(index ? 1 : 0)} ${units[index]}`;
+        }
+
+        function renderRanks(elementId, values, emptyLabel) {
+            const container = document.getElementById(elementId);
+            container.replaceChildren();
+            if (!values || values.length === 0) {
+                const empty = document.createElement('p');
+                empty.textContent = emptyLabel;
+                container.appendChild(empty);
+                return;
+            }
+            const list = document.createElement('ol');
+            values.forEach((value) => {
+                const item = document.createElement('li');
+                item.textContent = `${value.name}: ${numberFormat.format(value.count)}`;
+                list.appendChild(item);
+            });
+            container.appendChild(list);
+        }
+
+        function renderDailyUsage(days) {
+            const container = document.getElementById('dailyChart');
+            container.replaceChildren();
+            const values = (days || []).filter((day) => day && day.date);
+            if (!values.length) {
+                const empty = document.createElement('p');
+                empty.textContent = 'No daily usage data available';
+                container.appendChild(empty);
+                return;
+            }
+
+            const svg = createSvg('0 0 720 220', 'Daily PDF request volume, split by trial and authenticated traffic');
+            const maxRequests = Math.max(1, ...values.map((day) => Number(day.requests) || 0));
+            const chart = { x: 44, y: 18, width: 654, height: 154 };
+            const barGap = 4;
+            const barWidth = Math.max(3, (chart.width - barGap * (values.length - 1)) / values.length);
+
+            [0, .5, 1].forEach((ratio) => {
+                const y = chart.y + chart.height - chart.height * ratio;
+                svg.appendChild(svgElement('line', { x1: chart.x, y1: y, x2: chart.x + chart.width, y2: y, class: 'chart-grid' }));
+                const label = svgElement('text', { x: chart.x - 9, y: y + 4, class: 'chart-axis', 'text-anchor': 'end' });
+                label.textContent = numberFormat.format(Math.round(maxRequests * ratio));
+                svg.appendChild(label);
+            });
+
+            values.forEach((day, index) => {
+                const total = Number(day.requests) || 0;
+                const trial = Math.min(total, Math.max(0, Number(day.trialRequests) || 0));
+                const authenticated = Math.min(total - trial, Math.max(0, Number(day.apiRequests) || 0));
+                const x = chart.x + index * (barWidth + barGap);
+                const trialHeight = chart.height * trial / maxRequests;
+                const authenticatedHeight = chart.height * authenticated / maxRequests;
+                const group = svgElement('g');
+                const title = svgElement('title');
+                title.textContent = `${day.date}: ${numberFormat.format(total)} total, ${numberFormat.format(trial)} trial, ${numberFormat.format(authenticated)} authenticated`;
+                group.appendChild(title);
+                if (trialHeight) group.appendChild(svgElement('rect', { x, y: chart.y + chart.height - trialHeight, width: barWidth, height: trialHeight, class: 'chart-bar chart-bar-trial' }));
+                if (authenticatedHeight) group.appendChild(svgElement('rect', { x, y: chart.y + chart.height - trialHeight - authenticatedHeight, width: barWidth, height: authenticatedHeight, class: 'chart-bar chart-bar-authenticated' }));
+                svg.appendChild(group);
+
+                if (index === 0 || index === values.length - 1 || index === Math.floor((values.length - 1) / 2)) {
+                    const label = svgElement('text', { x: x + barWidth / 2, y: 198, class: 'chart-axis', 'text-anchor': 'middle' });
+                    label.textContent = day.date.slice(5);
+                    svg.appendChild(label);
+                }
+            });
+
+            container.appendChild(svg);
+            const legend = document.createElement('div');
+            legend.className = 'chart-legend';
+            legend.setAttribute('aria-label', 'Chart legend');
+            [
+                ['chart-legend-trial', 'Trial'],
+                ['chart-legend-authenticated', 'Authenticated']
+            ].forEach(([className, label]) => {
+                const item = document.createElement('span');
+                const marker = document.createElement('i');
+                marker.className = className;
+                marker.setAttribute('aria-hidden', 'true');
+                item.append(marker, document.createTextNode(label));
+                legend.appendChild(item);
+            });
+            container.appendChild(legend);
+        }
+
+        function svgElement(name, attributes = {}) {
+            const element = document.createElementNS('http://www.w3.org/2000/svg', name);
+            Object.entries(attributes).forEach(([key, value]) => element.setAttribute(key, value));
+            return element;
+        }
+
+        function createSvg(viewBox, description) {
+            const svg = svgElement('svg', { viewBox, role: 'img', 'aria-label': description });
+            const title = svgElement('title');
+            title.textContent = description;
+            svg.appendChild(title);
+            return svg;
+        }
+
+        function renderCountryChart(values) {
+            const container = document.getElementById('countries');
+            container.replaceChildren();
+            const countries = (values || []).filter((value) => value && value.name).slice(0, 6);
+            if (!countries.length) {
+                const empty = document.createElement('p');
+                empty.textContent = 'Country data unavailable';
+                container.appendChild(empty);
+                return;
+            }
+
+            const rowHeight = 32;
+            const chartHeight = countries.length * rowHeight + 16;
+            const svg = createSvg(`0 0 420 ${chartHeight}`, 'User country distribution');
+            const maxCount = Math.max(1, ...countries.map((country) => Number(country.count) || 0));
+            countries.forEach((country, index) => {
+                const y = index * rowHeight + 4;
+                const count = Math.max(0, Number(country.count) || 0);
+                const width = 218 * count / maxCount;
+                const label = svgElement('text', { x: 0, y: y + 14, class: 'country-label' });
+                label.textContent = country.name;
+                const track = svgElement('rect', { x: 112, y, width: 218, height: 16, rx: 4, class: 'country-track' });
+                const bar = svgElement('rect', { x: 112, y, width, height: 16, rx: 4, class: 'country-bar' });
+                const amount = svgElement('text', { x: 344, y: y + 13, class: 'country-count' });
+                amount.textContent = numberFormat.format(count);
+                svg.append(label, track, bar, amount);
+            });
+            container.appendChild(svg);
+        }
+
+        async function loadAnalytics() {
+            const token = sessionToken();
+            if (!token) {
+                startSignIn();
+                return;
+            }
+            const startedAt = performance.now();
+            try {
+                const response = await fetch('/api/v1/analytics?days=30', {
+                    cache: 'no-store',
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                        Accept: 'application/json',
+                        'Cache-Control': 'no-cache'
+                    }
+                });
+                let payload = {};
+                try {
+                    payload = await response.json();
+                } catch {
+                    // API Gateway may return an empty authentication response.
+                }
+                const duration = Math.max(1, Math.round(performance.now() - startedAt));
+
+                if (response.status === 401) {
+                    localStorage.removeItem('id_token');
+                    localStorage.removeItem('access_token');
+                    startSignIn();
+                    return;
+                }
+                if (!response.ok) throw new Error(payload.error || payload.message || `HTTP ${response.status}`);
+
+                apiBadge.textContent = 'Operational';
+                apiBadge.dataset.state = 'success';
+                refreshStatus.textContent = 'Live just now';
+                refreshStatus.dataset.state = 'success';
+                apiVersion.textContent = 'v1 analytics';
+                responseTime.textContent = `${duration} ms`;
+                document.getElementById('requestsToday').textContent = numberFormat.format(payload.requestsToday || 0);
+                document.getElementById('requestsLast7Days').textContent = numberFormat.format(payload.requestsLast7Days || 0);
+                document.getElementById('requestsLast30Days').textContent = numberFormat.format(payload.requestsLast30Days || 0);
+                document.getElementById('planSplit').textContent = `${numberFormat.format(payload.trialRequests || 0)} / ${numberFormat.format(payload.authenticatedRequests || 0)}`;
+                document.getElementById('successRate').textContent = `${Number(payload.successRate || 0).toFixed(1)}%`;
+                document.getElementById('renderTime').textContent = `${Math.round(payload.averageRenderMs || 0)} / ${Math.round(payload.p95RenderMs || 0)}`;
+                document.getElementById('averagePdfSize').textContent = formatBytes(payload.averagePdfBytes || 0);
+                document.getElementById('errorsTimeouts').textContent = `${numberFormat.format(payload.errors || 0)} / ${numberFormat.format(payload.timeouts || 0)}`;
+                document.getElementById('trialConversion').textContent = `${Number(payload.trialToSignupRate || 0).toFixed(1)}%`;
+                renderDailyUsage(payload.byDay);
+                renderRanks('topApiKeys', payload.topApiKeys, 'No API key usage yet');
+                renderRanks('topCustomers', payload.topCustomers, 'No authenticated usage yet');
+                renderCountryChart(payload.byCountry);
+            } catch (error) {
+                apiBadge.textContent = 'Unavailable';
+                apiBadge.dataset.state = 'error';
+                refreshStatus.textContent = 'Could not read analytics';
+                refreshStatus.dataset.state = 'error';
+                apiVersion.textContent = '—';
+                responseTime.textContent = '—';
+                accessMessage.textContent = `The analytics service could not be read. ${error.message}`;
+                accessMessage.hidden = false;
+            } finally {
+                checkedAt.textContent = new Intl.DateTimeFormat(undefined, {
+                    dateStyle: 'medium',
+                    timeStyle: 'short'
+                }).format(new Date());
+            }
+        }
+
+        loadAnalytics();
+    </script>
+</body>
+</html>

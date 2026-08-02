@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Completing your secure RenderPDF sign-in.">
     <title>RenderPDF | Completing sign-in</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
@@ -91,10 +92,12 @@
         } else if (idToken && accessToken) {
             localStorage.setItem('id_token', idToken);
             localStorage.setItem('access_token', accessToken);
+            const destination = localStorage.getItem('post_login_redirect') || '/app/';
+            localStorage.removeItem('post_login_redirect');
             callbackCard.dataset.state = 'success';
             statusTitle.textContent = 'Account verified';
             statusMessage.textContent = 'Opening your RenderPDF workspace now.';
-            window.setTimeout(() => window.location.replace('/app/'), 350);
+            window.setTimeout(() => window.location.replace(destination), 350);
         } else {
             showFailure('Invalid authentication response', 'The sign-in response did not include the required account tokens. Please start again.');
         }
