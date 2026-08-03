@@ -10,15 +10,23 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="/app/stats/style.css">
 </head>
 <body>
     <main>
         <header>
-            <a href="/" aria-label="RenderPDF home">RenderPDF</a>
-            <p aria-live="polite">
-                <span id="refreshStatus" data-state="pending">Checking access...</span>
-            </p>
+            <a class="stats-brand" href="/" aria-label="RenderPDF home">RenderPDF</a>
+            <div class="stats-header-actions">
+                <p aria-live="polite">
+                    <span id="refreshStatus" data-state="pending">Checking access...</span>
+                </p>
+                <nav class="stats-nav" aria-label="Primary navigation">
+                    <a href="/">Home</a>
+                    <a href="/app/">Dashboard</a>
+                    <a href="/docs/api/">API docs</a>
+                    <button id="logoutBtn" type="button">Sign out</button>
+                </nav>
+            </div>
         </header>
 
         <section aria-labelledby="stats-title">
@@ -143,7 +151,7 @@
         }
 
         function startSignIn() {
-            localStorage.setItem('post_login_redirect', '/stats/');
+            localStorage.setItem('post_login_redirect', '/app/stats');
             const authUrl = `${COGNITO_DOMAIN}/oauth2/authorize?` +
                 `client_id=${COGNITO_CLIENT_ID}&` +
                 'response_type=token&scope=email+openid+profile&' +
@@ -157,6 +165,13 @@
             if (!payload || (payload.exp && payload.exp * 1000 <= Date.now())) return '';
             return token;
         }
+
+        document.getElementById('logoutBtn').addEventListener('click', () => {
+            localStorage.removeItem('id_token');
+            localStorage.removeItem('access_token');
+            localStorage.removeItem('post_login_redirect');
+            window.location.assign('/app/login');
+        });
 
         function formatBytes(bytes) {
             if (!bytes) return '0 B';

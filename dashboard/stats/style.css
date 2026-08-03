@@ -51,7 +51,7 @@ header {
     border-bottom: 1px solid var(--line);
 }
 
-header a {
+.stats-brand {
     display: inline-flex;
     align-items: center;
     gap: 9px;
@@ -63,7 +63,7 @@ header a {
     text-transform: uppercase;
 }
 
-header a::before {
+.stats-brand::before {
     width: 9px;
     height: 9px;
     border-radius: 50%;
@@ -78,6 +78,36 @@ footer {
     color: var(--muted);
     font-family: var(--font-mono);
     font-size: .68rem;
+}
+
+.stats-header-actions,
+.stats-nav {
+    display: flex;
+    align-items: center;
+}
+
+.stats-header-actions { gap: 18px; }
+.stats-nav { flex-wrap: wrap; gap: 14px; }
+
+.stats-nav a,
+.stats-nav button {
+    border: 0;
+    padding: 0;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    font: inherit;
+    font-size: .78rem;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.stats-nav a:hover,
+.stats-nav a:focus-visible,
+.stats-nav button:hover,
+.stats-nav button:focus-visible {
+    color: var(--ink);
+    outline: none;
 }
 
 #refreshStatus {
@@ -301,7 +331,7 @@ footer {
 
 @media (max-width: 720px) {
     main { width: min(100% - 24px, 1180px); padding-top: 16px; }
-    header, footer { align-items: flex-start; flex-direction: column; gap: 10px; }
+    header, footer, .stats-header-actions { align-items: flex-start; flex-direction: column; gap: 10px; }
     main > section:first-of-type { padding: 48px 0 30px; }
     main > section:nth-of-type(2) { grid-template-columns: 1fr; }
     main > section:nth-of-type(2) article { min-height: 0; }

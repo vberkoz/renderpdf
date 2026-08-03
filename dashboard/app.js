@@ -182,6 +182,7 @@ function renderAccount() {
     const payload = decodeTokenPayload(localStorage.getItem('id_token'));
     const accountLabel = document.getElementById('accountLabel');
     accountLabel.textContent = payload?.email || 'RenderPDF developer';
+    document.getElementById('statsNav').hidden = payload?.email?.toLowerCase() !== 'vberkoz@gmail.com';
 }
 
 if (checkAuth()) {

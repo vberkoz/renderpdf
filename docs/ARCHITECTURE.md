@@ -48,7 +48,7 @@
 
 - Successful PDF requests write `PDF_REQUEST` records to the shared usage table.
 - The analytics Lambda writes `ANALYTICS` events to the same table with a 90-day TTL.
-- The `/stats/` page redirects through Cognito sign-in and reads aggregate data through `GET /api/v1/analytics`; the analytics Lambda permits only the configured stats email address.
+- The `/app/stats` page redirects through Cognito sign-in and reads aggregate data through `GET /api/v1/analytics`; the analytics Lambda permits only the configured stats email address.
 
 ## Source Of Truth
 

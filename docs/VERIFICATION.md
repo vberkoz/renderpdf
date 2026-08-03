@@ -117,7 +117,7 @@ cd /Users/basilsergius/projects/renderpdf/analytics && node --check index.js
 ```
 
 - Manual checks after deployment:
-  - open `/stats/` and sign in with the configured `StatsAllowedEmail` account
+  - open `/app/stats` and sign in with the configured `StatsAllowedEmail` account
   - confirm aggregate PDF requests and bytes load
   - confirm another Cognito account receives an access-denied response
   - refresh and confirm a `stats_view` event is saved
