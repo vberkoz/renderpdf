@@ -161,6 +161,7 @@
                             <div><code>X-Trial-Limit</code><span>Maximum successful trial renders per day.</span></div>
                             <div><code>X-Trial-Remaining</code><span>Successful renders remaining for the current UTC day.</span></div>
                         </div>
+                        <p class="section-copy">Use <code>GET /trial/quota</code> to read the remaining quota for the current source IP without generating a PDF. It returns <code>{"limit": 3, "remaining": 2}</code>.</p>
                     </section>
 
                     <section class="doc-section" id="response">

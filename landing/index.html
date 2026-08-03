@@ -123,8 +123,7 @@
         const quotaStatus = document.getElementById('quotaStatus');
         const quotaRemaining = document.getElementById('quotaRemaining');
         const quotaLabel = document.getElementById('quotaLabel');
-        const quotaStorageKey = 'renderpdf-trial-quota';
-        const utcDate = new Date().toISOString().slice(0, 10);
+        const QUOTA_URL = new URL('/api/v1/trial/quota', window.location.origin).toString();
 
         const displayQuota = (remaining) => {
             const value = Math.max(0, Number.parseInt(remaining, 10) || 0);
@@ -133,22 +132,20 @@
                 ? 'free PDF left today'
                 : 'free PDFs left today';
             quotaStatus.classList.toggle('quota-empty', value === 0);
+        };
 
+        const loadQuota = async () => {
             try {
-                localStorage.setItem(quotaStorageKey, JSON.stringify({ date: utcDate, remaining: value }));
+                const response = await fetch(QUOTA_URL, { cache: 'no-store' });
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const quota = await response.json();
+                displayQuota(quota.remaining);
             } catch (err) {
-                // Storage may be unavailable in privacy-focused browser modes.
+                quotaLabel.textContent = 'free PDFs left today';
             }
         };
 
-        try {
-            const savedQuota = JSON.parse(localStorage.getItem(quotaStorageKey));
-            if (savedQuota?.date === utcDate) {
-                displayQuota(savedQuota.remaining);
-            }
-        } catch (err) {
-            // Keep the default display when persisted quota data is unavailable.
-        }
+        loadQuota();
 
         form.addEventListener('submit', async (event) => {
             event.preventDefault();

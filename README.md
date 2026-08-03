@@ -51,6 +51,12 @@ curl -X POST https://renderpdf.vberkoz.com/api/v1/trial/generate \
   -d '{"html":"<h1>Hello World</h1>"}'
 ```
 
+Check the current IP-based trial quota without generating a PDF:
+
+```bash
+curl https://renderpdf.vberkoz.com/api/v1/trial/quota
+```
+
 For authenticated usage, create an API key in the dashboard:
 
 ```bash

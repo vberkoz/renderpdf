@@ -20,6 +20,7 @@ import (
 
 const (
 	trialResource          = "/api/v1/trial/generate"
+	trialQuotaResource     = "/api/v1/trial/quota"
 	defaultTrialDailyLimit = 3
 	defaultTrialMaxBytes   = 1024 * 1024
 	trialSecretKey         = "SYSTEM#TRIAL_HASH_SECRET"
@@ -48,6 +49,10 @@ type trialSlot struct {
 
 func isTrialRequest(request events.APIGatewayProxyRequest) bool {
 	return request.Resource == trialResource || request.Path == trialResource
+}
+
+func isTrialQuotaRequest(request events.APIGatewayProxyRequest) bool {
+	return request.Resource == trialQuotaResource || request.Path == trialQuotaResource
 }
 
 func trialModeOnly() bool {
@@ -178,6 +183,40 @@ func consumeTrialQuota(sourceIP string, now time.Time) (*trialQuota, error) {
 	count, err := strconv.Atoi(aws.StringValue(result.Attributes["requestCount"].N))
 	if err != nil {
 		return nil, fmt.Errorf("parse trial request count: %w", err)
+	}
+	return &trialQuota{Key: key, Limit: limit, Remaining: max(0, limit-count)}, nil
+}
+
+func currentTrialQuota(sourceIP string, now time.Time) (*trialQuota, error) {
+	if sourceIP == "" {
+		return nil, errors.New("source IP is unavailable")
+	}
+
+	secret, err := loadTrialSecret()
+	if err != nil {
+		return nil, fmt.Errorf("load trial secret: %w", err)
+	}
+
+	limit := trialDailyLimit()
+	key := trialQuotaKey(secret, sourceIP, now)
+	result, err := ddbClient.GetItem(&dynamodb.GetItemInput{
+		TableName:      aws.String(tableName),
+		ConsistentRead: aws.Bool(true),
+		Key: map[string]*dynamodb.AttributeValue{
+			"requestId": {S: aws.String(key)},
+			"timestamp": {N: aws.String("0")},
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	count := 0
+	if result.Item != nil && result.Item["requestCount"] != nil && result.Item["requestCount"].N != nil {
+		count, err = strconv.Atoi(*result.Item["requestCount"].N)
+		if err != nil {
+			return nil, fmt.Errorf("parse trial request count: %w", err)
+		}
 	}
 	return &trialQuota{Key: key, Limit: limit, Remaining: max(0, limit-count)}, nil
 }

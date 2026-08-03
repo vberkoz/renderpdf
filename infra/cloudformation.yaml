@@ -101,6 +101,17 @@ Resources:
           var uri = request.uri;
           if (uri.indexOf('/app/') !== 0) return request;
 
+          if (uri === '/app/stats/index.html') {
+            return {
+              statusCode: 301,
+              statusDescription: 'Moved Permanently',
+              headers: {
+                location: { value: '/app/stats' + querySuffix(request.querystring) },
+                'cache-control': { value: 'no-store' }
+              }
+            };
+          }
+
           if (uri.slice(-5) === '.html') {
             return {
               statusCode: 301,
@@ -115,9 +126,10 @@ Resources:
           var routes = {
             '/app/login': true,
             '/app/callback': true,
-            '/app/debug': true
+            '/app/debug': true,
+            '/app/stats': '/app/stats/index.html'
           };
-          if (routes[uri]) request.uri = uri + '.html';
+          if (routes[uri]) request.uri = routes[uri] === true ? uri + '.html' : routes[uri];
           return request;
         }
 
@@ -478,6 +490,13 @@ Resources:
       ParentId: !Ref TrialResource
       PathPart: generate
 
+  TrialQuotaResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestApi
+      ParentId: !Ref TrialResource
+      PathPart: quota
+
   ApiKeysResource:
     Type: AWS::ApiGateway::Resource
     Properties:
@@ -634,6 +653,18 @@ Resources:
         IntegrationHttpMethod: POST
         Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${TrialPdfFunction.Arn}/invocations'
 
+  TrialQuotaGetMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref TrialQuotaResource
+      HttpMethod: GET
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${TrialPdfFunction.Arn}/invocations'
+
   ApiAuthorizer:
     Type: AWS::ApiGateway::Authorizer
     Properties:
@@ -763,7 +794,7 @@ Resources:
 
   # API Gateway deployments are immutable snapshots. Bump this logical ID when
   # routes or methods change so CloudFormation publishes them to the prod stage.
-  ApiDeploymentV7:
+  ApiDeploymentV8:
     Type: AWS::ApiGateway::Deployment
     DependsOn:
       - ApiRootGetMethod
@@ -773,6 +804,8 @@ Resources:
       - GenerateOptionsMethod
       - TrialGenerateMethod
       - TrialGenerateOptionsMethod
+      - TrialQuotaResource
+      - TrialQuotaGetMethod
       - ApiKeysOptionsMethod
       - ApiKeysPostMethod
       - ApiKeysGetMethod
@@ -800,6 +833,14 @@ Resources:
       Action: lambda:InvokeFunction
       Principal: apigateway.amazonaws.com
       SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/*/POST/api/v1/trial/generate'
+
+  TrialQuotaLambdaApiPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref TrialPdfFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/*/GET/api/v1/trial/quota'
 
   LambdaAuthorizerPermission:
     Type: AWS::Lambda::Permission

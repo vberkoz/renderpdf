@@ -79,8 +79,19 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		"Content-Type":                  "application/json",
 		"Access-Control-Allow-Origin":   "*",
 		"Access-Control-Allow-Headers":  "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token",
-		"Access-Control-Allow-Methods":  "POST,OPTIONS",
+		"Access-Control-Allow-Methods":  "GET,POST,OPTIONS",
 		"Access-Control-Expose-Headers": "X-Trial-Limit,X-Trial-Remaining",
+	}
+	if isTrialQuotaRequest(request) {
+		quota, err := currentTrialQuota(trialViewerIP(request), time.Now().UTC())
+		if err != nil {
+			fmt.Printf("Trial quota lookup failed: %v\n", err)
+			return errorResponse(503, "Trial quota is temporarily unavailable", corsHeaders), nil
+		}
+		corsHeaders["X-Trial-Limit"] = fmt.Sprintf("%d", quota.Limit)
+		corsHeaders["X-Trial-Remaining"] = fmt.Sprintf("%d", quota.Remaining)
+		body, _ := json.Marshal(map[string]int{"limit": quota.Limit, "remaining": quota.Remaining})
+		return events.APIGatewayProxyResponse{StatusCode: 200, Body: string(body), Headers: corsHeaders}, nil
 	}
 	isTrial := isTrialRequest(request)
 	plan := "api"
