@@ -50,6 +50,18 @@
 - The analytics Lambda writes `ANALYTICS` events to the same table with a 90-day TTL.
 - The `/app/stats` page redirects through Cognito sign-in and reads aggregate data through `GET /api/v1/analytics`; the analytics Lambda permits only the configured stats email address.
 
+### Customer Dashboard and Billing Flow
+
+- `/app/` calls `GET /api/v1/dashboard` with its Cognito ID token and receives
+  only that user's request counts, quota, billing state, and recent request logs.
+- The PDF Lambda reserves one monthly quota unit atomically before an
+  authenticated render; failed renders release that unit.
+- `POST /api/v1/billing/checkout` creates a Paddle checkout transaction with
+  the Cognito user ID as transaction custom data.
+- Paddle sends signed subscription webhooks to
+  `/api/v1/billing/webhook`; the analytics Lambda verifies the signature and
+  stores the account's subscription status.
+
 ## Source Of Truth
 
 - Infra:

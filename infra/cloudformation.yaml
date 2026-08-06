@@ -26,6 +26,64 @@ Parameters:
     Type: String
     Default: vberkoz@gmail.com
     Description: Cognito email address permitted to view private statistics
+  PaddleApiKey:
+    Type: String
+    NoEcho: true
+    Default: ''
+    Description: Paddle API key used to create checkout transactions and portal sessions
+  PaddleApiBase:
+    Type: String
+    Default: https://api.paddle.com
+    Description: Paddle API base URL; use https://sandbox-api.paddle.com for Sandbox
+  PaddleClientToken:
+    Type: String
+    NoEcho: true
+    Default: ''
+    Description: Paddle client-side token used by the RenderPDF dashboard checkout overlay
+  PaddleEnvironment:
+    Type: String
+    Default: production
+    AllowedValues:
+      - sandbox
+      - production
+    Description: Paddle environment used by the dashboard checkout overlay
+  PaddleStarterPriceId:
+    Type: String
+    Default: ''
+    Description: Paddle recurring Starter price ID
+  PaddleProPriceId:
+    Type: String
+    Default: ''
+    Description: Paddle recurring Pro price ID
+  PaddleBusinessPriceId:
+    Type: String
+    Default: ''
+    Description: Paddle recurring Business price ID
+  PaddleCheckoutUrl:
+    Type: String
+    Default: 'https://renderpdf.vberkoz.com/app/'
+    Description: Approved RenderPDF URL used for Paddle checkout payment links
+  PaddleWebhookSecret:
+    Type: String
+    NoEcho: true
+    Default: ''
+    Description: Notification destination secret configured for Paddle billing webhooks
+  FreeMonthlyQuota:
+    Type: Number
+    Default: 100
+    Description: Monthly successful-PDF allowance shown to free accounts
+  StarterMonthlyQuota:
+    Type: Number
+    Default: 1000
+    Description: Monthly successful-PDF allowance for Starter accounts
+  ProMonthlyQuota:
+    Type: Number
+    Default: 10000
+    Description: Monthly successful-PDF allowance for Pro accounts
+  BusinessMonthlyQuota:
+    Type: Number
+    Default: 100000
+    Description: Monthly successful-PDF allowance for Business accounts
 
 Resources:
   WebsiteBucket:
@@ -392,6 +450,10 @@ Resources:
         Variables:
           BUCKET_NAME: !Ref PdfBucket
           TABLE_NAME: !Ref UsageTable
+          FREE_MONTHLY_QUOTA: !Ref FreeMonthlyQuota
+          STARTER_MONTHLY_QUOTA: !Ref StarterMonthlyQuota
+          PRO_MONTHLY_QUOTA: !Ref ProMonthlyQuota
+          BUSINESS_MONTHLY_QUOTA: !Ref BusinessMonthlyQuota
 
   TrialPdfFunction:
     Type: AWS::Lambda::Function
@@ -462,6 +524,19 @@ Resources:
         Variables:
           TABLE_NAME: !Ref UsageTable
           STATS_ALLOWED_EMAIL: !Ref StatsAllowedEmail
+          PADDLE_API_KEY: !Ref PaddleApiKey
+          PADDLE_API_BASE: !Ref PaddleApiBase
+          PADDLE_CLIENT_TOKEN: !Ref PaddleClientToken
+          PADDLE_ENVIRONMENT: !Ref PaddleEnvironment
+          PADDLE_STARTER_PRICE_ID: !Ref PaddleStarterPriceId
+          PADDLE_PRO_PRICE_ID: !Ref PaddleProPriceId
+          PADDLE_BUSINESS_PRICE_ID: !Ref PaddleBusinessPriceId
+          PADDLE_CHECKOUT_URL: !Ref PaddleCheckoutUrl
+          PADDLE_WEBHOOK_SECRET: !Ref PaddleWebhookSecret
+          FREE_MONTHLY_QUOTA: !Ref FreeMonthlyQuota
+          STARTER_MONTHLY_QUOTA: !Ref StarterMonthlyQuota
+          PRO_MONTHLY_QUOTA: !Ref ProMonthlyQuota
+          BUSINESS_MONTHLY_QUOTA: !Ref BusinessMonthlyQuota
 
   RestApi:
     Type: AWS::ApiGateway::RestApi
@@ -517,6 +592,41 @@ Resources:
       RestApiId: !Ref RestApi
       ParentId: !Ref ApiV1Resource
       PathPart: analytics
+
+  DashboardResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestApi
+      ParentId: !Ref ApiV1Resource
+      PathPart: dashboard
+
+  BillingResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestApi
+      ParentId: !Ref ApiV1Resource
+      PathPart: billing
+
+  BillingCheckoutResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestApi
+      ParentId: !Ref BillingResource
+      PathPart: checkout
+
+  BillingPortalResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestApi
+      ParentId: !Ref BillingResource
+      PathPart: portal
+
+  BillingWebhookResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestApi
+      ParentId: !Ref BillingResource
+      PathPart: webhook
 
   ApiResource:
     Type: AWS::ApiGateway::Resource
@@ -838,9 +948,60 @@ Resources:
         IntegrationHttpMethod: POST
         Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AnalyticsFunction.Arn}/invocations'
 
+  DashboardGetMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref DashboardResource
+      HttpMethod: GET
+      AuthorizationType: COGNITO_USER_POOLS
+      AuthorizerId: !Ref CognitoAuthorizer
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AnalyticsFunction.Arn}/invocations'
+
+  BillingCheckoutPostMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref BillingCheckoutResource
+      HttpMethod: POST
+      AuthorizationType: COGNITO_USER_POOLS
+      AuthorizerId: !Ref CognitoAuthorizer
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AnalyticsFunction.Arn}/invocations'
+
+  BillingPortalPostMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref BillingPortalResource
+      HttpMethod: POST
+      AuthorizationType: COGNITO_USER_POOLS
+      AuthorizerId: !Ref CognitoAuthorizer
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AnalyticsFunction.Arn}/invocations'
+
+  BillingWebhookPostMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref BillingWebhookResource
+      HttpMethod: POST
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AnalyticsFunction.Arn}/invocations'
+
   # API Gateway deployments are immutable snapshots. Bump this logical ID when
   # routes or methods change so CloudFormation publishes them to the prod stage.
-  ApiDeploymentV9:
+  ApiDeploymentV10:
     Type: AWS::ApiGateway::Deployment
     DependsOn:
       - ApiRootGetMethod
@@ -862,6 +1023,10 @@ Resources:
       - AnalyticsOptionsMethod
       - AnalyticsGetMethod
       - AnalyticsPostMethod
+      - DashboardGetMethod
+      - BillingCheckoutPostMethod
+      - BillingPortalPostMethod
+      - BillingWebhookPostMethod
     Properties:
       RestApiId: !Ref RestApi
       StageName: prod

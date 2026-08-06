@@ -190,6 +190,20 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		corsHeaders["X-Trial-Limit"] = fmt.Sprintf("%d", quota.Limit)
 		corsHeaders["X-Trial-Remaining"] = fmt.Sprintf("%d", quota.Remaining)
 	}
+	var reservedAccountQuota *accountQuota
+	if !isTrial {
+		reservedQuota, quotaErr := reserveAccountQuota(analytics.CustomerID, time.Now().UTC())
+		if quotaErr != nil {
+			if errors.Is(quotaErr, errAccountQuotaExceeded) {
+				analytics.ErrorType = "rate_limit"
+				return errorResponse(429, "Monthly PDF quota reached", corsHeaders), nil
+			}
+			analytics.ErrorType = "quota"
+			fmt.Printf("Account quota error: %v\n", quotaErr)
+			return errorResponse(503, "Account quota is temporarily unavailable", corsHeaders), nil
+		}
+		reservedAccountQuota = reservedQuota
+	}
 
 	renderStartedAt := time.Now()
 	var pdfBytes []byte
@@ -212,6 +226,7 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 			analytics.ErrorType = "render"
 		}
 		refundTrialQuota(quota)
+		refundAccountQuota(reservedAccountQuota)
 		restoreTrialRemainingHeader(quota, corsHeaders)
 		return errorResponse(500, err.Error(), corsHeaders), nil
 	}
@@ -225,6 +240,7 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 	if err != nil {
 		analytics.ErrorType = "storage"
 		refundTrialQuota(quota)
+		refundAccountQuota(reservedAccountQuota)
 		restoreTrialRemainingHeader(quota, corsHeaders)
 		return errorResponse(500, err.Error(), corsHeaders), nil
 	}
