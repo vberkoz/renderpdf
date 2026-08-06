@@ -66,6 +66,19 @@ curl -X POST https://renderpdf.vberkoz.com/api/v1/generate \
   -d '{"html":"<h1>Hello World</h1>"}'
 ```
 
+### Render a public webpage
+
+The authenticated URL renderer navigates Chromium to a public HTTP(S) URL, preserving its original context for relative assets and client-side rendering:
+
+```bash
+curl -X POST https://renderpdf.vberkoz.com/api/v1/render-url \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: YOUR_API_KEY" \
+  -d '{"url":"https://example.com/invoice"}'
+```
+
+Only public HTTP(S) targets on ports 80 and 443 are accepted. Pages requiring a login or blocking automated browsers may not render successfully.
+
 ### Response
 
 ```json
