@@ -28,11 +28,11 @@ test_html() {
   echo -n "Testing $name... "
 
   start=$(date +%s)
-  response=$(curl -s -X POST "$API_URL/generate" \
+  response=$(curl -s -X POST "$API_URL/render" \
     -H "Content-Type: application/json" \
     -d "{\"html\":\"$html\"}")
 
-  http_code=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$API_URL/generate" \
+  http_code=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$API_URL/render" \
     -H "Content-Type: application/json" \
     -d "{\"html\":\"$html\"}")
 
@@ -72,13 +72,13 @@ test_html "Complex HTML" "<!DOCTYPE html><html><head><style>body{font-family:Ari
 if [ -f "${EXAMPLES_DIR}/invoice.html" ]; then
   echo -n "Testing Invoice Example... "
   start=$(date +%s)
-  response=$(curl -s -X POST "$API_URL/generate" \
+  response=$(curl -s -X POST "$API_URL/render" \
     -H "Content-Type: application/json" \
     --data-binary @- <<EOF
 {"html":$(jq -Rs . < "${EXAMPLES_DIR}/invoice.html")}
 EOF
 )
-  http_code=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$API_URL/generate" \
+  http_code=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$API_URL/render" \
     -H "Content-Type: application/json" \
     --data-binary @- <<EOF
 {"html":$(jq -Rs . < "${EXAMPLES_DIR}/invoice.html")}
@@ -98,13 +98,13 @@ fi
 if [ -f "${EXAMPLES_DIR}/report.html" ]; then
   echo -n "Testing Report Example... "
   start=$(date +%s)
-  response=$(curl -s -X POST "$API_URL/generate" \
+  response=$(curl -s -X POST "$API_URL/render" \
     -H "Content-Type: application/json" \
     --data-binary @- <<EOF
 {"html":$(jq -Rs . < "${EXAMPLES_DIR}/report.html")}
 EOF
 )
-  http_code=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$API_URL/generate" \
+  http_code=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$API_URL/render" \
     -H "Content-Type: application/json" \
     --data-binary @- <<EOF
 {"html":$(jq -Rs . < "${EXAMPLES_DIR}/report.html")}

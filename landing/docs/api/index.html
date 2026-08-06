@@ -48,7 +48,7 @@
                     <nav aria-label="Documentation sections">
                         <a href="#quick-start">Quick start</a>
                         <a href="#authentication">Authentication</a>
-                        <a href="#generate">Generate PDF</a>
+                        <a href="#render">Render PDF</a>
                         <a href="#render-url">Render URL</a>
                         <a href="#examples">Language examples</a>
                         <a href="#trial">Anonymous trial</a>
@@ -117,13 +117,13 @@
                         <p class="section-footnote">Do not expose production API keys in client-side code or public repositories.</p>
                     </section>
 
-                    <section class="doc-section endpoint-section" id="generate">
+                    <section class="doc-section endpoint-section" id="render">
                         <div class="endpoint-heading">
                             <div>
                                 <p class="eyebrow">03 / Endpoint</p>
-                                <h2>Generate PDF</h2>
+                                <h2>Render PDF</h2>
                             </div>
-                            <div class="route"><span class="method">POST</span><code>/generate</code></div>
+                            <div class="route"><span class="method">POST</span><code>/render</code></div>
                         </div>
                         <p class="section-copy">Renders the supplied HTML with headless Chromium, uploads the PDF, and returns its download URL.</p>
 
@@ -140,7 +140,7 @@
                                 <span>cURL</span>
                                 <button type="button" class="copy-button" data-copy-target="generate-code">Copy</button>
                             </div>
-                            <pre id="generate-code"><code class="language-bash">curl -X POST https://renderpdf.vberkoz.com/api/v1/generate \
+                            <pre id="generate-code"><code class="language-bash">curl -X POST https://renderpdf.vberkoz.com/api/v1/render \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -d '{"html":"&lt;main&gt;&lt;h1&gt;Invoice #1042&lt;/h1&gt;&lt;/main&gt;"}'</code></pre>
@@ -184,7 +184,7 @@
 
                         <div class="code-block">
                             <div class="code-header"><span>Node.js 18+</span><button type="button" class="copy-button" data-copy-target="node-example-code">Copy</button></div>
-                            <pre id="node-example-code"><code class="language-javascript">const response = await fetch("https://renderpdf.vberkoz.com/api/v1/generate", {
+                            <pre id="node-example-code"><code class="language-javascript">const response = await fetch("https://renderpdf.vberkoz.com/api/v1/render", {
   method: "POST",
   headers: {
     "Content-Type": "application/json",
@@ -207,7 +207,7 @@ console.log(payload.url);</code></pre>
 import requests
 
 response = requests.post(
-    "https://renderpdf.vberkoz.com/api/v1/generate",
+    "https://renderpdf.vberkoz.com/api/v1/render",
     headers={"Authorization": f"Bearer {os.environ['RENDERPDF_API_KEY']}"},
     json={"html": "&lt;h1&gt;Hello World&lt;/h1&gt;"},
 )
@@ -242,7 +242,7 @@ type apiResponse struct {
 
 func main() {
     body, _ := json.Marshal(map[string]string{"html": "&lt;h1&gt;Hello World&lt;/h1&gt;"})
-    request, err := http.NewRequest(http.MethodPost, "https://renderpdf.vberkoz.com/api/v1/generate", bytes.NewReader(body))
+    request, err := http.NewRequest(http.MethodPost, "https://renderpdf.vberkoz.com/api/v1/render", bytes.NewReader(body))
     if err != nil { log.Fatal(err) }
     request.Header.Set("Content-Type", "application/json")
     request.Header.Set("Authorization", "Bearer "+os.Getenv("RENDERPDF_API_KEY"))
@@ -267,7 +267,7 @@ func main() {
 using System.Text.Json;
 
 using var client = new HttpClient();
-using var request = new HttpRequestMessage(HttpMethod.Post, "https://renderpdf.vberkoz.com/api/v1/generate")
+using var request = new HttpRequestMessage(HttpMethod.Post, "https://renderpdf.vberkoz.com/api/v1/render")
 {
     Content = JsonContent.Create(new { html = "&lt;h1&gt;Hello World&lt;/h1&gt;" })
 };
@@ -297,7 +297,7 @@ import java.net.http.HttpResponse;
 
 public class RenderPdf {
     public static void main(String[] args) throws Exception {
-        var request = HttpRequest.newBuilder(URI.create("https://renderpdf.vberkoz.com/api/v1/generate"))
+        var request = HttpRequest.newBuilder(URI.create("https://renderpdf.vberkoz.com/api/v1/render"))
             .header("Content-Type", "application/json")
             .header("Authorization", "Bearer " + System.getenv("RENDERPDF_API_KEY"))
             .POST(HttpRequest.BodyPublishers.ofString("{\"html\":\"&lt;h1&gt;Hello World&lt;/h1&gt;\"}"))

@@ -60,7 +60,7 @@ curl https://renderpdf.vberkoz.com/api/v1/trial/quota
 For authenticated usage, create an API key in the dashboard:
 
 ```bash
-curl -X POST https://renderpdf.vberkoz.com/api/v1/generate \
+curl -X POST https://renderpdf.vberkoz.com/api/v1/render \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -d '{"html":"<h1>Hello World</h1>"}'

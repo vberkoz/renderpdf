@@ -28,7 +28,7 @@
 
 ## Implementation Task
 
-1. Preserve the current request/response contract for `/generate`.
+1. Preserve the current request/response contract for `/render`.
 2. Prefer fixing or extending existing code in `api/main.go` over creating alternate entrypoints.
 3. Keep Chrome/runtime assumptions aligned with the Docker image.
 4. Do not add undocumented local-only test binaries unless the task explicitly requires them.

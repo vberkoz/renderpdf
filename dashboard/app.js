@@ -128,7 +128,7 @@ async function openPaddleCheckout(checkout) {
 }
 
 function testPdfGeneration(html, apiKey) {
-    return apiRequest('/generate', {
+    return apiRequest('/render', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',

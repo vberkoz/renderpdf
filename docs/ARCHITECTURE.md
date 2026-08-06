@@ -25,7 +25,7 @@
 ### Public Demo Flow
 
 - Browser loads `/Users/basilsergius/projects/renderpdf/landing/index.html` through `https://renderpdf.vberkoz.com/`.
-- Page posts HTML to `https://renderpdf.vberkoz.com/api/v1/generate`.
+- Page posts HTML to `https://renderpdf.vberkoz.com/api/v1/render`.
 - `api/main.go` renders PDF and uploads to S3.
 - API returns a download URL and file metadata.
 
@@ -40,7 +40,7 @@
 ### API Key Flow
 
 - Dashboard creates a key through the API-key Lambda.
-- Client uses the returned key against `/api/v1/generate`.
+- Client uses the returned key against `/api/v1/render`.
 - Authorizer Lambda validates the Bearer API key against DynamoDB.
 - Main API Lambda processes the request only if authorization passes.
 
