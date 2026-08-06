@@ -1350,6 +1350,70 @@ textarea {
     display: none;
 }
 
+.overview-panel,
+.billing-panel,
+.logs-panel {
+    grid-column: 1 / -1;
+}
+
+.dashboard-metrics {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.dashboard-metrics > div {
+    padding: 18px;
+    border: 1px solid var(--dashboard-border);
+    border-radius: 12px;
+    background: #fff;
+}
+
+.dashboard-metrics span,
+.dashboard-metrics small,
+.log-item span {
+    display: block;
+    color: var(--dashboard-muted);
+    font-size: 0.82rem;
+}
+
+.dashboard-metrics strong {
+    display: block;
+    margin: 6px 0 2px;
+    font-size: 1.8rem;
+}
+
+.billing-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.logs-list {
+    display: grid;
+    gap: 8px;
+}
+
+.log-item {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    align-items: center;
+    padding: 13px 0;
+    border-top: 1px solid var(--dashboard-border);
+}
+
+.log-item:first-child { border-top: 0; }
+.log-item strong { display: block; margin-bottom: 3px; }
+.log-item.is-success > span { color: #27734c; }
+.log-item.is-error > span { color: var(--dashboard-error); }
+
+@media (max-width: 700px) {
+    .dashboard-metrics { grid-template-columns: 1fr; }
+    .billing-actions { width: 100%; }
+    .billing-actions button { flex: 1; }
+}
+
 .callback-card[data-state="success"] .callback-indicator {
     border-color: #b8ddc5;
     background: #edf8f1;

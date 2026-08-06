@@ -45,10 +45,42 @@
             </section>
 
             <section class="dashboard-workspace" aria-label="RenderPDF workspace">
+                <article class="workspace-panel overview-panel">
+                    <header class="panel-header panel-header-compact">
+                        <div>
+                            <p class="panel-kicker">01 / Usage</p>
+                            <h2>Your PDF activity</h2>
+                            <p>Usage is calculated in UTC and resets on the first day of each month.</p>
+                        </div>
+                    </header>
+                    <div class="dashboard-metrics">
+                        <div><span>PDFs today</span><strong id="pdfsToday">—</strong></div>
+                        <div><span>Failed today</span><strong id="failedToday">—</strong></div>
+                        <div><span>Quota remaining</span><strong id="quotaRemaining">—</strong><small id="quotaDetail"></small></div>
+                    </div>
+                </article>
+
+                <article class="workspace-panel billing-panel">
+                    <header class="panel-header panel-header-compact">
+                        <div>
+                            <p class="panel-kicker">02 / Billing</p>
+                            <h2 id="billingPlan">Free</h2>
+                            <p id="billingDetail">Upgrade when you need more monthly PDF capacity.</p>
+                        </div>
+                        <div class="billing-actions">
+                            <button class="dashboard-button dashboard-button-secondary" type="button" data-plan="starter">Starter · $19</button>
+                            <button class="dashboard-button dashboard-button-primary" type="button" data-plan="pro">Pro · $49</button>
+                            <button class="dashboard-button dashboard-button-secondary" type="button" data-plan="business">Business · $199</button>
+                            <button id="manageBillingBtn" class="dashboard-button dashboard-button-secondary" type="button" hidden>Manage billing</button>
+                        </div>
+                    </header>
+                    <div id="billingStatus" class="dashboard-notice" role="status" aria-live="polite" hidden></div>
+                </article>
+
                 <article class="workspace-panel keys-panel">
                     <header class="panel-header">
                         <div>
-                            <p class="panel-kicker">01 / Credentials</p>
+                            <p class="panel-kicker">03 / Credentials</p>
                             <h2>API keys</h2>
                             <p>Create credentials for server-side PDF generation. Revoked keys stop working immediately.</p>
                         </div>
@@ -84,7 +116,7 @@
                 <article class="workspace-panel test-panel">
                     <header class="panel-header panel-header-compact">
                         <div>
-                            <p class="panel-kicker">02 / Live request</p>
+                            <p class="panel-kicker">04 / Live request</p>
                             <h2>Test the renderer</h2>
                             <p>Send HTML through the authenticated production endpoint.</p>
                         </div>
@@ -114,6 +146,17 @@
                     </form>
 
                     <div id="testResult" class="dashboard-result" role="status" aria-live="polite" hidden></div>
+                </article>
+
+                <article class="workspace-panel logs-panel">
+                    <header class="panel-header panel-header-compact">
+                        <div>
+                            <p class="panel-kicker">05 / Logs</p>
+                            <h2>Recent requests</h2>
+                            <p>Latest 25 authenticated render attempts. Request content is never stored here.</p>
+                        </div>
+                    </header>
+                    <div id="logsList" class="logs-list" aria-live="polite"><p class="empty-state">Loading recent requests...</p></div>
                 </article>
             </section>
         </main>

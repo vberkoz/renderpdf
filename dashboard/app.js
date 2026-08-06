@@ -80,6 +80,53 @@ function deleteKey(keyId) {
     });
 }
 
+function loadDashboard() {
+    return apiRequest('/dashboard', { headers: authHeaders() });
+}
+
+function startCheckout(plan) {
+    return apiRequest('/billing/checkout', {
+        method: 'POST', headers: authHeaders(), body: JSON.stringify({ plan })
+    });
+}
+
+function openBillingPortal() {
+    return apiRequest('/billing/portal', { method: 'POST', headers: authHeaders() });
+}
+
+let paddleInitialized = false;
+
+function loadPaddleScript() {
+    if (window.Paddle) return Promise.resolve(window.Paddle);
+    return new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = 'https://cdn.paddle.com/paddle/v2/paddle.js';
+        script.async = true;
+        script.onload = () => resolve(window.Paddle);
+        script.onerror = () => reject(new Error('Could not load Paddle Checkout'));
+        document.head.appendChild(script);
+    });
+}
+
+async function openPaddleCheckout(checkout) {
+    const Paddle = await loadPaddleScript();
+    if (!Paddle || !checkout.clientToken || !checkout.transactionId) throw new Error('Paddle Checkout is unavailable');
+    if (!paddleInitialized) {
+        if (checkout.environment === 'sandbox') Paddle.Environment.set('sandbox');
+        Paddle.Initialize({
+            token: checkout.clientToken,
+            eventCallback(event) {
+                if (event?.name === 'checkout.completed') {
+                    window.setTimeout(refreshDashboard, 1500);
+                    window.setTimeout(refreshDashboard, 5000);
+                }
+            }
+        });
+        paddleInitialized = true;
+    }
+    Paddle.Checkout.open({ transactionId: checkout.transactionId, settings: { displayMode: 'overlay', theme: 'light' } });
+}
+
 function testPdfGeneration(html, apiKey) {
     return apiRequest('/generate', {
         method: 'POST',
@@ -185,6 +232,61 @@ function renderAccount() {
     document.getElementById('statsNav').hidden = payload?.email?.toLowerCase() !== 'vberkoz@gmail.com';
 }
 
+function formatLogDate(timestamp) {
+    if (!timestamp) return 'Unknown time';
+    return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(timestamp * 1000));
+}
+
+function renderLogs(logs) {
+    const container = document.getElementById('logsList');
+    container.replaceChildren();
+    if (!logs?.length) {
+        container.innerHTML = '<p class="empty-state">No authenticated PDF requests yet.</p>';
+        return;
+    }
+    logs.forEach((log) => {
+        const item = document.createElement('div');
+        item.className = `log-item ${log.status === 'success' ? 'is-success' : 'is-error'}`;
+        const main = document.createElement('div');
+        const title = document.createElement('strong');
+        title.textContent = log.status === 'success' ? 'PDF generated' : 'PDF failed';
+        const details = document.createElement('span');
+        details.textContent = `${formatLogDate(log.timestamp)} · ${log.apiKeyId ? `key ${log.apiKeyId.slice(0, 8)}` : 'account request'}`;
+        main.append(title, details);
+        const meta = document.createElement('span');
+        meta.textContent = log.status === 'success' ? `${(log.size / 1024).toFixed(1)} KB` : (log.errorType || log.status);
+        item.append(main, meta);
+        container.appendChild(item);
+    });
+}
+
+function renderDashboard(data) {
+    const usage = data.usage || {};
+    const billing = data.billing || { status: 'free', plan: 'Free' };
+    document.getElementById('pdfsToday').textContent = String(usage.pdfsToday ?? 0);
+    document.getElementById('failedToday').textContent = String(usage.failedToday ?? 0);
+    document.getElementById('quotaRemaining').textContent = String(usage.remaining ?? 0);
+    document.getElementById('quotaDetail').textContent = `${usage.usedThisMonth ?? 0} of ${usage.quota ?? 0} PDFs used this month`;
+    document.getElementById('billingPlan').textContent = billing.plan || 'Free';
+    document.getElementById('billingDetail').textContent = billing.status === 'free'
+        ? 'Upgrade for more monthly PDF capacity.'
+        : `${billing.status.replace(/_/g, ' ')}${billing.renewsAt ? ` · renews ${new Date(billing.renewsAt).toLocaleDateString()}` : ''}`;
+    const subscribed = ['active', 'trialing', 'past_due'].includes(billing.status);
+    document.querySelectorAll('[data-plan]').forEach((button) => { button.hidden = subscribed; });
+    document.getElementById('manageBillingBtn').hidden = !subscribed;
+    renderLogs(data.logs);
+}
+
+async function refreshDashboard() {
+    const billingStatus = document.getElementById('billingStatus');
+    try {
+        renderDashboard(await loadDashboard());
+        setNotice(billingStatus);
+    } catch (error) {
+        setNotice(billingStatus, `Could not load dashboard data. ${error.message}`, 'error');
+    }
+}
+
 if (checkAuth()) {
     const generateButton = document.getElementById('generateKeyBtn');
     const copyButton = document.getElementById('copyKeyBtn');
@@ -201,6 +303,33 @@ if (checkAuth()) {
     } else {
         loadKeys();
     }
+    if (!IS_LOCAL_PREVIEW) refreshDashboard();
+
+    document.querySelectorAll('[data-plan]').forEach((button) => button.addEventListener('click', async () => {
+        const billingStatus = document.getElementById('billingStatus');
+        setButtonPending(button, true, 'Opening checkout...');
+        try {
+            const data = await startCheckout(button.dataset.plan);
+            await openPaddleCheckout(data);
+            setButtonPending(button, false);
+        } catch (error) {
+            setNotice(billingStatus, `Could not start checkout. ${error.message}`, 'error');
+            setButtonPending(button, false);
+        }
+    }));
+
+    document.getElementById('manageBillingBtn').addEventListener('click', async () => {
+        const button = document.getElementById('manageBillingBtn');
+        const billingStatus = document.getElementById('billingStatus');
+        setButtonPending(button, true, 'Opening billing...');
+        try {
+            const data = await openBillingPortal();
+            window.location.assign(data.url);
+        } catch (error) {
+            setNotice(billingStatus, `Could not open billing. ${error.message}`, 'error');
+            setButtonPending(button, false);
+        }
+    });
 
     generateButton.addEventListener('click', async () => {
         setButtonPending(generateButton, true, 'Creating key...');
