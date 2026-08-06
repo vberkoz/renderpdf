@@ -12,7 +12,7 @@
   - Go Lambda that converts posted HTML into PDF.
   - Stores PDFs in S3 and writes usage records to DynamoDB.
 - `auth/`
-  - Go Lambda authorizer for `x-api-key`.
+  - Go Lambda authorizer for API keys sent as `Authorization: Bearer <key>`.
   - Go Lambda for authenticated API-key management.
 - `analytics/`
   - Node.js Lambda for authenticated analytics event writes and aggregate reads.
@@ -41,7 +41,7 @@
 
 - Dashboard creates a key through the API-key Lambda.
 - Client uses the returned key against `/api/v1/generate`.
-- Authorizer Lambda validates `x-api-key` against DynamoDB.
+- Authorizer Lambda validates the Bearer API key against DynamoDB.
 - Main API Lambda processes the request only if authorization passes.
 
 ### Analytics Flow

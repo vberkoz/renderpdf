@@ -23,7 +23,7 @@ var (
 )
 
 func handler(ctx context.Context, event events.APIGatewayCustomAuthorizerRequestTypeRequest) (events.APIGatewayCustomAuthorizerResponse, error) {
-	apiKey := headerValue(event.Headers, "x-api-key")
+	apiKey := bearerToken(event.Headers)
 	if apiKey == "" {
 		return generatePolicy("", "Deny", event.MethodArn), nil
 	}
@@ -79,6 +79,15 @@ func headerValue(headers map[string]string, name string) string {
 		}
 	}
 	return ""
+}
+
+func bearerToken(headers map[string]string) string {
+	value := strings.TrimSpace(headerValue(headers, "Authorization"))
+	parts := strings.Fields(value)
+	if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
+		return ""
+	}
+	return parts[1]
 }
 
 func generatePolicy(principalID, effect, resource string) events.APIGatewayCustomAuthorizerResponse {

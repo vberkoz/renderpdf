@@ -100,19 +100,19 @@
                         <div class="section-heading">
                             <p class="eyebrow">02 / Access</p>
                             <h2>Authentication</h2>
-                            <p>The production generate endpoint requires an API key in the <code>x-api-key</code> request header.</p>
+                            <p>The production endpoints require an API key in the <code>Authorization: Bearer</code> request header.</p>
                         </div>
                         <div class="property-row">
-                            <code>x-api-key</code>
+                            <code>Authorization</code>
                             <span class="required">required</span>
-                            <p>Your active RenderPDF API key.</p>
+                            <p><code>Bearer</code> followed by your active RenderPDF API key, for example <code>sk_live_...</code>.</p>
                         </div>
                         <div class="code-block compact">
                             <div class="code-header">
                                 <span>Header</span>
                                 <button type="button" class="copy-button" data-copy-target="auth-code">Copy</button>
                             </div>
-                            <pre id="auth-code"><code class="language-http">x-api-key: YOUR_API_KEY</code></pre>
+                            <pre id="auth-code"><code class="language-http">Authorization: Bearer YOUR_API_KEY</code></pre>
                         </div>
                         <p class="section-footnote">Do not expose production API keys in client-side code or public repositories.</p>
                     </section>
@@ -142,7 +142,7 @@
                             </div>
                             <pre id="generate-code"><code class="language-bash">curl -X POST https://renderpdf.vberkoz.com/api/v1/generate \
   -H "Content-Type: application/json" \
-  -H "x-api-key: YOUR_API_KEY" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
   -d '{"html":"&lt;main&gt;&lt;h1&gt;Invoice #1042&lt;/h1&gt;&lt;/main&gt;"}'</code></pre>
                         </div>
                     </section>
@@ -166,7 +166,7 @@
                             <div class="code-header"><span>cURL</span><button type="button" class="copy-button" data-copy-target="render-url-code">Copy</button></div>
                             <pre id="render-url-code"><code class="language-bash">curl -X POST https://renderpdf.vberkoz.com/api/v1/render-url \
   -H "Content-Type: application/json" \
-  -H "x-api-key: YOUR_API_KEY" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
   -d '{"url":"https://example.com/invoice"}'</code></pre>
                         </div>
                         <div class="callout">
@@ -188,7 +188,7 @@
   method: "POST",
   headers: {
     "Content-Type": "application/json",
-    "x-api-key": process.env.RENDERPDF_API_KEY
+    "Authorization": `Bearer ${process.env.RENDERPDF_API_KEY}`
   },
   body: JSON.stringify({ html: "&lt;h1&gt;Hello World&lt;/h1&gt;" })
 });
@@ -208,7 +208,7 @@ import requests
 
 response = requests.post(
     "https://renderpdf.vberkoz.com/api/v1/generate",
-    headers={"x-api-key": os.environ["RENDERPDF_API_KEY"]},
+    headers={"Authorization": f"Bearer {os.environ['RENDERPDF_API_KEY']}"},
     json={"html": "&lt;h1&gt;Hello World&lt;/h1&gt;"},
 )
 
@@ -245,7 +245,7 @@ func main() {
     request, err := http.NewRequest(http.MethodPost, "https://renderpdf.vberkoz.com/api/v1/generate", bytes.NewReader(body))
     if err != nil { log.Fatal(err) }
     request.Header.Set("Content-Type", "application/json")
-    request.Header.Set("x-api-key", os.Getenv("RENDERPDF_API_KEY"))
+    request.Header.Set("Authorization", "Bearer "+os.Getenv("RENDERPDF_API_KEY"))
 
     response, err := http.DefaultClient.Do(request)
     if err != nil { log.Fatal(err) }
@@ -271,7 +271,7 @@ using var request = new HttpRequestMessage(HttpMethod.Post, "https://renderpdf.v
 {
     Content = JsonContent.Create(new { html = "&lt;h1&gt;Hello World&lt;/h1&gt;" })
 };
-request.Headers.Add("x-api-key", Environment.GetEnvironmentVariable("RENDERPDF_API_KEY"));
+request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", Environment.GetEnvironmentVariable("RENDERPDF_API_KEY"));
 
 using var response = await client.SendAsync(request);
 
@@ -299,7 +299,7 @@ public class RenderPdf {
     public static void main(String[] args) throws Exception {
         var request = HttpRequest.newBuilder(URI.create("https://renderpdf.vberkoz.com/api/v1/generate"))
             .header("Content-Type", "application/json")
-            .header("x-api-key", System.getenv("RENDERPDF_API_KEY"))
+            .header("Authorization", "Bearer " + System.getenv("RENDERPDF_API_KEY"))
             .POST(HttpRequest.BodyPublishers.ofString("{\"html\":\"&lt;h1&gt;Hello World&lt;/h1&gt;\"}"))
             .build();
 
@@ -397,7 +397,7 @@ public class RenderPdf {
                             <div><span class="method">POST</span><code>/api-keys</code><p>Create a key</p></div>
                             <div><span class="method method-delete">DELETE</span><code>/api-keys/{id}</code><p>Revoke a key</p></div>
                         </div>
-                        <p class="section-copy">All API-key management requests require a Cognito ID token in the <code>Authorization</code> header. Obtain it by signing in to the dashboard; do not use an <code>x-api-key</code> header for these endpoints.</p>
+                        <p class="section-copy">All API-key management requests require a Cognito ID token in the <code>Authorization</code> header. Obtain it by signing in to the dashboard; API keys cannot manage other API keys.</p>
 
                         <h3>Create a key</h3>
                         <p class="section-copy"><code>POST /api-keys</code> has no request body. The plaintext key is returned only in this response, so store it securely.</p>
@@ -410,7 +410,7 @@ public class RenderPdf {
                             <div class="code-header"><span>200 / application/json</span></div>
                             <pre><code class="language-json">{
   "keyId": "5d1d...",
-  "apiKey": "rpdf_..."
+  "apiKey": "sk_live_..."
 }</code></pre>
                         </div>
 
@@ -444,7 +444,7 @@ public class RenderPdf {
                         <p class="section-footnote">A successful revoke returns <code>204 No Content</code>. The key remains in the list with <code>isActive: false</code> and can no longer authorize PDF generation.</p>
                         <div class="callout">
                             <span class="callout-mark" aria-hidden="true">i</span>
-                            <p>API-key management uses the dashboard login session, not the <code>x-api-key</code> header.</p>
+                            <p>API-key management uses the dashboard login session, not an API key.</p>
                         </div>
                     </section>
                 </div>

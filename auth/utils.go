@@ -9,8 +9,10 @@ import (
 
 func generateAPIKey() string {
 	b := make([]byte, 32)
-	rand.Read(b)
-	return base64.URLEncoding.EncodeToString(b)
+	if _, err := rand.Read(b); err != nil {
+		panic("generate API key: " + err.Error())
+	}
+	return "sk_live_" + base64.RawURLEncoding.EncodeToString(b)
 }
 
 func hashKey(key string) string {

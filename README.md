@@ -62,7 +62,7 @@ For authenticated usage, create an API key in the dashboard:
 ```bash
 curl -X POST https://renderpdf.vberkoz.com/api/v1/generate \
   -H "Content-Type: application/json" \
-  -H "x-api-key: YOUR_API_KEY" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
   -d '{"html":"<h1>Hello World</h1>"}'
 ```
 
@@ -73,7 +73,7 @@ The authenticated URL renderer navigates Chromium to a public HTTP(S) URL, prese
 ```bash
 curl -X POST https://renderpdf.vberkoz.com/api/v1/render-url \
   -H "Content-Type: application/json" \
-  -H "x-api-key: YOUR_API_KEY" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
   -d '{"url":"https://example.com/invoice"}'
 ```
 

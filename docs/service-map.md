@@ -18,7 +18,7 @@
 ### Auth Services
 
 - Purpose:
-  - Validate `x-api-key` and manage user API keys.
+  - Validate Bearer API keys and manage user API keys.
 - Source:
   - `auth/authorizer.go`
   - `auth/api-keys.go`

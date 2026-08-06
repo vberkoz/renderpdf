@@ -1,6 +1,7 @@
 package main
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -23,6 +24,12 @@ func TestGenerateAPIKey(t *testing.T) {
 	
 	if len(key1) == 0 {
 		t.Error("Generated key should not be empty")
+	}
+	if !strings.HasPrefix(key1, "sk_live_") {
+		t.Errorf("Generated key %q is missing sk_live_ prefix", key1)
+	}
+	if strings.Contains(key1, "=") {
+		t.Errorf("Generated key %q must not contain base64 padding", key1)
 	}
 	
 	if key1 == key2 {

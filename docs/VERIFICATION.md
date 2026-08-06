@@ -105,7 +105,7 @@ cd /Users/basilsergius/projects/renderpdf && ./scripts/verify-auth.sh
 ```
 
 - Notes:
-  - current automated coverage is limited to `auth/utils_test.go`
+  - `scripts/verify-auth.sh` runs the shared-helper tests and the build-tagged authorizer tests.
   - there is no committed end-to-end auth verification script today
 
 ### Analytics
