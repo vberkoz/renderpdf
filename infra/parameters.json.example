@@ -1,0 +1,66 @@
+[
+  {
+    "ParameterKey": "GoogleClientId",
+    "ParameterValue": "YOUR_GOOGLE_CLIENT_ID"
+  },
+  {
+    "ParameterKey": "GoogleClientSecret",
+    "ParameterValue": "YOUR_GOOGLE_CLIENT_SECRET"
+  },
+  {
+    "ParameterKey": "StatsAllowedEmail",
+    "ParameterValue": "vberkoz@gmail.com"
+  },
+  {
+    "ParameterKey": "PaddleApiKey",
+    "ParameterValue": "YOUR_PADDLE_API_KEY"
+  },
+  {
+    "ParameterKey": "PaddleApiBase",
+    "ParameterValue": "https://sandbox-api.paddle.com"
+  },
+  {
+    "ParameterKey": "PaddleClientToken",
+    "ParameterValue": "YOUR_PADDLE_SANDBOX_CLIENT_TOKEN"
+  },
+  {
+    "ParameterKey": "PaddleEnvironment",
+    "ParameterValue": "sandbox"
+  },
+  {
+    "ParameterKey": "PaddleStarterPriceId",
+    "ParameterValue": "YOUR_PADDLE_STARTER_PRICE_ID"
+  },
+  {
+    "ParameterKey": "PaddleProPriceId",
+    "ParameterValue": "YOUR_PADDLE_PRO_PRICE_ID"
+  },
+  {
+    "ParameterKey": "PaddleBusinessPriceId",
+    "ParameterValue": "YOUR_PADDLE_BUSINESS_PRICE_ID"
+  },
+  {
+    "ParameterKey": "PaddleCheckoutUrl",
+    "ParameterValue": "https://renderpdf.vberkoz.com/app/"
+  },
+  {
+    "ParameterKey": "PaddleWebhookSecret",
+    "ParameterValue": "YOUR_PADDLE_WEBHOOK_SECRET"
+  },
+  {
+    "ParameterKey": "FreeMonthlyQuota",
+    "ParameterValue": "100"
+  },
+  {
+    "ParameterKey": "StarterMonthlyQuota",
+    "ParameterValue": "1000"
+  },
+  {
+    "ParameterKey": "ProMonthlyQuota",
+    "ParameterValue": "10000"
+  },
+  {
+    "ParameterKey": "BusinessMonthlyQuota",
+    "ParameterValue": "100000"
+  }
+]

@@ -1,0 +1,179 @@
+//go:build apikeys
+
+package main
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"os"
+	"time"
+
+	"github.com/aws/aws-lambda-go/events"
+	"github.com/aws/aws-lambda-go/lambda"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/dynamodb"
+	"github.com/google/uuid"
+)
+
+var (
+	tableName = os.Getenv("API_KEYS_TABLE")
+	usageTableName = os.Getenv("TABLE_NAME")
+	sess      = session.Must(session.NewSession())
+	ddb       = dynamodb.New(sess)
+)
+
+type CreateKeyResponse struct {
+	KeyID  string `json:"keyId"`
+	APIKey string `json:"apiKey"`
+}
+
+type ListKeysResponse struct {
+	Keys []APIKeyInfo `json:"keys"`
+}
+
+type APIKeyInfo struct {
+	KeyID     string `json:"keyId"`
+	CreatedAt int64  `json:"createdAt"`
+	LastUsed  int64  `json:"lastUsed,omitempty"`
+	IsActive  bool   `json:"isActive"`
+}
+
+func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+	userId := request.RequestContext.Authorizer["claims"].(map[string]interface{})["sub"].(string)
+
+	corsHeaders := map[string]string{
+		"Access-Control-Allow-Origin":      "https://dashboard.renderpdf.vberkoz.com",
+		"Access-Control-Allow-Credentials": "true",
+		"Content-Type":                     "application/json",
+	}
+
+	switch request.HTTPMethod {
+	case "POST":
+		return createKey(userId, corsHeaders)
+	case "GET":
+		return listKeys(userId, corsHeaders)
+	case "DELETE":
+		keyId := request.PathParameters["id"]
+		return deleteKey(userId, keyId, corsHeaders)
+	default:
+		return events.APIGatewayProxyResponse{StatusCode: 405, Headers: corsHeaders}, nil
+	}
+}
+
+func createKey(userId string, headers map[string]string) (events.APIGatewayProxyResponse, error) {
+	keyId := uuid.New().String()
+	apiKey := generateAPIKey()
+	hashedKey := hashKey(apiKey)
+
+	_, err := ddb.PutItem(&dynamodb.PutItemInput{
+		TableName: aws.String(tableName),
+		Item: map[string]*dynamodb.AttributeValue{
+			"PK":        {S: aws.String(fmt.Sprintf("USER#%s", userId))},
+			"SK":        {S: aws.String(fmt.Sprintf("APIKEY#%s", keyId))},
+			"GSI1PK":    {S: aws.String(fmt.Sprintf("APIKEY#%s", hashedKey))},
+			"keyId":     {S: aws.String(keyId)},
+			"userId":    {S: aws.String(userId)},
+			"createdAt": {N: aws.String(fmt.Sprintf("%d", time.Now().Unix()))},
+			"isActive":  {BOOL: aws.Bool(true)},
+		},
+	})
+
+	if err != nil {
+		return events.APIGatewayProxyResponse{StatusCode: 500, Body: err.Error(), Headers: headers}, nil
+	}
+	saveAnalyticsEvent(userId, "api_key_created")
+
+	resp := CreateKeyResponse{KeyID: keyId, APIKey: apiKey}
+	body, _ := json.Marshal(resp)
+
+	return events.APIGatewayProxyResponse{
+		StatusCode: 200,
+		Body:       string(body),
+		Headers:    headers,
+	}, nil
+}
+
+func saveAnalyticsEvent(customerID, eventName string) {
+	if usageTableName == "" { return }
+	now := time.Now().UTC()
+	eventID := uuid.NewString()
+	_, err := ddb.PutItem(&dynamodb.PutItemInput{
+		TableName: aws.String(usageTableName),
+		Item: map[string]*dynamodb.AttributeValue{
+			"requestId":  {S: aws.String("ANALYTICS#" + eventID)},
+			"timestamp":  {N: aws.String(fmt.Sprintf("%d", now.Unix()))},
+			"entityType": {S: aws.String("ANALYTICS")},
+			"eventName":  {S: aws.String(eventName)},
+			"customerId": {S: aws.String(customerID)},
+			"GSI1PK":     {S: aws.String("ANALYTICS#" + now.Format("2006-01-02"))},
+			"GSI1SK":     {S: aws.String(fmt.Sprintf("%020d#%s", now.UnixNano(), eventID))},
+			"expiresAt":  {N: aws.String(fmt.Sprintf("%d", now.Add(90*24*time.Hour).Unix()))},
+		},
+	})
+	if err != nil { fmt.Printf("Analytics event write skipped: %v\n", err) }
+}
+
+func listKeys(userId string, headers map[string]string) (events.APIGatewayProxyResponse, error) {
+	result, err := ddb.Query(&dynamodb.QueryInput{
+		TableName:              aws.String(tableName),
+		KeyConditionExpression: aws.String("PK = :pk AND begins_with(SK, :sk)"),
+		ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{
+			":pk": {S: aws.String(fmt.Sprintf("USER#%s", userId))},
+			":sk": {S: aws.String("APIKEY#")},
+		},
+	})
+
+	if err != nil {
+		return events.APIGatewayProxyResponse{StatusCode: 500, Body: err.Error(), Headers: headers}, nil
+	}
+
+	keys := []APIKeyInfo{}
+	for _, item := range result.Items {
+		key := APIKeyInfo{
+			KeyID:    *item["keyId"].S,
+			IsActive: *item["isActive"].BOOL,
+		}
+		if item["createdAt"] != nil {
+			fmt.Sscanf(*item["createdAt"].N, "%d", &key.CreatedAt)
+		}
+		if item["lastUsed"] != nil {
+			fmt.Sscanf(*item["lastUsed"].N, "%d", &key.LastUsed)
+		}
+		keys = append(keys, key)
+	}
+
+	resp := ListKeysResponse{Keys: keys}
+	body, _ := json.Marshal(resp)
+
+	return events.APIGatewayProxyResponse{
+		StatusCode: 200,
+		Body:       string(body),
+		Headers:    headers,
+	}, nil
+}
+
+func deleteKey(userId, keyId string, headers map[string]string) (events.APIGatewayProxyResponse, error) {
+	_, err := ddb.UpdateItem(&dynamodb.UpdateItemInput{
+		TableName: aws.String(tableName),
+		Key: map[string]*dynamodb.AttributeValue{
+			"PK": {S: aws.String(fmt.Sprintf("USER#%s", userId))},
+			"SK": {S: aws.String(fmt.Sprintf("APIKEY#%s", keyId))},
+		},
+		UpdateExpression: aws.String("SET isActive = :false"),
+		ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{
+			":false": {BOOL: aws.Bool(false)},
+		},
+	})
+
+	if err != nil {
+		return events.APIGatewayProxyResponse{StatusCode: 500, Body: err.Error(), Headers: headers}, nil
+	}
+
+	return events.APIGatewayProxyResponse{StatusCode: 204, Headers: headers}, nil
+}
+
+func main() {
+	lambda.Start(handler)
+}

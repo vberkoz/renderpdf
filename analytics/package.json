@@ -1,0 +1,11 @@
+{
+  "name": "renderpdf-analytics",
+  "version": "1.0.0",
+  "private": true,
+  "description": "RenderPDF analytics Lambda",
+  "main": "index.js",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=22"
+  }
+}

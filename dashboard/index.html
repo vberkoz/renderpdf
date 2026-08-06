@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Manage RenderPDF API keys and test authenticated PDF generation.">
+    <title>RenderPDF | Developer Dashboard</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <script data-project="renderpdf" data-source="dashboard" src="https://analytics.vberkoz.com/track.js" defer></script>
+</head>
+<body class="dashboard-page">
+    <div class="dashboard-shell">
+        <header class="dashboard-topbar">
+            <a class="dashboard-brand" href="/" aria-label="RenderPDF home">
+                <span class="dashboard-brand-mark" aria-hidden="true"></span>
+                RenderPDF
+            </a>
+            <nav class="dashboard-nav" aria-label="Primary navigation">
+                <a href="/">Home</a>
+                <a href="/docs/api/">API docs</a>
+                <a id="statsNav" href="/app/stats" hidden>Stats</a>
+                <button id="logoutBtn" class="dashboard-logout" type="button">Sign out</button>
+            </nav>
+        </header>
+
+        <main>
+            <section class="dashboard-hero" aria-labelledby="dashboard-title">
+                <div>
+                    <p class="dashboard-eyebrow">Developer workspace / API v1</p>
+                    <h1 id="dashboard-title">Render, manage, ship.</h1>
+                    <p class="dashboard-lead">Create production API keys and test HTML-to-PDF requests from one focused workspace.</p>
+                </div>
+                <aside class="session-card" aria-label="Current session">
+                    <div class="session-status"><span aria-hidden="true"></span>Authenticated session</div>
+                    <strong id="accountLabel">RenderPDF developer</strong>
+                    <div class="session-meta">
+                        <span>Active keys</span>
+                        <b id="keyCount">-</b>
+                    </div>
+                </aside>
+            </section>
+
+            <section class="dashboard-workspace" aria-label="RenderPDF workspace">
+                <article class="workspace-panel overview-panel">
+                    <header class="panel-header panel-header-compact">
+                        <div>
+                            <p class="panel-kicker">01 / Usage</p>
+                            <h2>Your PDF activity</h2>
+                            <p>Usage is calculated in UTC and resets on the first day of each month.</p>
+                        </div>
+                    </header>
+                    <div class="dashboard-metrics">
+                        <div><span>PDFs today</span><strong id="pdfsToday">—</strong></div>
+                        <div><span>Failed today</span><strong id="failedToday">—</strong></div>
+                        <div><span>Quota remaining</span><strong id="quotaRemaining">—</strong><small id="quotaDetail"></small></div>
+                    </div>
+                </article>
+
+                <article class="workspace-panel billing-panel">
+                    <header class="panel-header panel-header-compact">
+                        <div>
+                            <p class="panel-kicker">02 / Billing</p>
+                            <h2 id="billingPlan">Free</h2>
+                            <p id="billingDetail">Upgrade when you need more monthly PDF capacity.</p>
+                        </div>
+                        <div class="billing-actions">
+                            <button class="dashboard-button dashboard-button-secondary" type="button" data-plan="starter">Starter · $19</button>
+                            <button class="dashboard-button dashboard-button-primary" type="button" data-plan="pro">Pro · $49</button>
+                            <button class="dashboard-button dashboard-button-secondary" type="button" data-plan="business">Business · $199</button>
+                            <button id="manageBillingBtn" class="dashboard-button dashboard-button-secondary" type="button" hidden>Manage billing</button>
+                        </div>
+                    </header>
+                    <div id="billingStatus" class="dashboard-notice" role="status" aria-live="polite" hidden></div>
+                </article>
+
+                <article class="workspace-panel keys-panel">
+                    <header class="panel-header">
+                        <div>
+                            <p class="panel-kicker">03 / Credentials</p>
+                            <h2>API keys</h2>
+                            <p>Create credentials for server-side PDF generation. Revoked keys stop working immediately.</p>
+                        </div>
+                        <button id="generateKeyBtn" class="dashboard-button dashboard-button-primary" type="button">
+                            Create API key <span aria-hidden="true">-&gt;</span>
+                        </button>
+                    </header>
+
+                    <div id="keysStatus" class="dashboard-notice" role="status" aria-live="polite" hidden></div>
+
+                    <section id="newKeyCard" class="new-key-card" aria-labelledby="new-key-title" hidden>
+                        <div>
+                            <p class="panel-kicker">New credential</p>
+                            <h3 id="new-key-title">Copy this key now</h3>
+                            <p>For security, the complete value is shown only once.</p>
+                        </div>
+                        <div class="key-display">
+                            <code id="newKeyValue"></code>
+                            <button id="copyKeyBtn" class="dashboard-button dashboard-button-secondary" type="button">Copy key</button>
+                        </div>
+                    </section>
+
+                    <div class="keys-heading">
+                        <span>Credential</span>
+                        <span>Activity</span>
+                        <span>State</span>
+                    </div>
+                    <div id="keysList" class="keys-list" aria-live="polite">
+                        <p class="empty-state">Loading API keys...</p>
+                    </div>
+                </article>
+
+                <article class="workspace-panel test-panel">
+                    <header class="panel-header panel-header-compact">
+                        <div>
+                            <p class="panel-kicker">04 / Live request</p>
+                            <h2>Test the renderer</h2>
+                            <p>Send HTML through the authenticated production endpoint.</p>
+                        </div>
+                        <div class="endpoint-route"><span>POST</span><code>/generate</code></div>
+                    </header>
+
+                    <form id="testApiForm" class="test-form">
+                        <label class="dashboard-field" for="apiKeyInput">
+                            <span>API key</span>
+                            <input id="apiKeyInput" type="password" autocomplete="off" spellcheck="false" placeholder="Paste a newly created key">
+                        </label>
+
+                        <label class="dashboard-field" for="htmlInput">
+                            <span>HTML input</span>
+                            <textarea id="htmlInput" rows="11" spellcheck="false"><main style="font-family: sans-serif; padding: 40px">
+  <h1>RenderPDF test</h1>
+  <p>This PDF was generated from the developer dashboard.</p>
+</main></textarea>
+                        </label>
+
+                        <div class="test-actions">
+                            <p>Your API key is sent only in the <code>x-api-key</code> request header.</p>
+                            <button id="testApiBtn" class="dashboard-button dashboard-button-primary" type="submit">
+                                Generate PDF <span aria-hidden="true">-&gt;</span>
+                            </button>
+                        </div>
+                    </form>
+
+                    <div id="testResult" class="dashboard-result" role="status" aria-live="polite" hidden></div>
+                </article>
+
+                <article class="workspace-panel logs-panel">
+                    <header class="panel-header panel-header-compact">
+                        <div>
+                            <p class="panel-kicker">05 / Logs</p>
+                            <h2>Recent requests</h2>
+                            <p>Latest 25 authenticated render attempts. Request content is never stored here.</p>
+                        </div>
+                    </header>
+                    <div id="logsList" class="logs-list" aria-live="polite"><p class="empty-state">Loading recent requests...</p></div>
+                </article>
+            </section>
+        </main>
+
+        <footer class="dashboard-footer">
+            <p>RenderPDF / Developer workspace</p>
+            <div>
+                <a href="/docs/api/">Documentation</a>
+                <a href="https://github.com/vberkoz/renderpdf">GitHub</a>
+                <a href="https://vberkoz.com/">vberkoz.com</a>
+            </div>
+        </footer>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

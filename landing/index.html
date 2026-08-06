@@ -3,34 +3,192 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RenderPDF - HTML to PDF API</title>
+    <meta name="description" content="Turn HTML into production-ready PDFs with a simple API.">
+    <title>RenderPDF | HTML to PDF API</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
+    <script data-project="renderpdf" data-source="landing" src="https://analytics.vberkoz.com/track.js" defer></script>
 </head>
 <body>
-    <div class="container">
-        <h1>RenderPDF</h1>
-        <p class="tagline">Convert HTML to PDF via API</p>
-        
-        <div class="code-block">
-            <pre><code>curl -X POST https://api.renderpdf.vberkoz.com/generate \
+    <div class="shell">
+        <header class="topbar">
+            <a class="brand" href="/" aria-label="RenderPDF home">
+                <span class="brand-mark" aria-hidden="true"></span>
+                RenderPDF
+            </a>
+            <nav class="topnav" aria-label="Primary navigation">
+                <a href="/docs/api/">API docs</a>
+                <a href="/app/">Dashboard</a>
+                <a href="https://github.com/vberkoz/renderpdf">GitHub</a>
+            </nav>
+        </header>
+
+        <main>
+            <section class="hero" aria-labelledby="hero-title">
+                <div class="hero-copy">
+                    <p class="eyebrow">HTML -&gt; PDF API</p>
+                    <h1 id="hero-title">Ship PDFs without managing a browser.</h1>
+                    <p class="lead">Send HTML, get a production-ready PDF. RenderPDF handles Chromium, print CSS, storage, and delivery behind one endpoint.</p>
+
+                    <div class="hero-actions">
+                        <a class="button button-primary" href="#playground">Try it free</a>
+                        <a class="button button-secondary" href="/docs/api/">Read the docs</a>
+                    </div>
+
+                    <div class="request-card" aria-label="API request example">
+                        <div class="request-card-header">
+                            <span>POST</span>
+                            <code>/api/v1/trial/generate</code>
+                        </div>
+                        <pre><code>curl -X POST https://renderpdf.vberkoz.com/api/v1/trial/generate \
   -H "Content-Type: application/json" \
   -d '{"html":"&lt;h1&gt;Hello World&lt;/h1&gt;"}'</code></pre>
-        </div>
+                    </div>
+                </div>
 
-        <div class="features">
-            <div class="feature">
-                <h3>Fast</h3>
-                <p>Serverless Lambda with Go</p>
+                <section class="playground" id="playground" aria-labelledby="playground-title">
+                    <div class="playground-header">
+                        <div>
+                            <p class="eyebrow">Live playground</p>
+                            <h2 id="playground-title">Generate your first PDF</h2>
+                        </div>
+                        <p id="quotaStatus" class="quota-status" aria-live="polite">
+                            <span id="quotaRemaining">3</span>
+                            <span id="quotaLabel">free PDFs left today</span>
+                        </p>
+                    </div>
+
+                    <p class="playground-copy">No account or API key required. Trial usage is limited per public IP.</p>
+
+                    <form id="pdfForm">
+                        <label class="field-label" for="htmlInput">HTML input</label>
+                        <textarea id="htmlInput" placeholder="Enter HTML content..." rows="11"><h1>Hello World</h1>
+<p>This is a test PDF document.</p></textarea>
+                        <button type="submit" id="generateBtn" class="button button-primary generate-button">
+                            Generate PDF
+                            <span aria-hidden="true">-&gt;</span>
+                        </button>
+                    </form>
+
+                    <div id="result" class="notice notice-success hidden"></div>
+                    <div id="error" class="notice notice-error hidden"></div>
+                </section>
+            </section>
+
+            <section class="capabilities" aria-label="Service capabilities">
+                <article>
+                    <span class="capability-index">01</span>
+                    <div>
+                        <h2>Browser-grade rendering</h2>
+                        <p>Modern HTML and CSS rendered with headless Chromium.</p>
+                    </div>
+                </article>
+                <article>
+                    <span class="capability-index">02</span>
+                    <div>
+                        <h2>Print-aware output</h2>
+                        <p>Backgrounds, page sizing, headers, and footers included.</p>
+                    </div>
+                </article>
+                <article>
+                    <span class="capability-index">03</span>
+                    <div>
+                        <h2>Simple delivery</h2>
+                        <p>A JSON response with a ready-to-download PDF URL.</p>
+                    </div>
+                </article>
+            </section>
+        </main>
+
+        <footer class="footer">
+            <p>RenderPDF / Built for developers shipping documents.</p>
+            <div>
+                <a href="/docs/api/">Documentation</a>
+                <a href="/app/">API keys</a>
+                <a href="https://vberkoz.com/">vberkoz.com</a>
             </div>
-            <div class="feature">
-                <h3>Simple</h3>
-                <p>REST API, JSON in/out</p>
-            </div>
-            <div class="feature">
-                <h3>Reliable</h3>
-                <p>AWS infrastructure</p>
-            </div>
-        </div>
+        </footer>
     </div>
+
+    <script>
+        const GENERATE_URL = new URL('/api/v1/trial/generate', window.location.origin).toString();
+        const form = document.getElementById('pdfForm');
+        const btn = document.getElementById('generateBtn');
+        const result = document.getElementById('result');
+        const error = document.getElementById('error');
+        const htmlInput = document.getElementById('htmlInput');
+        const quotaStatus = document.getElementById('quotaStatus');
+        const quotaRemaining = document.getElementById('quotaRemaining');
+        const quotaLabel = document.getElementById('quotaLabel');
+        const QUOTA_URL = new URL('/api/v1/trial/quota', window.location.origin).toString();
+
+        const displayQuota = (remaining) => {
+            const value = Math.max(0, Number.parseInt(remaining, 10) || 0);
+            quotaRemaining.textContent = value;
+            quotaLabel.textContent = value === 1
+                ? 'free PDF left today'
+                : 'free PDFs left today';
+            quotaStatus.classList.toggle('quota-empty', value === 0);
+        };
+
+        const loadQuota = async () => {
+            try {
+                const response = await fetch(QUOTA_URL, { cache: 'no-store' });
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const quota = await response.json();
+                displayQuota(quota.remaining);
+            } catch (err) {
+                quotaLabel.textContent = 'free PDFs left today';
+            }
+        };
+
+        loadQuota();
+
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+
+            btn.disabled = true;
+            btn.firstChild.textContent = 'Generating PDF ';
+            result.classList.add('hidden');
+            error.classList.add('hidden');
+
+            try {
+                const response = await fetch(GENERATE_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ html: htmlInput.value })
+                });
+
+                const remaining = response.headers.get('X-Trial-Remaining');
+                if (remaining !== null) {
+                    displayQuota(remaining);
+                }
+
+                if (!response.ok) {
+                    const payload = await response.json();
+                    throw new Error(payload.error || payload.message || 'Failed to generate PDF');
+                }
+
+                const data = await response.json();
+                result.innerHTML = `
+                    <div>
+                        <strong>PDF ready</strong>
+                        <span>${(data.size / 1024).toFixed(1)} KB</span>
+                    </div>
+                    <a href="${data.url}" target="_blank" rel="noopener">Download PDF</a>
+                `;
+                result.classList.remove('hidden');
+            } catch (err) {
+                error.innerHTML = `<strong>Could not generate PDF</strong><span>${err.message}</span>`;
+                error.classList.remove('hidden');
+            } finally {
+                btn.disabled = false;
+                btn.firstChild.textContent = 'Generate PDF ';
+            }
+        });
+    </script>
 </body>
 </html>
