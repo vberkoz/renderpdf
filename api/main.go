@@ -38,6 +38,10 @@ type Request struct {
 	HTML string `json:"html"`
 }
 
+type URLRequest struct {
+	URL string `json:"url"`
+}
+
 type Response struct {
 	RequestID string `json:"requestId"`
 	URL       string `json:"url"`
@@ -94,6 +98,7 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		return events.APIGatewayProxyResponse{StatusCode: 200, Body: string(body), Headers: corsHeaders}, nil
 	}
 	isTrial := isTrialRequest(request)
+	isURLRender := isURLRenderRequest(request)
 	plan := "api"
 	if isTrial {
 		plan = "trial"
@@ -124,20 +129,37 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		return errorResponse(413, "HTML exceeds the trial size limit", corsHeaders), nil
 	}
 
-	var req Request
-	if err := json.Unmarshal([]byte(request.Body), &req); err != nil {
-		analytics.ErrorType = "validation"
-		return errorResponse(400, "Invalid request", corsHeaders), nil
+	var html, renderURL string
+	if isURLRender {
+		var req URLRequest
+		if err := json.Unmarshal([]byte(request.Body), &req); err != nil {
+			analytics.ErrorType = "validation"
+			return errorResponse(400, "Invalid request", corsHeaders), nil
+		}
+		validatedURL, err := validateRenderURL(req.URL)
+		if err != nil {
+			analytics.ErrorType = "validation"
+			return errorResponse(400, err.Error(), corsHeaders), nil
+		}
+		renderURL = validatedURL
+		analytics.HTMLBytes = int64(len(renderURL))
+	} else {
+		var req Request
+		if err := json.Unmarshal([]byte(request.Body), &req); err != nil {
+			analytics.ErrorType = "validation"
+			return errorResponse(400, "Invalid request", corsHeaders), nil
+		}
+		if strings.TrimSpace(req.HTML) == "" {
+			analytics.ErrorType = "validation"
+			return errorResponse(400, "HTML is required", corsHeaders), nil
+		}
+		if isTrial && len(req.HTML) > trialMaxHTMLBytes() {
+			analytics.ErrorType = "validation"
+			return errorResponse(413, "HTML exceeds the trial size limit", corsHeaders), nil
+		}
+		html = req.HTML
+		analytics.HTMLBytes = int64(len(html))
 	}
-	if strings.TrimSpace(req.HTML) == "" {
-		analytics.ErrorType = "validation"
-		return errorResponse(400, "HTML is required", corsHeaders), nil
-	}
-	if isTrial && len(req.HTML) > trialMaxHTMLBytes() {
-		analytics.ErrorType = "validation"
-		return errorResponse(413, "HTML exceeds the trial size limit", corsHeaders), nil
-	}
-	analytics.HTMLBytes = int64(len(req.HTML))
 	var quota *trialQuota
 	if isTrial {
 		slot, err := acquireTrialSlot(requestID, time.Now().UTC())
@@ -169,11 +191,17 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		corsHeaders["X-Trial-Remaining"] = fmt.Sprintf("%d", quota.Remaining)
 	}
 
-	html := injectPrintCSS(req.HTML)
-	html = ensureColgroup(html)
-	html = rewriteTfoot(html)
 	renderStartedAt := time.Now()
-	pdfBytes, err := generatePDF(ctx, html)
+	var pdfBytes []byte
+	var err error
+	if isURLRender {
+		pdfBytes, err = generatePDFURL(ctx, renderURL)
+	} else {
+		html = injectPrintCSS(html)
+		html = ensureColgroup(html)
+		html = rewriteTfoot(html)
+		pdfBytes, err = generatePDF(ctx, html)
+	}
 	analytics.RenderMs = maxInt64(1, time.Since(renderStartedAt).Milliseconds())
 	if err != nil {
 		fmt.Printf("PDF generation failed: %v\n", err)
@@ -263,6 +291,11 @@ func authorizerValue(request events.APIGatewayProxyRequest, name string) string 
 }
 
 func generatePDF(ctx context.Context, html string) ([]byte, error) {
+	escaped := url.PathEscape(html)
+	return generatePDFURL(ctx, "data:text/html;charset=utf-8,"+escaped)
+}
+
+func generatePDFURL(ctx context.Context, targetURL string) ([]byte, error) {
 	// Use one deadline for the browser's entire lifetime. A launch-only child
 	// context becomes Chrome's owner inside chromedp; when that shorter context
 	// expires it kills an otherwise healthy browser during PDF rendering.
@@ -326,16 +359,13 @@ func generatePDF(ctx context.Context, html string) ([]byte, error) {
 	fmt.Println("Browser started successfully")
 
 	var buf []byte
-	escaped := url.PathEscape(html)
 
 	fmt.Println("Running chromedp...")
 	err = chromedp.Run(taskCtx,
-		// Issue navigation without waiting for every remote asset to finish.
-		// A document may contain an external image or stylesheet that is slow
-		// or unreachable from Lambda; that must not consume the API Gateway
-		// timeout before we can print the rest of the HTML.
+		// Do not wait for every remote asset to finish. A slow image or
+		// stylesheet must not consume the API Gateway timeout before print.
 		chromedp.ActionFunc(func(ctx context.Context) error {
-			_, _, errorText, _, err := page.Navigate("data:text/html;charset=utf-8," + escaped).Do(ctx)
+			_, _, errorText, _, err := page.Navigate(targetURL).Do(ctx)
 			if err != nil {
 				return err
 			}
