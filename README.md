@@ -46,7 +46,7 @@ Supporting docs:
 Try the anonymous endpoint without an API key. It is limited to 3 successful PDFs per source IP per UTC day and accepts up to 1 MB of HTML:
 
 ```bash
-curl -X POST https://renderpdf.vberkoz.com/api/v1/trial/generate \
+curl -X POST https://renderpdf.vberkoz.com/api/v1/trial/render \
   -H "Content-Type: application/json" \
   -d '{"html":"<h1>Hello World</h1>"}'
 ```

@@ -75,7 +75,7 @@
                                 <span>Terminal</span>
                                 <button type="button" class="copy-button" data-copy-target="quick-start-code">Copy</button>
                             </div>
-                            <pre id="quick-start-code"><code class="language-bash">curl -X POST https://renderpdf.vberkoz.com/api/v1/trial/generate \
+                            <pre id="quick-start-code"><code class="language-bash">curl -X POST https://renderpdf.vberkoz.com/api/v1/trial/render \
   -H "Content-Type: application/json" \
   -d '{"html":"&lt;h1&gt;Hello World&lt;/h1&gt;"}'</code></pre>
                         </div>
@@ -86,7 +86,7 @@
                                 <span>Terminal</span>
                                 <button type="button" class="copy-button" data-copy-target="file-example-code">Copy</button>
                             </div>
-                            <pre id="file-example-code"><code class="language-bash">curl -X POST https://renderpdf.vberkoz.com/api/v1/trial/generate \
+                            <pre id="file-example-code"><code class="language-bash">curl -X POST https://renderpdf.vberkoz.com/api/v1/trial/render \
   -H "Content-Type: application/json" \
   --data "$(jq -Rs '{html: .}' /Users/basilsergius/projects/renderpdf/doc-examples/invoice.html)"</code></pre>
                         </div>
@@ -320,7 +320,7 @@ public class RenderPdf {
                                 <p class="eyebrow">06 / Endpoint</p>
                                 <h2>Anonymous trial</h2>
                             </div>
-                            <div class="route"><span class="method">POST</span><code>/trial/generate</code></div>
+                            <div class="route"><span class="method">POST</span><code>/trial/render</code></div>
                         </div>
                         <p class="section-copy">Uses the same renderer without an API key. Trial requests are rate-limited by a privacy-preserving hash of the viewer IP.</p>
                         <div class="limits-grid">

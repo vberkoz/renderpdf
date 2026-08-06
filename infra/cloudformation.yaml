@@ -569,7 +569,7 @@ Resources:
     Properties:
       RestApiId: !Ref RestApi
       ParentId: !Ref TrialResource
-      PathPart: generate
+      PathPart: render
 
   TrialQuotaResource:
     Type: AWS::ApiGateway::Resource
@@ -1000,7 +1000,7 @@ Resources:
 
   # API Gateway deployments are immutable snapshots. Bump this logical ID when
   # routes or methods change so CloudFormation publishes them to the prod stage.
-  ApiDeploymentV12:
+  ApiDeploymentV13:
     Type: AWS::ApiGateway::Deployment
     DependsOn:
       - ApiRootGetMethod
@@ -1044,7 +1044,7 @@ Resources:
       FunctionName: !Ref TrialPdfFunction
       Action: lambda:InvokeFunction
       Principal: apigateway.amazonaws.com
-      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/*/POST/api/v1/trial/generate'
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/*/POST/api/v1/trial/render'
 
   TrialQuotaLambdaApiPermission:
     Type: AWS::Lambda::Permission
@@ -1086,7 +1086,7 @@ Outputs:
   ApiURL:
     Value: !Sub 'https://${LandingDomain}/api/v1/'
   TrialApiURL:
-    Value: !Sub 'https://${LandingDomain}/api/v1/trial/generate'
+    Value: !Sub 'https://${LandingDomain}/api/v1/trial/render'
   DocsURL:
     Value: !Sub 'https://${LandingDomain}/docs/api'
   WebsiteBucketName:

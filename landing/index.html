@@ -41,9 +41,9 @@
                     <div class="request-card" aria-label="API request example">
                         <div class="request-card-header">
                             <span>POST</span>
-                            <code>/api/v1/trial/generate</code>
+                            <code>/api/v1/trial/render</code>
                         </div>
-                        <pre><code>curl -X POST https://renderpdf.vberkoz.com/api/v1/trial/generate \
+                        <pre><code>curl -X POST https://renderpdf.vberkoz.com/api/v1/trial/render \
   -H "Content-Type: application/json" \
   -d '{"html":"&lt;h1&gt;Hello World&lt;/h1&gt;"}'</code></pre>
                     </div>
@@ -114,7 +114,7 @@
     </div>
 
     <script>
-        const GENERATE_URL = new URL('/api/v1/trial/generate', window.location.origin).toString();
+        const TRIAL_RENDER_URL = new URL('/api/v1/trial/render', window.location.origin).toString();
         const form = document.getElementById('pdfForm');
         const btn = document.getElementById('generateBtn');
         const result = document.getElementById('result');
@@ -156,7 +156,7 @@
             error.classList.add('hidden');
 
             try {
-                const response = await fetch(GENERATE_URL, {
+                const response = await fetch(TRIAL_RENDER_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ html: htmlInput.value })
