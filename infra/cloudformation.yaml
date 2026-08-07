@@ -70,15 +70,15 @@ Parameters:
     Description: Notification destination secret configured for Paddle billing webhooks
   FreeMonthlyQuota:
     Type: Number
-    Default: 100
+    Default: 25
     Description: Monthly successful-PDF allowance shown to free accounts
   StarterMonthlyQuota:
     Type: Number
-    Default: 1000
+    Default: 5000
     Description: Monthly successful-PDF allowance for Starter accounts
   ProMonthlyQuota:
     Type: Number
-    Default: 10000
+    Default: 20000
     Description: Monthly successful-PDF allowance for Pro accounts
   BusinessMonthlyQuota:
     Type: Number

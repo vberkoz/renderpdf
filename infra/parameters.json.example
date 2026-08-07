@@ -49,15 +49,15 @@
   },
   {
     "ParameterKey": "FreeMonthlyQuota",
-    "ParameterValue": "100"
+    "ParameterValue": "25"
   },
   {
     "ParameterKey": "StarterMonthlyQuota",
-    "ParameterValue": "1000"
+    "ParameterValue": "5000"
   },
   {
     "ParameterKey": "ProMonthlyQuota",
-    "ParameterValue": "10000"
+    "ParameterValue": "20000"
   },
   {
     "ParameterKey": "BusinessMonthlyQuota",

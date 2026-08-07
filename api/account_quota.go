@@ -37,15 +37,15 @@ func accountMonthlyQuota(customerID string) (int, error) {
 			}
 			switch tier {
 			case "starter":
-				return positiveEnvInt("STARTER_MONTHLY_QUOTA", 1000), nil
+				return positiveEnvInt("STARTER_MONTHLY_QUOTA", 5000), nil
 			case "business":
 				return positiveEnvInt("BUSINESS_MONTHLY_QUOTA", 100000), nil
 			default:
-				return positiveEnvInt("PRO_MONTHLY_QUOTA", 10000), nil
+				return positiveEnvInt("PRO_MONTHLY_QUOTA", 20000), nil
 			}
 		}
 	}
-	return positiveEnvInt("FREE_MONTHLY_QUOTA", 100), nil
+	return positiveEnvInt("FREE_MONTHLY_QUOTA", 25), nil
 }
 
 func reserveAccountQuota(customerID string, now time.Time) (*accountQuota, error) {

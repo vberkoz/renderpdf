@@ -25,10 +25,10 @@ const PADDLE_PRICES = {
 };
 const PADDLE_WEBHOOK_SECRET = process.env.PADDLE_WEBHOOK_SECRET || '';
 const PADDLE_CHECKOUT_URL = process.env.PADDLE_CHECKOUT_URL || '';
-const FREE_MONTHLY_QUOTA = positiveInteger(process.env.FREE_MONTHLY_QUOTA, 100);
+const FREE_MONTHLY_QUOTA = positiveInteger(process.env.FREE_MONTHLY_QUOTA, 25);
 const PLAN_QUOTAS = {
-  starter: positiveInteger(process.env.STARTER_MONTHLY_QUOTA, 1000),
-  pro: positiveInteger(process.env.PRO_MONTHLY_QUOTA, 10000),
+  starter: positiveInteger(process.env.STARTER_MONTHLY_QUOTA, 5000),
+  pro: positiveInteger(process.env.PRO_MONTHLY_QUOTA, 20000),
   business: positiveInteger(process.env.BUSINESS_MONTHLY_QUOTA, 100000),
 };
 const ddb = new DynamoDBClient({});
