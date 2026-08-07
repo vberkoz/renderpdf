@@ -202,7 +202,7 @@ curl -X POST https://renderpdf.vberkoz.com/api/v1/render-upload \
                         <div class="section-heading">
                             <p class="eyebrow">05 / Async delivery</p>
                             <h2>Webhooks</h2>
-                            <p>Add <code>webhookUrl</code> to an authenticated render request to receive a <code>pdf.completed</code> event after the PDF is stored. Only public HTTPS endpoints on port 443 are accepted.</p>
+                            <p>Add <code>webhookUrl</code> to an authenticated render request to receive a <code>pdf.completed</code> event after the PDF is stored. Only public HTTPS endpoints on port 443 are accepted. For a quick test, create a unique endpoint at <a href="https://webhook.site/">Webhook.site</a>.</p>
                         </div>
                         <div class="property-row">
                             <code>webhookUrl</code><span class="type">string</span><span class="optional">optional</span>
@@ -214,7 +214,7 @@ curl -X POST https://renderpdf.vberkoz.com/api/v1/render-upload \
                         </div>
                         <div class="code-block"><pre><code class="language-json">{
   "html": "&lt;h1&gt;Invoice&lt;/h1&gt;",
-  "webhookUrl": "https://example.com/hooks/renderpdf",
+  "webhookUrl": "https://webhook.site/YOUR-UNIQUE-ID",
   "webhookSecret": "your-signing-secret"
 }</code></pre></div>
                         <p class="section-footnote">Delivery happens asynchronously. A non-2xx response is retried up to four times before being moved to RenderPDF's delivery dead-letter queue.</p>

@@ -111,12 +111,12 @@ The presigned URL is valid for 1 hour and allows direct download of the generate
 
 ### Webhooks
 
-Authenticated render requests may include a public HTTPS `webhookUrl`. After the PDF is stored, RenderPDF queues an asynchronous `pdf.completed` POST to that URL. The render response is not delayed by delivery or retries.
+Authenticated render requests may include a public HTTPS `webhookUrl`. After the PDF is stored, RenderPDF queues an asynchronous `pdf.completed` POST to that URL. The render response is not delayed by delivery or retries. For a quick test, create a unique endpoint at [Webhook.site](https://webhook.site/) and use it as the URL below.
 
 ```json
 {
   "html": "<h1>Invoice</h1>",
-  "webhookUrl": "https://example.com/hooks/renderpdf",
+  "webhookUrl": "https://webhook.site/YOUR-UNIQUE-ID",
   "webhookSecret": "optional-signing-secret"
 }
 ```
