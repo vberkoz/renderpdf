@@ -116,6 +116,16 @@ cd /Users/basilsergius/projects/renderpdf && ./scripts/verify-auth.sh
 cd /Users/basilsergius/projects/renderpdf/analytics && node --check index.js
 ```
 
+### Webhooks
+
+- Run:
+
+```bash
+cd /Users/basilsergius/projects/renderpdf/webhooks && node --check index.js
+```
+
+- After deployment, post an authenticated render request with a test HTTPS webhook endpoint and confirm a `pdf.completed` event arrives. Confirm non-2xx responses are retried and eventually appear in the webhook DLQ.
+
 - Manual checks after deployment:
   - open `/app/stats` and sign in with the configured `StatsAllowedEmail` account
   - confirm aggregate PDF requests and bytes load

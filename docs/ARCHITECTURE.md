@@ -44,6 +44,12 @@
 - Authorizer Lambda validates the Bearer API key against DynamoDB.
 - Main API Lambda processes the request only if authorization passes.
 
+### Customer Webhook Flow
+
+- An authenticated `/render` or `/render-url` request may provide a public HTTPS `webhookUrl` and optional signing secret.
+- After S3 accepts the PDF, the API Lambda sends a small `pdf.completed` event to SQS and returns the normal synchronous response.
+- The webhook worker POSTs the event to the resolved public IP without following redirects. Non-2xx results are retried by SQS; after four receives they land in the dead-letter queue.
+
 ### Analytics Flow
 
 - Successful PDF requests write `PDF_REQUEST` records to the shared usage table.

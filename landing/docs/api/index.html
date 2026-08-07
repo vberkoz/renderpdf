@@ -50,6 +50,7 @@
                         <a href="#authentication">Authentication</a>
                         <a href="#render">Render PDF</a>
                         <a href="#render-url">Render URL</a>
+                        <a href="#webhooks">Webhooks</a>
                         <a href="#examples">Language examples</a>
                         <a href="#trial">Anonymous trial</a>
                         <a href="#response">Response</a>
@@ -175,9 +176,31 @@
                         </div>
                     </section>
 
+                    <section class="doc-section" id="webhooks">
+                        <div class="section-heading">
+                            <p class="eyebrow">05 / Async delivery</p>
+                            <h2>Webhooks</h2>
+                            <p>Add <code>webhookUrl</code> to an authenticated render request to receive a <code>pdf.completed</code> event after the PDF is stored. Only public HTTPS endpoints on port 443 are accepted.</p>
+                        </div>
+                        <div class="property-row">
+                            <code>webhookUrl</code><span class="type">string</span><span class="optional">optional</span>
+                            <p>The public HTTPS endpoint to receive the completion event.</p>
+                        </div>
+                        <div class="property-row">
+                            <code>webhookSecret</code><span class="type">string</span><span class="optional">optional</span>
+                            <p>Signs each delivery in <code>X-RenderPDF-Signature</code> using HMAC-SHA256 over <code>&lt;timestamp&gt;.&lt;raw body&gt;</code>.</p>
+                        </div>
+                        <div class="code-block"><pre><code class="language-json">{
+  "html": "&lt;h1&gt;Invoice&lt;/h1&gt;",
+  "webhookUrl": "https://example.com/hooks/renderpdf",
+  "webhookSecret": "your-signing-secret"
+}</code></pre></div>
+                        <p class="section-footnote">Delivery happens asynchronously. A non-2xx response is retried up to four times before being moved to RenderPDF's delivery dead-letter queue.</p>
+                    </section>
+
                     <section class="doc-section" id="examples">
                         <div class="section-heading">
-                            <p class="eyebrow">05 / Examples</p>
+                            <p class="eyebrow">06 / Examples</p>
                             <h2>Language examples</h2>
                             <p>Set <code>RENDERPDF_API_KEY</code> in your server environment before running an example. Each example prints the PDF URL on success and reports the API error message for a non-2xx response.</p>
                         </div>
@@ -317,7 +340,7 @@ public class RenderPdf {
                     <section class="doc-section endpoint-section" id="trial">
                         <div class="endpoint-heading">
                             <div>
-                                <p class="eyebrow">06 / Endpoint</p>
+                                <p class="eyebrow">07 / Endpoint</p>
                                 <h2>Anonymous trial</h2>
                             </div>
                             <div class="route"><span class="method">POST</span><code>/trial/render</code></div>
@@ -347,7 +370,7 @@ public class RenderPdf {
 
                     <section class="doc-section" id="response">
                         <div class="section-heading">
-                            <p class="eyebrow">07 / Output</p>
+                            <p class="eyebrow">08 / Output</p>
                             <h2>Response</h2>
                             <p>Successful generate requests return HTTP <code>200</code> and a JSON object describing the stored PDF.</p>
                         </div>
@@ -370,7 +393,7 @@ public class RenderPdf {
 
                     <section class="doc-section" id="errors">
                         <div class="section-heading">
-                            <p class="eyebrow">08 / Failures</p>
+                            <p class="eyebrow">09 / Failures</p>
                             <h2>Errors</h2>
                             <p>Error responses include a short message in <code>error</code>. Rendering failures also include a stable <code>code</code> value, so clients can handle a specific cause without matching message text.</p>
                         </div>
@@ -402,7 +425,7 @@ public class RenderPdf {
 
                     <section class="doc-section" id="api-keys">
                         <div class="section-heading">
-                            <p class="eyebrow">09 / Management</p>
+                            <p class="eyebrow">10 / Management</p>
                             <h2>API keys</h2>
                             <p>Authenticated dashboard users can create, list, and revoke keys through the management API.</p>
                         </div>

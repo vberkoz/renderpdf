@@ -91,6 +91,20 @@ Only public HTTP(S) targets on ports 80 and 443 are accepted. Pages requiring a 
 
 The presigned URL is valid for 1 hour and allows direct download of the generated PDF.
 
+### Webhooks
+
+Authenticated render requests may include a public HTTPS `webhookUrl`. After the PDF is stored, RenderPDF queues an asynchronous `pdf.completed` POST to that URL. The render response is not delayed by delivery or retries.
+
+```json
+{
+  "html": "<h1>Invoice</h1>",
+  "webhookUrl": "https://example.com/hooks/renderpdf",
+  "webhookSecret": "optional-signing-secret"
+}
+```
+
+When `webhookSecret` is supplied, deliveries include `X-RenderPDF-Signature` as `t=<unix-seconds>,v1=<hex-hmac-sha256>`, calculated from `<timestamp>.<raw JSON body>`. Deliveries that do not return a 2xx status are retried up to four times, then moved to the webhook dead-letter queue. Trial requests cannot use webhooks.
+
 ## Architecture
 
 - **Lambda**: Go function with chromedp for headless Chrome PDF generation

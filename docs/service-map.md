@@ -43,6 +43,17 @@
   - `GET /api/v1/analytics`
   - `POST /api/v1/analytics`
 
+### Webhook Delivery
+
+- Purpose:
+  - Deliver asynchronous `pdf.completed` events to a customer-provided HTTPS endpoint.
+- Source:
+  - `webhooks/index.js`
+- Runtime:
+  - Node.js 22 Lambda triggered by the `WebhookQueue` SQS queue.
+- Failure handling:
+  - Four delivery attempts, then `WebhookDeadLetterQueue`.
+
 ### Dashboard
 
 - Purpose:
