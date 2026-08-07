@@ -434,6 +434,27 @@ Resources:
                 Resource:
                   - !GetAtt ApiKeysTable.Arn
                   - !Sub '${ApiKeysTable.Arn}/index/*'
+              - Effect: Allow
+                Action: 'sqs:SendMessage'
+                Resource: !GetAtt WebhookQueue.Arn
+
+  WebhookDeadLetterQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub '${AppName}-webhook-dlq'
+      MessageRetentionPeriod: 1209600
+      SqsManagedSseEnabled: true
+
+  WebhookQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub '${AppName}-webhooks'
+      VisibilityTimeout: 120
+      MessageRetentionPeriod: 1209600
+      SqsManagedSseEnabled: true
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt WebhookDeadLetterQueue.Arn
+        maxReceiveCount: 4
 
   PdfFunction:
     Type: AWS::Lambda::Function
@@ -453,6 +474,7 @@ Resources:
           STARTER_MONTHLY_QUOTA: !Ref StarterMonthlyQuota
           PRO_MONTHLY_QUOTA: !Ref ProMonthlyQuota
           BUSINESS_MONTHLY_QUOTA: !Ref BusinessMonthlyQuota
+          WEBHOOK_QUEUE_URL: !Ref WebhookQueue
 
   TrialPdfFunction:
     Type: AWS::Lambda::Function
@@ -471,6 +493,52 @@ Resources:
           TRIAL_MODE_ONLY: 'true'
           TRIAL_DAILY_LIMIT: '3'
           TRIAL_MAX_HTML_BYTES: '1048576'
+
+  WebhookWorkerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
+      Policies:
+        - PolicyName: WebhookQueueAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'sqs:ReceiveMessage'
+                  - 'sqs:DeleteMessage'
+                  - 'sqs:GetQueueAttributes'
+                Resource: !GetAtt WebhookQueue.Arn
+
+  WebhookWorkerFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub '${AppName}-webhook-worker'
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt WebhookWorkerRole.Arn
+      Code:
+        ZipFile: |
+          exports.handler = async () => ({ batchItemFailures: [] });
+      MemorySize: 256
+      Timeout: 30
+
+  WebhookWorkerEventSource:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      EventSourceArn: !GetAtt WebhookQueue.Arn
+      FunctionName: !Ref WebhookWorkerFunction
+      BatchSize: 10
+      FunctionResponseTypes:
+        - ReportBatchItemFailures
 
   AuthorizerFunction:
     Type: AWS::Lambda::Function
@@ -1000,7 +1068,7 @@ Resources:
 
   # API Gateway deployments are immutable snapshots. Bump this logical ID when
   # routes or methods change so CloudFormation publishes them to the prod stage.
-  ApiDeploymentV13:
+  ApiDeploymentV14:
     Type: AWS::ApiGateway::Deployment
     DependsOn:
       - ApiRootGetMethod
@@ -1095,6 +1163,8 @@ Outputs:
     Value: !Ref CloudFrontDistribution
   PdfBucketName:
     Value: !Ref PdfBucket
+  WebhookDeadLetterQueueURL:
+    Value: !Ref WebhookDeadLetterQueue
   UserPoolId:
     Value: !Ref UserPoolV2
   UserPoolClientId:

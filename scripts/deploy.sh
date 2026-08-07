@@ -12,6 +12,7 @@ FALLBACK_PARAMETERS_FILE="${ROOT_DIR}/infra/parameters.json"
 
 STACK_NAME="renderpdf"
 ANALYTICS_FUNCTION_NAME="${STACK_NAME}-analytics-node"
+WEBHOOK_WORKER_FUNCTION_NAME="${STACK_NAME}-webhook-worker"
 REGION="us-east-1"
 PROFILE="basil"
 ACCOUNT_ID=$(aws sts get-caller-identity --profile ${PROFILE} --query Account --output text)
@@ -48,10 +49,14 @@ docker build --platform linux/amd64 -f Dockerfile.authorizer -t ${STACK_NAME}-au
 docker build --platform linux/amd64 -f Dockerfile.apikeys -t ${STACK_NAME}-apikeys:latest .
 
 ANALYTICS_ZIP="$(mktemp -t renderpdf-analytics.XXXXXX).zip"
-trap 'rm -f "${ANALYTICS_ZIP}"' EXIT
+WEBHOOKS_ZIP="$(mktemp -t renderpdf-webhooks.XXXXXX).zip"
+trap 'rm -f "${ANALYTICS_ZIP}" "${WEBHOOKS_ZIP}"' EXIT
 echo "Packaging native Node.js analytics Lambda..."
 cd "${ROOT_DIR}/analytics"
 zip -q -j "${ANALYTICS_ZIP}" index.js package.json
+echo "Packaging webhook worker Lambda..."
+cd "${ROOT_DIR}/webhooks"
+zip -q -j "${WEBHOOKS_ZIP}" index.js
 
 echo "Creating ECR repository if not exists..."
 aws ecr describe-repositories --repository-names ${STACK_NAME} --region ${REGION} --profile ${PROFILE} 2>/dev/null || \
@@ -143,6 +148,14 @@ aws lambda update-function-code \
   --query 'LastUpdateStatus' \
   --output text 2>/dev/null || echo "Analytics function not yet created"
 
+aws lambda update-function-code \
+  --function-name ${WEBHOOK_WORKER_FUNCTION_NAME} \
+  --zip-file fileb://${WEBHOOKS_ZIP} \
+  --region ${REGION} \
+  --profile ${PROFILE} \
+  --query 'LastUpdateStatus' \
+  --output text 2>/dev/null || echo "Webhook worker function not yet created"
+
 echo "Waiting for Lambda update to complete..."
 aws lambda wait function-updated \
   --function-name ${STACK_NAME}-generate \
@@ -156,6 +169,11 @@ aws lambda wait function-updated \
 
 aws lambda wait function-updated \
   --function-name ${ANALYTICS_FUNCTION_NAME} \
+  --region ${REGION} \
+  --profile ${PROFILE} 2>/dev/null || true
+
+aws lambda wait function-updated \
+  --function-name ${WEBHOOK_WORKER_FUNCTION_NAME} \
   --region ${REGION} \
   --profile ${PROFILE} 2>/dev/null || true
 
