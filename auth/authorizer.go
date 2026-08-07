@@ -94,6 +94,12 @@ func generatePolicy(principalID, effect, resource string) events.APIGatewayCusto
 	if principalID == "" {
 		principalID = "user"
 	}
+	// API Gateway caches this authorizer by Authorization header for five
+	// minutes. A policy restricted to the triggering method ARN would therefore
+	// deny a valid key when it next calls another endpoint (for example,
+	// /uploads followed by /render-upload). Keep the policy within this API
+	// stage, while allowing its authenticated routes to share the cache entry.
+	resource = stageResource(resource)
 	return events.APIGatewayCustomAuthorizerResponse{
 		PrincipalID: principalID,
 		PolicyDocument: events.APIGatewayCustomAuthorizerPolicy{
@@ -110,6 +116,14 @@ func generatePolicy(principalID, effect, resource string) events.APIGatewayCusto
 			"userId": principalID,
 		},
 	}
+}
+
+func stageResource(methodARN string) string {
+	parts := strings.SplitN(methodARN, "/", 3)
+	if len(parts) < 2 || parts[0] == "" || parts[1] == "" {
+		return methodARN
+	}
+	return parts[0] + "/" + parts[1] + "/*"
 }
 
 func main() {

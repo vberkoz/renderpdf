@@ -47,3 +47,13 @@ func TestBearerToken(t *testing.T) {
 		})
 	}
 }
+
+func TestGeneratePolicyAllowsTheCurrentAPIStage(t *testing.T) {
+	methodARN := "arn:aws:execute-api:us-east-1:123456789012:abc123/prod/POST/api/v1/uploads"
+	policy := generatePolicy("user-1", "Allow", methodARN)
+	got := policy.PolicyDocument.Statement[0].Resource[0]
+	want := "arn:aws:execute-api:us-east-1:123456789012:abc123/prod/*"
+	if got != want {
+		t.Fatalf("policy resource = %q, want %q", got, want)
+	}
+}
