@@ -29,7 +29,10 @@ import (
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/chromedp/cdproto/emulation"
+	"github.com/chromedp/cdproto/log"
+	"github.com/chromedp/cdproto/network"
 	"github.com/chromedp/cdproto/page"
+	"github.com/chromedp/cdproto/runtime"
 	"github.com/chromedp/chromedp"
 	"github.com/google/uuid"
 )
@@ -47,6 +50,17 @@ type Response struct {
 	URL       string `json:"url"`
 	Size      int64  `json:"size"`
 }
+
+// renderError is intentionally safe to return to API clients. The underlying
+// Chrome error remains in Lambda logs, where it is useful for diagnosis but
+// does not expose URLs, HTML, or browser internals to callers.
+type renderError struct {
+	Code    string
+	Message string
+	Status  int
+}
+
+func (e *renderError) Error() string { return e.Message }
 
 type requestAnalytics struct {
 	RequestID  string
@@ -219,7 +233,12 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 	analytics.RenderMs = maxInt64(1, time.Since(renderStartedAt).Milliseconds())
 	if err != nil {
 		fmt.Printf("PDF generation failed: %v\n", err)
-		if errors.Is(err, context.DeadlineExceeded) {
+		if renderErr, ok := err.(*renderError); ok {
+			analytics.ErrorType = renderErr.Code
+			if renderErr.Status == 504 {
+				analytics.Status = "timeout"
+			}
+		} else if errors.Is(err, context.DeadlineExceeded) {
 			analytics.Status = "timeout"
 			analytics.ErrorType = "render_timeout"
 		} else {
@@ -228,7 +247,7 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		refundTrialQuota(quota)
 		refundAccountQuota(reservedAccountQuota)
 		restoreTrialRemainingHeader(quota, corsHeaders)
-		return errorResponse(500, err.Error(), corsHeaders), nil
+		return renderErrorResponse(err, corsHeaders), nil
 	}
 
 	key := fmt.Sprintf("%s.pdf", requestID)
@@ -263,6 +282,21 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 func errorResponse(status int, message string, headers map[string]string) events.APIGatewayProxyResponse {
 	body, _ := json.Marshal(map[string]string{"error": message})
 	return events.APIGatewayProxyResponse{StatusCode: status, Body: string(body), Headers: headers}
+}
+
+func renderErrorResponse(err error, headers map[string]string) events.APIGatewayProxyResponse {
+	if renderErr, ok := err.(*renderError); ok {
+		body, _ := json.Marshal(map[string]string{"error": renderErr.Message, "code": renderErr.Code})
+		status := renderErr.Status
+		if status == 0 {
+			status = 422
+		}
+		return events.APIGatewayProxyResponse{StatusCode: status, Body: string(body), Headers: headers}
+	}
+	// Do not return a raw Chrome failure: it can include document URLs and
+	// browser implementation details. The specific failures above are returned
+	// as renderError values.
+	return errorResponse(500, "PDF rendering failed", headers)
 }
 
 func restoreTrialRemainingHeader(quota *trialQuota, headers map[string]string) {
@@ -370,23 +404,35 @@ func generatePDFURL(ctx context.Context, targetURL string) ([]byte, error) {
 
 	fmt.Println("Starting browser...")
 	if err := chromedp.Run(taskCtx); err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			return nil, &renderError{Code: "chromium_timeout", Message: "Chromium timed out while starting", Status: 504}
+		}
 		return nil, fmt.Errorf("failed to start browser: %v: %s", err, browserOutput.String())
 	}
 	fmt.Println("Browser started successfully")
 
 	var buf []byte
+	diagnostics := newRenderDiagnostics()
+	chromedp.ListenTarget(taskCtx, diagnostics.listen)
+	stage := "navigation"
 
 	fmt.Println("Running chromedp...")
 	err = chromedp.Run(taskCtx,
+		network.Enable(),
+		runtime.Enable(),
+		log.Enable(),
 		// Do not wait for every remote asset to finish. A slow image or
 		// stylesheet must not consume the API Gateway timeout before print.
 		chromedp.ActionFunc(func(ctx context.Context) error {
 			_, _, errorText, _, err := page.Navigate(targetURL).Do(ctx)
 			if err != nil {
-				return err
+				if errors.Is(err, context.DeadlineExceeded) {
+					return err
+				}
+				return &renderError{Code: "navigation_failed", Message: "Page navigation failed"}
 			}
 			if errorText != "" {
-				return fmt.Errorf("page navigation failed: %s", errorText)
+				return &renderError{Code: "navigation_failed", Message: "Page navigation failed"}
 			}
 			return nil
 		}),
@@ -412,6 +458,7 @@ func generatePDFURL(ctx context.Context, targetURL string) ([]byte, error) {
 		// request bounded when a remote resource never responds.
 		chromedp.Sleep(1*time.Second),
 		chromedp.ActionFunc(func(ctx context.Context) error {
+			stage = "printing"
 			var err error
 			buf, _, err = page.PrintToPDF().
 				WithPrintBackground(true).
@@ -428,8 +475,71 @@ func generatePDFURL(ctx context.Context, targetURL string) ([]byte, error) {
 			return err
 		}),
 	)
+	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			if stage == "navigation" {
+				return nil, &renderError{Code: "navigation_timeout", Message: "Navigation timed out while loading the page", Status: 504}
+			}
+			return nil, &renderError{Code: "chromium_timeout", Message: "Chromium timed out while rendering the PDF", Status: 504}
+		}
+		return nil, err
+	}
+	if diagnosticErr := diagnostics.error(); diagnosticErr != nil {
+		return nil, diagnosticErr
+	}
 
-	return buf, err
+	return buf, nil
+}
+
+// renderDiagnostics collects only failures that make the produced document
+// unreliable. It is guarded because CDP event delivery is asynchronous.
+type renderDiagnostics struct {
+	mu        sync.Mutex
+	imageFail bool
+	cssFail   bool
+	jsFail    bool
+}
+
+func newRenderDiagnostics() *renderDiagnostics { return &renderDiagnostics{} }
+
+func (d *renderDiagnostics) listen(event interface{}) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	switch event := event.(type) {
+	case *network.EventLoadingFailed:
+		if event.Type == network.ResourceTypeImage && !event.Canceled {
+			d.imageFail = true
+		}
+	case *runtime.EventExceptionThrown:
+		d.jsFail = true
+	case *log.EventEntryAdded:
+		if event.Entry == nil {
+			return
+		}
+		text := strings.ToLower(event.Entry.Text)
+		if strings.Contains(text, "css") && (strings.Contains(text, "parse") || strings.Contains(text, "syntax") || strings.Contains(text, "stylesheet")) {
+			d.cssFail = true
+		}
+	}
+}
+
+func (d *renderDiagnostics) error() error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	// Prefer direct document failures over asset failures, so a page with both
+	// reports the most actionable cause first.
+	if d.jsFail {
+		return &renderError{Code: "javascript_exception", Message: "JavaScript exception while rendering the page"}
+	}
+	if d.cssFail {
+		return &renderError{Code: "css_parsing_error", Message: "CSS parsing error while rendering the page"}
+	}
+	if d.imageFail {
+		return &renderError{Code: "image_loading_failed", Message: "An image failed to load while rendering the page"}
+	}
+	return nil
 }
 
 func prepareChrome() (string, error) {

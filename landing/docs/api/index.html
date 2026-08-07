@@ -372,18 +372,32 @@ public class RenderPdf {
                         <div class="section-heading">
                             <p class="eyebrow">08 / Failures</p>
                             <h2>Errors</h2>
-                            <p>Error responses include a short JSON message in the <code>error</code> field.</p>
+                            <p>Error responses include a short message in <code>error</code>. Rendering failures also include a stable <code>code</code> value, so clients can handle a specific cause without matching message text.</p>
+                        </div>
+                        <div class="code-block compact">
+                            <div class="code-header"><span>422 / application/json</span></div>
+                            <pre><code class="language-json">{
+  "error": "An image failed to load while rendering the page",
+  "code": "image_loading_failed"
+}</code></pre>
                         </div>
                         <div class="error-table" role="table" aria-label="API errors">
-                            <div class="table-row table-head" role="row"><span>Status</span><span>Meaning</span></div>
-                            <div class="table-row" role="row"><code>400</code><span>Invalid JSON, missing HTML, an empty document, or an invalid render URL.</span></div>
-                            <div class="table-row" role="row"><code>403</code><span>Missing, invalid, or inactive API key.</span></div>
-                            <div class="table-row" role="row"><code>404</code><span>The requested endpoint is unavailable or does not exist in this deployment mode.</span></div>
-                            <div class="table-row" role="row"><code>413</code><span>Trial HTML exceeds the 1 MB limit.</span></div>
-                            <div class="table-row" role="row"><code>429</code><span>Daily anonymous trial limit reached.</span></div>
-                            <div class="table-row" role="row"><code>500</code><span>PDF generation or storage failed.</span></div>
-                            <div class="table-row" role="row"><code>503</code><span>Trial capacity is busy; retry shortly.</span></div>
+                            <div class="table-row table-head" role="row"><span>Status</span><span>Code</span><span>Meaning</span></div>
+                            <div class="table-row" role="row"><code>400</code><span>—</span><span>Invalid JSON, missing HTML, an empty document, or an invalid render URL.</span></div>
+                            <div class="table-row" role="row"><code>403</code><span>—</span><span>Missing, invalid, or inactive API key.</span></div>
+                            <div class="table-row" role="row"><code>404</code><span>—</span><span>The requested endpoint is unavailable or does not exist in this deployment mode.</span></div>
+                            <div class="table-row" role="row"><code>413</code><span>—</span><span>Trial HTML exceeds the 1 MB limit.</span></div>
+                            <div class="table-row" role="row"><code>422</code><code>image_loading_failed</code><span>An image resource could not be loaded while rendering.</span></div>
+                            <div class="table-row" role="row"><code>422</code><code>css_parsing_error</code><span>Chromium reported a CSS parsing error.</span></div>
+                            <div class="table-row" role="row"><code>422</code><code>javascript_exception</code><span>The page raised an uncaught JavaScript exception.</span></div>
+                            <div class="table-row" role="row"><code>422</code><code>navigation_failed</code><span>Chromium could not navigate to the requested page.</span></div>
+                            <div class="table-row" role="row"><code>429</code><span>—</span><span>Daily anonymous trial limit reached.</span></div>
+                            <div class="table-row" role="row"><code>500</code><span>—</span><span>An unexpected rendering or storage failure occurred.</span></div>
+                            <div class="table-row" role="row"><code>503</code><span>—</span><span>Trial capacity is busy; retry shortly.</span></div>
+                            <div class="table-row" role="row"><code>504</code><code>navigation_timeout</code><span>The page did not finish navigating before the render deadline.</span></div>
+                            <div class="table-row" role="row"><code>504</code><code>chromium_timeout</code><span>Chromium timed out while starting or generating the PDF.</span></div>
                         </div>
+                        <p class="section-footnote">The renderer may log further diagnostic detail, but API responses deliberately omit page content, URLs, and browser internals.</p>
                     </section>
 
                     <section class="doc-section" id="api-keys">

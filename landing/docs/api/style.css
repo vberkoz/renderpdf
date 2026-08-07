@@ -496,7 +496,7 @@ pre {
 
 .table-row {
     display: grid;
-    grid-template-columns: 90px 1fr;
+    grid-template-columns: 70px minmax(150px, 0.55fr) minmax(0, 1fr);
     gap: 16px;
     padding: 12px 14px;
     color: var(--muted);
@@ -611,7 +611,8 @@ pre {
 
     .headers-list > div,
     .response-grid,
-    .endpoint-list > div {
+    .endpoint-list > div,
+    .table-row {
         grid-template-columns: 1fr;
     }
 

@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"os"
 	"testing"
 )
@@ -32,4 +34,51 @@ func TestPDFGeneration(t *testing.T) {
 	t.Logf("✅ PDF GENERATION TEST PASSED")
 	t.Logf("   Size: %d bytes", len(pdfBytes))
 	t.Logf("   File: /tmp/test.pdf")
+}
+
+func TestRenderDiagnosticsReturnsActionableErrors(t *testing.T) {
+	tests := []struct {
+		name string
+		set  func(*renderDiagnostics)
+		code string
+	}{
+		{"image", func(d *renderDiagnostics) { d.imageFail = true }, "image_loading_failed"},
+		{"css", func(d *renderDiagnostics) { d.cssFail = true }, "css_parsing_error"},
+		{"javascript", func(d *renderDiagnostics) { d.jsFail = true }, "javascript_exception"},
+		{"javascript takes precedence", func(d *renderDiagnostics) { d.imageFail, d.cssFail, d.jsFail = true, true, true }, "javascript_exception"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			diagnostics := newRenderDiagnostics()
+			test.set(diagnostics)
+			err := diagnostics.error()
+			var renderErr *renderError
+			if !errors.As(err, &renderErr) || renderErr.Code != test.code {
+				t.Fatalf("error = %#v, want code %q", err, test.code)
+			}
+		})
+	}
+}
+
+func TestRenderErrorResponseIsSafeAndStructured(t *testing.T) {
+	response := renderErrorResponse(&renderError{
+		Code:    "navigation_timeout",
+		Message: "Navigation timed out while loading the page",
+	}, map[string]string{"Content-Type": "application/json"})
+	if response.StatusCode != 422 {
+		t.Fatalf("status = %d, want 422", response.StatusCode)
+	}
+	var body map[string]string
+	if err := json.Unmarshal([]byte(response.Body), &body); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if body["code"] != "navigation_timeout" || body["error"] == "" {
+		t.Fatalf("body = %#v, want a navigation_timeout code and message", body)
+	}
+
+	response = renderErrorResponse(errors.New("internal Chrome URL and stack trace"), nil)
+	if response.StatusCode != 500 || response.Body != `{"error":"PDF rendering failed"}` {
+		t.Fatalf("unexpected generic rendering response: %#v", response)
+	}
 }
