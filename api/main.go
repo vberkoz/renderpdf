@@ -28,6 +28,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/chromedp/cdproto/emulation"
 	"github.com/chromedp/cdproto/log"
 	"github.com/chromedp/cdproto/network"
@@ -38,11 +39,15 @@ import (
 )
 
 type Request struct {
-	HTML string `json:"html"`
+	HTML          string `json:"html"`
+	WebhookURL    string `json:"webhookUrl,omitempty"`
+	WebhookSecret string `json:"webhookSecret,omitempty"`
 }
 
 type URLRequest struct {
-	URL string `json:"url"`
+	URL           string `json:"url"`
+	WebhookURL    string `json:"webhookUrl,omitempty"`
+	WebhookSecret string `json:"webhookSecret,omitempty"`
 }
 
 type Response struct {
@@ -87,6 +92,7 @@ var (
 	tableName                   = os.Getenv("TABLE_NAME")
 	sess                        = session.Must(session.NewSession())
 	s3Client                    = s3.New(sess)
+	sqsClient                   = sqs.New(sess)
 	ddbClient       dynamoDBAPI = dynamodb.New(sess)
 	chromeSetupOnce sync.Once
 	chromeSetupErr  error
@@ -143,7 +149,7 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		return errorResponse(413, "HTML exceeds the trial size limit", corsHeaders), nil
 	}
 
-	var html, renderURL string
+	var html, renderURL, webhookURL, webhookSecret string
 	if isURLRender {
 		var req URLRequest
 		if err := json.Unmarshal([]byte(request.Body), &req); err != nil {
@@ -156,6 +162,8 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 			return errorResponse(400, err.Error(), corsHeaders), nil
 		}
 		renderURL = validatedURL
+		webhookURL = req.WebhookURL
+		webhookSecret = req.WebhookSecret
 		analytics.HTMLBytes = int64(len(renderURL))
 	} else {
 		var req Request
@@ -172,7 +180,21 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 			return errorResponse(413, "HTML exceeds the trial size limit", corsHeaders), nil
 		}
 		html = req.HTML
+		webhookURL = req.WebhookURL
+		webhookSecret = req.WebhookSecret
 		analytics.HTMLBytes = int64(len(html))
+	}
+	if webhookURL != "" {
+		if isTrial {
+			analytics.ErrorType = "validation"
+			return errorResponse(400, "Webhooks require an authenticated request", corsHeaders), nil
+		}
+		validatedWebhookURL, err := validateWebhookURL(webhookURL)
+		if err != nil {
+			analytics.ErrorType = "validation"
+			return errorResponse(400, err.Error(), corsHeaders), nil
+		}
+		webhookURL = validatedWebhookURL
 	}
 	var quota *trialQuota
 	if isTrial {
@@ -270,6 +292,16 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 	analytics.PDFBytes = int64(len(pdfBytes))
 
 	resp := Response{RequestID: requestID, URL: url, Size: int64(len(pdfBytes))}
+	if webhookURL != "" {
+		if err := enqueueWebhook(ctx, webhookEvent{
+			ID: requestID, URL: webhookURL, Secret: webhookSecret, PDFURL: url,
+			PDFSize: int64(len(pdfBytes)), CreatedAt: time.Now().UTC(),
+		}); err != nil {
+			// The PDF is successfully stored and should remain available even when
+			// the asynchronous notification path is temporarily unavailable.
+			fmt.Printf("Webhook enqueue failed for %s: %v\n", requestID, err)
+		}
+	}
 	body, _ := json.Marshal(resp)
 
 	return events.APIGatewayProxyResponse{
