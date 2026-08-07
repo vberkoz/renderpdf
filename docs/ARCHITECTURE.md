@@ -9,9 +9,10 @@
   - Static authenticated UI.
   - Uses Cognito hosted UI redirect flow and calls the deployed API.
 - `api/`
-  - Go Lambda that converts posted HTML into PDF.
+  - Go Lambda that converts posted HTML, public URLs, and uploaded ZIP packages into PDF.
   - Stores PDFs in S3 and writes usage records to DynamoDB.
   - Generated PDF objects expire after 30 days; incomplete multipart uploads expire after 7 days.
+  - Uploaded packages use a separate private S3 bucket and expire after one day.
 - `auth/`
   - Go Lambda authorizer for API keys sent as `Authorization: Bearer <key>`.
   - Go Lambda for authenticated API-key management.
@@ -47,9 +48,16 @@
 - Authorizer Lambda validates the Bearer API key against DynamoDB.
 - Main API Lambda processes the request only if authorization passes.
 
+### Uploaded Package Flow
+
+- An authenticated client calls `POST /api/v1/uploads` and receives a 15-minute presigned PUT URL for a ZIP package.
+- The browser or client uploads the ZIP directly to the private package bucket; it is never placed in the public PDF bucket.
+- `POST /api/v1/render-upload` resolves the package only for the API-key owner, rejects unsafe or oversized archives, expands it under `/tmp`, and renders its local HTML entrypoint with relative assets available.
+- Uploaded documents are prevented from loading network subresources and package objects expire after one day.
+
 ### Customer Webhook Flow
 
-- An authenticated `/render` or `/render-url` request may provide a public HTTPS `webhookUrl` and optional signing secret.
+- An authenticated `/render`, `/render-url`, or `/render-upload` request may provide a public HTTPS `webhookUrl` and optional signing secret.
 - After S3 accepts the PDF, the API Lambda sends a small `pdf.completed` event to SQS and returns the normal synchronous response.
 - The webhook worker POSTs the event to the resolved public IP without following redirects. Non-2xx results are retried by SQS; after four receives they land in the dead-letter queue.
 

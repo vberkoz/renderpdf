@@ -2,7 +2,7 @@
 
 ## Purpose
 
-- Go Lambda that accepts HTML and returns a PDF download URL.
+- Go Lambda that accepts HTML or a previously uploaded ZIP package and returns a PDF download URL.
 - Also records usage in DynamoDB.
 
 ## Entrypoints

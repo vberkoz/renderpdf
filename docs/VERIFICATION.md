@@ -95,6 +95,8 @@ cd /Users/basilsergius/projects/renderpdf && ./scripts/verify-deployed-api.sh
 
 - Notes:
   - `api/main_test.go` may skip if Chrome is unavailable in the local environment.
+  - For package uploads, verify a ZIP containing `index.html`, a relative stylesheet, and a relative image: create an upload, PUT the ZIP to `uploadUrl`, and POST its `uploadId` to `/api/v1/render-upload`.
+  - Confirm that an archive containing `../` paths or a missing entrypoint receives a 422 response.
 
 ### How To Test `auth/`
 

@@ -291,6 +291,33 @@ Resources:
             Action: 's3:GetObject'
             Resource: !Sub '${PdfBucket.Arn}/*'
 
+  PackageBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub '${AppName}-packages-${AWS::AccountId}'
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      LifecycleConfiguration:
+        Rules:
+          - Id: ExpireUploadedPackages
+            Status: Enabled
+            ExpirationInDays: 1
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 1
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders: ['*']
+            AllowedMethods: [PUT]
+            AllowedOrigins: ['*']
+            MaxAge: 3600
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
   UsageTable:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -425,6 +452,11 @@ Resources:
                 Resource: !Sub '${PdfBucket.Arn}/*'
               - Effect: Allow
                 Action:
+                  - 's3:PutObject'
+                  - 's3:GetObject'
+                Resource: !Sub '${PackageBucket.Arn}/*'
+              - Effect: Allow
+                Action:
                   - 'dynamodb:GetItem'
                   - 'dynamodb:PutItem'
                   - 'dynamodb:Query'
@@ -482,6 +514,7 @@ Resources:
           PRO_MONTHLY_QUOTA: !Ref ProMonthlyQuota
           BUSINESS_MONTHLY_QUOTA: !Ref BusinessMonthlyQuota
           WEBHOOK_QUEUE_URL: !Ref WebhookQueue
+          PACKAGE_BUCKET_NAME: !Ref PackageBucket
 
   TrialPdfFunction:
     Type: AWS::Lambda::Function
@@ -631,6 +664,20 @@ Resources:
       RestApiId: !Ref RestApi
       ParentId: !Ref ApiV1Resource
       PathPart: render-url
+
+  PackageUploadResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestApi
+      ParentId: !Ref ApiV1Resource
+      PathPart: uploads
+
+  PackageRenderResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestApi
+      ParentId: !Ref ApiV1Resource
+      PathPart: render-upload
 
   TrialResource:
     Type: AWS::ApiGateway::Resource
@@ -837,6 +884,80 @@ Resources:
     Properties:
       RestApiId: !Ref RestApi
       ResourceId: !Ref RenderURLResource
+      HttpMethod: POST
+      AuthorizationType: CUSTOM
+      AuthorizerId: !Ref ApiAuthorizer
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'
+
+  PackageUploadOptionsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref PackageUploadResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: MOCK
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Methods: "'POST,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
+  PackageUploadMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref PackageUploadResource
+      HttpMethod: POST
+      AuthorizationType: CUSTOM
+      AuthorizerId: !Ref ApiAuthorizer
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'
+
+  PackageRenderOptionsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref PackageRenderResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: MOCK
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Methods: "'POST,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
+  PackageRenderMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref PackageRenderResource
       HttpMethod: POST
       AuthorizationType: CUSTOM
       AuthorizerId: !Ref ApiAuthorizer
@@ -1075,7 +1196,7 @@ Resources:
 
   # API Gateway deployments are immutable snapshots. Bump this logical ID when
   # routes or methods change so CloudFormation publishes them to the prod stage.
-  ApiDeploymentV14:
+  ApiDeploymentV15:
     Type: AWS::ApiGateway::Deployment
     DependsOn:
       - ApiRootGetMethod
@@ -1085,6 +1206,10 @@ Resources:
       - GenerateOptionsMethod
       - RenderURLMethod
       - RenderURLOptionsMethod
+      - PackageUploadMethod
+      - PackageUploadOptionsMethod
+      - PackageRenderMethod
+      - PackageRenderOptionsMethod
       - TrialGenerateMethod
       - TrialGenerateOptionsMethod
       - TrialQuotaResource

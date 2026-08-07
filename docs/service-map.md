@@ -5,7 +5,7 @@
 ### PDF API
 
 - Purpose:
-  - Convert posted HTML into PDF and return a download URL.
+  - Convert posted HTML, public URLs, or authenticated uploaded ZIP packages into PDF and return a download URL.
 - Source:
   - `api/main.go`
 - Build/runtime entrypoints:
@@ -14,6 +14,9 @@
 - Tests:
   - `scripts/verify-api.sh`
   - `scripts/verify-deployed-api.sh`
+- Package API:
+  - `POST /api/v1/uploads` returns a short-lived presigned ZIP upload URL.
+  - `POST /api/v1/render-upload` renders an uploaded ZIP's `index.html` or requested entrypoint.
 
 ### Auth Services
 

@@ -89,6 +89,7 @@ type dynamoDBAPI interface {
 
 var (
 	bucketName                  = os.Getenv("BUCKET_NAME")
+	packageBucketName           = os.Getenv("PACKAGE_BUCKET_NAME")
 	tableName                   = os.Getenv("TABLE_NAME")
 	sess                        = session.Must(session.NewSession())
 	s3Client                    = s3.New(sess)
@@ -117,8 +118,21 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		body, _ := json.Marshal(map[string]int{"limit": quota.Limit, "remaining": quota.Remaining})
 		return events.APIGatewayProxyResponse{StatusCode: 200, Body: string(body), Headers: corsHeaders}, nil
 	}
+	if isPackageUploadRequest(request) {
+		if request.HTTPMethod != "POST" || trialModeOnly() {
+			return errorResponse(404, "Not found", corsHeaders), nil
+		}
+		response, err := createPackageUpload(authorizerValue(request, "userId"))
+		if err != nil {
+			fmt.Printf("Package upload initialization failed: %v\n", err)
+			return errorResponse(503, "Package uploads are temporarily unavailable", corsHeaders), nil
+		}
+		body, _ := json.Marshal(response)
+		return events.APIGatewayProxyResponse{StatusCode: 200, Body: string(body), Headers: corsHeaders}, nil
+	}
 	isTrial := isTrialRequest(request)
 	isURLRender := isURLRenderRequest(request)
+	isPackageRender := isPackageRenderRequest(request)
 	plan := "api"
 	if isTrial {
 		plan = "trial"
@@ -149,7 +163,13 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		return errorResponse(413, "HTML exceeds the trial size limit", corsHeaders), nil
 	}
 
-	var html, renderURL, webhookURL, webhookSecret string
+	var html, renderURL, packageURL, webhookURL, webhookSecret string
+	var packageCleanup func()
+	defer func() {
+		if packageCleanup != nil {
+			packageCleanup()
+		}
+	}()
 	if isURLRender {
 		var req URLRequest
 		if err := json.Unmarshal([]byte(request.Body), &req); err != nil {
@@ -165,6 +185,20 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		webhookURL = req.WebhookURL
 		webhookSecret = req.WebhookSecret
 		analytics.HTMLBytes = int64(len(renderURL))
+	} else if isPackageRender {
+		var req packageRenderRequest
+		if err := json.Unmarshal([]byte(request.Body), &req); err != nil {
+			analytics.ErrorType = "validation"
+			return errorResponse(400, "Invalid request", corsHeaders), nil
+		}
+		preparedURL, packageBytes, cleanup, err := preparePackage(ctx, analytics.CustomerID, req.UploadID, req.Entrypoint)
+		if err != nil {
+			analytics.ErrorType = "validation"
+			return errorResponse(422, err.Error(), corsHeaders), nil
+		}
+		packageURL, packageCleanup = preparedURL, cleanup
+		webhookURL, webhookSecret = req.WebhookURL, req.WebhookSecret
+		analytics.HTMLBytes = packageBytes
 	} else {
 		var req Request
 		if err := json.Unmarshal([]byte(request.Body), &req); err != nil {
@@ -246,6 +280,8 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 	var err error
 	if isURLRender {
 		pdfBytes, err = generatePDFURL(ctx, renderURL)
+	} else if isPackageRender {
+		pdfBytes, err = generatePDFURL(ctx, packageURL)
 	} else {
 		html = injectPrintCSS(html)
 		html = ensureColgroup(html)
@@ -413,6 +449,7 @@ func generatePDFURL(ctx context.Context, targetURL string) ([]byte, error) {
 		chromedp.Flag("no-zygote", true),
 		chromedp.Flag("single-process", true),
 		chromedp.Flag("no-proxy-server", true),
+		chromedp.Flag("allow-file-access-from-files", true),
 		chromedp.Flag("proxy-bypass-list", "*"),
 		chromedp.UserDataDir("/tmp/chrome-data"),
 		chromedp.WindowSize(1920, 1080),

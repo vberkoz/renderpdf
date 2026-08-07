@@ -79,6 +79,24 @@ curl -X POST https://renderpdf.vberkoz.com/api/v1/render-url \
 
 Only public HTTP(S) targets on ports 80 and 443 are accepted. Pages requiring a login or blocking automated browsers may not render successfully.
 
+### Render an uploaded HTML package
+
+For local HTML, CSS, images, fonts, and JavaScript, upload a ZIP archive first. The archive must contain `index.html` (or a specified HTML `entrypoint`), use only relative paths, and contain at most 500 files. Packages larger than 25 MB compressed or 50 MB extracted are rejected during rendering. Upload packages are private and expire after one day.
+
+```bash
+upload=$(curl -s -X POST https://renderpdf.vberkoz.com/api/v1/uploads \
+  -H "Authorization: Bearer YOUR_API_KEY")
+upload_url=$(jq -r .uploadUrl <<<"$upload")
+upload_id=$(jq -r .uploadId <<<"$upload")
+
+curl -X PUT --upload-file invoice-package.zip "$upload_url"
+
+curl -X POST https://renderpdf.vberkoz.com/api/v1/render-upload \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -d "{\"uploadId\":\"$upload_id\"}"
+```
+
 ### Response
 
 ```json
