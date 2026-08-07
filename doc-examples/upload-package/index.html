@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>RenderPDF package example</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <main class="invoice">
+      <header class="invoice__header">
+        <img class="invoice__logo" src="assets/renderpdf-mark.svg" alt="RenderPDF">
+        <div>
+          <p class="eyebrow">Package upload example</p>
+          <h1>Invoice #RPDF-1042</h1>
+        </div>
+      </header>
+
+      <section class="invoice__summary">
+        <div><span>Issued</span><strong>August 7, 2026</strong></div>
+        <div><span>Due</span><strong>August 21, 2026</strong></div>
+        <div><span>Total</span><strong>$240.00</strong></div>
+      </section>
+
+      <table>
+        <thead><tr><th>Description</th><th>Quantity</th><th>Amount</th></tr></thead>
+        <tbody>
+          <tr><td>Document rendering</td><td>2</td><td>$160.00</td></tr>
+          <tr><td>Asset packaging</td><td>1</td><td>$80.00</td></tr>
+        </tbody>
+      </table>
+
+      <footer>Local CSS and SVG assets in this ZIP are resolved relative to <code>index.html</code>.</footer>
+    </main>
+  </body>
+</html>
