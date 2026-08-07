@@ -11,6 +11,7 @@
 - `api/`
   - Go Lambda that converts posted HTML into PDF.
   - Stores PDFs in S3 and writes usage records to DynamoDB.
+  - Generated PDF objects expire after 30 days; incomplete multipart uploads expire after 7 days.
 - `auth/`
   - Go Lambda authorizer for API keys sent as `Authorization: Bearer <key>`.
   - Go Lambda for authenticated API-key management.
@@ -19,6 +20,8 @@
   - Reads the shared usage table through `AnalyticsDateIndex`.
 - `infra/cloudformation.yaml`
   - Defines buckets, CloudFront, API Gateway, Lambda functions, DynamoDB tables, Cognito resources, and DNS/cert wiring.
+- `infra/ecr-lifecycle-policy.json`
+  - Applied by the deployment script to retain the two newest images in each ECR repository.
 
 ## Request Flows
 

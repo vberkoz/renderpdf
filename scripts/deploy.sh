@@ -9,6 +9,7 @@ ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 TEMPLATE_FILE="${ROOT_DIR}/infra/cloudformation.yaml"
 PARAMETERS_FILE="${ROOT_DIR}/parameters.json"
 FALLBACK_PARAMETERS_FILE="${ROOT_DIR}/infra/parameters.json"
+ECR_LIFECYCLE_POLICY_FILE="${ROOT_DIR}/infra/ecr-lifecycle-policy.json"
 
 STACK_NAME="renderpdf"
 ANALYTICS_FUNCTION_NAME="${STACK_NAME}-analytics-node"
@@ -67,6 +68,15 @@ aws ecr describe-repositories --repository-names ${STACK_NAME}-authorizer --regi
 
 aws ecr describe-repositories --repository-names ${STACK_NAME}-apikeys --region ${REGION} --profile ${PROFILE} 2>/dev/null || \
   aws ecr create-repository --repository-name ${STACK_NAME}-apikeys --region ${REGION} --profile ${PROFILE}
+
+echo "Applying ECR image retention policy..."
+for repository in "${STACK_NAME}" "${STACK_NAME}-authorizer" "${STACK_NAME}-apikeys"; do
+  aws ecr put-lifecycle-policy \
+    --repository-name "${repository}" \
+    --lifecycle-policy-text "file://${ECR_LIFECYCLE_POLICY_FILE}" \
+    --region ${REGION} \
+    --profile ${PROFILE}
+done
 
 echo "Logging into ECR..."
 aws ecr get-login-password --region ${REGION} --profile ${PROFILE} | docker login --username AWS --password-stdin ${ECR_REPO}
