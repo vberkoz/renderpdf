@@ -267,6 +267,13 @@ Resources:
     Type: AWS::S3::Bucket
     Properties:
       BucketName: !Sub '${AppName}-pdfs-${AWS::AccountId}'
+      LifecycleConfiguration:
+        Rules:
+          - Id: ExpireGeneratedPDFs
+            Status: Enabled
+            ExpirationInDays: 30
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 7
       PublicAccessBlockConfiguration:
         BlockPublicAcls: false
         BlockPublicPolicy: false

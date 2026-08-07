@@ -89,7 +89,7 @@ Only public HTTP(S) targets on ports 80 and 443 are accepted. Pages requiring a 
 }
 ```
 
-The presigned URL is valid for 1 hour and allows direct download of the generated PDF.
+The presigned URL is valid for 1 hour and allows direct download of the generated PDF. Generated PDFs are retained for 30 days before automatic deletion.
 
 ### Webhooks
 
