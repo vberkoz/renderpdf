@@ -69,6 +69,83 @@ test_html() {
 test_html "Simple HTML" "<h1>Hello World</h1>"
 test_html "Complex HTML" "<!DOCTYPE html><html><head><style>body{font-family:Arial}table{border-collapse:collapse}th,td{border:1px solid black;padding:8px}</style></head><body><h1>Invoice</h1><table><tr><th>Item</th><th>Price</th></tr><tr><td>Service</td><td>\$100</td></tr></table></body></html>"
 
+test_template_lifecycle() {
+  if [ -z "${RENDERPDF_API_KEY:-}" ]; then
+    echo "ℹ️  Skipping authenticated template lifecycle test (set RENDERPDF_API_KEY to enable it)"
+    return 0
+  fi
+
+  local response template_id="" rendered_url http_code
+  local request_file response_file
+  request_file=$(mktemp -t renderpdf-template-request.XXXXXX)
+  response_file=$(mktemp -t renderpdf-template-response.XXXXXX)
+  cleanup_template_lifecycle() {
+    if [ -n "${template_id}" ]; then
+      curl -sS -o /dev/null -X DELETE "${API_URL}/templates/${template_id}" -H "Authorization: Bearer ${RENDERPDF_API_KEY}" || true
+    fi
+    rm -f "${request_file}" "${response_file}"
+  }
+  trap cleanup_template_lifecycle RETURN
+
+  echo -n "Testing template create... "
+  cat > "${request_file}" <<'EOF'
+{"name":"Deployment smoke template","type":"invoice","html":"<!doctype html><html><body><h1>{{customer.name}}</h1><p>{{invoice.number}}</p></body></html>"}
+EOF
+  http_code=$(curl -sS -o "${response_file}" -w "%{http_code}" -X POST "${API_URL}/templates" -H "Content-Type: application/json" -H "Authorization: Bearer ${RENDERPDF_API_KEY}" --data-binary @"${request_file}")
+  if [ "${http_code}" != "201" ]; then
+    echo "❌ FAILED (HTTP ${http_code})"
+    cat "${response_file}"
+    return 1
+  fi
+  template_id=$(jq -r '.id // empty' < "${response_file}")
+  if [ -z "${template_id}" ]; then
+    echo "❌ FAILED (missing template id)"
+    return 1
+  fi
+  echo "✅ PASSED"
+
+  echo -n "Testing template render... "
+  cat > "${request_file}" <<EOF
+{"templateId":"${template_id}","variables":{"customer":{"name":"Ada Lovelace"},"invoice":{"number":"INV-SMOKE-1"}}}
+EOF
+  http_code=$(curl -sS -o "${response_file}" -w "%{http_code}" -X POST "${API_URL}/render-template" -H "Content-Type: application/json" -H "Authorization: Bearer ${RENDERPDF_API_KEY}" --data-binary @"${request_file}")
+  if [ "${http_code}" != "200" ]; then
+    echo "❌ FAILED (HTTP ${http_code})"
+    cat "${response_file}"
+    return 1
+  fi
+  rendered_url=$(jq -r '.url // empty' < "${response_file}")
+  if [ -z "${rendered_url}" ] || ! curl -fsSL "${rendered_url}" | file - | grep -q "PDF"; then
+    echo "❌ FAILED (render did not return a PDF)"
+    return 1
+  fi
+  echo "✅ PASSED"
+
+  echo -n "Testing template update... "
+  cat > "${request_file}" <<'EOF'
+{"name":"Updated deployment smoke template","type":"invoice","html":"<!doctype html><html><body><p>{{customer.name}}</p></body></html>"}
+EOF
+  http_code=$(curl -sS -o "${response_file}" -w "%{http_code}" -X PUT "${API_URL}/templates/${template_id}" -H "Content-Type: application/json" -H "Authorization: Bearer ${RENDERPDF_API_KEY}" --data-binary @"${request_file}")
+  if [ "${http_code}" != "200" ]; then
+    echo "❌ FAILED (HTTP ${http_code})"
+    cat "${response_file}"
+    return 1
+  fi
+  echo "✅ PASSED"
+
+  echo -n "Testing template delete... "
+  http_code=$(curl -sS -o "${response_file}" -w "%{http_code}" -X DELETE "${API_URL}/templates/${template_id}" -H "Authorization: Bearer ${RENDERPDF_API_KEY}")
+  if [ "${http_code}" != "204" ]; then
+    echo "❌ FAILED (HTTP ${http_code})"
+    cat "${response_file}"
+    return 1
+  fi
+  template_id=""
+  echo "✅ PASSED"
+}
+
+test_template_lifecycle
+
 if [ -f "${EXAMPLES_DIR}/invoice.html" ]; then
   echo -n "Testing Invoice Example... "
   start=$(date +%s)
