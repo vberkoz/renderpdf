@@ -138,6 +138,26 @@ function testPdfGeneration(html, apiKey) {
     });
 }
 
+function listTemplates(apiKey) {
+    return templateClient.list(API_URL, apiKey);
+}
+
+function createTemplate(template, apiKey) {
+    return templateClient.create(API_URL, apiKey, template);
+}
+
+function updateTemplate(templateId, template, apiKey) {
+    return templateClient.update(API_URL, apiKey, templateId, template);
+}
+
+function removeTemplate(templateId, apiKey) {
+    return templateClient.remove(API_URL, apiKey, templateId);
+}
+
+function renderStoredTemplate(templateId, variables, apiKey) {
+    return templateClient.render(API_URL, apiKey, templateId, variables);
+}
+
 function setNotice(element, message = '', state = '') {
     element.textContent = message;
     element.dataset.state = state;
@@ -148,6 +168,57 @@ function setButtonPending(button, pending, pendingLabel) {
     if (!button.dataset.label) button.dataset.label = button.innerHTML;
     button.disabled = pending;
     button.innerHTML = pending ? pendingLabel : button.dataset.label;
+}
+
+function templatePayloadFromForm() {
+    return {
+        name: document.getElementById('templateNameInput').value.trim(),
+        type: document.getElementById('templateTypeInput').value,
+        html: document.getElementById('templateHtmlInput').value.trim()
+    };
+}
+
+function previewTemplateHTML(html) {
+    document.getElementById('templatePreview').srcdoc = html || '<main style="font-family:sans-serif;padding:24px;color:#586473">Your template preview appears here.</main>';
+}
+
+function resetTemplateEditor() {
+    document.getElementById('templateForm').reset();
+    document.getElementById('templateId').value = '';
+    document.getElementById('templateVersion').textContent = 'New template';
+    document.getElementById('deleteTemplateBtn').hidden = true;
+    previewTemplateHTML('');
+}
+
+function populateTemplateEditor(template) {
+    document.getElementById('templateId').value = template.id || '';
+    document.getElementById('templateNameInput').value = template.name || '';
+    document.getElementById('templateTypeInput').value = template.type || 'custom';
+    document.getElementById('templateHtmlInput').value = template.html || '';
+    document.getElementById('templateVersion').textContent = template.id ? `Version ${template.version || 1}` : 'Starter template — save to customize';
+    document.getElementById('deleteTemplateBtn').hidden = !template.id;
+    previewTemplateHTML(template.html || '');
+}
+
+function renderTemplateList(container, templates, selectTemplate, emptyMessage) {
+    container.replaceChildren();
+    if (!templates?.length) {
+        const empty = document.createElement('p');
+        empty.className = 'empty-state';
+        empty.textContent = emptyMessage;
+        container.appendChild(empty);
+        return;
+    }
+    templates.forEach((template) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'template-list-item';
+        button.innerHTML = `<strong></strong><span></span>`;
+        button.querySelector('strong').textContent = template.name;
+        button.querySelector('span').textContent = template.type;
+        button.addEventListener('click', () => selectTemplate(template));
+        container.appendChild(button);
+    });
 }
 
 function formatDate(timestamp) {
@@ -296,6 +367,34 @@ if (checkAuth()) {
     const testButton = document.getElementById('testApiBtn');
     const testResult = document.getElementById('testResult');
     const apiKeyInput = document.getElementById('apiKeyInput');
+    const templatesStatus = document.getElementById('templatesStatus');
+    const templatesList = document.getElementById('templatesList');
+    const starterTemplatesList = document.getElementById('starterTemplatesList');
+    const templateForm = document.getElementById('templateForm');
+    const templateRenderForm = document.getElementById('templateRenderForm');
+    const templateRenderResult = document.getElementById('templateRenderResult');
+    const saveTemplateButton = document.getElementById('saveTemplateBtn');
+    const renderTemplateButton = document.getElementById('renderTemplateBtn');
+
+    async function loadTemplates() {
+        const apiKey = apiKeyInput.value.trim();
+        if (!apiKey) {
+            renderTemplateList(templatesList, [], () => {}, 'Enter an API key above to load templates.');
+            renderTemplateList(starterTemplatesList, [], () => {}, 'Starter templates load with your API key.');
+            return;
+        }
+        try {
+            const data = await listTemplates(apiKey);
+            renderTemplateList(templatesList, data.templates, populateTemplateEditor, 'No saved templates yet. Start with a starter below.');
+            renderTemplateList(starterTemplatesList, data.starters, (starter) => {
+                populateTemplateEditor({ ...starter, id: '' });
+                setNotice(templatesStatus, `Loaded the ${starter.name} starter. Save it to create your editable copy.`, 'success');
+            }, 'No starter templates are available.');
+            setNotice(templatesStatus);
+        } catch (error) {
+            setNotice(templatesStatus, `Could not load templates. ${error.message}`, 'error');
+        }
+    }
 
     renderAccount();
     if (IS_LOCAL_PREVIEW) {
@@ -304,6 +403,7 @@ if (checkAuth()) {
         loadKeys();
     }
     if (!IS_LOCAL_PREVIEW) refreshDashboard();
+    resetTemplateEditor();
 
     document.querySelectorAll('[data-plan]').forEach((button) => button.addEventListener('click', async () => {
         const billingStatus = document.getElementById('billingStatus');
@@ -340,6 +440,7 @@ if (checkAuth()) {
             document.getElementById('newKeyCard').hidden = false;
             apiKeyInput.value = data.apiKey;
             await loadKeys();
+            await loadTemplates();
         } catch (error) {
             setNotice(keysStatus, `Could not create an API key. ${error.message}`, 'error');
         } finally {
@@ -355,6 +456,101 @@ if (checkAuth()) {
             window.setTimeout(() => { copyButton.textContent = 'Copy key'; }, 1600);
         } catch (error) {
             setNotice(keysStatus, 'Clipboard access is unavailable. Select and copy the key manually.', 'error');
+        }
+    });
+
+    apiKeyInput.addEventListener('change', loadTemplates);
+
+    document.getElementById('newTemplateBtn').addEventListener('click', () => {
+        resetTemplateEditor();
+        setNotice(templatesStatus);
+    });
+
+    document.getElementById('templateHtmlInput').addEventListener('input', (event) => previewTemplateHTML(event.target.value));
+
+    templateForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const apiKey = apiKeyInput.value.trim();
+        if (!apiKey) {
+            setNotice(templatesStatus, 'Enter an API key before saving a template.', 'error');
+            apiKeyInput.focus();
+            return;
+        }
+        const template = templatePayloadFromForm();
+        if (!template.name || !template.html) {
+            setNotice(templatesStatus, 'Template name and HTML are required.', 'error');
+            return;
+        }
+        setButtonPending(saveTemplateButton, true, 'Saving...');
+        try {
+            const templateId = document.getElementById('templateId').value;
+            const saved = templateId ? await updateTemplate(templateId, template, apiKey) : await createTemplate(template, apiKey);
+            populateTemplateEditor(saved);
+            await loadTemplates();
+            setNotice(templatesStatus, 'Template saved.', 'success');
+        } catch (error) {
+            setNotice(templatesStatus, `Could not save template. ${error.message}`, 'error');
+        } finally {
+            setButtonPending(saveTemplateButton, false);
+        }
+    });
+
+    document.getElementById('deleteTemplateBtn').addEventListener('click', async () => {
+        const templateId = document.getElementById('templateId').value;
+        const apiKey = apiKeyInput.value.trim();
+        if (!templateId || !apiKey) return;
+        if (!window.confirm('Delete this template? This cannot be undone.')) return;
+        const button = document.getElementById('deleteTemplateBtn');
+        setButtonPending(button, true, 'Deleting...');
+        try {
+            await removeTemplate(templateId, apiKey);
+            resetTemplateEditor();
+            await loadTemplates();
+            setNotice(templatesStatus, 'Template deleted.', 'success');
+        } catch (error) {
+            setNotice(templatesStatus, `Could not delete template. ${error.message}`, 'error');
+        } finally {
+            setButtonPending(button, false);
+        }
+    });
+
+    templateRenderForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const templateId = document.getElementById('templateId').value;
+        const apiKey = apiKeyInput.value.trim();
+        if (!templateId) {
+            setNotice(templateRenderResult, 'Save this template before rendering a test PDF.', 'error');
+            return;
+        }
+        if (!apiKey) {
+            setNotice(templateRenderResult, 'Enter an API key before rendering.', 'error');
+            return;
+        }
+        let variables;
+        try {
+            variables = JSON.parse(document.getElementById('templateVariablesInput').value);
+            if (!variables || Array.isArray(variables) || typeof variables !== 'object') throw new Error('Variables must be an object');
+        } catch (error) {
+            setNotice(templateRenderResult, `Variable JSON is invalid. ${error.message}`, 'error');
+            return;
+        }
+        setButtonPending(renderTemplateButton, true, 'Rendering PDF...');
+        setNotice(templateRenderResult, 'Resolving template variables and rendering PDF...', 'pending');
+        try {
+            const result = await renderStoredTemplate(templateId, variables, apiKey);
+            templateRenderResult.dataset.state = 'success';
+            templateRenderResult.replaceChildren();
+            const link = document.createElement('a');
+            link.href = result.url;
+            link.target = '_blank';
+            link.rel = 'noopener';
+            link.textContent = `Download test PDF (${(result.size / 1024).toFixed(1)} KB) →`;
+            templateRenderResult.append(link);
+            templateRenderResult.hidden = false;
+        } catch (error) {
+            setNotice(templateRenderResult, `Could not render template. ${error.message}`, 'error');
+        } finally {
+            setButtonPending(renderTemplateButton, false);
         }
     });
 

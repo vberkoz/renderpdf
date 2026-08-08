@@ -148,10 +148,66 @@
                     <div id="testResult" class="dashboard-result" role="status" aria-live="polite" hidden></div>
                 </article>
 
+                <article class="workspace-panel templates-panel">
+                    <header class="panel-header">
+                        <div>
+                            <p class="panel-kicker">05 / Templates</p>
+                            <h2>Reusable documents</h2>
+                            <p>Create customer-owned HTML templates, preview them safely, and render PDFs with variable data.</p>
+                        </div>
+                        <div class="endpoint-route"><span>API key</span><code>/templates</code></div>
+                    </header>
+
+                    <div id="templatesStatus" class="dashboard-notice" role="status" aria-live="polite" hidden></div>
+                    <div class="templates-layout">
+                        <aside class="templates-sidebar" aria-label="Templates">
+                            <div class="templates-sidebar-header">
+                                <strong>Your templates</strong>
+                                <button id="newTemplateBtn" class="dashboard-button dashboard-button-secondary" type="button">New</button>
+                            </div>
+                            <div id="templatesList" class="templates-list"><p class="empty-state">Enter an API key to load templates.</p></div>
+                            <div class="templates-sidebar-header templates-starters-title"><strong>Starter templates</strong></div>
+                            <div id="starterTemplatesList" class="templates-list"></div>
+                        </aside>
+
+                        <div class="template-editor">
+                            <form id="templateForm" class="template-form">
+                                <input id="templateId" type="hidden">
+                                <div class="template-form-row">
+                                    <label class="dashboard-field" for="templateNameInput"><span>Name</span><input id="templateNameInput" maxlength="120" placeholder="Monthly invoice" required></label>
+                                    <label class="dashboard-field" for="templateTypeInput"><span>Type</span><select id="templateTypeInput"><option value="invoice">Invoice</option><option value="contract">Contract</option><option value="certificate">Certificate</option><option value="receipt">Receipt</option><option value="custom">Custom</option></select></label>
+                                </div>
+                                <label class="dashboard-field" for="templateHtmlInput"><span>Template HTML</span><textarea id="templateHtmlInput" rows="13" spellcheck="false" placeholder="Use {{customer.name}} for variable values." required></textarea></label>
+                                <div class="template-actions">
+                                    <button id="saveTemplateBtn" class="dashboard-button dashboard-button-primary" type="submit">Save template</button>
+                                    <button id="deleteTemplateBtn" class="dashboard-button dashboard-button-secondary" type="button" hidden>Delete</button>
+                                    <span id="templateVersion" class="template-version"></span>
+                                </div>
+                            </form>
+
+                            <div class="template-preview-wrap">
+                                <div class="templates-sidebar-header"><strong>Preview</strong><span>Scripts disabled</span></div>
+                                <iframe id="templatePreview" class="template-preview" title="Template preview" sandbox></iframe>
+                            </div>
+
+                            <form id="templateRenderForm" class="template-render-form">
+                                <label class="dashboard-field" for="templateVariablesInput"><span>Variable JSON</span><textarea id="templateVariablesInput" rows="9" spellcheck="false">{
+  "customer": { "name": "Ada Lovelace" }
+}</textarea></label>
+                                <div class="template-actions">
+                                    <button id="renderTemplateBtn" class="dashboard-button dashboard-button-primary" type="submit">Render test PDF <span aria-hidden="true">-&gt;</span></button>
+                                    <span>Uses the API key above.</span>
+                                </div>
+                            </form>
+                            <div id="templateRenderResult" class="dashboard-result" role="status" aria-live="polite" hidden></div>
+                        </div>
+                    </div>
+                </article>
+
                 <article class="workspace-panel logs-panel">
                     <header class="panel-header panel-header-compact">
                         <div>
-                            <p class="panel-kicker">05 / Logs</p>
+                            <p class="panel-kicker">06 / Logs</p>
                             <h2>Recent requests</h2>
                             <p>Latest 25 authenticated render attempts. Request content is never stored here.</p>
                         </div>
@@ -171,6 +227,7 @@
         </footer>
     </div>
 
+    <script src="template-client.js"></script>
     <script src="app.js"></script>
 </body>
 </html>
