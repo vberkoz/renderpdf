@@ -10,6 +10,8 @@
 - `/Users/basilsergius/projects/renderpdf/doc-examples/report.html`
 - `/Users/basilsergius/projects/renderpdf/doc-examples/short-rows.html`
 - `/Users/basilsergius/projects/renderpdf/doc-examples/variable-columns.html`
+- `/Users/basilsergius/projects/renderpdf/doc-examples/innovus-invoice-template.html`
+- `/Users/basilsergius/projects/renderpdf/doc-examples/innovus-invoice-data.json`
 
 ## Safe To Edit
 

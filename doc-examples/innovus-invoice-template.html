@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="renderpdf:no-header-footer" content="true">
+  <title>Invoice {{invoice.number}}</title>
+  <style>
+    @page { size: A4; margin: 0; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: #f4f2e8;
+      color: #22231f;
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 13px;
+      line-height: 1.35;
+    }
+    .page { min-height: 297mm; padding: 18mm 18mm 14mm; }
+    .top, .company-row, .invoice-meta, .address-row, .summary-row, .bottom-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 24px;
+    }
+    .top { align-items: flex-start; margin-bottom: 22mm; }
+    .brand { font-size: 31px; font-weight: 800; letter-spacing: -1.5px; line-height: 1; }
+    .invoice-title { color: #f10e0e; font-size: 29px; font-weight: 800; }
+    .company-row { margin-bottom: 6mm; }
+    .company-row > div, .address-row > div { width: 50%; }
+    .label, th { font-weight: 700; }
+    .rule { border-top: 2px solid #3e3e36; margin: 6mm 0 3mm; }
+    .invoice-meta > div { width: 25%; }
+    .invoice-meta p, .address-row p, .summary-row p, .bottom-row p { margin: 5px 0 0; }
+    .address-row { min-height: 29mm; }
+    table { width: 100%; border-collapse: collapse; margin-top: 5mm; }
+    th, td { border-top: 1px solid #4a4a40; padding: 5px 0; text-align: left; }
+    th:nth-child(n+3), td:nth-child(n+3) { text-align: right; }
+    th:nth-child(1), td:nth-child(1) { width: 28px; }
+    th:nth-child(2), td:nth-child(2) { width: 49%; }
+    .summary-row { align-items: flex-start; }
+    .payment-method { width: 23%; }
+    .in-words { width: 42%; }
+    .totals { width: 25%; }
+    .total-line { display: flex; justify-content: space-between; border-top: 1px solid #4a4a40; padding: 6px 0; }
+    .total-line:last-child { border-bottom: 2px solid #3e3e36; }
+    .bottom-row { min-height: 42mm; align-items: flex-end; }
+    .bottom-row > div { width: 25%; }
+    .payment-info { border-top: 2px solid #3e3e36; padding-top: 10px; width: 57%; }
+    .payment-info dl { margin: 5px 0 0; display: grid; grid-template-columns: 78px 1fr; }
+    .payment-info dt { font-weight: 700; }
+    .payment-info dd { margin: 0; }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="top">
+      <div class="brand">RenderPDF</div>
+      <div class="invoice-title">INVOICE</div>
+    </header>
+
+    <section class="company-row">
+      <div>
+        <div class="label">{{seller.name}}</div>
+        <div>{{seller.address.line1}}</div>
+        <div>{{seller.address.line2}}</div>
+        <div>{{seller.address.country}}</div>
+      </div>
+      <div>
+        <div class="label">Contact</div>
+        <div>{{seller.contact.website}}</div>
+        <div>{{seller.contact.phone}}</div>
+        <div>{{seller.contact.email}}</div>
+      </div>
+    </section>
+
+    <div class="rule"></div>
+    <section class="invoice-meta">
+      <div><div class="label">Due Amount</div><p>{{invoice.dueAmount}}</p></div>
+      <div><div class="label">Due Date</div><p>{{invoice.dueDate}}</p></div>
+      <div><div class="label">Invoice #</div><p>{{invoice.number}}</p></div>
+      <div><div class="label">Invoice Date</div><p>{{invoice.date}}</p></div>
+    </section>
+    <div class="rule"></div>
+
+    <section class="address-row">
+      <div>
+        <div class="label">Invoice To</div>
+        <p>{{billTo.name}}<br>{{billTo.address.line1}}<br>{{billTo.address.line2}}<br>{{billTo.address.country}}</p>
+      </div>
+      <div>
+        <div class="label">Shipped To</div>
+        <p>{{shipTo.name}}<br>{{shipTo.address.line1}}<br>{{shipTo.address.line2}}<br>{{shipTo.address.country}}</p>
+      </div>
+    </section>
+
+    <table>
+      <colgroup>
+        <col style="width:3%"><col style="width:50%"><col style="width:10%">
+        <col style="width:11%"><col style="width:7%"><col style="width:6%"><col style="width:13%">
+      </colgroup>
+      <thead><tr><th>#</th><th>Desc. of Goods/Services</th><th>Qty.</th><th>Rate (₹)</th><th>Dis.</th><th>GST</th><th>Total (₹)</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>{{items.one.description}}</td><td>{{items.one.quantity}}</td><td>{{items.one.rate}}</td><td>{{items.one.discount}}</td><td>{{items.one.gst}}</td><td>{{items.one.total}}</td></tr>
+        <tr><td>2</td><td>{{items.two.description}}</td><td>{{items.two.quantity}}</td><td>{{items.two.rate}}</td><td>{{items.two.discount}}</td><td>{{items.two.gst}}</td><td>{{items.two.total}}</td></tr>
+        <tr><td>3</td><td>{{items.three.description}}</td><td>{{items.three.quantity}}</td><td>{{items.three.rate}}</td><td>{{items.three.discount}}</td><td>{{items.three.gst}}</td><td>{{items.three.total}}</td></tr>
+        <tr><td>4</td><td>{{items.four.description}}</td><td>{{items.four.quantity}}</td><td>{{items.four.rate}}</td><td>{{items.four.discount}}</td><td>{{items.four.gst}}</td><td>{{items.four.total}}</td></tr>
+      </tbody>
+    </table>
+
+    <section class="summary-row">
+      <div class="payment-method"><div class="label">Payment Method</div><p>{{payment.method}}</p></div>
+      <div class="in-words"><div class="label">In Words</div><p>{{invoice.amountInWords.line1}}<br>{{invoice.amountInWords.line2}}</p></div>
+      <div class="totals">
+        <div class="total-line"><strong>Sub Total</strong><span>{{invoice.subtotal}}</span></div>
+        <div class="total-line"><strong>GST</strong><span>{{invoice.gstTotal}}</span></div>
+        <div class="total-line"><strong>Total</strong><span>{{invoice.total}}</span></div>
+      </div>
+    </section>
+
+    <section class="bottom-row">
+      <div><div class="label">Accepted By</div><p>{{acceptance.name}}</p></div>
+      <div><div class="label">Signature</div><p>{{signature.name}}</p></div>
+    </section>
+
+    <section class="company-row">
+      <div class="payment-info">
+        <div class="label">Payment Info</div>
+        <dl>
+          <dt>Ac #</dt><dd>{{payment.account.number}}</dd>
+          <dt>Ac Name</dt><dd>{{payment.account.name}}</dd>
+          <dt>IFSCCode</dt><dd>{{payment.account.ifscCode}}</dd>
+          <dt>Bank</dt><dd>{{payment.account.bank}}</dd>
+        </dl>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

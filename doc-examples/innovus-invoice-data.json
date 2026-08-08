@@ -1,0 +1,61 @@
+{
+  "seller": {
+    "name": "RenderPDF",
+    "address": {
+      "line1": "67, Navnirmam Society, Pratap Nagar,",
+      "line2": "Nagpur, Maharashtra - 440022",
+      "country": "India"
+    },
+    "contact": {
+      "website": "www.renderpdf.vberkoz.com",
+      "phone": "7409501644",
+      "email": "hello@renderpdf.vberkoz.com"
+    }
+  },
+  "invoice": {
+    "dueAmount": "₹ 1,18,000",
+    "dueDate": "21 Sep, 2024",
+    "number": "INV-2024-052",
+    "date": "14 Sep, 2024",
+    "subtotal": "1,00,000",
+    "gstTotal": "9,000",
+    "total": "1,18,000",
+    "amountInWords": {
+      "line1": "One Lakh Eighteen Thousand",
+      "line2": "Rupees Only"
+    }
+  },
+  "billTo": {
+    "name": "Nike Inc.",
+    "address": {
+      "line1": "Nike One Way, Hollywood Blv.,",
+      "line2": "Los Angeles, 110022 CA",
+      "country": "USA"
+    }
+  },
+  "shipTo": {
+    "name": "Nike Inc. Hollywood Blv.,",
+    "address": {
+      "line1": "Los Angeles,",
+      "line2": "110022 CA,",
+      "country": "USA"
+    }
+  },
+  "items": {
+    "one": { "description": "Website Design", "quantity": "1.0 U", "rate": "50,000", "discount": "0", "gst": "9", "total": "50,000" },
+    "two": { "description": "Website Development", "quantity": "1.0 U", "rate": "20,000", "discount": "0", "gst": "9", "total": "20,000" },
+    "three": { "description": "UX Design", "quantity": "1.0 U", "rate": "20,000", "discount": "0", "gst": "9", "total": "20,000" },
+    "four": { "description": "Website Copywriting", "quantity": "1.0 U", "rate": "10,000", "discount": "0", "gst": "9", "total": "10,000" }
+  },
+  "payment": {
+    "method": "Cash",
+    "account": {
+      "number": "510101006820471",
+      "name": "RenderPDF",
+      "ifscCode": "UBIN0933450",
+      "bank": "Union Bank Of India, Pratapnagar branch, Nagpur, MH"
+    }
+  },
+  "acceptance": { "name": "Nike Inc." },
+  "signature": { "name": "RenderPDF" }
+}

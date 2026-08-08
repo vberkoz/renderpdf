@@ -51,6 +51,8 @@
                         <a href="#render">Render PDF</a>
                         <a href="#render-url">Render URL</a>
                         <a href="#render-upload">Render package</a>
+                        <a href="#templates">Templates</a>
+                        <a href="#render-template">Render template</a>
                         <a href="#webhooks">Webhooks</a>
                         <a href="#examples">Language examples</a>
                         <a href="#trial">Anonymous trial</a>
@@ -196,6 +198,43 @@ curl -X POST https://renderpdf.vberkoz.com/api/v1/render-upload \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -d "{\"uploadId\":\"$(jq -r .uploadId &lt;&lt;&lt;"$upload")\"}"</code></pre>
                         </div>
+                    </section>
+
+                    <section class="doc-section endpoint-section" id="templates">
+                        <div class="endpoint-heading">
+                            <div><p class="eyebrow">06 / Templates</p><h2>Store HTML templates</h2></div>
+                            <div class="route"><span class="method">CRUD</span><code>/templates</code></div>
+                        </div>
+                        <p class="section-copy">Save reusable HTML once, then render it with only variable data. Templates belong to the API-key owner; another customer receives <code>404</code> for the same ID.</p>
+                        <div class="property-row"><code>POST /templates</code><span class="required">API key</span><p>Create with <code>name</code>, <code>type</code>, and <code>html</code>. Types are invoice, contract, certificate, receipt, or custom. Returns <code>201</code>.</p></div>
+                        <div class="property-row"><code>GET /templates</code><span class="required">API key</span><p>Lists your saved templates plus bundled starter schemas.</p></div>
+                        <div class="property-row"><code>GET /templates/{id}</code><span class="required">API key</span><p>Reads one owned template.</p></div>
+                        <div class="property-row"><code>PUT /templates/{id}</code><span class="required">API key</span><p>Replaces name, type, and HTML; version increments.</p></div>
+                        <div class="property-row"><code>DELETE /templates/{id}</code><span class="required">API key</span><p>Deletes an owned template and returns <code>204</code>.</p></div>
+                        <div class="code-block"><div class="code-header"><span>cURL</span><button type="button" class="copy-button" data-copy-target="template-create-code">Copy</button></div><pre id="template-create-code"><code class="language-bash">curl -X POST https://renderpdf.vberkoz.com/api/v1/templates \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -d '{"name":"Invoice","type":"invoice","html":"&lt;!doctype html&gt;&lt;html&gt;&lt;body&gt;&lt;h1&gt;Invoice {{invoice.number}}&lt;/h1&gt;&lt;p&gt;{{customer.name}}&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;"}'</code></pre></div>
+                        <h3>Starter variable schemas</h3>
+                        <ul class="section-copy"><li><strong>Invoice:</strong> <code>invoice.number</code>, <code>invoice.issueDate</code>, <code>invoice.dueDate</code>, <code>invoice.description</code>, <code>invoice.total</code>, <code>customer.name</code>, <code>customer.address</code>.</li><li><strong>Contract:</strong> <code>contract.title</code>, <code>contract.date</code>, <code>contract.scope</code>, <code>contract.startDate</code>, <code>contract.endDate</code>, <code>contract.paymentTerms</code>, <code>party.one.name</code>, <code>party.two.name</code>.</li><li><strong>Certificate:</strong> <code>certificate.title</code>, <code>certificate.achievement</code>, <code>certificate.date</code>, <code>certificate.number</code>, <code>recipient.name</code>.</li><li><strong>Receipt:</strong> <code>merchant.name</code>, <code>merchant.address</code>, <code>receipt.number</code>, <code>receipt.date</code>, <code>receipt.description</code>, <code>receipt.amount</code>, <code>receipt.total</code>, <code>customer.name</code>.</li></ul>
+                        <div class="callout"><span class="callout-mark" aria-hidden="true">i</span><p>Limits: 100 templates per owner and 1 MiB of HTML per template. Values are HTML escaped; raw HTML variable interpolation is unsupported.</p></div>
+                    </section>
+
+                    <section class="doc-section endpoint-section" id="render-template">
+                        <div class="endpoint-heading">
+                            <div><p class="eyebrow">07 / Endpoint</p><h2>Render a stored template</h2></div>
+                            <div class="route"><span class="method">POST</span><code>/render-template</code></div>
+                        </div>
+                        <p class="section-copy">Resolve a customer-owned template with nested variables, then receive the normal PDF response.</p>
+                        <div class="property-row"><code>templateId</code><span class="type">string</span><span class="required">required</span><p>The ID returned by <code>POST /templates</code>.</p></div>
+                        <div class="property-row"><code>variables</code><span class="type">object</span><span class="required">required</span><p>Nested values matching every <code>{{path.to.value}}</code> placeholder. Missing or additional leaves return <code>422</code>.</p></div>
+                        <div class="code-block"><div class="code-header"><span>cURL</span><button type="button" class="copy-button" data-copy-target="template-render-code">Copy</button></div><pre id="template-render-code"><code class="language-bash">curl -X POST https://renderpdf.vberkoz.com/api/v1/render-template \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -d '{"templateId":"TEMPLATE_ID","variables":{"invoice":{"number":"INV-1042"},"customer":{"name":"Ada &amp; Sons"}}}'</code></pre></div>
+                        <h3>Migration from <code>/render</code></h3>
+                        <ol class="section-copy"><li>Move stable HTML into <code>POST /templates</code>.</li><li>Replace dynamic text with <code>{{path.to.value}}</code>.</li><li>Save the returned template ID in application configuration.</li><li>Send <code>templateId</code> and <code>variables</code> instead of full HTML.</li><li>Handle <code>422</code> by adding missing values or removing extras.</li></ol>
+                        <p class="section-footnote">Invoice, Contract, Certificate, and Receipt starter schemas are returned by <code>GET /templates</code>.</p>
                     </section>
 
                     <section class="doc-section" id="webhooks">

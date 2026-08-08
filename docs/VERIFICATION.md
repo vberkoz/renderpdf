@@ -77,6 +77,22 @@ Runs:
 cd /Users/basilsergius/projects/renderpdf && ./scripts/test-api.sh
 ```
 
+To include the authenticated template lifecycle (create, render, update, and
+delete), provide a valid API key:
+
+```bash
+cd /Users/basilsergius/projects/renderpdf && RENDERPDF_API_KEY='your-key' ./scripts/test-api.sh
+```
+
+### Template Documentation Examples
+
+Run the executable public examples against production, or set
+`RENDERPDF_API_URL` to another deployed environment:
+
+```bash
+cd /Users/basilsergius/projects/renderpdf && RENDERPDF_API_KEY='your-key' ./scripts/test-template-docs.sh
+```
+
 ## Area-by-Area Guidance
 
 ### How To Test `api/`

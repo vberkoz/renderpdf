@@ -97,6 +97,27 @@ curl -X POST https://renderpdf.vberkoz.com/api/v1/render-upload \
   -d "{\"uploadId\":\"$upload_id\"}"
 ```
 
+### Render a stored template
+
+Store reusable HTML once with placeholders such as {{customer.name}}, then
+submit only variables for each PDF. Templates are private to the API-key owner
+and limited to 100 per customer and 1 MiB each.
+
+~~~bash
+template=$(curl -s -X POST https://renderpdf.vberkoz.com/api/v1/templates \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -d '{"name":"Greeting","type":"custom","html":"<h1>Hello {{customer.name}}</h1>"}')
+template_id=$(jq -r .id <<<"$template")
+curl -X POST https://renderpdf.vberkoz.com/api/v1/render-template \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -d "{\"templateId\":\"$template_id\",\"variables\":{\"customer\":{\"name\":\"Ada Lovelace\"}}}"
+~~~
+
+See [starter template schemas](docs/starter-templates.md) for Invoice,
+Contract, Certificate, and Receipt variables and migration guidance.
+
 ### Response
 
 ```json
@@ -138,6 +159,7 @@ Environment variables:
 - `S3_BUCKET`: Target S3 bucket for PDF storage
 - `DYNAMODB_TABLE`: DynamoDB table for tracking
 - `API_KEYS_TABLE`: DynamoDB table for API keys
+- `TEMPLATE_TABLE_NAME`: DynamoDB table for durable customer templates
 - `PDF_EXPIRY`: Presigned URL expiration time (default: 3600s)
 
 ## Domains

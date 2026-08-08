@@ -11,6 +11,8 @@
 - `api/`
   - Go Lambda that converts posted HTML, public URLs, and uploaded ZIP packages into PDF.
   - Stores PDFs in S3 and writes usage records to DynamoDB.
+  - Includes a DynamoDB-backed, owner-isolated template repository for durable
+    customer templates; routes will be layered onto this repository separately.
   - Generated PDF objects expire after 30 days; incomplete multipart uploads expire after 7 days.
   - Uploaded packages use a separate private S3 bucket and expire after one day.
 - `auth/`
