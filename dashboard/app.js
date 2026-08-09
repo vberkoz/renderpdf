@@ -128,7 +128,7 @@ async function openPaddleCheckout(checkout) {
 }
 
 function testPdfGeneration(html, apiKey) {
-    return apiRequest('/render', {
+    return apiRequest('/render-html', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -146,6 +146,8 @@ function createTemplate(template, apiKey) {
     return templateClient.create(API_URL, apiKey, template);
 }
 
+function getStoredTemplate(templateId, apiKey) { return templateClient.get(API_URL, apiKey, templateId); }
+
 function updateTemplate(templateId, template, apiKey) {
     return templateClient.update(API_URL, apiKey, templateId, template);
 }
@@ -157,6 +159,16 @@ function removeTemplate(templateId, apiKey) {
 function renderStoredTemplate(templateId, variables, apiKey) {
     return templateClient.render(API_URL, apiKey, templateId, variables);
 }
+
+function listSharedTemplates(apiKey) { return templateClient.listShared(API_URL, apiKey); }
+function listTemplateShares(templateId, apiKey) { return templateClient.listShares(API_URL, apiKey, templateId); }
+function shareTemplate(templateId, share, apiKey) { return templateClient.share(API_URL, apiKey, templateId, share); }
+function updateTemplateShare(templateId, recipientId, share, apiKey) { return templateClient.updateShare(API_URL, apiKey, templateId, recipientId, share); }
+function revokeTemplateShare(templateId, recipientId, apiKey) { return templateClient.revokeShare(API_URL, apiKey, templateId, recipientId); }
+function cloneTemplate(templateId, apiKey) { return templateClient.clone(API_URL, apiKey, templateId); }
+function listPublicLinks(templateId, apiKey) { return templateClient.listPublicLinks(API_URL, apiKey, templateId); }
+function createPublicLink(templateId, apiKey) { return templateClient.createPublicLink(API_URL, apiKey, templateId); }
+function revokePublicLink(templateId, linkId, apiKey) { return templateClient.revokePublicLink(API_URL, apiKey, templateId, linkId); }
 
 function setNotice(element, message = '', state = '') {
     element.textContent = message;
@@ -187,17 +199,62 @@ function resetTemplateEditor() {
     document.getElementById('templateId').value = '';
     document.getElementById('templateVersion').textContent = 'New template';
     document.getElementById('deleteTemplateBtn').hidden = true;
+    document.getElementById('cloneTemplateBtn').hidden = true;
+    document.getElementById('saveTemplateBtn').disabled = false;
+    ['templateNameInput', 'templateTypeInput', 'templateHtmlInput'].forEach((id) => { document.getElementById(id).disabled = false; });
+    window.customSelect?.setValue('templateTypeInput', 'custom');
+    document.getElementById('templateTypeInput').closest('[data-custom-select]').querySelector('.custom-select-trigger').disabled = false;
+    document.getElementById('templateSharingPanel').hidden = true;
+    document.getElementById('templatePublicPanel').hidden = true;
+    document.getElementById('templateSharesList').replaceChildren();
+    document.getElementById('templatePublicLinksList').replaceChildren();
     previewTemplateHTML('');
 }
 
 function populateTemplateEditor(template) {
     document.getElementById('templateId').value = template.id || '';
     document.getElementById('templateNameInput').value = template.name || '';
-    document.getElementById('templateTypeInput').value = template.type || 'custom';
+    window.customSelect?.setValue('templateTypeInput', template.type || 'custom');
     document.getElementById('templateHtmlInput').value = template.html || '';
-    document.getElementById('templateVersion').textContent = template.id ? `Version ${template.version || 1}` : 'Starter template — save to customize';
-    document.getElementById('deleteTemplateBtn').hidden = !template.id;
+    const canEdit = !template.access || template.access === 'owner' || template.access === 'editor';
+    const isOwner = !template.access || template.access === 'owner';
+    document.getElementById('templateVersion').textContent = template.id ? `${template.access && template.access !== 'owner' ? `${template.access} access · ` : ''}Version ${template.version || 1}` : 'Starter template — save to customize';
+    document.getElementById('deleteTemplateBtn').hidden = !template.id || !isOwner;
+    document.getElementById('cloneTemplateBtn').hidden = !template.id || isOwner;
+    document.getElementById('saveTemplateBtn').disabled = !canEdit;
+    ['templateNameInput', 'templateTypeInput', 'templateHtmlInput'].forEach((id) => { document.getElementById(id).disabled = !canEdit; });
+    document.getElementById('templateTypeInput').closest('[data-custom-select]').querySelector('.custom-select-trigger').disabled = !canEdit;
+    document.getElementById('templateSharingPanel').hidden = !template.id || !isOwner;
+    document.getElementById('templatePublicPanel').hidden = !template.id || !isOwner;
     previewTemplateHTML(template.html || '');
+}
+
+function renderPublicLinks(links) {
+    const container = document.getElementById('templatePublicLinksList');
+    container.replaceChildren();
+    if (!links?.length) {
+        const empty = document.createElement('p'); empty.className = 'empty-state'; empty.textContent = 'No public links yet.'; container.appendChild(empty); return;
+    }
+    links.forEach((link) => {
+        const item = document.createElement('div'); item.className = 'template-share-item';
+        const summary = document.createElement('span'); summary.textContent = `Created ${new Date(link.createdAt).toLocaleDateString()} · URL shown once`;
+        const revoke = document.createElement('button'); revoke.type = 'button'; revoke.className = 'dashboard-button dashboard-button-secondary'; revoke.textContent = 'Revoke'; revoke.dataset.publicLinkId = link.id;
+        item.append(summary, revoke); container.appendChild(item);
+    });
+}
+
+function renderTemplateShares(shares) {
+    const container = document.getElementById('templateSharesList');
+    container.replaceChildren();
+    shares.forEach((share) => {
+        const item = document.createElement('div'); item.className = 'template-share-item';
+        const recipient = document.createElement('code'); recipient.textContent = share.recipientId;
+        const role = document.createElement('span'); role.textContent = share.role;
+        const changeRole = document.createElement('button'); changeRole.type = 'button'; changeRole.className = 'dashboard-button dashboard-button-secondary'; changeRole.textContent = share.role === 'viewer' ? 'Make editor' : 'Make viewer'; changeRole.dataset.recipientId = share.recipientId; changeRole.dataset.shareAction = 'role'; changeRole.dataset.nextRole = share.role === 'viewer' ? 'editor' : 'viewer';
+        const revoke = document.createElement('button'); revoke.type = 'button'; revoke.className = 'dashboard-button dashboard-button-secondary'; revoke.textContent = 'Revoke'; revoke.dataset.recipientId = share.recipientId;
+        revoke.dataset.shareAction = 'revoke';
+        item.append(recipient, role, changeRole, revoke); container.appendChild(item);
+    });
 }
 
 function renderTemplateList(container, templates, selectTemplate, emptyMessage) {
@@ -215,7 +272,7 @@ function renderTemplateList(container, templates, selectTemplate, emptyMessage) 
         button.className = 'template-list-item';
         button.innerHTML = `<strong></strong><span></span>`;
         button.querySelector('strong').textContent = template.name;
-        button.querySelector('span').textContent = template.type;
+        button.querySelector('span').textContent = template.access ? `${template.type} · ${template.access}` : template.type;
         button.addEventListener('click', () => selectTemplate(template));
         container.appendChild(button);
     });
@@ -370,22 +427,48 @@ if (checkAuth()) {
     const templatesStatus = document.getElementById('templatesStatus');
     const templatesList = document.getElementById('templatesList');
     const starterTemplatesList = document.getElementById('starterTemplatesList');
+    const sharedTemplatesList = document.getElementById('sharedTemplatesList');
     const templateForm = document.getElementById('templateForm');
     const templateRenderForm = document.getElementById('templateRenderForm');
     const templateRenderResult = document.getElementById('templateRenderResult');
     const saveTemplateButton = document.getElementById('saveTemplateBtn');
     const renderTemplateButton = document.getElementById('renderTemplateBtn');
+    const templateShareForm = document.getElementById('templateShareForm');
+    const cloneTemplateButton = document.getElementById('cloneTemplateBtn');
+    const createPublicLinkButton = document.getElementById('createPublicLinkBtn');
+
+    window.customSelect?.init();
+    const libraryInput = document.getElementById('templateLibraryInput');
+    const showTemplateLibrary = (library) => {
+        document.querySelectorAll('[data-template-library-panel]').forEach((panel) => { panel.hidden = panel.dataset.templateLibraryPanel !== library; });
+    };
+    libraryInput.addEventListener('change', () => showTemplateLibrary(libraryInput.value));
+    showTemplateLibrary(libraryInput.value);
+
+    async function openStoredTemplate(summary, apiKey) {
+        try {
+            const template = await getStoredTemplate(summary.id, apiKey);
+            if (summary.access) template.access = summary.access;
+            populateTemplateEditor(template);
+            await loadTemplateManagement(template.id, apiKey);
+            setNotice(templatesStatus);
+        } catch (error) {
+            setNotice(templatesStatus, `Could not load template. ${error.message}`, 'error');
+        }
+    }
 
     async function loadTemplates() {
         const apiKey = apiKeyInput.value.trim();
         if (!apiKey) {
             renderTemplateList(templatesList, [], () => {}, 'Enter an API key above to load templates.');
+            renderTemplateList(sharedTemplatesList, [], () => {}, 'No shared templates loaded.');
             renderTemplateList(starterTemplatesList, [], () => {}, 'Starter templates load with your API key.');
             return;
         }
         try {
-            const data = await listTemplates(apiKey);
-            renderTemplateList(templatesList, data.templates, populateTemplateEditor, 'No saved templates yet. Start with a starter below.');
+            const [data, shared] = await Promise.all([listTemplates(apiKey), listSharedTemplates(apiKey)]);
+            renderTemplateList(templatesList, data.templates, (template) => openStoredTemplate(template, apiKey), 'No saved templates yet. Start with a starter below.');
+            renderTemplateList(sharedTemplatesList, shared.templates, (template) => openStoredTemplate(template, apiKey), 'No templates have been shared with you.');
             renderTemplateList(starterTemplatesList, data.starters, (starter) => {
                 populateTemplateEditor({ ...starter, id: '' });
                 setNotice(templatesStatus, `Loaded the ${starter.name} starter. Save it to create your editable copy.`, 'success');
@@ -463,10 +546,46 @@ if (checkAuth()) {
 
     document.getElementById('newTemplateBtn').addEventListener('click', () => {
         resetTemplateEditor();
+        window.customSelect?.setValue('templateLibraryInput', 'owned');
+        showTemplateLibrary('owned');
         setNotice(templatesStatus);
     });
 
     document.getElementById('templateHtmlInput').addEventListener('input', (event) => previewTemplateHTML(event.target.value));
+
+    cloneTemplateButton.addEventListener('click', async () => {
+        const templateId = document.getElementById('templateId').value;
+        const apiKey = apiKeyInput.value.trim();
+        if (!templateId || !apiKey) return;
+        setButtonPending(cloneTemplateButton, true, 'Cloning...');
+        try {
+            const clone = await cloneTemplate(templateId, apiKey);
+            populateTemplateEditor(clone);
+            await loadTemplates();
+            await loadTemplateManagement(clone.id, apiKey);
+            setNotice(templatesStatus, 'Private copy created. You can now edit and share it.', 'success');
+        } catch (error) {
+            setNotice(templatesStatus, `Could not clone template. ${error.message}`, 'error');
+        } finally {
+            setButtonPending(cloneTemplateButton, false);
+        }
+    });
+
+    async function loadTemplateShares(templateId, apiKey) {
+        if (!templateId || document.getElementById('templateSharingPanel').hidden) return;
+        try { renderTemplateShares((await listTemplateShares(templateId, apiKey)).shares || []); }
+        catch (error) { setNotice(templatesStatus, `Could not load template collaborators. ${error.message}`, 'error'); }
+    }
+
+    async function loadTemplatePublicLinks(templateId, apiKey) {
+        if (!templateId || document.getElementById('templatePublicPanel').hidden) return;
+        try { renderPublicLinks((await listPublicLinks(templateId, apiKey)).links || []); }
+        catch (error) { setNotice(templatesStatus, `Could not load public links. ${error.message}`, 'error'); }
+    }
+
+    async function loadTemplateManagement(templateId, apiKey) {
+        await Promise.all([loadTemplateShares(templateId, apiKey), loadTemplatePublicLinks(templateId, apiKey)]);
+    }
 
     templateForm.addEventListener('submit', async (event) => {
         event.preventDefault();
@@ -487,12 +606,62 @@ if (checkAuth()) {
             const saved = templateId ? await updateTemplate(templateId, template, apiKey) : await createTemplate(template, apiKey);
             populateTemplateEditor(saved);
             await loadTemplates();
+            await loadTemplateManagement(saved.id, apiKey);
             setNotice(templatesStatus, 'Template saved.', 'success');
         } catch (error) {
             setNotice(templatesStatus, `Could not save template. ${error.message}`, 'error');
         } finally {
             setButtonPending(saveTemplateButton, false);
         }
+    });
+
+    templateShareForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const templateId = document.getElementById('templateId').value, apiKey = apiKeyInput.value.trim();
+        if (!templateId || !apiKey) return;
+        const button = document.getElementById('shareTemplateBtn');
+        setButtonPending(button, true, 'Sharing...');
+        try {
+            await shareTemplate(templateId, { recipientId: document.getElementById('templateRecipientInput').value.trim(), role: document.getElementById('templateShareRoleInput').value }, apiKey);
+            templateShareForm.reset(); window.customSelect?.setValue('templateShareRoleInput', 'viewer'); await loadTemplateShares(templateId, apiKey); setNotice(templatesStatus, 'Template shared.', 'success');
+        } catch (error) { setNotice(templatesStatus, `Could not share template. ${error.message}`, 'error'); }
+        finally { setButtonPending(button, false); }
+    });
+
+    document.getElementById('templateSharesList').addEventListener('click', async (event) => {
+        const button = event.target.closest('[data-recipient-id]'); if (!button) return;
+        const templateId = document.getElementById('templateId').value, apiKey = apiKeyInput.value.trim();
+        const isRoleUpdate = button.dataset.shareAction === 'role';
+        setButtonPending(button, true, isRoleUpdate ? 'Updating...' : 'Revoking...');
+        try {
+            if (isRoleUpdate) await updateTemplateShare(templateId, button.dataset.recipientId, { role: button.dataset.nextRole }, apiKey);
+            else await revokeTemplateShare(templateId, button.dataset.recipientId, apiKey);
+            await loadTemplateShares(templateId, apiKey);
+            setNotice(templatesStatus, isRoleUpdate ? 'Collaborator access updated.' : 'Access revoked.', 'success');
+        }
+        catch (error) { setNotice(templatesStatus, `Could not ${isRoleUpdate ? 'update' : 'revoke'} access. ${error.message}`, 'error'); }
+    });
+
+    createPublicLinkButton.addEventListener('click', async () => {
+        const templateId = document.getElementById('templateId').value, apiKey = apiKeyInput.value.trim();
+        if (!templateId || !apiKey) return;
+        setButtonPending(createPublicLinkButton, true, 'Creating link...');
+        try {
+            const link = await createPublicLink(templateId, apiKey);
+            await loadTemplatePublicLinks(templateId, apiKey);
+            const publicURL = `${window.location.origin}${API_URL}/public/templates/${link.token}/render`;
+            try { await navigator.clipboard.writeText(publicURL); setNotice(templatesStatus, 'Public link created and copied to clipboard.', 'success'); }
+            catch (error) { setNotice(templatesStatus, `Public link created: ${publicURL}`, 'success'); }
+        } catch (error) { setNotice(templatesStatus, `Could not create public link. ${error.message}`, 'error'); }
+        finally { setButtonPending(createPublicLinkButton, false); }
+    });
+
+    document.getElementById('templatePublicLinksList').addEventListener('click', async (event) => {
+        const templateId = document.getElementById('templateId').value, apiKey = apiKeyInput.value.trim();
+        const revoke = event.target.closest('[data-public-link-id]'); if (!revoke || !templateId || !apiKey) return;
+        setButtonPending(revoke, true, 'Revoking...');
+        try { await revokePublicLink(templateId, revoke.dataset.publicLinkId, apiKey); await loadTemplatePublicLinks(templateId, apiKey); setNotice(templatesStatus, 'Public link revoked.', 'success'); }
+        catch (error) { setNotice(templatesStatus, `Could not revoke public link. ${error.message}`, 'error'); }
     });
 
     document.getElementById('deleteTemplateBtn').addEventListener('click', async () => {
