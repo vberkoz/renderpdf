@@ -46,7 +46,7 @@ Supporting docs:
 Try the anonymous endpoint without an API key. It is limited to 3 successful PDFs per source IP per UTC day and accepts up to 1 MB of HTML:
 
 ```bash
-curl -X POST https://renderpdf.vberkoz.com/api/v1/trial/render \
+curl -X POST https://renderpdf.vberkoz.com/api/v1/trial/render-html \
   -H "Content-Type: application/json" \
   -d '{"html":"<h1>Hello World</h1>"}'
 ```
@@ -60,7 +60,7 @@ curl https://renderpdf.vberkoz.com/api/v1/trial/quota
 For authenticated usage, create an API key in the dashboard:
 
 ```bash
-curl -X POST https://renderpdf.vberkoz.com/api/v1/render \
+curl -X POST https://renderpdf.vberkoz.com/api/v1/render-html \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -d '{"html":"<h1>Hello World</h1>"}'
@@ -117,6 +117,41 @@ curl -X POST https://renderpdf.vberkoz.com/api/v1/render-template \
 
 See [starter template schemas](docs/starter-templates.md) for Invoice,
 Contract, Certificate, and Receipt variables and migration guidance.
+
+### Share a template
+
+Templates remain private unless their owner explicitly shares them. Share a
+template with another customer's ID returned as `ownerId` in their own template
+response. A `viewer` can view and render; an `editor` can also update. Only the
+owner can change shares or delete the template.
+
+```bash
+curl -X POST "https://renderpdf.vberkoz.com/api/v1/templates/$template_id/shares" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -d '{"recipientId":"RECIPIENT_CUSTOMER_ID","role":"viewer"}'
+```
+
+Recipients list available templates with `GET /templates/shared`, render them
+with the normal `/render-template` endpoint, or create an independent copy via
+`POST /templates/{id}/clone`. Revoking a share immediately blocks access to the
+original template.
+
+### Public template links
+
+Public template links will let an owner publish an opaque render URL that
+unregistered users can use with variable JSON. Public access will be render
+only: it will not reveal the template HTML, permit edits or collaborator
+management, or allow webhooks. Each public render will use the anonymous trial
+quota and size limits. Owners will be able to disable or rotate a link
+immediately, and links may support expiry and render-count limits.
+
+Create a link with `POST /templates/{id}/public-links`; the one-time response
+contains its opaque `token`. Render without an API key using
+`POST /public/templates/{token}/render` and `{ "variables": { ... } }`.
+Public renders use the anonymous trial quota and do not support webhooks. List
+or revoke links with `GET /templates/{id}/public-links` and
+`DELETE /templates/{id}/public-links/{linkId}`.
 
 ### Response
 

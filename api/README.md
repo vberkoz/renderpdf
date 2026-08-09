@@ -35,6 +35,38 @@ used as the template owner; `ownerId` is never accepted from request JSON.
 - `PUT /api/v1/templates/{id}`
 - `DELETE /api/v1/templates/{id}`
 
+### Template sharing
+
+Templates are private by default. Owners can grant a customer `viewer` access
+(view and render) or `editor` access (view, render, and edit):
+
+- `GET /api/v1/templates/shared`
+- `POST /api/v1/templates/{id}/shares`
+- `GET /api/v1/templates/{id}/shares`
+- `PUT /api/v1/templates/{id}/shares/{recipientId}`
+- `DELETE /api/v1/templates/{id}/shares/{recipientId}`
+- `POST /api/v1/templates/{id}/clone`
+
+Share create/update payloads contain `{ "recipientId": "...", "role": "viewer" }`.
+Only the owner can manage shares or delete a template. Recipients can clone a
+shared template to create an independent private copy; revocation immediately
+blocks future reads, edits, and renders of the original.
+
+### Public template links
+
+Public links are a separate, planned sharing mode for anonymous users. They
+will use a high-entropy opaque token rather than a template ID and will permit
+only rendering with submitted variables. Public links will not expose HTML,
+grant edit or share access, or permit webhooks. Renders will be subject to the
+anonymous trial quota and HTML-size limit. Owners will be able to disable or
+rotate a link, with optional expiry and render-count limits.
+
+Create an opaque link with `POST /api/v1/templates/{id}/public-links`. The
+token is returned only when created. Anyone may then call
+`POST /api/v1/public/templates/{token}/render` with `{ "variables": { ... } }`.
+The call consumes the anonymous trial quota. Owners list and revoke links with
+`GET /templates/{id}/public-links` and `DELETE /templates/{id}/public-links/{linkId}`.
+
 Create and update requests accept `name`, `type`, and `html`. Create returns
 201, successful reads and updates return 200, and deletion returns 204.
 

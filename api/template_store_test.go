@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -95,7 +96,7 @@ func TestDynamoTemplateStorePreventsCrossCustomerReads(t *testing.T) {
 func TestDynamoTemplateStoreEnforcesPerCustomerLimit(t *testing.T) {
 	store := newDynamoTemplateStore("templates", &memoryTemplateDynamo{})
 	for number := 0; number < maxTemplatesPerOwner; number++ {
-		if err := store.Create(context.Background(), testTemplate("customer-a", string(rune('a'+number)))); err != nil {
+		if err := store.Create(context.Background(), testTemplate("customer-a", fmt.Sprintf("template-%d", number))); err != nil {
 			t.Fatalf("create template %d: %v", number, err)
 		}
 	}

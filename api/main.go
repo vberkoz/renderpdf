@@ -88,15 +88,15 @@ type dynamoDBAPI interface {
 }
 
 var (
-	bucketName                  = os.Getenv("BUCKET_NAME")
-	packageBucketName           = os.Getenv("PACKAGE_BUCKET_NAME")
-	tableName                   = os.Getenv("TABLE_NAME")
-	sess                        = session.Must(session.NewSession())
-	s3Client                    = s3.New(sess)
-	sqsClient                   = sqs.New(sess)
-	ddbClient       dynamoDBAPI = dynamodb.New(sess)
-	chromeSetupOnce sync.Once
-	chromeSetupErr  error
+	bucketName                    = os.Getenv("BUCKET_NAME")
+	packageBucketName             = os.Getenv("PACKAGE_BUCKET_NAME")
+	tableName                     = os.Getenv("TABLE_NAME")
+	sess                          = session.Must(session.NewSession())
+	s3Client                      = s3.New(sess)
+	sqsClient                     = sqs.New(sess)
+	ddbClient         dynamoDBAPI = dynamodb.New(sess)
+	chromeSetupOnce   sync.Once
+	chromeSetupErr    error
 )
 
 func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
@@ -133,7 +133,9 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		body, _ := json.Marshal(response)
 		return events.APIGatewayProxyResponse{StatusCode: 200, Body: string(body), Headers: corsHeaders}, nil
 	}
-	isTrial := isTrialRequest(request)
+	publicTemplateToken := publicTemplateRenderToken(request)
+	isPublicTemplateRender := publicTemplateToken != ""
+	isTrial := isTrialRequest(request) || isPublicTemplateRender
 	isURLRender := isURLRenderRequest(request)
 	isPackageRender := isPackageRenderRequest(request)
 	isTemplateRender := isTemplateRenderRequest(request)
@@ -178,7 +180,15 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 			packageCleanup()
 		}
 	}()
-	if isTemplateRender {
+	if isPublicTemplateRender {
+		resolvedHTML, err := resolvePublicTemplateRenderHTML(ctx, templateStoreFactory(), publicTemplateToken, request.Body)
+		if err != nil {
+			analytics.ErrorType = "validation"
+			return templateRenderErrorResponse(err, corsHeaders), nil
+		}
+		html = resolvedHTML
+		analytics.HTMLBytes = int64(len(html))
+	} else if isTemplateRender {
 		resolvedHTML, templateRequest, err := resolveTemplateRenderHTML(ctx, templateStoreFactory(), analytics.CustomerID, request.Body)
 		if err != nil {
 			analytics.ErrorType = "validation"

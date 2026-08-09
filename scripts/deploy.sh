@@ -18,6 +18,10 @@ REGION="us-east-1"
 PROFILE="basil"
 ACCOUNT_ID=$(aws sts get-caller-identity --profile ${PROFILE} --query Account --output text)
 ECR_REPO="${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/${STACK_NAME}"
+# CloudFormation sends templates <= 51,200 bytes inline. Larger templates are
+# uploaded here by the CLI; this private bucket already exists with the stack.
+CFN_ARTIFACT_BUCKET="${STACK_NAME}-packages-${ACCOUNT_ID}"
+CFN_ARTIFACT_PREFIX="cloudformation"
 
 push_image_with_retry() {
   local image="$1"
@@ -95,6 +99,8 @@ echo "Deploying CloudFormation stack..."
 if [ -f "${PARAMETERS_FILE}" ]; then
   aws cloudformation deploy \
     --template-file "${TEMPLATE_FILE}" \
+    --s3-bucket "${CFN_ARTIFACT_BUCKET}" \
+    --s3-prefix "${CFN_ARTIFACT_PREFIX}" \
     --stack-name ${STACK_NAME} \
     --capabilities CAPABILITY_IAM \
     --region ${REGION} \
@@ -103,6 +109,8 @@ if [ -f "${PARAMETERS_FILE}" ]; then
 elif [ -f "${FALLBACK_PARAMETERS_FILE}" ]; then
   aws cloudformation deploy \
     --template-file "${TEMPLATE_FILE}" \
+    --s3-bucket "${CFN_ARTIFACT_BUCKET}" \
+    --s3-prefix "${CFN_ARTIFACT_PREFIX}" \
     --stack-name ${STACK_NAME} \
     --capabilities CAPABILITY_IAM \
     --region ${REGION} \
@@ -111,6 +119,8 @@ elif [ -f "${FALLBACK_PARAMETERS_FILE}" ]; then
 else
   aws cloudformation deploy \
     --template-file "${TEMPLATE_FILE}" \
+    --s3-bucket "${CFN_ARTIFACT_BUCKET}" \
+    --s3-prefix "${CFN_ARTIFACT_PREFIX}" \
     --stack-name ${STACK_NAME} \
     --capabilities CAPABILITY_IAM \
     --region ${REGION} \

@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	trialResource          = "/api/v1/trial/render"
+	trialResource          = "/api/v1/trial/render-html"
 	trialQuotaResource     = "/api/v1/trial/quota"
 	defaultTrialDailyLimit = 3
 	defaultTrialMaxBytes   = 1024 * 1024

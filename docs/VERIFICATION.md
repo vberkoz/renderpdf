@@ -84,6 +84,10 @@ delete), provide a valid API key:
 cd /Users/basilsergius/projects/renderpdf && RENDERPDF_API_KEY='your-key' ./scripts/test-api.sh
 ```
 
+For sharing, use two API keys: create a template as customer A, share it with
+customer B's `ownerId`, then verify B can list and render it, that a viewer
+cannot update it, and that B receives 404 immediately after A revokes access.
+
 ### Template Documentation Examples
 
 Run the executable public examples against production, or set

@@ -12,7 +12,9 @@
   - Go Lambda that converts posted HTML, public URLs, and uploaded ZIP packages into PDF.
   - Stores PDFs in S3 and writes usage records to DynamoDB.
   - Includes a DynamoDB-backed, owner-isolated template repository for durable
-    customer templates; routes will be layered onto this repository separately.
+    customer templates. Share records are stored as paired owner and recipient
+    records, allowing an owner to list/revoke access and a recipient to list
+    shared templates without weakening owner isolation.
   - Generated PDF objects expire after 30 days; incomplete multipart uploads expire after 7 days.
   - Uploaded packages use a separate private S3 bucket and expire after one day.
 - `auth/`
@@ -31,7 +33,7 @@
 ### Public Demo Flow
 
 - Browser loads `/Users/basilsergius/projects/renderpdf/landing/index.html` through `https://renderpdf.vberkoz.com/`.
-- Page posts HTML to `https://renderpdf.vberkoz.com/api/v1/render`.
+- Page posts HTML to `https://renderpdf.vberkoz.com/api/v1/render-html`.
 - `api/main.go` renders PDF and uploads to S3.
 - API returns a download URL and file metadata.
 
@@ -46,7 +48,7 @@
 ### API Key Flow
 
 - Dashboard creates a key through the API-key Lambda.
-- Client uses the returned key against `/api/v1/render`.
+- Client uses the returned key against `/api/v1/render-html`.
 - Authorizer Lambda validates the Bearer API key against DynamoDB.
 - Main API Lambda processes the request only if authorization passes.
 
