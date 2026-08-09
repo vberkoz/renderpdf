@@ -12,6 +12,8 @@
 - `/Users/basilsergius/projects/renderpdf/doc-examples/variable-columns.html`
 - `/Users/basilsergius/projects/renderpdf/doc-examples/innovus-invoice-template.html`
 - `/Users/basilsergius/projects/renderpdf/doc-examples/innovus-invoice-data.json`
+- `/Users/basilsergius/projects/renderpdf/doc-examples/contract.html`
+- `/Users/basilsergius/projects/renderpdf/doc-examples/contract-data.json`
 
 ## Safe To Edit
 

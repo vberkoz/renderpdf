@@ -1,0 +1,18 @@
+{
+  "contract": {
+    "title": "Design and Development Services Agreement",
+    "date": "August 9, 2026",
+    "scope": "Brand identity refinement\nResponsive marketing website design and development\nContent-management handover and launch support",
+    "startDate": "August 15, 2026",
+    "endDate": "November 15, 2026",
+    "paymentTerms": "50% on commencement; 50% on final delivery, due within 14 days"
+  },
+  "party": {
+    "one": {
+      "name": "RenderPDF Studio LLC"
+    },
+    "two": {
+      "name": "Northstar Ventures Ltd."
+    }
+  }
+}
