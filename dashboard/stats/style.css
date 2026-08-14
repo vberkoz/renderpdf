@@ -13,7 +13,7 @@
     --error: #9f2e2e;
     --error-bg: #fff1f1;
     --radius: 16px;
-    --font-sans: "DM Sans", sans-serif;
+    --font-sans: "IBM Plex Sans", Arial, sans-serif;
     --font-mono: "IBM Plex Mono", monospace;
 }
 
@@ -23,6 +23,8 @@ body {
     min-width: 320px;
     min-height: 100vh;
     margin: 0;
+    font-size: 16px;
+    line-height: 1.5;
     color: var(--ink);
     background-color: var(--bg);
     background-image: radial-gradient(#cbd2da 0.7px, transparent 0.7px);

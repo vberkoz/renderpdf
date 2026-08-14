@@ -8,7 +8,7 @@
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
     <script data-project="renderpdf" data-source="dashboard" src="https://analytics.vberkoz.com/track.js" defer></script>
 </head>
@@ -113,148 +113,57 @@
                     </div>
                 </article>
 
-                <article class="workspace-panel test-panel">
-                    <header class="panel-header panel-header-compact">
-                        <div>
-                            <p class="panel-kicker">04 / Live request</p>
-                            <h2>Test the renderer</h2>
-                            <p>Send HTML through the authenticated production endpoint.</p>
-                        </div>
-                        <div class="endpoint-route"><span>POST</span><code>/render-html</code></div>
-                    </header>
-
-                    <form id="testApiForm" class="test-form">
-                        <label class="dashboard-field" for="apiKeyInput">
-                            <span>API key</span>
-                            <input id="apiKeyInput" type="password" autocomplete="off" spellcheck="false" placeholder="Paste a newly created key">
-                        </label>
-
-                        <label class="dashboard-field" for="htmlInput">
-                            <span>HTML input</span>
-                            <textarea id="htmlInput" rows="11" spellcheck="false"><main style="font-family: sans-serif; padding: 40px">
-  <h1>RenderPDF test</h1>
-  <p>This PDF was generated from the developer dashboard.</p>
-</main></textarea>
-                        </label>
-
-                        <div class="test-actions">
-                            <p>Your API key is sent only in the <code>Authorization: Bearer</code> request header.</p>
-                            <button id="testApiBtn" class="dashboard-button dashboard-button-primary" type="submit">
-                                Generate PDF <span aria-hidden="true">-&gt;</span>
-                            </button>
-                        </div>
-                    </form>
-
-                    <div id="testResult" class="dashboard-result" role="status" aria-live="polite" hidden></div>
-                </article>
-
                 <article class="workspace-panel templates-panel">
                     <header class="panel-header">
                         <div>
-                            <p class="panel-kicker">05 / Templates</p>
-                            <h2>Reusable documents</h2>
-                            <p>Build HTML once, then preview, test-render, share, or clone it with variable data.</p>
+                            <p class="panel-kicker">04 / Render</p>
+                            <h2>Render documents</h2>
+                            <p>Select a starter or custom template, provide variables, and render a PDF from your dashboard session.</p>
                         </div>
-                        <div class="endpoint-route"><span>API key</span><code>/templates</code></div>
                     </header>
 
-                    <details class="template-api-map">
-                        <summary><span>Template API coverage</span><strong>16 operations available</strong></summary>
-                        <div class="template-api-groups">
-                            <div><span>Library</span><code>GET · POST /templates</code><code>GET · PUT · DELETE /templates/{id}</code></div>
-                            <div><span>Render</span><code>POST /render-template</code><code>POST /templates/{id}/clone</code></div>
-                            <div><span>Private sharing</span><code>GET /templates/shared</code><code>GET · POST /templates/{id}/shares</code><code>PUT · DELETE /templates/{id}/shares/{recipientId}</code></div>
-                            <div><span>Public sharing</span><code>GET · POST /templates/{id}/public-links</code><code>DELETE /templates/{id}/public-links/{linkId}</code><code>POST /public/templates/{token}/render</code></div>
-                        </div>
-                    </details>
-
                     <div id="templatesStatus" class="dashboard-notice" role="status" aria-live="polite" hidden></div>
-                    <div class="templates-layout">
-                        <aside class="templates-sidebar" aria-label="Templates">
-                            <div class="templates-sidebar-header">
-                                <strong>Template library</strong>
-                                <button id="newTemplateBtn" class="dashboard-button dashboard-button-secondary" type="button">New</button>
+                    <div class="template-editor">
+                        <form id="templateForm" class="template-form">
+                            <input id="templateId" type="hidden">
+                            <input id="templateTypeInput" type="hidden" value="custom">
+                            <div class="template-card-heading">
+                                <div><span class="template-card-kicker">Document editor</span><h3>Template and default data</h3></div>
+                                <span id="templateVersion" class="template-version"></span>
                             </div>
-                            <div class="custom-select" data-custom-select>
-                                <span id="templateLibraryInput-label" class="custom-select-label">Collection</span>
-                                <input id="templateLibraryInput" type="hidden" value="owned">
-                                <button class="custom-select-trigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="templateLibraryInput-menu"><span class="custom-select-value">Your templates</span><span class="custom-select-icon" aria-hidden="true">⌄</span></button>
-                                <div id="templateLibraryInput-menu" class="custom-select-menu" role="listbox" hidden>
-                                    <button class="custom-select-option is-active" type="button" role="option" aria-selected="true" data-custom-select-option data-value="owned">Your templates</button>
-                                    <button class="custom-select-option" type="button" role="option" aria-selected="false" data-custom-select-option data-value="shared">Shared with you</button>
-                                    <button class="custom-select-option" type="button" role="option" aria-selected="false" data-custom-select-option data-value="starters">Starter templates</button>
-                                </div>
+                            <div class="template-form-row">
+                                <div class="custom-select" data-custom-select><span class="custom-select-label">Template</span><input id="templatePickerInput" type="hidden" value="new"><button class="custom-select-trigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="templatePickerInput-menu"><span class="custom-select-value">Blank custom template</span><i class="custom-select-icon" data-lucide="chevron-down" aria-hidden="true"></i></button><div id="templatePickerInput-menu" class="custom-select-menu" role="listbox" hidden><div class="custom-select-group-label">Custom templates</div><button class="custom-select-option is-active" type="button" role="option" aria-selected="true" data-custom-select-option data-value="new">Blank custom template</button><div class="custom-select-divider" role="separator"></div><div class="custom-select-group-label">Starter templates</div><button class="custom-select-option" type="button" role="option" aria-selected="false" data-custom-select-option data-value="starter:invoice">Invoice starter</button><button class="custom-select-option" type="button" role="option" aria-selected="false" data-custom-select-option data-value="starter:contract">Contract starter</button><button class="custom-select-option" type="button" role="option" aria-selected="false" data-custom-select-option data-value="starter:certificate">Certificate starter</button><button class="custom-select-option" type="button" role="option" aria-selected="false" data-custom-select-option data-value="starter:receipt">Receipt starter</button></div></div>
+                                <label class="dashboard-field" for="templateNameInput"><span>Name</span><input id="templateNameInput" maxlength="120" placeholder="Monthly invoice" required></label>
                             </div>
-                            <div data-template-library-panel="owned"><div id="templatesList" class="templates-list"><p class="empty-state">Enter an API key to load templates.</p></div></div>
-                            <div data-template-library-panel="shared" hidden><div id="sharedTemplatesList" class="templates-list"></div></div>
-                            <div data-template-library-panel="starters" hidden><div id="starterTemplatesList" class="templates-list"></div></div>
-                        </aside>
-
-                        <div class="template-editor">
-                            <form id="templateForm" class="template-form">
-                                <input id="templateId" type="hidden">
+                            <label class="dashboard-field" for="templateHtmlInput"><span>Template HTML</span><textarea id="templateHtmlInput" rows="13" spellcheck="false" placeholder="Use {{customer.name}} for variable values." required></textarea></label>
+                            <section class="template-data-section" aria-labelledby="template-data-title">
                                 <div class="template-card-heading">
-                                    <div><span class="template-card-kicker">Document editor</span><h3>HTML and metadata</h3></div>
-                                    <span id="templateVersion" class="template-version"></span>
+                                    <div><span class="template-card-kicker">Default data</span><h3 id="template-data-title">Test data</h3></div>
+                                    <span>Saved with this template</span>
                                 </div>
-                                <div class="template-form-row">
-                                    <label class="dashboard-field" for="templateNameInput"><span>Name</span><input id="templateNameInput" maxlength="120" placeholder="Monthly invoice" required></label>
-                                    <div class="custom-select" data-custom-select><span class="custom-select-label">Type</span><input id="templateTypeInput" type="hidden" value="custom"><button class="custom-select-trigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="templateTypeInput-menu"><span class="custom-select-value">Custom</span><span class="custom-select-icon" aria-hidden="true">⌄</span></button><div id="templateTypeInput-menu" class="custom-select-menu" role="listbox" hidden><button class="custom-select-option" type="button" role="option" aria-selected="false" data-custom-select-option data-value="invoice">Invoice</button><button class="custom-select-option" type="button" role="option" aria-selected="false" data-custom-select-option data-value="contract">Contract</button><button class="custom-select-option" type="button" role="option" aria-selected="false" data-custom-select-option data-value="certificate">Certificate</button><button class="custom-select-option" type="button" role="option" aria-selected="false" data-custom-select-option data-value="receipt">Receipt</button><button class="custom-select-option is-active" type="button" role="option" aria-selected="true" data-custom-select-option data-value="custom">Custom</button></div></div>
-                                </div>
-                                <label class="dashboard-field" for="templateHtmlInput"><span>Template HTML</span><textarea id="templateHtmlInput" rows="13" spellcheck="false" placeholder="Use {{customer.name}} for variable values." required></textarea></label>
-                                <div class="template-actions">
-                                    <button id="saveTemplateBtn" class="dashboard-button dashboard-button-primary" type="submit">Save template</button>
-                                    <button id="cloneTemplateBtn" class="dashboard-button dashboard-button-secondary" type="button" hidden>Clone to my templates</button>
-                                    <button id="deleteTemplateBtn" class="dashboard-button dashboard-button-secondary" type="button" hidden>Delete</button>
-                                </div>
-                            </form>
-
-                            <section id="templateSharingPanel" class="template-sharing" hidden>
-                                <div class="templates-sidebar-header"><strong>Share this template</strong><span>Owner only</span></div>
-                                <form id="templateShareForm" class="template-share-form">
-                                    <label class="dashboard-field" for="templateRecipientInput"><span>Recipient customer ID</span><input id="templateRecipientInput" autocomplete="off" placeholder="Customer ID from their template response" required></label>
-                                    <div class="custom-select" data-custom-select><span class="custom-select-label">Access</span><input id="templateShareRoleInput" type="hidden" value="viewer"><button class="custom-select-trigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="templateShareRoleInput-menu"><span class="custom-select-value">Viewer</span><span class="custom-select-icon" aria-hidden="true">⌄</span></button><div id="templateShareRoleInput-menu" class="custom-select-menu" role="listbox" hidden><button class="custom-select-option is-active" type="button" role="option" aria-selected="true" data-custom-select-option data-value="viewer">Viewer</button><button class="custom-select-option" type="button" role="option" aria-selected="false" data-custom-select-option data-value="editor">Editor</button></div></div>
-                                    <button id="shareTemplateBtn" class="dashboard-button dashboard-button-secondary" type="submit">Add collaborator</button>
-                                </form>
-                                <div id="templateSharesList" class="template-shares-list"></div>
+                                <label class="dashboard-field" for="templateVariablesInput"><span>Variable JSON</span><textarea id="templateVariablesInput" rows="9" spellcheck="false">{}</textarea></label>
                             </section>
-
-                            <section id="templatePublicPanel" class="template-sharing" hidden>
-                                <div class="templates-sidebar-header"><strong>Public render links</strong><span>Anonymous trial limits</span></div>
-                                <p class="template-management-copy">Create a tokenized, render-only endpoint. It never exposes the HTML and cannot send webhooks.</p>
-                                <div class="template-actions">
-                                    <button id="createPublicLinkBtn" class="dashboard-button dashboard-button-secondary" type="button">Create public link</button>
-                                </div>
-                                <div id="templatePublicLinksList" class="template-shares-list"></div>
-                            </section>
+                            <div class="template-actions">
+                                <button id="saveTemplateBtn" class="dashboard-button dashboard-button-primary" type="submit">Save template</button>
+                                <button id="deleteTemplateBtn" class="dashboard-button dashboard-button-secondary" type="button" hidden>Delete</button>
+                                <button id="renderTemplateBtn" class="dashboard-button dashboard-button-secondary" type="button">Render PDF <span aria-hidden="true">-&gt;</span></button>
+                                <span>Uses your dashboard session.</span>
+                            </div>
+                        </form>
 
                             <div class="template-preview-wrap">
-                                <div class="templates-sidebar-header"><strong>Preview</strong><span>Scripts disabled</span></div>
-                                <iframe id="templatePreview" class="template-preview" title="Template preview" sandbox></iframe>
+                                <div class="templates-sidebar-header"><strong>Preview</strong><span>Live test data · paged A4 preview</span></div>
+                                <iframe id="templatePreview" class="template-preview" title="Template preview" sandbox="allow-scripts"></iframe>
                             </div>
 
-                            <form id="templateRenderForm" class="template-render-form">
-                                <div class="template-card-heading">
-                                    <div><span class="template-card-kicker">Test data</span><h3>Render with variables</h3></div>
-                                    <span>Private preview</span>
-                                </div>
-                                <label class="dashboard-field" for="templateVariablesInput"><span>Variable JSON</span><textarea id="templateVariablesInput" rows="9" spellcheck="false">{
-  "customer": { "name": "Ada Lovelace" }
-}</textarea></label>
-                                <div class="template-actions">
-                                    <button id="renderTemplateBtn" class="dashboard-button dashboard-button-primary" type="submit">Render test PDF <span aria-hidden="true">-&gt;</span></button>
-                                    <span>Uses the API key above.</span>
-                                </div>
-                            </form>
-                            <div id="templateRenderResult" class="dashboard-result" role="status" aria-live="polite" hidden></div>
-                        </div>
+                        <div id="templateRenderResult" class="dashboard-result" role="status" aria-live="polite" hidden></div>
                     </div>
                 </article>
 
                 <article class="workspace-panel logs-panel">
                     <header class="panel-header panel-header-compact">
                         <div>
-                            <p class="panel-kicker">06 / Logs</p>
+                            <p class="panel-kicker">05 / Logs</p>
                             <h2>Recent requests</h2>
                             <p>Latest 25 authenticated render attempts. Request content is never stored here.</p>
                         </div>
@@ -274,6 +183,7 @@
         </footer>
     </div>
 
+    <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.js"></script>
     <script src="custom-select.js"></script>
     <script src="template-client.js"></script>
     <script src="app.js"></script>

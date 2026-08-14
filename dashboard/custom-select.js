@@ -2,6 +2,7 @@
     const instances = new Map();
 
     function init(root = document) {
+        if (global.lucide) global.lucide.createIcons({ attrs: { 'aria-hidden': 'true' } });
         root.querySelectorAll('[data-custom-select]').forEach((select) => {
             if (select.dataset.initialized === 'true') return;
             const trigger = select.querySelector('.custom-select-trigger');
@@ -9,8 +10,8 @@
             const input = select.querySelector('input[type="hidden"]');
             const label = select.querySelector('.custom-select-value');
             const accessibleLabel = select.querySelector('.custom-select-label');
-            const options = Array.from(select.querySelectorAll('[data-custom-select-option]'));
-            if (!trigger || !menu || !input || !label || !options.length) return;
+            let options = [];
+            if (!trigger || !menu || !input || !label) return;
 
             if (accessibleLabel) {
                 if (!accessibleLabel.id) accessibleLabel.id = `${input.id}-label`;
@@ -35,6 +36,10 @@
                 label.textContent = active.textContent.trim();
                 if (emit) input.dispatchEvent(new Event('change', { bubbles: true }));
             };
+            const bindOptions = () => {
+                options = Array.from(select.querySelectorAll('[data-custom-select-option]'));
+                options.forEach((option) => option.addEventListener('click', () => { sync(option.dataset.value); close(true); }));
+            };
             const open = () => {
                 menu.hidden = false;
                 trigger.setAttribute('aria-expanded', 'true');
@@ -57,9 +62,42 @@
                 if (event.key === 'ArrowUp') { event.preventDefault(); options[Math.max(index - 1, 0)].focus(); }
                 if (['Enter', ' '].includes(event.key) && document.activeElement.matches('[data-custom-select-option]')) { event.preventDefault(); document.activeElement.click(); }
             });
-            options.forEach((option) => option.addEventListener('click', () => { sync(option.dataset.value); close(true); }));
+            bindOptions();
+            if (!options.length) return;
             select.dataset.initialized = 'true';
-            instances.set(input.id, { setValue: (value) => sync(value, false), close });
+            instances.set(input.id, {
+                setValue: (value) => sync(value, false),
+                close,
+                replaceOptions: (groups, value = input.value) => {
+                    menu.replaceChildren();
+                    groups.forEach((group, index) => {
+                        if (index > 0) {
+                            const divider = document.createElement('div');
+                            divider.className = 'custom-select-divider';
+                            divider.setAttribute('role', 'separator');
+                            menu.appendChild(divider);
+                        }
+                        if (group.label) {
+                            const heading = document.createElement('div');
+                            heading.className = 'custom-select-group-label';
+                            heading.textContent = group.label;
+                            menu.appendChild(heading);
+                        }
+                        group.options.forEach((item) => {
+                            const option = document.createElement('button');
+                            option.type = 'button';
+                            option.className = 'custom-select-option';
+                            option.setAttribute('role', 'option');
+                            option.dataset.customSelectOption = '';
+                            option.dataset.value = item.value;
+                            option.textContent = item.label;
+                            menu.appendChild(option);
+                        });
+                    });
+                    bindOptions();
+                    sync(options.some((option) => option.dataset.value === value) ? value : options[0].dataset.value, false);
+                }
+            });
             sync(input.value || options[0].dataset.value, false);
         });
     }
@@ -70,5 +108,9 @@
         });
     });
 
-    global.customSelect = { init, setValue: (id, value) => instances.get(id)?.setValue(value) };
+    global.customSelect = {
+        init,
+        setValue: (id, value) => instances.get(id)?.setValue(value),
+        replaceOptions: (id, groups, value) => instances.get(id)?.replaceOptions(groups, value)
+    };
 }(window));

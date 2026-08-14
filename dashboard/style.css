@@ -5,7 +5,9 @@
 }
 
 body {
-    font-family: "DM Sans", sans-serif;
+    font-size: 16px;
+    line-height: 1.5;
+    font-family: "IBM Plex Sans", Arial, sans-serif;
     background-color: #f3f5f7;
     background-image: radial-gradient(#cbd2da 0.7px, transparent 0.7px);
     background-size: 18px 18px;
@@ -109,7 +111,7 @@ nav h1 {
 
 .key-display code {
     flex: 1;
-    font-family: 'Courier New', monospace;
+    font-family: "IBM Plex Mono", "Courier New", monospace;
     word-break: break-all;
 }
 
@@ -119,7 +121,7 @@ textarea {
     padding: 1rem;
     border: 1px solid #e2e8f0;
     border-radius: 4px;
-    font-family: 'Courier New', monospace;
+    font-family: "IBM Plex Mono", "Courier New", monospace;
     margin-bottom: 1rem;
     resize: vertical;
 }
@@ -173,7 +175,7 @@ textarea {
     background-image: radial-gradient(#cbd2da 0.7px, transparent 0.7px);
     background-size: 18px 18px;
     color: var(--auth-ink);
-    font-family: "DM Sans", sans-serif;
+    font-family: "IBM Plex Sans", Arial, sans-serif;
 }
 
 .auth-page a { color: inherit; }
@@ -548,30 +550,7 @@ textarea {
 /* Template management workspace. */
 .templates-panel { grid-column: 1 / -1; }
 
-.template-api-map { margin-top: 18px; border: 1px solid var(--dashboard-line); border-radius: 12px; background: var(--dashboard-soft); }
-.template-api-map summary { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 14px; cursor: pointer; color: var(--dashboard-ink); font-size: .76rem; }
-.template-api-map summary strong { color: var(--dashboard-muted); font-family: "IBM Plex Mono", monospace; font-size: .62rem; font-weight: 500; }
-.template-api-groups { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; border-top: 1px solid var(--dashboard-line); background: var(--dashboard-line); }
-.template-api-groups > div { display: grid; align-content: start; gap: 5px; padding: 12px; background: #fff; }
-.template-api-groups span { color: var(--dashboard-muted); font-size: .64rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
-.template-api-groups code { white-space: normal; color: var(--dashboard-ink); font-size: .61rem; line-height: 1.45; }
-
-.templates-layout {
-    display: grid;
-    grid-template-columns: minmax(228px, 0.28fr) minmax(0, 1fr);
-    gap: 22px;
-    margin-top: 18px;
-}
-
-.templates-sidebar {
-    display: grid;
-    align-content: start;
-    gap: 10px;
-    padding: 14px;
-    border: 1px solid var(--dashboard-line);
-    border-radius: 12px;
-    background: var(--dashboard-soft);
-}
+.template-editor { margin-top: 18px; }
 
 .custom-select { position: relative; display: grid; gap: 7px; min-width: 0; }
 .custom-select-label { color: var(--dashboard-muted); font-size: .66rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; }
@@ -579,13 +558,15 @@ textarea {
 .custom-select-trigger:hover { border-color: var(--dashboard-line-strong); }
 .custom-select-trigger:focus-visible { outline: 2px solid rgba(31, 92, 255, .18); outline-offset: 2px; }
 .custom-select-value { min-width: 0; overflow: hidden; text-overflow: ellipsis; text-align: left; white-space: nowrap; }
-.custom-select-icon { color: var(--dashboard-muted); font-size: 1rem; transition: transform 160ms ease; }
+.custom-select-icon { flex: 0 0 auto; width: 16px; height: 16px; color: var(--dashboard-muted); stroke-width: 2; transition: transform 160ms ease; }
 .custom-select[data-open="true"] .custom-select-icon { transform: rotate(180deg); }
 .custom-select-menu { position: absolute; z-index: 30; top: calc(100% + 6px); left: 0; right: 0; display: grid; gap: 4px; max-height: min(240px, calc(100vh - 120px)); overflow: auto; padding: 7px; border: 1px solid var(--dashboard-line); border-radius: 11px; background: #fff; box-shadow: 0 16px 36px rgba(17, 24, 39, .12); }
 .custom-select-menu[hidden] { display: none; }
 .custom-select[data-open-direction="up"] .custom-select-menu { top: auto; bottom: calc(100% + 6px); }
 .custom-select-option { min-height: 34px; padding: 7px 9px; border: 0; border-radius: 8px; background: transparent; color: var(--dashboard-ink); font: inherit; font-size: .74rem; text-align: left; cursor: pointer; }
 .custom-select-option:hover, .custom-select-option:focus-visible, .custom-select-option.is-active { background: var(--dashboard-soft); outline: none; }
+.custom-select-divider { height: 1px; margin: 4px 2px; background: var(--dashboard-line); }
+.custom-select-group-label { padding: 3px 9px; color: var(--dashboard-muted); font-size: .6rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; }
 
 .templates-sidebar-header {
     display: flex;
@@ -602,62 +583,17 @@ textarea {
     font-size: 0.6rem;
 }
 
-.templates-sidebar-header .dashboard-button {
-    min-height: 30px;
-    padding: 5px 9px;
-    font-size: 0.7rem;
-}
-
-.templates-starters-title {
-    margin-top: 14px;
-    padding-top: 14px;
-    border-top: 1px solid var(--dashboard-line);
-}
-
-.templates-list { display: grid; gap: 6px; }
-.templates-list .empty-state { margin: 4px 0; font-size: 0.72rem; }
-
-.template-list-item {
-    display: grid;
-    gap: 3px;
-    width: 100%;
-    padding: 10px;
-    border: 1px solid transparent;
-    border-radius: 8px;
-    background: transparent;
-    color: var(--dashboard-ink);
-    cursor: pointer;
-    text-align: left;
-}
-
-.template-list-item:hover,
-.template-list-item:focus-visible {
-    border-color: var(--dashboard-line-strong);
-    background: #fff;
-    outline: none;
-}
-
-.template-list-item strong { font-size: 0.75rem; }
-.template-list-item span {
-    color: var(--dashboard-muted);
-    font-family: "IBM Plex Mono", monospace;
-    font-size: 0.6rem;
-    text-transform: uppercase;
-}
-
 .template-editor {
     display: grid;
     grid-template-columns: minmax(0, 1.04fr) minmax(320px, .96fr);
     grid-template-areas:
         "form preview"
-        "render sharing"
-        "result public";
+        "result result";
     gap: 18px;
     min-width: 0;
     align-items: start;
 }
 .template-form,
-.template-render-form,
 .template-preview-wrap {
     padding: 18px;
     border: 1px solid var(--dashboard-line);
@@ -665,26 +601,16 @@ textarea {
     background: #fff;
 }
 
-.template-sharing { display: grid; gap: 12px; padding: 18px; border: 1px solid var(--dashboard-line); border-radius: 12px; background: linear-gradient(135deg, var(--dashboard-soft), #fff); }
 .template-form { grid-area: form; }
-.template-preview-wrap { grid-area: preview; position: sticky; top: 18px; }
-.template-render-form { grid-area: render; }
-#templateSharingPanel { grid-area: sharing; }
-#templatePublicPanel { grid-area: public; }
+.template-preview-wrap { grid-area: preview; align-self: stretch; }
 #templateRenderResult { grid-area: result; margin: 0; }
 .template-card-heading { display: flex; align-items: start; justify-content: space-between; gap: 14px; padding-bottom: 12px; border-bottom: 1px solid var(--dashboard-line); }
 .template-card-heading h3 { margin: 3px 0 0; color: var(--dashboard-ink); font-size: .9rem; }
 .template-card-heading > span { color: var(--dashboard-muted); font-family: "IBM Plex Mono", monospace; font-size: .62rem; text-align: right; }
 .template-card-kicker { color: var(--dashboard-muted); font-family: "IBM Plex Mono", monospace; font-size: .6rem; letter-spacing: .08em; text-transform: uppercase; }
-.template-management-copy { max-width: 70ch; margin: -3px 0 0; color: var(--dashboard-muted); font-size: .76rem; line-height: 1.55; }
-.template-share-form { display: grid; grid-template-columns: minmax(0, 1fr) 9rem auto; gap: .75rem; align-items: end; }
-.template-shares-list { display: grid; gap: .5rem; margin-top: .75rem; }
-.template-share-item { display: flex; align-items: center; gap: .75rem; border: 1px solid var(--dashboard-line); border-radius: .5rem; padding: .55rem .7rem; background: #fff; color: var(--dashboard-muted); font-size: .72rem; }
-.template-share-item code { flex: 1; overflow: hidden; text-overflow: ellipsis; }
-@media (max-width: 700px) { .template-share-form { grid-template-columns: 1fr; } }
-
 .template-form { display: grid; gap: 14px; }
-.template-form-row { display: grid; grid-template-columns: minmax(0, 1fr) 160px; gap: 12px; }
+.template-form-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.template-data-section { display: grid; gap: 12px; padding-top: 14px; border-top: 1px solid var(--dashboard-line); }
 
 .dashboard-field select {
     width: 100%;
@@ -711,34 +637,23 @@ textarea {
 
 .template-form :is(input, select, textarea):disabled { cursor: not-allowed; opacity: 0.65; background: var(--dashboard-soft); }
 
-.template-preview-wrap { display: grid; gap: 12px; }
+.template-preview-wrap { display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 12px; }
 .template-preview {
     width: 100%;
-    min-height: 300px;
+    min-height: 0;
+    height: 100%;
     border: 1px solid var(--dashboard-line);
     border-radius: 8px;
     background: #fff;
 }
 
-.template-render-form { display: grid; gap: 12px; }
-
-@media (max-width: 980px) {
-    .templates-layout { grid-template-columns: 1fr; }
-    .templates-sidebar { grid-template-columns: 1fr; }
-}
-
-@media (max-width: 1100px) { .template-api-groups { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-
 @media (max-width: 760px) {
-    .template-editor { grid-template-columns: 1fr; grid-template-areas: "form" "preview" "render" "sharing" "public" "result"; }
-    .template-preview-wrap { position: static; }
+    .template-editor { grid-template-columns: 1fr; grid-template-areas: "form" "preview" "result"; }
+    .template-preview { aspect-ratio: 1 / 2; height: auto; min-height: 0; }
 }
 
 @media (max-width: 520px) {
-    .template-form-row,
-    .templates-sidebar { grid-template-columns: 1fr; }
-    .template-preview { min-height: 240px; }
-    .template-api-groups { grid-template-columns: 1fr; }
+    .template-form-row { grid-template-columns: 1fr; }
 }
 
 /* Authenticated dashboard workspace. */
@@ -762,7 +677,7 @@ textarea {
     background-image: radial-gradient(#cbd2da 0.7px, transparent 0.7px);
     background-size: 18px 18px;
     color: var(--dashboard-ink);
-    font-family: "DM Sans", sans-serif;
+    font-family: "IBM Plex Sans", Arial, sans-serif;
 }
 
 .dashboard-page [hidden] { display: none !important; }
@@ -960,6 +875,8 @@ textarea {
     border-radius: 16px;
     background: var(--dashboard-surface);
 }
+
+.keys-panel { grid-column: 1 / -1; }
 
 .test-panel {
     background: rgba(255, 255, 255, 0.78);
