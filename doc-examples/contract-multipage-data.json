@@ -1,0 +1,18 @@
+{
+  "contract": {
+    "title": "Enterprise Design, Development, and Support Services Agreement",
+    "date": "August 14, 2026",
+    "scope": "Discovery and planning\nConduct stakeholder interviews with executive, product, operations, and customer-support teams. Produce a written discovery report covering business goals, user needs, technical constraints, assumptions, dependencies, risks, and a prioritized delivery roadmap.\n\nExperience design\nCreate information architecture, user flows, low-fidelity wireframes, visual direction, accessible responsive interface designs, and an interactive prototype for desktop, tablet, and mobile breakpoints. Provide up to three review rounds for each agreed design milestone.\n\nApplication development\nImplement the approved interface as a production-ready web application using the parties' agreed technology stack. Configure reusable components, authenticated account areas, form validation, error states, analytics events, content-management integrations, and documented environment configuration.\n\nData and integrations\nIntegrate the application with the client's approved CRM, transactional email provider, analytics platform, payment provider, and internal reporting API. Integration work includes sandbox validation, error handling, retry behavior where supported, and a handover document listing credentials and ownership requirements.\n\nContent migration\nMigrate up to 180 approved content entries, including text, images, metadata, redirects, and search-engine titles and descriptions. The client will supply final approved content in the agreed import format and will remain responsible for accuracy, licensing, and legal review of all materials.\n\nQuality assurance and accessibility\nPerform functional testing across current versions of Chrome, Safari, Firefox, and Edge; responsive testing at agreed breakpoints; and an accessibility review against WCAG 2.2 AA criteria for the agreed user journeys. Record defects in the shared project tracker and resolve defects that are within the approved scope.\n\nLaunch and stabilization\nPrepare a deployment checklist, coordinate the production release window, monitor the release, and provide fourteen calendar days of post-launch stabilization support. Stabilization includes remediation of reproducible defects in delivered work and excludes new functionality, third-party outages, and changes requested after acceptance.\n\nKnowledge transfer\nDeliver administrator training for up to eight client team members, a recorded handover session, component and content-management documentation, deployment notes, and a prioritized backlog of recommended future improvements.",
+    "startDate": "September 1, 2026",
+    "endDate": "February 28, 2027",
+    "paymentTerms": "A fixed project fee of $96,000 USD will be invoiced in six monthly installments of $16,000 USD, beginning on commencement. Invoices are due within 14 calendar days of issue. Approved out-of-scope work will be billed at $160 USD per hour, subject to a written change request signed by both parties before work begins."
+  },
+  "party": {
+    "one": {
+      "name": "RenderPDF Studio LLC"
+    },
+    "two": {
+      "name": "Northstar Ventures International Holdings Ltd."
+    }
+  }
+}

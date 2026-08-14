@@ -14,6 +14,8 @@
 - `/Users/basilsergius/projects/renderpdf/doc-examples/innovus-invoice-data.json`
 - `/Users/basilsergius/projects/renderpdf/doc-examples/contract.html`
 - `/Users/basilsergius/projects/renderpdf/doc-examples/contract-data.json`
+- `/Users/basilsergius/projects/renderpdf/doc-examples/contract-multipage-data.json`
+  - Long-form data fixture for pagination testing with `contract.html`.
 
 ## Safe To Edit
 
