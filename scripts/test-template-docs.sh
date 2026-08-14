@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Executable form of the public template API examples. Keep it aligned with
+# Executable form of the template API examples. Keep it aligned with
 # landing/docs/api/index.html and README.md.
 set -euo pipefail
 

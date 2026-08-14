@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
@@ -16,10 +17,11 @@ import (
 )
 
 const (
-	maxTemplatesPerOwner = 100
-	maxTemplateHTMLBytes = 1024 * 1024
-	templateItemPrefix    = "TEMPLATE#"
-	templateCounterKey    = "META"
+	maxTemplatesPerOwner      = 100
+	maxTemplateHTMLBytes      = 1024 * 1024
+	maxTemplateVariablesBytes = 256 * 1024
+	templateItemPrefix        = "TEMPLATE#"
+	templateCounterKey        = "META"
 )
 
 var (
@@ -224,6 +226,15 @@ func validateTemplateForStorage(template Template) error {
 	if !validTemplateType(template.Type) {
 		return templateVariableError(invalidTemplateVariableCode, "Template type must be invoice, contract, certificate, receipt, or custom")
 	}
+	if template.Variables != nil {
+		encoded, err := json.Marshal(template.Variables)
+		if err != nil || len(encoded) > maxTemplateVariablesBytes {
+			return templateVariableError(invalidTemplateVariableCode, fmt.Sprintf("Template variables must be valid JSON up to %d bytes", maxTemplateVariablesBytes))
+		}
+		if _, err := renderTemplateHTML(template.HTML, template.Variables); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -262,6 +273,10 @@ func templateItem(template Template, ownerKey string) map[string]*dynamodb.Attri
 	item["name"] = &dynamodb.AttributeValue{S: aws.String(template.Name)}
 	item["type"] = &dynamodb.AttributeValue{S: aws.String(string(template.Type))}
 	item["html"] = &dynamodb.AttributeValue{S: aws.String(template.HTML)}
+	if template.Variables != nil {
+		variables, _ := json.Marshal(template.Variables)
+		item["variables"] = &dynamodb.AttributeValue{S: aws.String(string(variables))}
+	}
 	item["ownerId"] = &dynamodb.AttributeValue{S: aws.String(template.OwnerID)}
 	item["createdAt"] = &dynamodb.AttributeValue{S: aws.String(template.CreatedAt.UTC().Format(time.RFC3339Nano))}
 	item["updatedAt"] = &dynamodb.AttributeValue{S: aws.String(template.UpdatedAt.UTC().Format(time.RFC3339Nano))}
@@ -292,6 +307,11 @@ func templateFromItem(item map[string]*dynamodb.AttributeValue) (Template, error
 	template.Type = TemplateType(templateType)
 	if template.HTML, err = value("html"); err != nil {
 		return Template{}, err
+	}
+	if attribute := item["variables"]; attribute != nil && attribute.S != nil {
+		if err := json.Unmarshal([]byte(*attribute.S), &template.Variables); err != nil {
+			return Template{}, fmt.Errorf("parse variables: %w", err)
+		}
 	}
 	if template.OwnerID, err = value("ownerId"); err != nil {
 		return Template{}, err

@@ -84,10 +84,6 @@ delete), provide a valid API key:
 cd /Users/basilsergius/projects/renderpdf && RENDERPDF_API_KEY='your-key' ./scripts/test-api.sh
 ```
 
-For sharing, use two API keys: create a template as customer A, share it with
-customer B's `ownerId`, then verify B can list and render it, that a viewer
-cannot update it, and that B receives 404 immediately after A revokes access.
-
 ### Template Documentation Examples
 
 Run the executable public examples against production, or set
@@ -176,6 +172,7 @@ cd /Users/basilsergius/projects/renderpdf && ./scripts/deploy.sh
   - key generation works
   - revoke flow works
   - test PDF generation flow works
+  - templates load, save, render, and delete without pasting an API key
 
 ### How To Test `landing/`
 

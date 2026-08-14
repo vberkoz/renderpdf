@@ -133,9 +133,7 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		body, _ := json.Marshal(response)
 		return events.APIGatewayProxyResponse{StatusCode: 200, Body: string(body), Headers: corsHeaders}, nil
 	}
-	publicTemplateToken := publicTemplateRenderToken(request)
-	isPublicTemplateRender := publicTemplateToken != ""
-	isTrial := isTrialRequest(request) || isPublicTemplateRender
+	isTrial := isTrialRequest(request)
 	isURLRender := isURLRenderRequest(request)
 	isPackageRender := isPackageRenderRequest(request)
 	isTemplateRender := isTemplateRenderRequest(request)
@@ -180,15 +178,7 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 			packageCleanup()
 		}
 	}()
-	if isPublicTemplateRender {
-		resolvedHTML, err := resolvePublicTemplateRenderHTML(ctx, templateStoreFactory(), publicTemplateToken, request.Body)
-		if err != nil {
-			analytics.ErrorType = "validation"
-			return templateRenderErrorResponse(err, corsHeaders), nil
-		}
-		html = resolvedHTML
-		analytics.HTMLBytes = int64(len(html))
-	} else if isTemplateRender {
+	if isTemplateRender {
 		resolvedHTML, templateRequest, err := resolveTemplateRenderHTML(ctx, templateStoreFactory(), analytics.CustomerID, request.Body)
 		if err != nil {
 			analytics.ErrorType = "validation"
@@ -426,13 +416,26 @@ func requestCountry(request events.APIGatewayProxyRequest) string {
 
 func authorizerValue(request events.APIGatewayProxyRequest, name string) string {
 	value, ok := request.RequestContext.Authorizer[name]
-	if !ok {
-		return ""
+	if ok {
+		if text, ok := value.(string); ok {
+			return text
+		}
+		return fmt.Sprint(value)
 	}
-	if text, ok := value.(string); ok {
-		return text
+	// API-key requests provide userId directly. Cognito-authorized dashboard
+	// requests provide the account subject under claims.sub. Treat both as the
+	// same template owner so the browser never has to handle an API key.
+	if name == "userId" {
+		if claims, ok := request.RequestContext.Authorizer["claims"].(map[string]interface{}); ok {
+			if sub, ok := claims["sub"].(string); ok {
+				return sub
+			}
+		}
+		if claims, ok := request.RequestContext.Authorizer["claims"].(map[string]string); ok {
+			return claims["sub"]
+		}
 	}
-	return fmt.Sprint(value)
+	return ""
 }
 
 func generatePDF(ctx context.Context, html string) ([]byte, error) {

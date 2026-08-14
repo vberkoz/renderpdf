@@ -67,7 +67,9 @@ func testTemplate(ownerID, id string) Template {
 func TestDynamoTemplateStorePersistsAcrossStoreInstances(t *testing.T) {
 	database := &memoryTemplateDynamo{}
 	firstInstance := newDynamoTemplateStore("templates", database)
-	if err := firstInstance.Create(context.Background(), testTemplate("customer-a", "invoice-1")); err != nil {
+	stored := testTemplate("customer-a", "invoice-1")
+	stored.Variables = map[string]any{"customer": map[string]any{"name": "Ada Lovelace"}}
+	if err := firstInstance.Create(context.Background(), stored); err != nil {
 		t.Fatalf("create: %v", err)
 	}
 
@@ -80,6 +82,9 @@ func TestDynamoTemplateStorePersistsAcrossStoreInstances(t *testing.T) {
 	}
 	if template.Name != "Invoice" || template.Version != 1 {
 		t.Fatalf("template = %#v", template)
+	}
+	if template.Variables["customer"].(map[string]interface{})["name"] != "Ada Lovelace" {
+		t.Fatalf("template variables = %#v", template.Variables)
 	}
 }
 

@@ -13,14 +13,15 @@ import (
 // template. Storage and HTTP endpoints will be added separately; keeping the
 // model here lets those layers share one contract.
 type Template struct {
-	ID        string       `json:"id"`
-	Name      string       `json:"name"`
-	Type      TemplateType `json:"type"`
-	HTML      string       `json:"html"`
-	OwnerID   string       `json:"ownerId"`
-	CreatedAt time.Time    `json:"createdAt"`
-	UpdatedAt time.Time    `json:"updatedAt"`
-	Version   int          `json:"version"`
+	ID        string         `json:"id"`
+	Name      string         `json:"name"`
+	Type      TemplateType   `json:"type"`
+	HTML      string         `json:"html"`
+	Variables map[string]any `json:"variables,omitempty"`
+	OwnerID   string         `json:"ownerId"`
+	CreatedAt time.Time      `json:"createdAt"`
+	UpdatedAt time.Time      `json:"updatedAt"`
+	Version   int            `json:"version"`
 }
 
 // TemplateType classifies the supplied starter templates. Custom leaves room

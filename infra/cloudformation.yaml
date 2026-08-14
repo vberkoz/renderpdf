@@ -558,7 +558,6 @@ Resources:
         Variables:
           BUCKET_NAME: !Ref PdfBucket
           TABLE_NAME: !Ref UsageTable
-          TEMPLATE_TABLE_NAME: !Ref TemplatesTable
           TRIAL_MODE_ONLY: 'true'
           TRIAL_DAILY_LIMIT: '3'
           TRIAL_MAX_HTML_BYTES: '1048576'
@@ -729,46 +728,6 @@ Resources:
       ParentId: !Ref TemplatesResource
       PathPart: '{id}'
 
-  TemplateSharesResource:
-    Type: AWS::ApiGateway::Resource
-    Properties:
-      RestApiId: !Ref RestApi
-      ParentId: !Ref TemplateItemResource
-      PathPart: shares
-
-  TemplateShareRecipientResource:
-    Type: AWS::ApiGateway::Resource
-    Properties:
-      RestApiId: !Ref RestApi
-      ParentId: !Ref TemplateSharesResource
-      PathPart: '{recipientId}'
-
-  TemplateCloneResource:
-    Type: AWS::ApiGateway::Resource
-    Properties:
-      RestApiId: !Ref RestApi
-      ParentId: !Ref TemplateItemResource
-      PathPart: clone
-  TemplatePublicLinksResource:
-    Type: AWS::ApiGateway::Resource
-    Properties: {RestApiId: !Ref RestApi, ParentId: !Ref TemplateItemResource, PathPart: public-links}
-  TemplatePublicLinkResource:
-    Type: AWS::ApiGateway::Resource
-    Properties: {RestApiId: !Ref RestApi, ParentId: !Ref TemplatePublicLinksResource, PathPart: '{linkId}'}
-
-  PublicResource:
-    Type: AWS::ApiGateway::Resource
-    Properties: {RestApiId: !Ref RestApi, ParentId: !Ref ApiV1Resource, PathPart: public}
-  PublicTemplatesResource:
-    Type: AWS::ApiGateway::Resource
-    Properties: {RestApiId: !Ref RestApi, ParentId: !Ref PublicResource, PathPart: templates}
-  PublicTemplateTokenResource:
-    Type: AWS::ApiGateway::Resource
-    Properties: {RestApiId: !Ref RestApi, ParentId: !Ref PublicTemplatesResource, PathPart: '{token}'}
-  PublicTemplateRenderResource:
-    Type: AWS::ApiGateway::Resource
-    Properties: {RestApiId: !Ref RestApi, ParentId: !Ref PublicTemplateTokenResource, PathPart: render}
-
   TrialResource:
     Type: AWS::ApiGateway::Resource
     Properties:
@@ -810,6 +769,28 @@ Resources:
       RestApiId: !Ref RestApi
       ParentId: !Ref ApiV1Resource
       PathPart: dashboard
+
+  DashboardTemplatesResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestApi
+      ParentId: !Ref DashboardResource
+      PathPart: templates
+
+  DashboardTemplateItemResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestApi
+      ParentId: !Ref DashboardTemplatesResource
+      PathPart: '{id}'
+
+  DashboardTemplateRenderResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestApi
+      ParentId: !Ref DashboardResource
+      PathPart: render-template
+
 
   BillingResource:
     Type: AWS::ApiGateway::Resource
@@ -1206,160 +1187,6 @@ Resources:
         IntegrationHttpMethod: POST
         Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'
 
-  TemplateSharesOptionsMethod:
-    Type: AWS::ApiGateway::Method
-    Properties:
-      RestApiId: !Ref RestApi
-      ResourceId: !Ref TemplateSharesResource
-      HttpMethod: OPTIONS
-      AuthorizationType: NONE
-      Integration:
-        Type: MOCK
-        RequestTemplates: {application/json: '{"statusCode": 204}'}
-        IntegrationResponses:
-          - StatusCode: 204
-            ResponseParameters:
-              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Amz-Security-Token'"
-              method.response.header.Access-Control-Allow-Methods: "'GET,POST,OPTIONS'"
-              method.response.header.Access-Control-Allow-Origin: "'*'"
-      MethodResponses:
-        - StatusCode: 204
-          ResponseParameters:
-            method.response.header.Access-Control-Allow-Headers: true
-            method.response.header.Access-Control-Allow-Methods: true
-            method.response.header.Access-Control-Allow-Origin: true
-
-  TemplateSharesGetMethod:
-    Type: AWS::ApiGateway::Method
-    Properties:
-      RestApiId: !Ref RestApi
-      ResourceId: !Ref TemplateSharesResource
-      HttpMethod: GET
-      AuthorizationType: CUSTOM
-      AuthorizerId: !Ref ApiAuthorizer
-      Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}
-
-  TemplateSharesPostMethod:
-    Type: AWS::ApiGateway::Method
-    Properties:
-      RestApiId: !Ref RestApi
-      ResourceId: !Ref TemplateSharesResource
-      HttpMethod: POST
-      AuthorizationType: CUSTOM
-      AuthorizerId: !Ref ApiAuthorizer
-      Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}
-
-  TemplateShareRecipientOptionsMethod:
-    Type: AWS::ApiGateway::Method
-    Properties:
-      RestApiId: !Ref RestApi
-      ResourceId: !Ref TemplateShareRecipientResource
-      HttpMethod: OPTIONS
-      AuthorizationType: NONE
-      Integration:
-        Type: MOCK
-        RequestTemplates: {application/json: '{"statusCode": 204}'}
-        IntegrationResponses:
-          - StatusCode: 204
-            ResponseParameters:
-              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Amz-Security-Token'"
-              method.response.header.Access-Control-Allow-Methods: "'PUT,DELETE,OPTIONS'"
-              method.response.header.Access-Control-Allow-Origin: "'*'"
-      MethodResponses:
-        - StatusCode: 204
-          ResponseParameters:
-            method.response.header.Access-Control-Allow-Headers: true
-            method.response.header.Access-Control-Allow-Methods: true
-            method.response.header.Access-Control-Allow-Origin: true
-
-  TemplateShareRecipientPutMethod:
-    Type: AWS::ApiGateway::Method
-    Properties:
-      RestApiId: !Ref RestApi
-      ResourceId: !Ref TemplateShareRecipientResource
-      HttpMethod: PUT
-      AuthorizationType: CUSTOM
-      AuthorizerId: !Ref ApiAuthorizer
-      Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}
-
-  TemplateShareRecipientDeleteMethod:
-    Type: AWS::ApiGateway::Method
-    Properties:
-      RestApiId: !Ref RestApi
-      ResourceId: !Ref TemplateShareRecipientResource
-      HttpMethod: DELETE
-      AuthorizationType: CUSTOM
-      AuthorizerId: !Ref ApiAuthorizer
-      Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}
-
-  TemplateCloneOptionsMethod:
-    Type: AWS::ApiGateway::Method
-    Properties:
-      RestApiId: !Ref RestApi
-      ResourceId: !Ref TemplateCloneResource
-      HttpMethod: OPTIONS
-      AuthorizationType: NONE
-      Integration:
-        Type: MOCK
-        RequestTemplates: {application/json: '{"statusCode": 204}'}
-        IntegrationResponses:
-          - StatusCode: 204
-            ResponseParameters:
-              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Amz-Security-Token'"
-              method.response.header.Access-Control-Allow-Methods: "'POST,OPTIONS'"
-              method.response.header.Access-Control-Allow-Origin: "'*'"
-      MethodResponses:
-        - StatusCode: 204
-          ResponseParameters:
-            method.response.header.Access-Control-Allow-Headers: true
-            method.response.header.Access-Control-Allow-Methods: true
-            method.response.header.Access-Control-Allow-Origin: true
-
-  TemplateClonePostMethod:
-    Type: AWS::ApiGateway::Method
-    Properties:
-      RestApiId: !Ref RestApi
-      ResourceId: !Ref TemplateCloneResource
-      HttpMethod: POST
-      AuthorizationType: CUSTOM
-      AuthorizerId: !Ref ApiAuthorizer
-      Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}
-
-  TemplatePublicLinksPostMethod:
-    Type: AWS::ApiGateway::Method
-    Properties: {RestApiId: !Ref RestApi, ResourceId: !Ref TemplatePublicLinksResource, HttpMethod: POST, AuthorizationType: CUSTOM, AuthorizerId: !Ref ApiAuthorizer, Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}}
-  TemplatePublicLinksGetMethod:
-    Type: AWS::ApiGateway::Method
-    Properties: {RestApiId: !Ref RestApi, ResourceId: !Ref TemplatePublicLinksResource, HttpMethod: GET, AuthorizationType: CUSTOM, AuthorizerId: !Ref ApiAuthorizer, Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}}
-  TemplatePublicLinkDeleteMethod:
-    Type: AWS::ApiGateway::Method
-    Properties: {RestApiId: !Ref RestApi, ResourceId: !Ref TemplatePublicLinkResource, HttpMethod: DELETE, AuthorizationType: CUSTOM, AuthorizerId: !Ref ApiAuthorizer, Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}}
-  PublicTemplateRenderMethod:
-    Type: AWS::ApiGateway::Method
-    Properties: {RestApiId: !Ref RestApi, ResourceId: !Ref PublicTemplateRenderResource, HttpMethod: POST, AuthorizationType: NONE, Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${TrialPdfFunction.Arn}/invocations'}}
-  PublicTemplateRenderOptionsMethod:
-    Type: AWS::ApiGateway::Method
-    Properties:
-      RestApiId: !Ref RestApi
-      ResourceId: !Ref PublicTemplateRenderResource
-      HttpMethod: OPTIONS
-      AuthorizationType: NONE
-      Integration:
-        Type: MOCK
-        RequestTemplates: {application/json: '{"statusCode": 204}'}
-        IntegrationResponses:
-          - StatusCode: 204
-            ResponseParameters:
-              method.response.header.Access-Control-Allow-Headers: "'Content-Type'"
-              method.response.header.Access-Control-Allow-Methods: "'POST,OPTIONS'"
-              method.response.header.Access-Control-Allow-Origin: "'*'"
-      MethodResponses:
-        - StatusCode: 204
-          ResponseParameters:
-            method.response.header.Access-Control-Allow-Headers: true
-            method.response.header.Access-Control-Allow-Methods: true
-            method.response.header.Access-Control-Allow-Origin: true
-
   TrialGenerateOptionsMethod:
     Type: AWS::ApiGateway::Method
     Properties:
@@ -1550,6 +1377,67 @@ Resources:
         IntegrationHttpMethod: POST
         Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AnalyticsFunction.Arn}/invocations'
 
+  DashboardTemplatesGetMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref DashboardTemplatesResource
+      HttpMethod: GET
+      AuthorizationType: COGNITO_USER_POOLS
+      AuthorizerId: !Ref CognitoAuthorizer
+      Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}
+
+  DashboardTemplatesPostMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref DashboardTemplatesResource
+      HttpMethod: POST
+      AuthorizationType: COGNITO_USER_POOLS
+      AuthorizerId: !Ref CognitoAuthorizer
+      Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}
+
+  DashboardTemplateGetMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref DashboardTemplateItemResource
+      HttpMethod: GET
+      AuthorizationType: COGNITO_USER_POOLS
+      AuthorizerId: !Ref CognitoAuthorizer
+      Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}
+
+  DashboardTemplatePutMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref DashboardTemplateItemResource
+      HttpMethod: PUT
+      AuthorizationType: COGNITO_USER_POOLS
+      AuthorizerId: !Ref CognitoAuthorizer
+      Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}
+
+  DashboardTemplateDeleteMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref DashboardTemplateItemResource
+      HttpMethod: DELETE
+      AuthorizationType: COGNITO_USER_POOLS
+      AuthorizerId: !Ref CognitoAuthorizer
+      Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}
+
+  DashboardTemplateRenderPostMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref DashboardTemplateRenderResource
+      HttpMethod: POST
+      AuthorizationType: COGNITO_USER_POOLS
+      AuthorizerId: !Ref CognitoAuthorizer
+      Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}
+
+
   BillingCheckoutPostMethod:
     Type: AWS::ApiGateway::Method
     Properties:
@@ -1590,7 +1478,7 @@ Resources:
 
   # API Gateway deployments are immutable snapshots. Bump this logical ID when
   # routes or methods change so CloudFormation publishes them to the prod stage.
-  ApiDeploymentV21:
+  ApiDeploymentV22:
     Type: AWS::ApiGateway::Deployment
     DependsOn:
       - ApiRootGetMethod
@@ -1613,19 +1501,6 @@ Resources:
       - TemplatePutMethod
       - TemplateDeleteMethod
       - TemplateItemOptionsMethod
-      - TemplateSharesOptionsMethod
-      - TemplateSharesGetMethod
-      - TemplateSharesPostMethod
-      - TemplateShareRecipientOptionsMethod
-      - TemplateShareRecipientPutMethod
-      - TemplateShareRecipientDeleteMethod
-      - TemplateCloneOptionsMethod
-      - TemplateClonePostMethod
-      - TemplatePublicLinksPostMethod
-      - TemplatePublicLinksGetMethod
-      - TemplatePublicLinkDeleteMethod
-      - PublicTemplateRenderMethod
-      - PublicTemplateRenderOptionsMethod
       - TrialGenerateMethod
       - TrialGenerateOptionsMethod
       - TrialQuotaResource
@@ -1639,6 +1514,12 @@ Resources:
       - AnalyticsGetMethod
       - AnalyticsPostMethod
       - DashboardGetMethod
+      - DashboardTemplatesGetMethod
+      - DashboardTemplatesPostMethod
+      - DashboardTemplateGetMethod
+      - DashboardTemplatePutMethod
+      - DashboardTemplateDeleteMethod
+      - DashboardTemplateRenderPostMethod
       - BillingCheckoutPostMethod
       - BillingPortalPostMethod
       - BillingWebhookPostMethod
