@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="renderpdf:no-header-footer" content="true">
+  <title>Design and Development Services Agreement</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
+
+    @page { size: A4; margin: 9mm 11mm; }
+
+    :root {
+      --ink: #272a2f;
+      --muted: #696e74;
+      --line: #d6d9dc;
+      --accent: #5e6369;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      font-family: "IBM Plex Sans", Arial, sans-serif;
+      font-size: 9.5pt;
+      line-height: 1.3;
+    }
+
+    .document {
+      width: 180mm;
+      margin: 0 auto;
+    }
+
+    .topline,
+    .signature-row {
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .topline {
+      margin-bottom: 5mm;
+      color: var(--muted);
+      font-family: "IBM Plex Mono", "Courier New", monospace;
+      font-size: 7pt;
+      letter-spacing: .01em;
+    }
+
+    .address,
+    .reference { width: 38%; }
+
+    .reference { text-align: right; }
+
+    .brand {
+      margin: 0 0 5mm;
+      font-size: 16pt;
+      font-weight: 700;
+      letter-spacing: -1.1px;
+    }
+
+    .document-kicker,
+    .label {
+      display: block;
+      color: var(--muted);
+      font-family: "IBM Plex Mono", "Courier New", monospace;
+      font-size: 7pt;
+      font-weight: 700;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+    }
+
+    .document-kicker { margin: 0 0 1.5mm; }
+
+    h1 {
+      margin: 0 0 4mm;
+      font-size: 18pt;
+      letter-spacing: -.75px;
+      line-height: 1.08;
+    }
+
+    h2 {
+      margin: 0 0 1mm;
+      font-size: 10pt;
+      break-after: avoid;
+      page-break-after: avoid;
+    }
+
+    .parties {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 7mm;
+      margin: 0 0 4mm;
+      padding: 2.5mm 0;
+      border-top: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+
+    .label { margin-bottom: 1mm; }
+
+    .party-name { font-size: 11pt; font-weight: 700; }
+
+    .meta {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 3mm;
+      margin-bottom: 4mm;
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+
+    .meta-value { font-size: 10pt; font-weight: 600; }
+
+    .intro {
+      max-width: 122mm;
+      margin: 0 0 3mm;
+    }
+
+    .clauses {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      counter-reset: clause;
+    }
+
+    .clauses > li {
+      display: grid;
+      grid-template-columns: 14mm 1fr;
+      gap: 5mm;
+      padding: 2mm 0;
+      border-top: 1px solid var(--line);
+      counter-increment: clause;
+      break-inside: auto;
+      page-break-inside: auto;
+    }
+
+    .clauses > li::before {
+      padding-top: 1mm;
+      color: var(--accent);
+      content: "0" counter(clause);
+      font-family: "IBM Plex Mono", "Courier New", monospace;
+      font-size: 7.5pt;
+      font-weight: 700;
+      letter-spacing: .08em;
+    }
+
+    .clauses p { margin: 0; }
+
+    .scope {
+      margin-top: 1.5mm;
+      padding: 1.75mm 2.5mm;
+      border-left: 2px solid var(--accent);
+      background: #f1f2f2;
+      white-space: pre-line;
+      orphans: 3;
+      widows: 3;
+    }
+
+    .signatures {
+      margin-top: 4mm;
+      padding-top: 2.5mm;
+      border-top: 1px solid var(--ink);
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+
+    .signature-row { gap: 9mm; }
+    .signature { width: 48%; }
+    .signature-line { height: 7mm; margin-bottom: 1mm; border-bottom: 1px solid var(--ink); }
+    .signature-name { font-size: 9pt; font-weight: 700; }
+
+    .signature-caption,
+    .footer-note {
+      color: var(--muted);
+      font-family: "IBM Plex Mono", "Courier New", monospace;
+      font-size: 7.5pt;
+    }
+
+    .footer-note {
+      margin: 3mm 0 0;
+      font-size: 7pt;
+      text-align: right;
+    }
+
+    @media screen {
+      body { padding: 12.5mm 0; background: #eef1f3; }
+      .document { width: 210mm; min-height: 297mm; padding: 9mm 11mm; background: #fff; box-shadow: 0 8px 24px rgba(23, 32, 42, .16); }
+    }
+
+    @media print {
+      .document {
+        display: flex;
+        flex-direction: column;
+        width: auto;
+        min-height: 279mm;
+        margin: 0;
+      }
+
+      .signatures { margin-top: auto; padding-top: 2.5mm; }
+      .signature-line { height: 7mm; margin-bottom: 1mm; }
+      .footer-note { margin-top: 3mm; }
+    }
+  </style>
+</head>
+<body>
+  <main class="document a4-page pin-signatures">
+    <header class="topline">
+      <div class="address">RenderPDF<br>Document Services<br>Kyiv, Ukraine</div>
+      <div class="reference">Agreement date<br>August 9, 2026</div>
+    </header>
+
+    <div class="brand">RenderPDF</div>
+    <p class="document-kicker">Service agreement</p>
+    <h1>Design and Development Services Agreement</h1>
+
+    <section class="parties" aria-label="Agreement parties">
+      <div>
+        <span class="label">Service provider</span>
+        <div class="party-name">RenderPDF Studio LLC</div>
+      </div>
+      <div>
+        <span class="label">Client</span>
+        <div class="party-name">Northstar Ventures Ltd.</div>
+      </div>
+    </section>
+
+    <section class="meta" aria-label="Contract terms">
+      <div><span class="label">Effective from</span><div class="meta-value">August 15, 2026</div></div>
+      <div><span class="label">Term ends</span><div class="meta-value">November 15, 2026</div></div>
+      <div><span class="label">Payment terms</span><div class="meta-value">50% on commencement; 50% on final delivery, due within 14 days</div></div>
+    </section>
+
+    <p class="intro">This agreement sets out the terms under which RenderPDF Studio LLC will provide services to Northstar Ventures Ltd. The parties agree to collaborate in good faith throughout the term described below.</p>
+
+    <ol class="clauses">
+      <li><div><h2>Scope of services</h2><p>The provider will perform the following agreed scope of work:</p><div class="scope">Brand identity refinement
+Responsive marketing website design and development
+Content-management handover and launch support</div></div></li>
+      <li><div><h2>Term and delivery</h2><p>Services begin on August 15, 2026 and conclude on November 15, 2026, unless the parties agree in writing to change the schedule or scope.</p></div></li>
+      <li><div><h2>Fees and payment</h2><p>Northstar Ventures Ltd. will pay invoices in accordance with 50% on commencement; 50% on final delivery, due within 14 days. Any change to fees or deliverables requires written approval from both parties.</p></div></li>
+      <li><div><h2>Confidentiality</h2><p>Each party will protect the other party’s non-public information and use it solely to perform this agreement, except where disclosure is required by law.</p></div></li>
+      <li><div><h2>Acceptance</h2><p>By signing below, each party confirms it has authority to enter into this agreement and accepts the terms set out in this document.</p></div></li>
+    </ol>
+
+    <section class="signatures" aria-label="Signatures">
+      <span class="label">Accepted and agreed</span>
+      <div class="signature-row">
+        <div class="signature"><div class="signature-line"></div><div class="signature-name">RenderPDF Studio LLC</div><div class="signature-caption">Authorized representative / Date</div></div>
+        <div class="signature"><div class="signature-line"></div><div class="signature-name">Northstar Ventures Ltd.</div><div class="signature-caption">Authorized representative / Date</div></div>
+      </div>
+      <p class="footer-note">RenderPDF · Design and Development Services Agreement · August 9, 2026</p>
+    </section>
+  </main>
+</body>
+</html>
