@@ -34,10 +34,13 @@
                     <p class="lead">Send HTML, get a production-ready PDF. RenderPDF handles Chromium, print CSS, storage, and delivery behind one endpoint.</p>
 
                     <div class="hero-actions">
-                        <a class="button button-primary" href="#playground">Try it free</a>
-                        <a class="button button-secondary" href="/docs/api/">Read the docs</a>
+                        <a class="button button-primary" href="#playground"><i data-lucide="play" aria-hidden="true"></i>Try it free</a>
+                        <a class="button button-secondary" href="/docs/api/"><i data-lucide="book-open" aria-hidden="true"></i>Read the docs</a>
                     </div>
 
+                </div>
+
+                <aside class="hero-aside" aria-label="Trial API overview">
                     <div class="request-card" aria-label="API request example">
                         <div class="request-card-header">
                             <span>POST</span>
@@ -47,7 +50,15 @@
   -H "Content-Type: application/json" \
   -d '{"html":"&lt;h1&gt;Hello World&lt;/h1&gt;"}'</code></pre>
                     </div>
-                </div>
+                    <div class="hero-trial-card">
+                        <p class="eyebrow">Try before you integrate</p>
+                        <div class="hero-trial-items">
+                            <p><strong>3 free PDFs</strong><span>per public IP, each UTC day</span></p>
+                            <p><strong>Preview first</strong><span>paged A4 sheets, directly in the browser</span></p>
+                            <p><strong>No account</strong><span>required for a trial render</span></p>
+                        </div>
+                    </div>
+                </aside>
 
                 <section class="playground" id="playground" aria-labelledby="playground-title">
                     <div class="playground-header">
@@ -61,15 +72,22 @@
                         </p>
                     </div>
 
-                    <p class="playground-copy">No account or API key required. Trial usage is limited per public IP.</p>
+                    <p class="playground-copy">Preview locally as you type — it does not use a free render. No account or API key is required when you are ready to create the PDF.</p>
 
                     <form id="pdfForm">
-                        <label class="field-label" for="htmlInput">HTML input</label>
-                        <textarea id="htmlInput" placeholder="Enter HTML content..." rows="11"><h1>Hello World</h1>
+                        <div class="playground-editor">
+                            <div class="playground-input-wrap">
+                                <label class="field-label" for="htmlInput">HTML input</label>
+                                <textarea id="htmlInput" placeholder="Enter HTML content..." rows="11"><h1>Hello World</h1>
 <p>This is a test PDF document.</p></textarea>
+                            </div>
+                            <div class="playground-preview-wrap">
+                                <div class="preview-heading"><span class="field-label"><i data-lucide="file-text" aria-hidden="true"></i>Document preview</span><span><i data-lucide="monitor" aria-hidden="true"></i>Local only</span></div>
+                                <iframe id="htmlPreview" class="html-preview" title="Local HTML document preview" sandbox="allow-scripts"></iframe>
+                            </div>
+                        </div>
                         <button type="submit" id="generateBtn" class="button button-primary generate-button">
-                            Generate PDF
-                            <span aria-hidden="true">-&gt;</span>
+                            <i data-lucide="file-down" aria-hidden="true"></i>Render PDF
                         </button>
                     </form>
 
@@ -82,21 +100,21 @@
                 <article>
                     <span class="capability-index">01</span>
                     <div>
-                        <h2>Browser-grade rendering</h2>
+                        <h2><i data-lucide="monitor-cog" aria-hidden="true"></i>Browser-grade rendering</h2>
                         <p>Modern HTML and CSS rendered with headless Chromium.</p>
                     </div>
                 </article>
                 <article>
                     <span class="capability-index">02</span>
                     <div>
-                        <h2>Print-aware output</h2>
+                        <h2><i data-lucide="printer" aria-hidden="true"></i>Print-aware output</h2>
                         <p>Backgrounds, page sizing, headers, and footers included.</p>
                     </div>
                 </article>
                 <article>
                     <span class="capability-index">03</span>
                     <div>
-                        <h2>Simple delivery</h2>
+                        <h2><i data-lucide="link" aria-hidden="true"></i>Simple delivery</h2>
                         <p>A JSON response with a ready-to-download PDF URL.</p>
                     </div>
                 </article>
@@ -113,13 +131,16 @@
         </footer>
     </div>
 
+    <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.js"></script>
     <script>
+        window.lucide?.createIcons({ attrs: { 'aria-hidden': 'true' } });
         const TRIAL_RENDER_URL = new URL('/api/v1/trial/render-html', window.location.origin).toString();
         const form = document.getElementById('pdfForm');
         const btn = document.getElementById('generateBtn');
         const result = document.getElementById('result');
         const error = document.getElementById('error');
         const htmlInput = document.getElementById('htmlInput');
+        const htmlPreview = document.getElementById('htmlPreview');
         const quotaStatus = document.getElementById('quotaStatus');
         const quotaRemaining = document.getElementById('quotaRemaining');
         const quotaLabel = document.getElementById('quotaLabel');
@@ -147,11 +168,65 @@
 
         loadQuota();
 
+        const pagedPreviewHead = `
+            <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data: https:; style-src 'unsafe-inline' https:; font-src data: https:; script-src 'unsafe-inline' https://unpkg.com; connect-src https:">
+            <style>
+                html, body { overflow-x: hidden !important; background: #eef1f3 !important; }
+                body { margin: 0 !important; padding: 0 !important; }
+                .a4-page { height: auto !important; min-height: 0 !important; width: auto !important; margin: 0 !important; overflow: visible !important; padding: 0 !important; zoom: 1 !important; }
+                .a4-page.pin-signatures { display: flex !important; flex-direction: column !important; min-height: 279mm !important; }
+                .a4-page.pin-signatures .signatures { margin-top: auto !important; }
+                .pagedjs_pages { box-sizing: border-box; display: grid; justify-content: center; gap: 18px; width: 100%; margin: 0 !important; padding: 0; }
+                .pagedjs_page { margin: 0 !important; box-shadow: 0 8px 24px rgba(23, 32, 42, .16); transform-origin: top center; }
+                .pagedjs_sheet { background: #fff; }
+            </style>
+            <script>
+                function fitPagedPreviewPages() {
+                    const pages = document.querySelector('.pagedjs_pages');
+                    const page = document.querySelector('.pagedjs_page');
+                    if (!pages || !page) return;
+                    pages.style.zoom = '1';
+                    pages.style.zoom = String(Math.min(1, pages.clientWidth / page.getBoundingClientRect().width));
+                }
+                window.PagedConfig = { auto: false };
+                window.addEventListener('load', () => {
+                    if (!window.PagedPolyfill) return;
+                    const render = window.PagedPolyfill.preview();
+                    if (render && typeof render.then === 'function') render.then(fitPagedPreviewPages);
+                    else requestAnimationFrame(fitPagedPreviewPages);
+                });
+                window.addEventListener('resize', fitPagedPreviewPages);
+            <\/script>
+            <script src="https://unpkg.com/pagedjs@0.4.3/dist/paged.polyfill.js"><\/script>`;
+
+        const previewHTML = (html) => {
+            const fallback = '<main style="font-family:Arial,sans-serif;padding:24px;color:#586473">Start typing HTML to preview your document.</main>';
+            const documentPreview = new DOMParser().parseFromString(html.trim() || fallback, 'text/html');
+            documentPreview.querySelectorAll('script, iframe, object, embed, base').forEach((element) => element.remove());
+            documentPreview.querySelectorAll('*').forEach((element) => {
+                element.getAttributeNames().forEach((name) => {
+                    const value = element.getAttribute(name)?.trim().toLowerCase() || '';
+                    if (name.toLowerCase().startsWith('on') || value.startsWith('javascript:')) {
+                        element.removeAttribute(name);
+                    }
+                });
+            });
+            documentPreview.head.insertAdjacentHTML('afterbegin', pagedPreviewHead);
+            htmlPreview.srcdoc = `<!doctype html>${documentPreview.documentElement.outerHTML}`;
+        };
+
+        let previewFrame;
+        htmlInput.addEventListener('input', () => {
+            cancelAnimationFrame(previewFrame);
+            previewFrame = requestAnimationFrame(() => previewHTML(htmlInput.value));
+        });
+        previewHTML(htmlInput.value);
+
         form.addEventListener('submit', async (event) => {
             event.preventDefault();
 
             btn.disabled = true;
-            btn.firstChild.textContent = 'Generating PDF ';
+            btn.firstChild.textContent = 'Rendering PDF ';
             result.classList.add('hidden');
             error.classList.add('hidden');
 
@@ -178,15 +253,16 @@
                         <strong>PDF ready</strong>
                         <span>${(data.size / 1024).toFixed(1)} KB</span>
                     </div>
-                    <a href="${data.url}" target="_blank" rel="noopener">Download PDF</a>
+                    <a href="${data.url}" target="_blank" rel="noopener"><i data-lucide="download" aria-hidden="true"></i>Download PDF</a>
                 `;
+                window.lucide?.createIcons({ attrs: { 'aria-hidden': 'true' } });
                 result.classList.remove('hidden');
             } catch (err) {
                 error.innerHTML = `<strong>Could not generate PDF</strong><span>${err.message}</span>`;
                 error.classList.remove('hidden');
             } finally {
                 btn.disabled = false;
-                btn.firstChild.textContent = 'Generate PDF ';
+                btn.firstChild.textContent = 'Render PDF ';
             }
         });
     </script>

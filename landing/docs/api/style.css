@@ -151,6 +151,9 @@ h1 {
 }
 
 .base-url-card a {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     color: var(--muted);
     font-size: 0.74rem;
     font-weight: 600;
@@ -209,8 +212,18 @@ h1 {
 }
 
 .sidebar-note a {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     font-weight: 700;
     text-decoration: none;
+}
+
+.base-url-card a .lucide,
+.sidebar-note a .lucide {
+    width: 1em;
+    height: 1em;
+    stroke-width: 2;
 }
 
 .content {

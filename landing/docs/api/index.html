@@ -38,7 +38,7 @@
                 <div class="base-url-card">
                     <span>Base URL</span>
                     <code>https://renderpdf.vberkoz.com/api/v1</code>
-                    <a href="https://renderpdf.vberkoz.com/api/v1/">Check API status -&gt;</a>
+                    <a href="https://renderpdf.vberkoz.com/api/v1/"><i data-lucide="activity" aria-hidden="true"></i>Check API status</a>
                 </div>
             </section>
 
@@ -63,7 +63,7 @@
                     <div class="sidebar-note">
                         <strong>Need an API key?</strong>
                         <p>Create and revoke keys from the dashboard.</p>
-                        <a href="/app/">Open dashboard -&gt;</a>
+                        <a href="/app/"><i data-lucide="layout-dashboard" aria-hidden="true"></i>Open dashboard</a>
                     </div>
                 </aside>
 
@@ -560,8 +560,10 @@ public class RenderPdf {
     </div>
 
     <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.11.1/build/highlight.min.js"></script>
+    <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.js"></script>
     <script>
         if (window.hljs) window.hljs.highlightAll();
+        window.lucide?.createIcons({ attrs: { 'aria-hidden': 'true' } });
 
         document.querySelectorAll('.copy-button').forEach((button) => {
             button.addEventListener('click', async () => {
