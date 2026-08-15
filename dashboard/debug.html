@@ -22,7 +22,7 @@
             <nav class="dashboard-nav" aria-label="Primary navigation">
                 <a href="/app/">Dashboard</a>
                 <a href="/docs/api/">API docs</a>
-                <button id="clearSessionBtn" class="dashboard-logout" type="button">Clear session</button>
+                <button id="clearSessionBtn" class="dashboard-logout" type="button"><i data-lucide="log-out" aria-hidden="true"></i>Clear session</button>
             </nav>
         </header>
 
@@ -91,7 +91,9 @@
         </footer>
     </div>
 
+    <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.js"></script>
     <script>
+        window.lucide?.createIcons({ attrs: { 'aria-hidden': 'true' } });
         const EXPECTED_ISSUER = 'https://cognito-idp.us-east-1.amazonaws.com/us-east-1_S5G3bsO7s';
         const EXPECTED_AUDIENCE = '78pkhoj4ml959gb80coslgm42t';
 

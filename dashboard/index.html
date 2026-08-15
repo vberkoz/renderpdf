@@ -23,7 +23,7 @@
                 <a href="/">Home</a>
                 <a href="/docs/api/">API docs</a>
                 <a id="statsNav" href="/app/stats" hidden>Stats</a>
-                <button id="logoutBtn" class="dashboard-logout" type="button">Sign out</button>
+                <button id="logoutBtn" class="dashboard-logout" type="button"><i data-lucide="log-out" aria-hidden="true"></i>Sign out</button>
             </nav>
         </header>
 
@@ -85,7 +85,7 @@
                             <p>Create credentials for server-side PDF generation. Revoked keys stop working immediately.</p>
                         </div>
                         <button id="generateKeyBtn" class="dashboard-button dashboard-button-primary" type="button">
-                            Create API key <span aria-hidden="true">-&gt;</span>
+                            <i data-lucide="key-round" aria-hidden="true"></i>Create API key
                         </button>
                     </header>
 
@@ -99,7 +99,7 @@
                         </div>
                         <div class="key-display">
                             <code id="newKeyValue"></code>
-                            <button id="copyKeyBtn" class="dashboard-button dashboard-button-secondary" type="button">Copy key</button>
+                            <button id="copyKeyBtn" class="dashboard-button dashboard-button-secondary" type="button"><i data-lucide="copy" aria-hidden="true"></i>Copy key</button>
                         </div>
                     </section>
 
@@ -144,9 +144,9 @@
                                 <label class="dashboard-field" for="templateVariablesInput"><span>Variable JSON</span><textarea id="templateVariablesInput" rows="9" spellcheck="false">{}</textarea></label>
                             </section>
                             <div class="template-actions">
-                                <button id="saveTemplateBtn" class="dashboard-button dashboard-button-primary" type="submit">Save template</button>
-                                <button id="deleteTemplateBtn" class="dashboard-button dashboard-button-secondary" type="button" hidden>Delete</button>
-                                <button id="renderTemplateBtn" class="dashboard-button dashboard-button-secondary" type="button">Render PDF <span aria-hidden="true">-&gt;</span></button>
+                                <button id="saveTemplateBtn" class="dashboard-button dashboard-button-primary" type="submit"><i data-lucide="save" aria-hidden="true"></i>Save template</button>
+                                <button id="deleteTemplateBtn" class="dashboard-button dashboard-button-secondary" type="button" hidden><i data-lucide="trash-2" aria-hidden="true"></i>Delete</button>
+                                <button id="renderTemplateBtn" class="dashboard-button dashboard-button-secondary" type="button"><i data-lucide="file-down" aria-hidden="true"></i>Render PDF</button>
                                 <span>Uses your dashboard session.</span>
                             </div>
                         </form>

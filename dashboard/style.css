@@ -689,6 +689,22 @@ textarea {
     font: inherit;
 }
 
+.dashboard-button .lucide,
+.dashboard-logout .lucide,
+.revoke-button .lucide,
+.auth-page .callback-action .lucide {
+    width: 1em;
+    height: 1em;
+    stroke-width: 2;
+}
+
+.auth-eyebrow .lucide {
+    width: 1em;
+    height: 1em;
+    margin-right: 6px;
+    vertical-align: -0.14em;
+}
+
 .dashboard-shell {
     width: min(1180px, calc(100% - 40px));
     min-height: 100vh;
@@ -764,6 +780,9 @@ textarea {
 }
 
 .dashboard-logout {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     padding: 7px 10px;
     border: 1px solid var(--dashboard-line);
     border-radius: 9px;

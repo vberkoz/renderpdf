@@ -104,6 +104,18 @@ footer {
     text-decoration: none;
 }
 
+.stats-nav button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.stats-nav .lucide {
+    width: 1em;
+    height: 1em;
+    stroke-width: 2;
+}
+
 .stats-nav a:hover,
 .stats-nav a:focus-visible,
 .stats-nav button:hover,

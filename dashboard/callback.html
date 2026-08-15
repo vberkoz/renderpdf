@@ -46,7 +46,7 @@
                 </div>
                 <div class="callback-progress" aria-hidden="true"><span></span></div>
                 <a id="retryLink" class="callback-action" href="/app/login" hidden>
-                    Return to sign in <span aria-hidden="true">-&gt;</span>
+                    Return to sign in <i data-lucide="arrow-right" aria-hidden="true"></i>
                 </a>
                 <p class="auth-fineprint">Authentication tokens stay in this browser and are used only to access your RenderPDF workspace.</p>
             </section>
@@ -62,7 +62,9 @@
         </footer>
     </div>
 
+    <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.js"></script>
     <script>
+        window.lucide?.createIcons({ attrs: { 'aria-hidden': 'true' } });
         const hash = window.location.hash.substring(1);
         const params = new URLSearchParams(hash);
         const idToken = params.get('id_token');

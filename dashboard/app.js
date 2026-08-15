@@ -175,6 +175,10 @@ const pagedPreviewHead = `
   /* Templates often define a screen A4 canvas. Paged.js supplies the paper,
      so that canvas must not consume a second A4 height or apply screen zoom. */
   .a4-page { height: auto !important; min-height: 0 !important; width: auto !important; margin: 0 !important; overflow: visible !important; padding: 0 !important; zoom: 1 !important; }
+  /* Templates may opt in when their final signature block belongs at the
+     bottom of a single A4 sheet, rather than immediately after the clauses. */
+  .a4-page.pin-signatures { display: flex !important; flex-direction: column !important; min-height: 279mm !important; }
+  .a4-page.pin-signatures .signatures { margin-top: auto !important; }
   .pagedjs_pages { box-sizing: border-box; display: grid; justify-content: center; gap: 18px; width: 100%; margin: 0 !important; padding: 0; transform-origin: top center; }
   .pagedjs_page { margin: 0 !important; box-shadow: 0 8px 24px rgba(23, 32, 42, .16); transform-origin: top center; }
   .pagedjs_sheet { background: #fff; }
@@ -363,7 +367,7 @@ function renderKeys(keys) {
             const revokeButton = document.createElement('button');
             revokeButton.className = 'revoke-button';
             revokeButton.type = 'button';
-            revokeButton.textContent = 'Revoke';
+            revokeButton.innerHTML = '<i data-lucide="ban" aria-hidden="true"></i>Revoke';
             revokeButton.dataset.keyId = key.keyId;
             controls.appendChild(revokeButton);
         }
@@ -371,6 +375,7 @@ function renderKeys(keys) {
         item.append(identity, activity, controls);
         container.appendChild(item);
     });
+    window.lucide?.createIcons({ attrs: { 'aria-hidden': 'true' } });
 }
 
 async function loadKeys() {

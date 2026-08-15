@@ -27,7 +27,7 @@
 
         <main class="auth-main">
             <section class="auth-intro" aria-labelledby="auth-title">
-                <p class="auth-eyebrow">Developer dashboard</p>
+                <p class="auth-eyebrow"><i data-lucide="shield-check" aria-hidden="true"></i>Developer dashboard</p>
                 <h1 id="auth-title">Your PDF workflow starts here.</h1>
                 <p class="auth-lead">Sign in to create API keys, inspect usage, and test authenticated PDF generation from one workspace.</p>
 
@@ -88,7 +88,9 @@
         </footer>
     </div>
 
+    <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.js"></script>
     <script>
+        window.lucide?.createIcons({ attrs: { 'aria-hidden': 'true' } });
         const COGNITO_DOMAIN = 'https://renderpdf-auth-653268860643.auth.us-east-1.amazoncognito.com';
         const CLIENT_ID = '78pkhoj4ml959gb80coslgm42t';
         const REDIRECT_URI = 'https://renderpdf.vberkoz.com/app/callback';

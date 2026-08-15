@@ -24,7 +24,7 @@
                     <a href="/">Home</a>
                     <a href="/app/">Dashboard</a>
                     <a href="/docs/api/">API docs</a>
-                    <button id="logoutBtn" type="button">Sign out</button>
+                    <button id="logoutBtn" type="button"><i data-lucide="log-out" aria-hidden="true"></i>Sign out</button>
                 </nav>
             </div>
         </header>
@@ -126,7 +126,9 @@
         </footer>
     </main>
 
+    <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.js"></script>
     <script>
+        window.lucide?.createIcons({ attrs: { 'aria-hidden': 'true' } });
         const refreshStatus = document.getElementById('refreshStatus');
         const apiBadge = document.getElementById('apiBadge');
         const apiVersion = document.getElementById('apiVersion');
