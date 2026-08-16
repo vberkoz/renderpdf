@@ -47,6 +47,7 @@
                     <p class="sidebar-title">On this page</p>
                     <nav aria-label="Documentation sections">
                         <a href="#quick-start">Quick start</a>
+                        <a href="#request-basics">Request basics</a>
                         <a href="#authentication">Authentication</a>
                         <a href="#render">Render HTML</a>
                         <a href="#render-url">Render URL</a>
@@ -98,11 +99,29 @@
                             <span class="callout-mark" aria-hidden="true">i</span>
                             <p>The trial allows 3 successful PDFs per public IP per UTC day. Failed renders are refunded automatically.</p>
                         </div>
+                        <p class="section-footnote">When you are ready for production, create an API key in the <a href="/app/">dashboard</a>, switch the path to <code>/render-html</code>, and send the key in the <code>Authorization</code> header.</p>
+                    </section>
+
+                    <section class="doc-section" id="request-basics">
+                        <div class="section-heading">
+                            <p class="eyebrow">02 / Conventions</p>
+                            <h2>Request basics</h2>
+                            <p>All API routes are relative to <code>https://renderpdf.vberkoz.com/api/v1</code> and exchange JSON unless the route explicitly returns a presigned upload URL.</p>
+                        </div>
+                        <div class="headers-list">
+                            <div><code>Content-Type: application/json</code><span>Required for requests with a JSON body.</span></div>
+                            <div><code>Authorization: Bearer &lt;key&gt;</code><span>Required for production render, upload, template, and webhook requests.</span></div>
+                            <div><code>Accept: application/json</code><span>Optional; JSON is returned for successful and error responses.</span></div>
+                        </div>
+                        <div class="callout">
+                            <span class="callout-mark" aria-hidden="true">i</span>
+                            <p>Keep API keys on a trusted server. Browser code should call your backend rather than embed a production key.</p>
+                        </div>
                     </section>
 
                     <section class="doc-section" id="authentication">
                         <div class="section-heading">
-                            <p class="eyebrow">02 / Access</p>
+                            <p class="eyebrow">03 / Access</p>
                             <h2>Authentication</h2>
                             <p>The production endpoints require an API key in the <code>Authorization: Bearer</code> request header.</p>
                         </div>
@@ -124,7 +143,7 @@
                     <section class="doc-section endpoint-section" id="render">
                         <div class="endpoint-heading">
                             <div>
-                                <p class="eyebrow">03 / Endpoint</p>
+                                <p class="eyebrow">04 / Endpoint</p>
                                 <h2>Render HTML</h2>
                             </div>
                             <div class="route"><span class="method">POST</span><code>/render-html</code></div>
@@ -154,7 +173,7 @@
                     <section class="doc-section endpoint-section" id="render-url">
                         <div class="endpoint-heading">
                             <div>
-                                <p class="eyebrow">04 / Endpoint</p>
+                                <p class="eyebrow">05 / Endpoint</p>
                                 <h2>Render a URL</h2>
                             </div>
                             <div class="route"><span class="method">POST</span><code>/render-url</code></div>
@@ -182,7 +201,7 @@
                     <section class="doc-section endpoint-section" id="render-upload">
                         <div class="endpoint-heading">
                             <div>
-                                <p class="eyebrow">05 / Package workflow</p>
+                                <p class="eyebrow">06 / Package workflow</p>
                                 <h2>Render a local HTML package</h2>
                             </div>
                             <div class="route"><span class="method">POST</span><code>/render-upload</code></div>
@@ -202,7 +221,7 @@ curl -X POST https://renderpdf.vberkoz.com/api/v1/render-upload \
 
                     <section class="doc-section endpoint-section" id="templates">
                         <div class="endpoint-heading">
-                            <div><p class="eyebrow">06 / Templates</p><h2>Store HTML templates</h2></div>
+                            <div><p class="eyebrow">07 / Templates</p><h2>Store HTML templates</h2></div>
                             <div class="route"><span class="method">CRUD</span><code>/templates</code></div>
                         </div>
                         <p class="section-copy">Save reusable HTML once, then render it with only variable data. Templates belong to the API-key owner; another customer receives <code>404</code> for the same ID.</p>
@@ -222,7 +241,7 @@ curl -X POST https://renderpdf.vberkoz.com/api/v1/render-upload \
 
                     <section class="doc-section endpoint-section" id="render-template">
                         <div class="endpoint-heading">
-                            <div><p class="eyebrow">07 / Endpoint</p><h2>Render a stored template</h2></div>
+                            <div><p class="eyebrow">08 / Endpoint</p><h2>Render a stored template</h2></div>
                             <div class="route"><span class="method">POST</span><code>/render-template</code></div>
                         </div>
                         <p class="section-copy">Resolve a customer-owned template with nested variables, then receive the normal PDF response.</p>
@@ -239,7 +258,7 @@ curl -X POST https://renderpdf.vberkoz.com/api/v1/render-upload \
 
                     <section class="doc-section" id="webhooks">
                         <div class="section-heading">
-                            <p class="eyebrow">05 / Async delivery</p>
+                            <p class="eyebrow">09 / Async delivery</p>
                             <h2>Webhooks</h2>
                             <p>Add <code>webhookUrl</code> to an authenticated render request to receive a <code>pdf.completed</code> event after the PDF is stored. Only public HTTPS endpoints on port 443 are accepted. For a quick test, create a unique endpoint at <a href="https://webhook.site/">Webhook.site</a>.</p>
                         </div>
@@ -261,9 +280,9 @@ curl -X POST https://renderpdf.vberkoz.com/api/v1/render-upload \
 
                     <section class="doc-section" id="examples">
                         <div class="section-heading">
-                            <p class="eyebrow">06 / Examples</p>
+                            <p class="eyebrow">10 / Examples</p>
                             <h2>Language examples</h2>
-                            <p>Set <code>RENDERPDF_API_KEY</code> in your server environment before running an example. Each example prints the PDF URL on success and reports the API error message for a non-2xx response.</p>
+                            <p>These are direct HTTP examples, not official SDKs. Set <code>RENDERPDF_API_KEY</code> in your server environment before running one. Each example prints the PDF URL on success and reports the API error message for a non-2xx response.</p>
                         </div>
 
                         <div class="code-block">
@@ -401,7 +420,7 @@ public class RenderPdf {
                     <section class="doc-section endpoint-section" id="trial">
                         <div class="endpoint-heading">
                             <div>
-                                <p class="eyebrow">07 / Endpoint</p>
+                                <p class="eyebrow">11 / Endpoint</p>
                                 <h2>Anonymous trial</h2>
                             </div>
                             <div class="route"><span class="method">POST</span><code>/trial/render-html</code></div>
@@ -431,7 +450,7 @@ public class RenderPdf {
 
                     <section class="doc-section" id="response">
                         <div class="section-heading">
-                            <p class="eyebrow">08 / Output</p>
+                            <p class="eyebrow">12 / Output</p>
                             <h2>Response</h2>
                             <p>Successful generate requests return HTTP <code>200</code> and a JSON object describing the stored PDF.</p>
                         </div>
@@ -450,43 +469,55 @@ public class RenderPdf {
 }</code></pre>
                             </div>
                         </div>
+                        <p class="section-footnote">Store <code>requestId</code> with your job or invoice record. It is the best identifier to include when reporting a rendering issue.</p>
                     </section>
 
                     <section class="doc-section" id="errors">
                         <div class="section-heading">
-                            <p class="eyebrow">09 / Failures</p>
+                            <p class="eyebrow">13 / Failures</p>
                             <h2>Errors</h2>
-                            <p>Error responses include a short message in <code>error</code>. Rendering failures also include a stable <code>code</code> value, so clients can handle a specific cause without matching message text.</p>
+                            <p>Error responses are JSON and always include a human-readable <code>error</code> message plus a stable <code>code</code> for programmatic handling. When a request reaches the API service, it also includes <code>requestId</code>; retain it when contacting support.</p>
                         </div>
                         <div class="code-block compact">
                             <div class="code-header"><span>422 / application/json</span></div>
                             <pre><code class="language-json">{
   "error": "An image failed to load while rendering the page",
-  "code": "image_loading_failed"
+  "code": "image_loading_failed",
+  "requestId": "7db7..."
 }</code></pre>
                         </div>
                         <div class="error-table" role="table" aria-label="API errors">
                             <div class="table-row table-head" role="row"><span>Status</span><span>Code</span><span>Meaning</span></div>
-                            <div class="table-row" role="row"><code>400</code><span>—</span><span>Invalid JSON, missing HTML, an empty document, or an invalid render URL.</span></div>
-                            <div class="table-row" role="row"><code>403</code><span>—</span><span>Missing, invalid, or inactive API key.</span></div>
-                            <div class="table-row" role="row"><code>404</code><span>—</span><span>The requested endpoint is unavailable or does not exist in this deployment mode.</span></div>
-                            <div class="table-row" role="row"><code>413</code><span>—</span><span>Trial HTML exceeds the 1 MB limit.</span></div>
+                            <div class="table-row" role="row"><code>400</code><code>invalid_request</code><span>Invalid JSON, missing HTML, an empty document, or an invalid render URL.</span></div>
+                            <div class="table-row" role="row"><code>401</code><code>authentication_required</code><span>Authentication is required for the requested route.</span></div>
+                            <div class="table-row" role="row"><code>403</code><span>—</span><span>Missing, invalid, or inactive API key; this response is produced by API Gateway before the request reaches the service.</span></div>
+                            <div class="table-row" role="row"><code>404</code><code>not_found</code><span>The requested endpoint is unavailable or does not exist in this deployment mode.</span></div>
+                            <div class="table-row" role="row"><code>413</code><code>payload_too_large</code><span>Trial HTML exceeds the 1 MB limit.</span></div>
                             <div class="table-row" role="row"><code>422</code><code>image_loading_failed</code><span>An image resource could not be loaded while rendering.</span></div>
                             <div class="table-row" role="row"><code>422</code><code>css_parsing_error</code><span>Chromium reported a CSS parsing error.</span></div>
                             <div class="table-row" role="row"><code>422</code><code>javascript_exception</code><span>The page raised an uncaught JavaScript exception.</span></div>
                             <div class="table-row" role="row"><code>422</code><code>navigation_failed</code><span>Chromium could not navigate to the requested page.</span></div>
-                            <div class="table-row" role="row"><code>429</code><span>—</span><span>Daily anonymous trial limit reached.</span></div>
-                            <div class="table-row" role="row"><code>500</code><span>—</span><span>An unexpected rendering or storage failure occurred.</span></div>
-                            <div class="table-row" role="row"><code>503</code><span>—</span><span>Trial capacity is busy; retry shortly.</span></div>
+                            <div class="table-row" role="row"><code>429</code><code>rate_limited</code><span>Daily anonymous trial or monthly account limit reached.</span></div>
+                            <div class="table-row" role="row"><code>500</code><code>storage_failed</code><span>The rendered PDF could not be stored; retry the request.</span></div>
+                            <div class="table-row" role="row"><code>500</code><code>rendering_failed</code><span>An unexpected rendering failure occurred.</span></div>
+                            <div class="table-row" role="row"><code>503</code><code>service_unavailable</code><span>A dependent service is temporarily unavailable.</span></div>
+                            <div class="table-row" role="row"><code>503</code><code>api_keys_unavailable</code><span>API-key management is temporarily unavailable.</span></div>
                             <div class="table-row" role="row"><code>504</code><code>navigation_timeout</code><span>The page did not finish navigating before the render deadline.</span></div>
                             <div class="table-row" role="row"><code>504</code><code>chromium_timeout</code><span>Chromium timed out while starting or generating the PDF.</span></div>
+                        </div>
+                        <h3>Handling failures</h3>
+                        <div class="headers-list">
+                            <div><code>400 / 413 / 422</code><span>Correct the request or document before trying again. Do not retry unchanged input.</span></div>
+                            <div><code>403</code><span>Check that the API key is present, active, and sent as <code>Authorization: Bearer &lt;key&gt;</code>.</span></div>
+                            <div><code>429 / 503 / 504</code><span>Wait and retry with exponential backoff. Preserve the original input so the retry is identical.</span></div>
+                            <div><code>500</code><span>Retry once for a transient failure; if it persists, retain the response and request details for support.</span></div>
                         </div>
                         <p class="section-footnote">The renderer may log further diagnostic detail, but API responses deliberately omit page content, URLs, and browser internals.</p>
                     </section>
 
                     <section class="doc-section" id="api-keys">
                         <div class="section-heading">
-                            <p class="eyebrow">10 / Management</p>
+                            <p class="eyebrow">14 / Management</p>
                             <h2>API keys</h2>
                             <p>Authenticated dashboard users can create, list, and revoke keys through the management API.</p>
                         </div>
@@ -569,13 +600,22 @@ public class RenderPdf {
             button.addEventListener('click', async () => {
                 const target = document.getElementById(button.dataset.copyTarget);
                 if (!target) return;
+                const originalLabel = button.textContent;
+                button.disabled = true;
+                button.setAttribute('aria-busy', 'true');
+                button.classList.add('is-processing');
+                button.textContent = 'Copying';
 
                 try {
                     await navigator.clipboard.writeText(target.innerText);
                     button.textContent = 'Copied';
-                    window.setTimeout(() => { button.textContent = 'Copy'; }, 1600);
+                    window.setTimeout(() => { button.textContent = originalLabel; }, 1600);
                 } catch (error) {
                     button.textContent = 'Select text';
+                } finally {
+                    button.disabled = false;
+                    button.setAttribute('aria-busy', 'false');
+                    button.classList.remove('is-processing');
                 }
             });
         });

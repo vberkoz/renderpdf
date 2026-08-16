@@ -353,13 +353,36 @@ p code,
     cursor: pointer;
     font-family: var(--font-mono);
     font-size: 0.62rem;
+    transition: transform 160ms ease, border-color 160ms ease, color 160ms ease;
 }
 
 .copy-button:hover,
 .copy-button:focus-visible {
     border-color: var(--line-strong);
     color: var(--ink);
+    transform: translateY(-2px);
     outline: none;
+}
+
+.copy-button:active {
+    transform: translateY(1px);
+}
+
+.copy-button.is-processing::before {
+    width: .8em;
+    height: .8em;
+    display: inline-block;
+    margin-right: 5px;
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    content: "";
+    animation: copy-button-spin 720ms linear infinite;
+    vertical-align: -1px;
+}
+
+@keyframes copy-button-spin {
+    to { transform: rotate(360deg); }
 }
 
 pre {
