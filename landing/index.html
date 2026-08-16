@@ -3,13 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Turn HTML into production-ready PDFs with a simple API.">
-    <title>RenderPDF | HTML to PDF API</title>
-    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <meta name="description" content="Generate production-ready PDFs in seconds with reliable HTML to PDF conversion for SaaS applications.">
+    <title>RenderPDF | Production-ready PDFs in seconds</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
     <script data-project="renderpdf" data-source="landing" src="https://analytics.vberkoz.com/track.js" defer></script>
 </head>
 <body>
@@ -29,9 +30,9 @@
         <main>
             <section class="hero" aria-labelledby="hero-title">
                 <div class="hero-copy">
-                    <p class="eyebrow">HTML -&gt; PDF API</p>
-                    <h1 id="hero-title">Ship PDFs without managing a browser.</h1>
-                    <p class="lead">Send HTML, get a production-ready PDF. RenderPDF handles Chromium, print CSS, storage, and delivery behind one endpoint.</p>
+                    <p class="eyebrow">PDF generation for SaaS</p>
+                    <h1 id="hero-title">Generate production-ready PDFs in seconds.</h1>
+                    <p class="lead">Reliable HTML to PDF conversion for SaaS applications. RenderPDF handles Chromium, print CSS, storage, and delivery behind one REST API.</p>
 
                     <div class="hero-actions">
                         <a class="button button-primary" href="#playground"><i data-lucide="play" aria-hidden="true"></i>Try it free</a>
@@ -78,8 +79,262 @@
                         <div class="playground-editor">
                             <div class="playground-input-wrap">
                                 <label class="field-label" for="htmlInput">HTML input</label>
-                                <textarea id="htmlInput" placeholder="Enter HTML content..." rows="11"><h1>Hello World</h1>
-<p>This is a test PDF document.</p></textarea>
+                                <textarea id="htmlInput" placeholder="Enter HTML content..." rows="11"><!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="renderpdf:no-header-footer" content="true">
+  <title>Design and Development Services Agreement</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
+
+    @page { size: A4; margin: 9mm 11mm; }
+
+    :root {
+      --ink: #272a2f;
+      --muted: #696e74;
+      --line: #d6d9dc;
+      --accent: #5e6369;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      font-family: "IBM Plex Sans", Arial, sans-serif;
+      font-size: 9.5pt;
+      line-height: 1.3;
+    }
+
+    .document {
+      width: 180mm;
+      margin: 0 auto;
+    }
+
+    .topline,
+    .signature-row {
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .topline {
+      margin-bottom: 5mm;
+      color: var(--muted);
+      font-family: "IBM Plex Mono", "Courier New", monospace;
+      font-size: 7pt;
+      letter-spacing: .01em;
+    }
+
+    .address,
+    .reference { width: 38%; }
+
+    .reference { text-align: right; }
+
+    .brand {
+      margin: 0 0 5mm;
+      font-size: 16pt;
+      font-weight: 700;
+      letter-spacing: -1.1px;
+    }
+
+    .document-kicker,
+    .label {
+      display: block;
+      color: var(--muted);
+      font-family: "IBM Plex Mono", "Courier New", monospace;
+      font-size: 7pt;
+      font-weight: 700;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+    }
+
+    .document-kicker { margin: 0 0 1.5mm; }
+
+    h1 {
+      margin: 0 0 4mm;
+      font-size: 18pt;
+      letter-spacing: -.75px;
+      line-height: 1.08;
+    }
+
+    h2 {
+      margin: 0 0 1mm;
+      font-size: 10pt;
+      break-after: avoid;
+      page-break-after: avoid;
+    }
+
+    .parties {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 7mm;
+      margin: 0 0 4mm;
+      padding: 2.5mm 0;
+      border-top: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+
+    .label { margin-bottom: 1mm; }
+
+    .party-name { font-size: 11pt; font-weight: 700; }
+
+    .meta {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 3mm;
+      margin-bottom: 4mm;
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+
+    .meta-value { font-size: 10pt; font-weight: 600; }
+
+    .intro {
+      max-width: 122mm;
+      margin: 0 0 3mm;
+    }
+
+    .clauses {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      counter-reset: clause;
+    }
+
+    .clauses > li {
+      display: grid;
+      grid-template-columns: 14mm 1fr;
+      gap: 5mm;
+      padding: 2mm 0;
+      border-top: 1px solid var(--line);
+      counter-increment: clause;
+      break-inside: auto;
+      page-break-inside: auto;
+    }
+
+    .clauses > li::before {
+      padding-top: 1mm;
+      color: var(--accent);
+      content: "0" counter(clause);
+      font-family: "IBM Plex Mono", "Courier New", monospace;
+      font-size: 7.5pt;
+      font-weight: 700;
+      letter-spacing: .08em;
+    }
+
+    .clauses p { margin: 0; }
+
+    .scope {
+      margin-top: 1.5mm;
+      padding: 1.75mm 2.5mm;
+      border-left: 2px solid var(--accent);
+      background: #f1f2f2;
+      white-space: pre-line;
+      orphans: 3;
+      widows: 3;
+    }
+
+    .signatures {
+      margin-top: 4mm;
+      padding-top: 2.5mm;
+      border-top: 1px solid var(--ink);
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+
+    .signature-row { gap: 9mm; }
+    .signature { width: 48%; }
+    .signature-line { height: 7mm; margin-bottom: 1mm; border-bottom: 1px solid var(--ink); }
+    .signature-name { font-size: 9pt; font-weight: 700; }
+
+    .signature-caption,
+    .footer-note {
+      color: var(--muted);
+      font-family: "IBM Plex Mono", "Courier New", monospace;
+      font-size: 7.5pt;
+    }
+
+    .footer-note {
+      margin: 3mm 0 0;
+      font-size: 7pt;
+      text-align: right;
+    }
+
+    @media screen {
+      body { padding: 12.5mm 0; background: #eef1f3; }
+      .document { width: 210mm; min-height: 297mm; padding: 9mm 11mm; background: #fff; box-shadow: 0 8px 24px rgba(23, 32, 42, .16); }
+    }
+
+    @media print {
+      .document {
+        display: flex;
+        flex-direction: column;
+        width: auto;
+        min-height: 279mm;
+        margin: 0;
+      }
+
+      .signatures { margin-top: auto; padding-top: 2.5mm; }
+      .signature-line { height: 7mm; margin-bottom: 1mm; }
+      .footer-note { margin-top: 3mm; }
+    }
+  </style>
+</head>
+<body>
+  <main class="document a4-page pin-signatures">
+    <header class="topline">
+      <div class="address">RenderPDF<br>Document Services<br>Kyiv, Ukraine</div>
+      <div class="reference">Agreement date<br>August 9, 2026</div>
+    </header>
+
+    <div class="brand">RenderPDF</div>
+    <p class="document-kicker">Service agreement</p>
+    <h1>Design and Development Services Agreement</h1>
+
+    <section class="parties" aria-label="Agreement parties">
+      <div>
+        <span class="label">Service provider</span>
+        <div class="party-name">RenderPDF Studio LLC</div>
+      </div>
+      <div>
+        <span class="label">Client</span>
+        <div class="party-name">Northstar Ventures Ltd.</div>
+      </div>
+    </section>
+
+    <section class="meta" aria-label="Contract terms">
+      <div><span class="label">Effective from</span><div class="meta-value">August 15, 2026</div></div>
+      <div><span class="label">Term ends</span><div class="meta-value">November 15, 2026</div></div>
+      <div><span class="label">Payment terms</span><div class="meta-value">50% on commencement; 50% on final delivery, due within 14 days</div></div>
+    </section>
+
+    <p class="intro">This agreement sets out the terms under which RenderPDF Studio LLC will provide services to Northstar Ventures Ltd. The parties agree to collaborate in good faith throughout the term described below.</p>
+
+    <ol class="clauses">
+      <li><div><h2>Scope of services</h2><p>The provider will perform the following agreed scope of work:</p><div class="scope">Brand identity refinement
+Responsive marketing website design and development
+Content-management handover and launch support</div></div></li>
+      <li><div><h2>Term and delivery</h2><p>Services begin on August 15, 2026 and conclude on November 15, 2026, unless the parties agree in writing to change the schedule or scope.</p></div></li>
+      <li><div><h2>Fees and payment</h2><p>Northstar Ventures Ltd. will pay invoices in accordance with 50% on commencement; 50% on final delivery, due within 14 days. Any change to fees or deliverables requires written approval from both parties.</p></div></li>
+      <li><div><h2>Confidentiality</h2><p>Each party will protect the other party’s non-public information and use it solely to perform this agreement, except where disclosure is required by law.</p></div></li>
+      <li><div><h2>Acceptance</h2><p>By signing below, each party confirms it has authority to enter into this agreement and accepts the terms set out in this document.</p></div></li>
+    </ol>
+
+    <section class="signatures" aria-label="Signatures">
+      <span class="label">Accepted and agreed</span>
+      <div class="signature-row">
+        <div class="signature"><div class="signature-line"></div><div class="signature-name">RenderPDF Studio LLC</div><div class="signature-caption">Authorized representative / Date</div></div>
+        <div class="signature"><div class="signature-line"></div><div class="signature-name">Northstar Ventures Ltd.</div><div class="signature-caption">Authorized representative / Date</div></div>
+      </div>
+      <p class="footer-note">RenderPDF · Design and Development Services Agreement · August 9, 2026</p>
+    </section>
+  </main>
+</body>
+</html></textarea>
                             </div>
                             <div class="playground-preview-wrap">
                                 <div class="preview-heading"><span class="field-label"><i data-lucide="file-text" aria-hidden="true"></i>Document preview</span><span><i data-lucide="monitor" aria-hidden="true"></i>Local only</span></div>
@@ -87,7 +342,7 @@
                             </div>
                         </div>
                         <button type="submit" id="generateBtn" class="button button-primary generate-button">
-                            <i data-lucide="file-down" aria-hidden="true"></i>Render PDF
+                            <i data-lucide="file-down" aria-hidden="true"></i><span id="generateBtnLabel">Render PDF</span>
                         </button>
                     </form>
 
@@ -100,22 +355,29 @@
                 <article>
                     <span class="capability-index">01</span>
                     <div>
-                        <h2><i data-lucide="monitor-cog" aria-hidden="true"></i>Browser-grade rendering</h2>
-                        <p>Modern HTML and CSS rendered with headless Chromium.</p>
+                        <h2><i data-lucide="braces" aria-hidden="true"></i>REST API</h2>
+                        <p>Generate PDFs from HTML, a public URL, or an uploaded package.</p>
                     </div>
                 </article>
                 <article>
                     <span class="capability-index">02</span>
                     <div>
-                        <h2><i data-lucide="printer" aria-hidden="true"></i>Print-aware output</h2>
-                        <p>Backgrounds, page sizing, headers, and footers included.</p>
+                        <h2><i data-lucide="cloud" aria-hidden="true"></i>AWS-powered</h2>
+                        <p>Serverless rendering, secure file storage, and automatic scaling.</p>
                     </div>
                 </article>
                 <article>
                     <span class="capability-index">03</span>
                     <div>
-                        <h2><i data-lucide="link" aria-hidden="true"></i>Simple delivery</h2>
-                        <p>A JSON response with a ready-to-download PDF URL.</p>
+                        <h2><i data-lucide="gift" aria-hidden="true"></i>Free tier</h2>
+                        <p>Try 3 PDFs daily without an account, then get 25 PDFs each month free.</p>
+                    </div>
+                </article>
+                <article>
+                    <span class="capability-index">04</span>
+                    <div>
+                        <h2><i data-lucide="monitor-cog" aria-hidden="true"></i>Browser-grade rendering</h2>
+                        <p>Modern HTML and CSS rendered with headless Chromium.</p>
                     </div>
                 </article>
             </section>
@@ -132,19 +394,38 @@
     </div>
 
     <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/xml/xml.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/javascript/javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/css/css.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/htmlmixed/htmlmixed.min.js"></script>
     <script>
         window.lucide?.createIcons({ attrs: { 'aria-hidden': 'true' } });
-        const TRIAL_RENDER_URL = new URL('/api/v1/trial/render-html', window.location.origin).toString();
+        // A page opened directly from disk has no HTTP origin, so use the
+        // deployed API rather than resolving endpoints to file:///api/...
+        const API_ORIGIN = window.location.protocol === 'file:'
+            ? 'https://renderpdf.vberkoz.com'
+            : window.location.origin;
+        const TRIAL_RENDER_URL = new URL('/api/v1/trial/render-html', API_ORIGIN).toString();
         const form = document.getElementById('pdfForm');
         const btn = document.getElementById('generateBtn');
+        const btnLabel = document.getElementById('generateBtnLabel');
         const result = document.getElementById('result');
         const error = document.getElementById('error');
         const htmlInput = document.getElementById('htmlInput');
+        const htmlEditor = window.CodeMirror?.fromTextArea(htmlInput, {
+            mode: 'htmlmixed',
+            lineNumbers: true,
+            lineWrapping: true,
+            indentUnit: 2,
+            tabSize: 2
+        });
+        const playgroundHTML = () => htmlEditor ? htmlEditor.getValue() : htmlInput.value;
         const htmlPreview = document.getElementById('htmlPreview');
         const quotaStatus = document.getElementById('quotaStatus');
         const quotaRemaining = document.getElementById('quotaRemaining');
         const quotaLabel = document.getElementById('quotaLabel');
-        const QUOTA_URL = new URL('/api/v1/trial/quota', window.location.origin).toString();
+        const QUOTA_URL = new URL('/api/v1/trial/quota', API_ORIGIN).toString();
 
         const displayQuota = (remaining) => {
             const value = Math.max(0, Number.parseInt(remaining, 10) || 0);
@@ -216,17 +497,27 @@
         };
 
         let previewFrame;
-        htmlInput.addEventListener('input', () => {
+        const schedulePreview = () => {
             cancelAnimationFrame(previewFrame);
-            previewFrame = requestAnimationFrame(() => previewHTML(htmlInput.value));
-        });
-        previewHTML(htmlInput.value);
+            previewFrame = requestAnimationFrame(() => previewHTML(playgroundHTML()));
+        };
+        if (htmlEditor) {
+            htmlEditor.on('change', () => {
+                htmlEditor.save();
+                schedulePreview();
+            });
+        } else {
+            htmlInput.addEventListener('input', schedulePreview);
+        }
+        previewHTML(playgroundHTML());
 
         form.addEventListener('submit', async (event) => {
             event.preventDefault();
 
             btn.disabled = true;
-            btn.firstChild.textContent = 'Rendering PDF ';
+            btn.setAttribute('aria-busy', 'true');
+            btn.classList.add('is-processing');
+            btnLabel.textContent = 'Rendering PDF';
             result.classList.add('hidden');
             error.classList.add('hidden');
 
@@ -234,7 +525,7 @@
                 const response = await fetch(TRIAL_RENDER_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ html: htmlInput.value })
+                    body: JSON.stringify({ html: playgroundHTML() })
                 });
 
                 const remaining = response.headers.get('X-Trial-Remaining');
@@ -262,7 +553,9 @@
                 error.classList.remove('hidden');
             } finally {
                 btn.disabled = false;
-                btn.firstChild.textContent = 'Render PDF ';
+                btn.setAttribute('aria-busy', 'false');
+                btn.classList.remove('is-processing');
+                btnLabel.textContent = 'Render PDF';
             }
         });
     </script>

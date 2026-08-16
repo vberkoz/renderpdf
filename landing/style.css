@@ -202,9 +202,13 @@ h1 {
 
 .button:hover:not(:disabled),
 .button:focus-visible:not(:disabled) {
-    transform: translateY(-1px);
+    transform: translateY(-2px);
     border-color: var(--line-strong);
     outline: none;
+}
+
+.button:active:not(:disabled) {
+    transform: translateY(1px);
 }
 
 .button-primary {
@@ -214,8 +218,27 @@ h1 {
 }
 
 .button:disabled {
-    cursor: wait;
+    cursor: default;
     opacity: 0.65;
+}
+
+.button.is-processing .lucide {
+    display: none;
+}
+
+.button.is-processing::before {
+    width: 0.9em;
+    height: 0.9em;
+    flex: 0 0 auto;
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    content: "";
+    animation: button-spin 720ms linear infinite;
+}
+
+@keyframes button-spin {
+    to { transform: rotate(360deg); }
 }
 
 .request-card,
@@ -428,6 +451,28 @@ h1 {
     box-shadow: 0 0 0 3px rgba(106, 169, 255, 0.14);
 }
 
+.playground .CodeMirror {
+    width: 100%;
+    height: 650px;
+    border: 1px solid var(--line);
+    border-radius: 11px;
+    background: #fbfcfd;
+    color: var(--ink);
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    line-height: 1.55;
+}
+
+.playground .CodeMirror-focused {
+    border-color: #8ca0b5;
+    box-shadow: 0 0 0 3px rgba(106, 169, 255, 0.14);
+}
+
+.playground .CodeMirror-gutters {
+    border-right: 1px solid var(--line);
+    background: var(--surface-soft);
+}
+
 .generate-button {
     width: 100%;
     margin-top: 3px;
@@ -481,7 +526,7 @@ h1 {
 
 .capabilities {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     border-top: 1px solid var(--line);
     border-bottom: 1px solid var(--line);
 }
@@ -573,6 +618,15 @@ h1 {
         grid-template-columns: repeat(3, minmax(0, 1fr));
     }
 
+    .capabilities {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .capabilities article:nth-child(3) {
+        border-top: 1px solid var(--line);
+        border-left: 0;
+    }
+
 }
 
 @media (max-width: 680px) {
@@ -627,6 +681,10 @@ h1 {
     .html-preview {
         height: 520px;
         min-height: 0;
+    }
+
+    .playground .CodeMirror {
+        height: 520px;
     }
 
     .hero-trial-items {
