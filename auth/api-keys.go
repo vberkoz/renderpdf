@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -18,10 +19,10 @@ import (
 )
 
 var (
-	tableName = os.Getenv("API_KEYS_TABLE")
+	tableName      = os.Getenv("API_KEYS_TABLE")
 	usageTableName = os.Getenv("TABLE_NAME")
-	sess      = session.Must(session.NewSession())
-	ddb       = dynamodb.New(sess)
+	sess           = session.Must(session.NewSession())
+	ddb            = dynamodb.New(sess)
 )
 
 type CreateKeyResponse struct {
@@ -40,26 +41,55 @@ type APIKeyInfo struct {
 	IsActive  bool   `json:"isActive"`
 }
 
+type APIErrorResponse struct {
+	Error     string `json:"error"`
+	Code      string `json:"code"`
+	RequestID string `json:"requestId,omitempty"`
+}
+
 func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
-	userId := request.RequestContext.Authorizer["claims"].(map[string]interface{})["sub"].(string)
+	requestID := request.RequestContext.RequestID
+	if requestID == "" {
+		requestID = uuid.NewString()
+	}
 
 	corsHeaders := map[string]string{
 		"Access-Control-Allow-Origin":      "https://dashboard.renderpdf.vberkoz.com",
 		"Access-Control-Allow-Credentials": "true",
 		"Content-Type":                     "application/json",
+		"Access-Control-Expose-Headers":    "X-Request-Id",
+		"X-Request-Id":                     requestID,
+	}
+	userID := cognitoSubject(request)
+	if userID == "" {
+		return apiErrorResponse(401, "authentication_required", "Authentication is required", corsHeaders), nil
 	}
 
 	switch request.HTTPMethod {
 	case "POST":
-		return createKey(userId, corsHeaders)
+		return createKey(userID, corsHeaders)
 	case "GET":
-		return listKeys(userId, corsHeaders)
+		return listKeys(userID, corsHeaders)
 	case "DELETE":
 		keyId := request.PathParameters["id"]
-		return deleteKey(userId, keyId, corsHeaders)
+		return deleteKey(userID, keyId, corsHeaders)
 	default:
-		return events.APIGatewayProxyResponse{StatusCode: 405, Headers: corsHeaders}, nil
+		return apiErrorResponse(405, "method_not_allowed", "Method not allowed", corsHeaders), nil
 	}
+}
+
+func cognitoSubject(request events.APIGatewayProxyRequest) string {
+	claims, ok := request.RequestContext.Authorizer["claims"].(map[string]interface{})
+	if !ok {
+		return ""
+	}
+	subject, _ := claims["sub"].(string)
+	return strings.TrimSpace(subject)
+}
+
+func apiErrorResponse(status int, code, message string, headers map[string]string) events.APIGatewayProxyResponse {
+	body, _ := json.Marshal(APIErrorResponse{Error: message, Code: code, RequestID: headers["X-Request-Id"]})
+	return events.APIGatewayProxyResponse{StatusCode: status, Body: string(body), Headers: headers}
 }
 
 func createKey(userId string, headers map[string]string) (events.APIGatewayProxyResponse, error) {
@@ -81,7 +111,8 @@ func createKey(userId string, headers map[string]string) (events.APIGatewayProxy
 	})
 
 	if err != nil {
-		return events.APIGatewayProxyResponse{StatusCode: 500, Body: err.Error(), Headers: headers}, nil
+		fmt.Printf("API key create failed: %v\n", err)
+		return apiErrorResponse(503, "api_keys_unavailable", "API key management is temporarily unavailable", headers), nil
 	}
 	saveAnalyticsEvent(userId, "api_key_created")
 
@@ -96,7 +127,9 @@ func createKey(userId string, headers map[string]string) (events.APIGatewayProxy
 }
 
 func saveAnalyticsEvent(customerID, eventName string) {
-	if usageTableName == "" { return }
+	if usageTableName == "" {
+		return
+	}
 	now := time.Now().UTC()
 	eventID := uuid.NewString()
 	_, err := ddb.PutItem(&dynamodb.PutItemInput{
@@ -112,7 +145,9 @@ func saveAnalyticsEvent(customerID, eventName string) {
 			"expiresAt":  {N: aws.String(fmt.Sprintf("%d", now.Add(90*24*time.Hour).Unix()))},
 		},
 	})
-	if err != nil { fmt.Printf("Analytics event write skipped: %v\n", err) }
+	if err != nil {
+		fmt.Printf("Analytics event write skipped: %v\n", err)
+	}
 }
 
 func listKeys(userId string, headers map[string]string) (events.APIGatewayProxyResponse, error) {
@@ -126,7 +161,8 @@ func listKeys(userId string, headers map[string]string) (events.APIGatewayProxyR
 	})
 
 	if err != nil {
-		return events.APIGatewayProxyResponse{StatusCode: 500, Body: err.Error(), Headers: headers}, nil
+		fmt.Printf("API key list failed: %v\n", err)
+		return apiErrorResponse(503, "api_keys_unavailable", "API key management is temporarily unavailable", headers), nil
 	}
 
 	keys := []APIKeyInfo{}
@@ -168,7 +204,8 @@ func deleteKey(userId, keyId string, headers map[string]string) (events.APIGatew
 	})
 
 	if err != nil {
-		return events.APIGatewayProxyResponse{StatusCode: 500, Body: err.Error(), Headers: headers}, nil
+		fmt.Printf("API key revoke failed: %v\n", err)
+		return apiErrorResponse(503, "api_keys_unavailable", "API key management is temporarily unavailable", headers), nil
 	}
 
 	return events.APIGatewayProxyResponse{StatusCode: 204, Headers: headers}, nil

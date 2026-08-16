@@ -56,6 +56,14 @@ type Response struct {
 	Size      int64  `json:"size"`
 }
 
+// APIErrorResponse is the response contract used by every JSON API error.
+// Codes are stable for programmatic handling; messages are safe for display.
+type APIErrorResponse struct {
+	Error     string `json:"error"`
+	Code      string `json:"code"`
+	RequestID string `json:"requestId,omitempty"`
+}
+
 // renderError is intentionally safe to return to API clients. The underlying
 // Chrome error remains in Lambda logs, where it is useful for diagnosis but
 // does not expose URLs, HTML, or browser internals to callers.
@@ -100,12 +108,14 @@ var (
 )
 
 func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+	requestID := uuid.NewString()
 	corsHeaders := map[string]string{
 		"Content-Type":                  "application/json",
 		"Access-Control-Allow-Origin":   "*",
 		"Access-Control-Allow-Headers":  "Content-Type,X-Amz-Date,Authorization,X-Amz-Security-Token",
 		"Access-Control-Allow-Methods":  "GET,POST,OPTIONS",
-		"Access-Control-Expose-Headers": "X-Trial-Limit,X-Trial-Remaining",
+		"Access-Control-Expose-Headers": "X-Request-Id,X-Trial-Limit,X-Trial-Remaining",
+		"X-Request-Id":                  requestID,
 	}
 	if isTemplateRequest(request) {
 		return handleTemplateRequest(ctx, request, corsHeaders, templateStoreFactory()), nil
@@ -141,7 +151,6 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 	if isTrial {
 		plan = "trial"
 	}
-	requestID := uuid.New().String()
 	startedAt := time.Now()
 	analytics := requestAnalytics{
 		RequestID:  requestID,
@@ -333,10 +342,11 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 	})
 	if err != nil {
 		analytics.ErrorType = "storage"
+		fmt.Printf("PDF storage failed for %s: %v\n", requestID, err)
 		refundTrialQuota(quota)
 		refundAccountQuota(reservedAccountQuota)
 		restoreTrialRemainingHeader(quota, corsHeaders)
-		return errorResponse(500, err.Error(), corsHeaders), nil
+		return errorResponseWithCode(500, "storage_failed", "PDF storage is temporarily unavailable", corsHeaders), nil
 	}
 
 	url := fmt.Sprintf("https://%s.s3.amazonaws.com/%s", bucketName, key)
@@ -365,23 +375,60 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 }
 
 func errorResponse(status int, message string, headers map[string]string) events.APIGatewayProxyResponse {
-	body, _ := json.Marshal(map[string]string{"error": message})
+	return errorResponseWithCode(status, defaultErrorCode(status), message, headers)
+}
+
+func errorResponseWithCode(status int, code, message string, headers map[string]string) events.APIGatewayProxyResponse {
+	body, _ := json.Marshal(APIErrorResponse{Error: message, Code: code, RequestID: responseRequestID(headers)})
 	return events.APIGatewayProxyResponse{StatusCode: status, Body: string(body), Headers: headers}
+}
+
+func defaultErrorCode(status int) string {
+	switch status {
+	case 400:
+		return "invalid_request"
+	case 401:
+		return "authentication_required"
+	case 404:
+		return "not_found"
+	case 405:
+		return "method_not_allowed"
+	case 409:
+		return "conflict"
+	case 413:
+		return "payload_too_large"
+	case 422:
+		return "validation_error"
+	case 429:
+		return "rate_limited"
+	case 503:
+		return "service_unavailable"
+	default:
+		return "internal_error"
+	}
+}
+
+func responseRequestID(headers map[string]string) string {
+	for name, value := range headers {
+		if strings.EqualFold(name, "X-Request-Id") {
+			return value
+		}
+	}
+	return ""
 }
 
 func renderErrorResponse(err error, headers map[string]string) events.APIGatewayProxyResponse {
 	if renderErr, ok := err.(*renderError); ok {
-		body, _ := json.Marshal(map[string]string{"error": renderErr.Message, "code": renderErr.Code})
 		status := renderErr.Status
 		if status == 0 {
 			status = 422
 		}
-		return events.APIGatewayProxyResponse{StatusCode: status, Body: string(body), Headers: headers}
+		return errorResponseWithCode(status, renderErr.Code, renderErr.Message, headers)
 	}
 	// Do not return a raw Chrome failure: it can include document URLs and
 	// browser implementation details. The specific failures above are returned
 	// as renderError values.
-	return errorResponse(500, "PDF rendering failed", headers)
+	return errorResponseWithCode(500, "rendering_failed", "PDF rendering failed", headers)
 }
 
 func restoreTrialRemainingHeader(quota *trialQuota, headers map[string]string) {

@@ -123,7 +123,7 @@ cd /Users/basilsergius/projects/renderpdf && ./scripts/verify-auth.sh
 ```
 
 - Notes:
-  - `scripts/verify-auth.sh` runs the shared-helper tests and the build-tagged authorizer tests.
+- `scripts/verify-auth.sh` runs the shared-helper tests plus the build-tagged authorizer and API-key-management tests.
   - there is no committed end-to-end auth verification script today
 
 ### Analytics

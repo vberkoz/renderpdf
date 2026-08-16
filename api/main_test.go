@@ -15,7 +15,7 @@ func TestPDFGeneration(t *testing.T) {
 	}
 
 	html := `<h1>Test</h1><p>This is a test PDF generation.</p>`
-	
+
 	ctx := context.Background()
 	pdfBytes, err := generatePDF(ctx, injectPrintCSS(html))
 	if err != nil {
@@ -77,8 +77,28 @@ func TestRenderErrorResponseIsSafeAndStructured(t *testing.T) {
 		t.Fatalf("body = %#v, want a navigation_timeout code and message", body)
 	}
 
-	response = renderErrorResponse(errors.New("internal Chrome URL and stack trace"), nil)
-	if response.StatusCode != 500 || response.Body != `{"error":"PDF rendering failed"}` {
-		t.Fatalf("unexpected generic rendering response: %#v", response)
+	response = renderErrorResponse(errors.New("internal Chrome URL and stack trace"), map[string]string{"X-Request-Id": "request-123"})
+	if response.StatusCode != 500 {
+		t.Fatalf("status = %d, want 500", response.StatusCode)
+	}
+	if err := json.Unmarshal([]byte(response.Body), &body); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if body["code"] != "rendering_failed" || body["error"] != "PDF rendering failed" || body["requestId"] != "request-123" {
+		t.Fatalf("unexpected generic rendering response: %#v", body)
+	}
+}
+
+func TestErrorResponseUsesStableCodesAndRequestID(t *testing.T) {
+	response := errorResponse(429, "Daily trial limit reached", map[string]string{"X-Request-Id": "request-456"})
+	if response.StatusCode != 429 {
+		t.Fatalf("status = %d, want 429", response.StatusCode)
+	}
+	var body map[string]string
+	if err := json.Unmarshal([]byte(response.Body), &body); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if body["code"] != "rate_limited" || body["requestId"] != "request-456" {
+		t.Fatalf("body = %#v, want stable code and request id", body)
 	}
 }
