@@ -108,6 +108,7 @@ footer {
     display: inline-flex;
     align-items: center;
     gap: 6px;
+    transition: transform 160ms ease, color 160ms ease;
 }
 
 .stats-nav .lucide {
@@ -122,6 +123,31 @@ footer {
 .stats-nav button:focus-visible {
     color: var(--ink);
     outline: none;
+}
+
+.stats-nav button:hover,
+.stats-nav button:focus-visible {
+    transform: translateY(-2px);
+}
+
+.stats-nav button:active {
+    transform: translateY(1px);
+}
+
+.stats-nav button.is-processing .lucide { display: none; }
+
+.stats-nav button.is-processing::before {
+    width: .85em;
+    height: .85em;
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    content: "";
+    animation: stats-button-spin 720ms linear infinite;
+}
+
+@keyframes stats-button-spin {
+    to { transform: rotate(360deg); }
 }
 
 #refreshStatus {

@@ -393,6 +393,19 @@ textarea {
     transition: transform 160ms ease, background-color 160ms ease;
 }
 
+.google-button.is-processing svg { display: none; }
+
+.google-button.is-processing::before {
+    width: 0.9em;
+    height: 0.9em;
+    flex: 0 0 auto;
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    content: "";
+    animation: dashboard-button-spin 720ms linear infinite;
+}
+
 .google-button svg {
     width: 20px;
     height: 20px;
@@ -412,6 +425,10 @@ textarea {
     transform: translateY(-1px);
     background: #222c3d;
     outline: none;
+}
+
+.google-button:active {
+    transform: translateY(1px);
 }
 
 .auth-divider {
@@ -554,8 +571,9 @@ textarea {
 
 .custom-select { position: relative; display: grid; gap: 7px; min-width: 0; }
 .custom-select-label { color: var(--dashboard-muted); font-size: .66rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; }
-.custom-select-trigger { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 42px; padding: 9px 11px; border: 1px solid var(--dashboard-line); border-radius: 10px; background: #fff; color: var(--dashboard-ink); font: inherit; font-size: .75rem; cursor: pointer; }
-.custom-select-trigger:hover { border-color: var(--dashboard-line-strong); }
+.custom-select-trigger { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 42px; padding: 9px 11px; border: 1px solid var(--dashboard-line); border-radius: 10px; background: #fff; color: var(--dashboard-ink); font: inherit; font-size: .75rem; cursor: pointer; transition: transform 160ms ease, border-color 160ms ease; }
+.custom-select-trigger:hover { transform: translateY(-2px); border-color: var(--dashboard-line-strong); }
+.custom-select-trigger:active { transform: translateY(1px); }
 .custom-select-trigger:focus-visible { outline: 2px solid rgba(31, 92, 255, .18); outline-offset: 2px; }
 .custom-select-value { min-width: 0; overflow: hidden; text-overflow: ellipsis; text-align: left; white-space: nowrap; }
 .custom-select-icon { flex: 0 0 auto; width: 16px; height: 16px; color: var(--dashboard-muted); stroke-width: 2; transition: transform 160ms ease; }
@@ -563,8 +581,10 @@ textarea {
 .custom-select-menu { position: absolute; z-index: 30; top: calc(100% + 6px); left: 0; right: 0; display: grid; gap: 4px; max-height: min(240px, calc(100vh - 120px)); overflow: auto; padding: 7px; border: 1px solid var(--dashboard-line); border-radius: 11px; background: #fff; box-shadow: 0 16px 36px rgba(17, 24, 39, .12); }
 .custom-select-menu[hidden] { display: none; }
 .custom-select[data-open-direction="up"] .custom-select-menu { top: auto; bottom: calc(100% + 6px); }
-.custom-select-option { min-height: 34px; padding: 7px 9px; border: 0; border-radius: 8px; background: transparent; color: var(--dashboard-ink); font: inherit; font-size: .74rem; text-align: left; cursor: pointer; }
+.custom-select-option { min-height: 34px; padding: 7px 9px; border: 0; border-radius: 8px; background: transparent; color: var(--dashboard-ink); font: inherit; font-size: .74rem; text-align: left; cursor: pointer; transition: transform 160ms ease, background-color 160ms ease; }
 .custom-select-option:hover, .custom-select-option:focus-visible, .custom-select-option.is-active { background: var(--dashboard-soft); outline: none; }
+.custom-select-option:hover, .custom-select-option:focus-visible { transform: translateY(-2px); }
+.custom-select-option:active { transform: translateY(1px); }
 .custom-select-divider { height: 1px; margin: 4px 2px; background: var(--dashboard-line); }
 .custom-select-group-label { padding: 3px 9px; color: var(--dashboard-muted); font-size: .6rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; }
 
@@ -779,6 +799,15 @@ textarea {
     outline: none;
 }
 
+.dashboard-logout:hover,
+.dashboard-logout:focus-visible {
+    transform: translateY(-2px);
+}
+
+.dashboard-logout:active {
+    transform: translateY(1px);
+}
+
 .dashboard-logout {
     display: inline-flex;
     align-items: center;
@@ -787,6 +816,7 @@ textarea {
     border: 1px solid var(--dashboard-line);
     border-radius: 9px;
     background: rgba(255, 255, 255, 0.75);
+    transition: transform 160ms ease, color 160ms ease;
 }
 
 .dashboard-hero {
@@ -955,9 +985,14 @@ textarea {
 
 .dashboard-button:hover:not(:disabled),
 .dashboard-button:focus-visible:not(:disabled) {
-    transform: translateY(-1px);
+    transform: translateY(-2px);
     border-color: var(--dashboard-line-strong);
     outline: none;
+}
+
+.dashboard-button:active:not(:disabled),
+.revoke-button:active:not(:disabled) {
+    transform: translateY(1px);
 }
 
 .dashboard-button-primary {
@@ -972,8 +1007,24 @@ textarea {
 
 .dashboard-button:disabled,
 .revoke-button:disabled {
-    cursor: wait;
+    cursor: default;
     opacity: 0.62;
+}
+
+.dashboard-button.is-processing::before,
+.revoke-button.is-processing::before {
+    width: 0.9em;
+    height: 0.9em;
+    flex: 0 0 auto;
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    content: "";
+    animation: dashboard-button-spin 720ms linear infinite;
+}
+
+@keyframes dashboard-button-spin {
+    to { transform: rotate(360deg); }
 }
 
 .endpoint-route {
@@ -1143,11 +1194,13 @@ textarea {
     cursor: pointer;
     font-size: 0.64rem;
     font-weight: 700;
+    transition: transform 160ms ease, color 160ms ease;
 }
 
 .revoke-button:hover,
 .revoke-button:focus-visible {
     color: #751f1f;
+    transform: translateY(-2px);
     outline: none;
     text-decoration: underline;
 }
@@ -1222,6 +1275,28 @@ textarea {
 .dashboard-field textarea:focus {
     border-color: #8795a5;
     outline: 2px solid rgba(106, 169, 255, 0.18);
+}
+
+.dashboard-field .CodeMirror {
+    width: 100%;
+    min-height: 242px;
+    border: 1px solid var(--dashboard-line);
+    border-radius: 11px;
+    background: var(--dashboard-surface);
+    color: var(--dashboard-ink);
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.69rem;
+    line-height: 1.65;
+}
+
+.dashboard-field .CodeMirror-focused {
+    border-color: #8795a5;
+    outline: 2px solid rgba(106, 169, 255, 0.18);
+}
+
+.dashboard-field .CodeMirror-gutters {
+    border-right: 1px solid var(--dashboard-line);
+    background: var(--dashboard-soft);
 }
 
 .test-actions {

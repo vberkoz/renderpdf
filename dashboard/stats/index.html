@@ -169,6 +169,11 @@
         }
 
         document.getElementById('logoutBtn').addEventListener('click', () => {
+            const button = document.getElementById('logoutBtn');
+            button.disabled = true;
+            button.setAttribute('aria-busy', 'true');
+            button.classList.add('is-processing');
+            button.lastChild.textContent = 'Signing out…';
             localStorage.removeItem('id_token');
             localStorage.removeItem('access_token');
             localStorage.removeItem('post_login_redirect');

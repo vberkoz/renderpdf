@@ -96,6 +96,11 @@
         const REDIRECT_URI = 'https://renderpdf.vberkoz.com/app/callback';
 
         document.getElementById('loginBtn').addEventListener('click', () => {
+            const button = document.getElementById('loginBtn');
+            button.disabled = true;
+            button.setAttribute('aria-busy', 'true');
+            button.classList.add('is-processing');
+            button.textContent = 'Redirecting…';
             const authUrl = `${COGNITO_DOMAIN}/oauth2/authorize?` +
                 `client_id=${CLIENT_ID}&` +
                 `response_type=token&` +

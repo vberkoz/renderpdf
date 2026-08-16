@@ -147,20 +147,57 @@ function setNotice(element, message = '', state = '') {
 function setButtonPending(button, pending, pendingLabel) {
     if (!button.dataset.label) button.dataset.label = button.innerHTML;
     button.disabled = pending;
+    button.setAttribute('aria-busy', String(pending));
+    button.classList.toggle('is-processing', pending);
     button.innerHTML = pending ? pendingLabel : button.dataset.label;
+}
+
+const templateCodeEditors = {};
+
+function initializeTemplateCodeEditor(id, mode) {
+    const textarea = document.getElementById(id);
+    if (!textarea || !window.CodeMirror) return null;
+
+    const editor = window.CodeMirror.fromTextArea(textarea, {
+        mode,
+        lineNumbers: true,
+        lineWrapping: true,
+        indentUnit: 2,
+        tabSize: 2
+    });
+    editor.on('change', () => {
+        editor.save();
+        textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    templateCodeEditors[id] = editor;
+    return editor;
+}
+
+function templateEditorValue(id) {
+    return templateCodeEditors[id]?.getValue() ?? document.getElementById(id).value;
+}
+
+function setTemplateEditorValue(id, value) {
+    const textarea = document.getElementById(id);
+    const nextValue = String(value ?? '');
+    if (templateCodeEditors[id]) {
+        templateCodeEditors[id].setValue(nextValue);
+    } else {
+        textarea.value = nextValue;
+    }
 }
 
 function templatePayloadFromForm() {
     return {
         name: document.getElementById('templateNameInput').value.trim(),
         type: document.getElementById('templateTypeInput').value,
-        html: document.getElementById('templateHtmlInput').value.trim(),
+        html: templateEditorValue('templateHtmlInput').trim(),
         variables: templateVariablesFromEditor()
     };
 }
 
 function templateVariablesFromEditor() {
-    const variables = JSON.parse(document.getElementById('templateVariablesInput').value);
+    const variables = JSON.parse(templateEditorValue('templateVariablesInput'));
     if (!variables || Array.isArray(variables) || typeof variables !== 'object') throw new Error('Variables must be an object');
     return variables;
 }
@@ -276,7 +313,7 @@ function escapeTemplatePreviewHTML(value) {
 }
 
 function previewTemplateWithVariables() {
-    const templateHTML = document.getElementById('templateHtmlInput').value;
+    const templateHTML = templateEditorValue('templateHtmlInput');
     let variables;
     try { variables = templateVariablesFromEditor(); } catch (_) { previewTemplateHTML(templateHTML); return; }
     const renderedHTML = templateHTML.replace(/{{\s*([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*)\s*}}/g, (placeholder, path) => {
@@ -294,7 +331,8 @@ function resetTemplateEditor() {
     document.getElementById('saveTemplateBtn').disabled = false;
     ['templateNameInput', 'templateTypeInput', 'templateHtmlInput'].forEach((id) => { document.getElementById(id).disabled = false; });
     document.getElementById('templateTypeInput').value = 'custom';
-    document.getElementById('templateVariablesInput').value = '{}';
+    setTemplateEditorValue('templateHtmlInput', '');
+    setTemplateEditorValue('templateVariablesInput', '{}');
     window.customSelect?.setValue('templatePickerInput', 'new');
     previewTemplateHTML('');
 }
@@ -304,8 +342,8 @@ function populateTemplateEditor(template, pickerValue) {
     document.getElementById('templateNameInput').value = template.name || '';
     document.getElementById('templateTypeInput').value = template.type || 'custom';
     if (pickerValue) window.customSelect?.setValue('templatePickerInput', pickerValue);
-    document.getElementById('templateHtmlInput').value = template.html || '';
-    document.getElementById('templateVariablesInput').value = JSON.stringify(template.variables || template.exampleVariables || {}, null, 2);
+    setTemplateEditorValue('templateHtmlInput', template.html || '');
+    setTemplateEditorValue('templateVariablesInput', JSON.stringify(template.variables || template.exampleVariables || {}, null, 2));
     document.getElementById('templateVersion').textContent = template.id ? `Version ${template.version || 1}` : 'Starter template — save to customize';
     document.getElementById('deleteTemplateBtn').hidden = !template.id;
     document.getElementById('saveTemplateBtn').disabled = false;
@@ -464,6 +502,8 @@ if (checkAuth()) {
     const renderTemplateButton = document.getElementById('renderTemplateBtn');
 
     window.customSelect?.init();
+    initializeTemplateCodeEditor('templateHtmlInput', 'htmlmixed');
+    initializeTemplateCodeEditor('templateVariablesInput', 'application/json');
     let savedTemplates = new Map();
     let starterTemplates = new Map();
 
@@ -666,15 +706,13 @@ if (checkAuth()) {
         if (!revokeButton) return;
         if (!window.confirm('Revoke this API key? Requests using it will stop working immediately.')) return;
 
-        revokeButton.disabled = true;
-        revokeButton.textContent = 'Revoking...';
+        setButtonPending(revokeButton, true, 'Revoking...');
         try {
             await deleteKey(revokeButton.dataset.keyId);
             await loadKeys();
         } catch (error) {
             setNotice(keysStatus, `Could not revoke the API key. ${error.message}`, 'error');
-            revokeButton.disabled = false;
-            revokeButton.textContent = 'Revoke';
+            setButtonPending(revokeButton, false);
         }
     });
 

@@ -182,7 +182,10 @@
         }
 
         testApiBtn.addEventListener('click', async () => {
+            const originalButtonHTML = testApiBtn.innerHTML;
             testApiBtn.disabled = true;
+            testApiBtn.setAttribute('aria-busy', 'true');
+            testApiBtn.classList.add('is-processing');
             testApiBtn.textContent = 'Testing access...';
             apiResult.hidden = false;
             apiResult.dataset.state = 'pending';
@@ -212,7 +215,9 @@
                 apiResult.textContent = `API request failed: ${error.message}`;
             } finally {
                 testApiBtn.disabled = !idToken;
-                testApiBtn.textContent = 'Test API access ->';
+                testApiBtn.setAttribute('aria-busy', 'false');
+                testApiBtn.classList.remove('is-processing');
+                testApiBtn.innerHTML = originalButtonHTML;
             }
         });
 
