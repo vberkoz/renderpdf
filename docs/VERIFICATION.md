@@ -12,6 +12,7 @@ Verification index for this repository.
   - CloudFormation template validation exists.
 - deployed API
   - smoke test exists through `scripts/test-api.sh`
+  - authenticated persistence integration test exists through `scripts/test-sources-files.sh`
 - `dashboard/`
   - no automated test script exists today
 - `analytics/`
@@ -57,6 +58,17 @@ Runs:
 cd /Users/basilsergius/projects/renderpdf && aws cloudformation validate-template --template-body file://infra/cloudformation.yaml
 ```
 
+CloudFormation only accepts 51,200 bytes for an inline template body. The
+current template is larger, so set a private temporary-validation bucket to
+validate the complete template by URL; the script removes its temporary object
+afterwards:
+
+```bash
+cd /Users/basilsergius/projects/renderpdf && \
+  RENDERPDF_TEMPLATE_VALIDATION_BUCKET='your-private-bucket' \
+  ./scripts/verify-infra.sh
+```
+
 ### Shell Script Syntax
 
 ```bash
@@ -93,6 +105,25 @@ Run the executable public examples against production, or set
 cd /Users/basilsergius/projects/renderpdf && RENDERPDF_API_KEY='your-key' ./scripts/test-template-docs.sh
 ```
 
+### Sources, Files, and Private PDFs Integration Test
+
+This is a real deployed integration test. It creates and updates a saved source,
+renders it through the stored-source variant of `/api/v1/render`, verifies that
+the resulting PDF requires a signed URL, checks the file record/download path,
+and confirms that a second account cannot read the source or PDF.
+
+```bash
+cd /Users/basilsergius/projects/renderpdf && \
+  RENDERPDF_API_KEY='primary-account-key' \
+  RENDERPDF_SECONDARY_API_KEY='different-account-key' \
+  ./scripts/test-sources-files.sh
+```
+
+Set `RENDERPDF_API_URL` to test a non-default deployed environment. The script
+cleans up the source and rendered PDF it creates and never prints source content
+or signed URLs. Set `RENDERPDF_TEST_EXPIRED_URL=1` to include the approximately
+15-minute signed-URL expiry check.
+
 ## Area-by-Area Guidance
 
 ### How To Test `api/`
@@ -111,7 +142,7 @@ cd /Users/basilsergius/projects/renderpdf && ./scripts/verify-deployed-api.sh
 
 - Notes:
   - `api/main_test.go` may skip if Chrome is unavailable in the local environment.
-  - For package uploads, verify a ZIP containing `index.html`, a relative stylesheet, and a relative image: create an upload, PUT the ZIP to `uploadUrl`, and POST its `uploadId` to `/api/v1/render-upload`.
+  - For package uploads, verify a ZIP containing `index.html`, a relative stylesheet, and a relative image: create it through `/api/v1/files/upload`, PUT the ZIP to `uploadUrl`, then send its `uploadId` in an `upload` source to `/api/v1/render`.
   - Confirm that an archive containing `../` paths or a missing entrypoint receives a 422 response.
 
 ### How To Test `auth/`
@@ -173,6 +204,7 @@ cd /Users/basilsergius/projects/renderpdf && ./scripts/deploy.sh
   - revoke flow works
   - test PDF generation flow works
   - templates load, save, render, and delete without pasting an API key
+  - Document JSON sample previews, invalid JSON shows an inline error, and a valid request returns a PDF download link
 
 ### How To Test `landing/`
 

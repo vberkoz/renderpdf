@@ -267,29 +267,29 @@ Resources:
     Type: AWS::S3::Bucket
     Properties:
       BucketName: !Sub '${AppName}-pdfs-${AWS::AccountId}'
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
       LifecycleConfiguration:
         Rules:
-          - Id: ExpireGeneratedPDFs
+          - Id: ExpireRenderedPDFs
             Status: Enabled
+            Prefix: files/
             ExpirationInDays: 30
             AbortIncompleteMultipartUpload:
               DaysAfterInitiation: 7
+          - Id: ExpireAbandonedBatchArtifacts
+            Status: Enabled
+            Prefix: batches/
+            ExpirationInDays: 7
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 1
       PublicAccessBlockConfiguration:
-        BlockPublicAcls: false
-        BlockPublicPolicy: false
-        IgnorePublicAcls: false
-        RestrictPublicBuckets: false
-
-  PdfBucketPolicy:
-    Type: AWS::S3::BucketPolicy
-    Properties:
-      Bucket: !Ref PdfBucket
-      PolicyDocument:
-        Statement:
-          - Effect: Allow
-            Principal: '*'
-            Action: 's3:GetObject'
-            Resource: !Sub '${PdfBucket.Arn}/*'
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
 
   PackageBucket:
     Type: AWS::S3::Bucket
@@ -393,6 +393,29 @@ Resources:
         - AttributeName: SK
           KeyType: RANGE
 
+  DocumentStoreTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      # The first persistence rollout retained the original named table during
+      # rollback. Use a new table so this stack can be deployed without
+      # deleting or taking ownership of that retained artifact.
+      TableName: !Sub '${AppName}-documents-v2'
+      BillingMode: PAY_PER_REQUEST
+      StreamSpecification:
+        StreamViewType: NEW_IMAGE
+      AttributeDefinitions:
+        - AttributeName: PK
+          AttributeType: S
+        - AttributeName: SK
+          AttributeType: S
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+        - AttributeName: SK
+          KeyType: RANGE
+
   UserPoolV2:
     Type: AWS::Cognito::UserPool
     Properties:
@@ -467,11 +490,13 @@ Resources:
                 Action:
                   - 's3:PutObject'
                   - 's3:GetObject'
+                  - 's3:DeleteObject'
                 Resource: !Sub '${PdfBucket.Arn}/*'
               - Effect: Allow
                 Action:
                   - 's3:PutObject'
                   - 's3:GetObject'
+                  - 's3:DeleteObject'
                 Resource: !Sub '${PackageBucket.Arn}/*'
               - Effect: Allow
                 Action:
@@ -492,6 +517,15 @@ Resources:
                   - !GetAtt ApiKeysTable.Arn
                   - !Sub '${ApiKeysTable.Arn}/index/*'
               - Effect: Allow
+                Action: ['dynamodb:GetItem', 'dynamodb:PutItem', 'dynamodb:Query', 'dynamodb:DeleteItem', 'dynamodb:UpdateItem']
+                Resource: !GetAtt DocumentStoreTable.Arn
+              - Effect: Allow
+                Action: ['dynamodb:GetRecords', 'dynamodb:GetShardIterator', 'dynamodb:DescribeStream']
+                Resource: !GetAtt DocumentStoreTable.StreamArn
+              - Effect: Allow
+                Action: 'dynamodb:ListStreams'
+                Resource: '*'
+              - Effect: Allow
                 Action:
                   - 'dynamodb:DeleteItem'
                   - 'dynamodb:GetItem'
@@ -503,6 +537,11 @@ Resources:
               - Effect: Allow
                 Action: 'sqs:SendMessage'
                 Resource: !GetAtt WebhookQueue.Arn
+              - Effect: Allow
+                Action: ['sqs:SendMessage', 'sqs:ReceiveMessage', 'sqs:DeleteMessage', 'sqs:GetQueueAttributes']
+                Resource:
+                  - !GetAtt BatchQueue.Arn
+                  - !GetAtt BatchDeadLetterQueue.Arn
 
   WebhookDeadLetterQueue:
     Type: AWS::SQS::Queue
@@ -521,6 +560,23 @@ Resources:
       RedrivePolicy:
         deadLetterTargetArn: !GetAtt WebhookDeadLetterQueue.Arn
         maxReceiveCount: 4
+
+  BatchQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub '${AppName}-batches'
+      VisibilityTimeout: 120
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt BatchDeadLetterQueue.Arn
+        maxReceiveCount: 4
+      SqsManagedSseEnabled: true
+
+  BatchDeadLetterQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub '${AppName}-batch-dlq'
+      MessageRetentionPeriod: 1209600
+      SqsManagedSseEnabled: true
 
   PdfFunction:
     Type: AWS::Lambda::Function
@@ -543,6 +599,8 @@ Resources:
           WEBHOOK_QUEUE_URL: !Ref WebhookQueue
           PACKAGE_BUCKET_NAME: !Ref PackageBucket
           TEMPLATE_TABLE_NAME: !Ref TemplatesTable
+          DOCUMENT_STORE_TABLE_NAME: !Ref DocumentStoreTable
+          BATCH_QUEUE_URL: !Ref BatchQueue
 
   TrialPdfFunction:
     Type: AWS::Lambda::Function
@@ -561,6 +619,79 @@ Resources:
           TRIAL_MODE_ONLY: 'true'
           TRIAL_DAILY_LIMIT: '3'
           TRIAL_MAX_HTML_BYTES: '1048576'
+
+  BatchWorkerFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub '${AppName}-batch-worker'
+      PackageType: Image
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Code:
+        ImageUri: !Sub '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${AppName}:latest'
+      MemorySize: 3008
+      Timeout: 60
+      Environment:
+        Variables:
+          BATCH_WORKER: 'true'
+          BUCKET_NAME: !Ref PdfBucket
+          PACKAGE_BUCKET_NAME: !Ref PackageBucket
+          DOCUMENT_STORE_TABLE_NAME: !Ref DocumentStoreTable
+          WEBHOOK_QUEUE_URL: !Ref WebhookQueue
+
+  BatchWorkerEventSource:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      EventSourceArn: !GetAtt BatchQueue.Arn
+      FunctionName: !Ref BatchWorkerFunction
+      BatchSize: 1
+
+  BatchOutboxDispatcherFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub '${AppName}-batch-outbox-dispatcher'
+      PackageType: Image
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Code:
+        ImageUri: !Sub '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${AppName}:latest'
+      MemorySize: 256
+      Timeout: 30
+      Environment:
+        Variables:
+          BATCH_OUTBOX_DISPATCHER: 'true'
+          BATCH_QUEUE_URL: !Ref BatchQueue
+
+  BatchOutboxDispatcherEventSource:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      EventSourceArn: !GetAtt DocumentStoreTable.StreamArn
+      FunctionName: !Ref BatchOutboxDispatcherFunction
+      StartingPosition: LATEST
+      # Keep failures isolated: an unavailable queue retries only the affected
+      # outbox record instead of holding up unrelated DocumentStore changes.
+      BatchSize: 1
+
+  BatchReconcilerFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub '${AppName}-batch-reconciler'
+      PackageType: Image
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Code:
+        ImageUri: !Sub '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${AppName}:latest'
+      MemorySize: 256
+      Timeout: 30
+      Environment:
+        Variables:
+          BATCH_RECONCILER: 'true'
+          DOCUMENT_STORE_TABLE_NAME: !Ref DocumentStoreTable
+          WEBHOOK_QUEUE_URL: !Ref WebhookQueue
+
+  BatchReconcilerEventSource:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      EventSourceArn: !GetAtt BatchDeadLetterQueue.Arn
+      FunctionName: !Ref BatchReconcilerFunction
+      BatchSize: 1
 
   WebhookWorkerRole:
     Type: AWS::IAM::Role
@@ -679,12 +810,12 @@ Resources:
       Name: !Sub '${AppName}-api'
       Description: HTML to PDF API
 
-  GenerateResource:
+  RenderResource:
     Type: AWS::ApiGateway::Resource
     Properties:
       RestApiId: !Ref RestApi
       ParentId: !Ref ApiV1Resource
-      PathPart: render-html
+      PathPart: render
 
   RenderURLResource:
     Type: AWS::ApiGateway::Resource
@@ -693,13 +824,6 @@ Resources:
       ParentId: !Ref ApiV1Resource
       PathPart: render-url
 
-  TemplateRenderResource:
-    Type: AWS::ApiGateway::Resource
-    Properties:
-      RestApiId: !Ref RestApi
-      ParentId: !Ref ApiV1Resource
-      PathPart: render-template
-
   PackageUploadResource:
     Type: AWS::ApiGateway::Resource
     Properties:
@@ -707,19 +831,54 @@ Resources:
       ParentId: !Ref ApiV1Resource
       PathPart: uploads
 
-  PackageRenderResource:
-    Type: AWS::ApiGateway::Resource
-    Properties:
-      RestApiId: !Ref RestApi
-      ParentId: !Ref ApiV1Resource
-      PathPart: render-upload
-
   TemplatesResource:
     Type: AWS::ApiGateway::Resource
     Properties:
       RestApiId: !Ref RestApi
       ParentId: !Ref ApiV1Resource
       PathPart: templates
+
+  SourcesResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestApi
+      ParentId: !Ref ApiV1Resource
+      PathPart: sources
+
+  FilesResource:
+    Type: AWS::ApiGateway::Resource
+    Properties: {RestApiId: !Ref RestApi, ParentId: !Ref ApiV1Resource, PathPart: files}
+  FileItemResource:
+    Type: AWS::ApiGateway::Resource
+    Properties: {RestApiId: !Ref RestApi, ParentId: !Ref FilesResource, PathPart: '{id}'}
+  FileDownloadResource:
+    Type: AWS::ApiGateway::Resource
+    Properties: {RestApiId: !Ref RestApi, ParentId: !Ref FileItemResource, PathPart: download}
+  FileUploadResource:
+    Type: AWS::ApiGateway::Resource
+    Properties: {RestApiId: !Ref RestApi, ParentId: !Ref FilesResource, PathPart: upload}
+  BatchesResource:
+    Type: AWS::ApiGateway::Resource
+    Properties: {RestApiId: !Ref RestApi, ParentId: !Ref ApiV1Resource, PathPart: batches}
+  BatchItemResource:
+    Type: AWS::ApiGateway::Resource
+    Properties: {RestApiId: !Ref RestApi, ParentId: !Ref BatchesResource, PathPart: '{id}'}
+  BatchItemsResource:
+    Type: AWS::ApiGateway::Resource
+    Properties: {RestApiId: !Ref RestApi, ParentId: !Ref BatchItemResource, PathPart: items}
+  BatchCancelResource:
+    Type: AWS::ApiGateway::Resource
+    Properties: {RestApiId: !Ref RestApi, ParentId: !Ref BatchItemResource, PathPart: cancel}
+  BatchDownloadResource:
+    Type: AWS::ApiGateway::Resource
+    Properties: {RestApiId: !Ref RestApi, ParentId: !Ref BatchItemResource, PathPart: download}
+
+  SourceItemResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestApi
+      ParentId: !Ref SourcesResource
+      PathPart: '{id}'
 
   TemplateItemResource:
     Type: AWS::ApiGateway::Resource
@@ -740,7 +899,7 @@ Resources:
     Properties:
       RestApiId: !Ref RestApi
       ParentId: !Ref TrialResource
-      PathPart: render-html
+      PathPart: render
 
   TrialQuotaResource:
     Type: AWS::ApiGateway::Resource
@@ -777,6 +936,40 @@ Resources:
       ParentId: !Ref DashboardResource
       PathPart: templates
 
+  DashboardSourcesResource:
+    Type: AWS::ApiGateway::Resource
+    Properties: {RestApiId: !Ref RestApi, ParentId: !Ref DashboardResource, PathPart: sources}
+  DashboardSourceItemResource:
+    Type: AWS::ApiGateway::Resource
+    Properties: {RestApiId: !Ref RestApi, ParentId: !Ref DashboardSourcesResource, PathPart: '{id}'}
+  DashboardFilesResource:
+    Type: AWS::ApiGateway::Resource
+    Properties: {RestApiId: !Ref RestApi, ParentId: !Ref DashboardResource, PathPart: files}
+  DashboardFileItemResource:
+    Type: AWS::ApiGateway::Resource
+    Properties: {RestApiId: !Ref RestApi, ParentId: !Ref DashboardFilesResource, PathPart: '{id}'}
+  DashboardFileDownloadResource:
+    Type: AWS::ApiGateway::Resource
+    Properties: {RestApiId: !Ref RestApi, ParentId: !Ref DashboardFileItemResource, PathPart: download}
+  DashboardFileUploadResource:
+    Type: AWS::ApiGateway::Resource
+    Properties: {RestApiId: !Ref RestApi, ParentId: !Ref DashboardFilesResource, PathPart: upload}
+  DashboardBatchesResource:
+    Type: AWS::ApiGateway::Resource
+    Properties: {RestApiId: !Ref RestApi, ParentId: !Ref DashboardResource, PathPart: batches}
+  DashboardBatchItemResource:
+    Type: AWS::ApiGateway::Resource
+    Properties: {RestApiId: !Ref RestApi, ParentId: !Ref DashboardBatchesResource, PathPart: '{id}'}
+  DashboardBatchItemsResource:
+    Type: AWS::ApiGateway::Resource
+    Properties: {RestApiId: !Ref RestApi, ParentId: !Ref DashboardBatchItemResource, PathPart: items}
+  DashboardBatchCancelResource:
+    Type: AWS::ApiGateway::Resource
+    Properties: {RestApiId: !Ref RestApi, ParentId: !Ref DashboardBatchItemResource, PathPart: cancel}
+  DashboardBatchDownloadResource:
+    Type: AWS::ApiGateway::Resource
+    Properties: {RestApiId: !Ref RestApi, ParentId: !Ref DashboardBatchItemResource, PathPart: download}
+
   DashboardTemplateItemResource:
     Type: AWS::ApiGateway::Resource
     Properties:
@@ -790,6 +983,13 @@ Resources:
       RestApiId: !Ref RestApi
       ParentId: !Ref DashboardResource
       PathPart: render-template
+
+  DashboardDocumentRenderResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestApi
+      ParentId: !Ref DashboardResource
+      PathPart: render-document
 
 
   BillingResource:
@@ -885,11 +1085,11 @@ Resources:
       ParentId: !Ref ApiKeysResource
       PathPart: '{id}'
 
-  GenerateOptionsMethod:
+  RenderOptionsMethod:
     Type: AWS::ApiGateway::Method
     Properties:
       RestApiId: !Ref RestApi
-      ResourceId: !Ref GenerateResource
+      ResourceId: !Ref RenderResource
       HttpMethod: OPTIONS
       AuthorizationType: NONE
       Integration:
@@ -911,11 +1111,11 @@ Resources:
             method.response.header.Access-Control-Allow-Methods: true
             method.response.header.Access-Control-Allow-Origin: true
 
-  GenerateMethod:
+  RenderMethod:
     Type: AWS::ApiGateway::Method
     Properties:
       RestApiId: !Ref RestApi
-      ResourceId: !Ref GenerateResource
+      ResourceId: !Ref RenderResource
       HttpMethod: POST
       AuthorizationType: CUSTOM
       AuthorizerId: !Ref ApiAuthorizer
@@ -923,6 +1123,118 @@ Resources:
         Type: AWS_PROXY
         IntegrationHttpMethod: POST
         Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'
+
+  SourcesGetMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref SourcesResource
+      HttpMethod: GET
+      AuthorizationType: CUSTOM
+      AuthorizerId: !Ref ApiAuthorizer
+      Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}
+
+  FilesGetMethod:
+    Type: AWS::ApiGateway::Method
+    Properties: {RestApiId: !Ref RestApi, ResourceId: !Ref FilesResource, HttpMethod: GET, AuthorizationType: CUSTOM, AuthorizerId: !Ref ApiAuthorizer, Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}}
+  BatchesPostMethod:
+    Type: AWS::ApiGateway::Method
+    Properties: {RestApiId: !Ref RestApi, ResourceId: !Ref BatchesResource, HttpMethod: POST, AuthorizationType: CUSTOM, AuthorizerId: !Ref ApiAuthorizer, Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}}
+  BatchGetMethod:
+    Type: AWS::ApiGateway::Method
+    Properties: {RestApiId: !Ref RestApi, ResourceId: !Ref BatchItemResource, HttpMethod: GET, AuthorizationType: CUSTOM, AuthorizerId: !Ref ApiAuthorizer, Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}}
+  BatchItemsGetMethod:
+    Type: AWS::ApiGateway::Method
+    Properties: {RestApiId: !Ref RestApi, ResourceId: !Ref BatchItemsResource, HttpMethod: GET, AuthorizationType: CUSTOM, AuthorizerId: !Ref ApiAuthorizer, Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}}
+  BatchCancelPostMethod:
+    Type: AWS::ApiGateway::Method
+    Properties: {RestApiId: !Ref RestApi, ResourceId: !Ref BatchCancelResource, HttpMethod: POST, AuthorizationType: CUSTOM, AuthorizerId: !Ref ApiAuthorizer, Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}}
+  BatchDownloadGetMethod:
+    Type: AWS::ApiGateway::Method
+    Properties: {RestApiId: !Ref RestApi, ResourceId: !Ref BatchDownloadResource, HttpMethod: GET, AuthorizationType: CUSTOM, AuthorizerId: !Ref ApiAuthorizer, Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}}
+  FileUploadPostMethod:
+    Type: AWS::ApiGateway::Method
+    Properties: {RestApiId: !Ref RestApi, ResourceId: !Ref FileUploadResource, HttpMethod: POST, AuthorizationType: CUSTOM, AuthorizerId: !Ref ApiAuthorizer, Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}}
+  FileDownloadGetMethod:
+    Type: AWS::ApiGateway::Method
+    Properties: {RestApiId: !Ref RestApi, ResourceId: !Ref FileDownloadResource, HttpMethod: GET, AuthorizationType: CUSTOM, AuthorizerId: !Ref ApiAuthorizer, Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}}
+  FileDeleteMethod:
+    Type: AWS::ApiGateway::Method
+    Properties: {RestApiId: !Ref RestApi, ResourceId: !Ref FileItemResource, HttpMethod: DELETE, AuthorizationType: CUSTOM, AuthorizerId: !Ref ApiAuthorizer, Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}}
+
+  SourcesOptionsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref SourcesResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: MOCK
+        RequestTemplates: {application/json: '{"statusCode": 204}'}
+        IntegrationResponses:
+          - StatusCode: 204
+            ResponseParameters: {method.response.header.Access-Control-Allow-Origin: "'*'", method.response.header.Access-Control-Allow-Headers: "'Content-Type,Authorization'", method.response.header.Access-Control-Allow-Methods: "'GET,POST,OPTIONS'"}
+      MethodResponses:
+        - StatusCode: 204
+          ResponseParameters: {method.response.header.Access-Control-Allow-Origin: true, method.response.header.Access-Control-Allow-Headers: true, method.response.header.Access-Control-Allow-Methods: true}
+
+  SourcesPostMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref SourcesResource
+      HttpMethod: POST
+      AuthorizationType: CUSTOM
+      AuthorizerId: !Ref ApiAuthorizer
+      Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}
+
+  SourceGetMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref SourceItemResource
+      HttpMethod: GET
+      AuthorizationType: CUSTOM
+      AuthorizerId: !Ref ApiAuthorizer
+      Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}
+
+  SourceOptionsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref SourceItemResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: MOCK
+        RequestTemplates: {application/json: '{"statusCode": 204}'}
+        IntegrationResponses:
+          - StatusCode: 204
+            ResponseParameters: {method.response.header.Access-Control-Allow-Origin: "'*'", method.response.header.Access-Control-Allow-Headers: "'Content-Type,Authorization'", method.response.header.Access-Control-Allow-Methods: "'GET,PUT,DELETE,OPTIONS'"}
+      MethodResponses:
+        - StatusCode: 204
+          ResponseParameters: {method.response.header.Access-Control-Allow-Origin: true, method.response.header.Access-Control-Allow-Headers: true, method.response.header.Access-Control-Allow-Methods: true}
+
+  SourcePutMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref SourceItemResource
+      HttpMethod: PUT
+      AuthorizationType: CUSTOM
+      AuthorizerId: !Ref ApiAuthorizer
+      Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}
+
+  SourceDeleteMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref SourceItemResource
+      HttpMethod: DELETE
+      AuthorizationType: CUSTOM
+      AuthorizerId: !Ref ApiAuthorizer
+      Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}
 
   RenderURLOptionsMethod:
     Type: AWS::ApiGateway::Method
@@ -963,43 +1275,6 @@ Resources:
         IntegrationHttpMethod: POST
         Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'
 
-  TemplateRenderOptionsMethod:
-    Type: AWS::ApiGateway::Method
-    Properties:
-      RestApiId: !Ref RestApi
-      ResourceId: !Ref TemplateRenderResource
-      HttpMethod: OPTIONS
-      AuthorizationType: NONE
-      Integration:
-        Type: MOCK
-        RequestTemplates:
-          application/json: '{"statusCode": 200}'
-        IntegrationResponses:
-          - StatusCode: 200
-            ResponseParameters:
-              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Amz-Security-Token'"
-              method.response.header.Access-Control-Allow-Methods: "'POST,OPTIONS'"
-              method.response.header.Access-Control-Allow-Origin: "'*'"
-      MethodResponses:
-        - StatusCode: 200
-          ResponseParameters:
-            method.response.header.Access-Control-Allow-Headers: true
-            method.response.header.Access-Control-Allow-Methods: true
-            method.response.header.Access-Control-Allow-Origin: true
-
-  TemplateRenderMethod:
-    Type: AWS::ApiGateway::Method
-    Properties:
-      RestApiId: !Ref RestApi
-      ResourceId: !Ref TemplateRenderResource
-      HttpMethod: POST
-      AuthorizationType: CUSTOM
-      AuthorizerId: !Ref ApiAuthorizer
-      Integration:
-        Type: AWS_PROXY
-        IntegrationHttpMethod: POST
-        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'
-
   PackageUploadOptionsMethod:
     Type: AWS::ApiGateway::Method
     Properties:
@@ -1029,43 +1304,6 @@ Resources:
     Properties:
       RestApiId: !Ref RestApi
       ResourceId: !Ref PackageUploadResource
-      HttpMethod: POST
-      AuthorizationType: CUSTOM
-      AuthorizerId: !Ref ApiAuthorizer
-      Integration:
-        Type: AWS_PROXY
-        IntegrationHttpMethod: POST
-        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'
-
-  PackageRenderOptionsMethod:
-    Type: AWS::ApiGateway::Method
-    Properties:
-      RestApiId: !Ref RestApi
-      ResourceId: !Ref PackageRenderResource
-      HttpMethod: OPTIONS
-      AuthorizationType: NONE
-      Integration:
-        Type: MOCK
-        RequestTemplates:
-          application/json: '{"statusCode": 200}'
-        IntegrationResponses:
-          - StatusCode: 200
-            ResponseParameters:
-              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Amz-Security-Token'"
-              method.response.header.Access-Control-Allow-Methods: "'POST,OPTIONS'"
-              method.response.header.Access-Control-Allow-Origin: "'*'"
-      MethodResponses:
-        - StatusCode: 200
-          ResponseParameters:
-            method.response.header.Access-Control-Allow-Headers: true
-            method.response.header.Access-Control-Allow-Methods: true
-            method.response.header.Access-Control-Allow-Origin: true
-
-  PackageRenderMethod:
-    Type: AWS::ApiGateway::Method
-    Properties:
-      RestApiId: !Ref RestApi
-      ResourceId: !Ref PackageRenderResource
       HttpMethod: POST
       AuthorizationType: CUSTOM
       AuthorizerId: !Ref ApiAuthorizer
@@ -1387,6 +1625,49 @@ Resources:
       AuthorizerId: !Ref CognitoAuthorizer
       Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}
 
+  DashboardSourcesGetMethod:
+    Type: AWS::ApiGateway::Method
+    Properties: {RestApiId: !Ref RestApi, ResourceId: !Ref DashboardSourcesResource, HttpMethod: GET, AuthorizationType: COGNITO_USER_POOLS, AuthorizerId: !Ref CognitoAuthorizer, Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}}
+  DashboardSourcesPostMethod:
+    Type: AWS::ApiGateway::Method
+    Properties: {RestApiId: !Ref RestApi, ResourceId: !Ref DashboardSourcesResource, HttpMethod: POST, AuthorizationType: COGNITO_USER_POOLS, AuthorizerId: !Ref CognitoAuthorizer, Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}}
+  DashboardSourceGetMethod:
+    Type: AWS::ApiGateway::Method
+    Properties: {RestApiId: !Ref RestApi, ResourceId: !Ref DashboardSourceItemResource, HttpMethod: GET, AuthorizationType: COGNITO_USER_POOLS, AuthorizerId: !Ref CognitoAuthorizer, Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}}
+  DashboardSourcePutMethod:
+    Type: AWS::ApiGateway::Method
+    Properties: {RestApiId: !Ref RestApi, ResourceId: !Ref DashboardSourceItemResource, HttpMethod: PUT, AuthorizationType: COGNITO_USER_POOLS, AuthorizerId: !Ref CognitoAuthorizer, Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}}
+  DashboardSourceDeleteMethod:
+    Type: AWS::ApiGateway::Method
+    Properties: {RestApiId: !Ref RestApi, ResourceId: !Ref DashboardSourceItemResource, HttpMethod: DELETE, AuthorizationType: COGNITO_USER_POOLS, AuthorizerId: !Ref CognitoAuthorizer, Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}}
+  DashboardFilesGetMethod:
+    Type: AWS::ApiGateway::Method
+    Properties: {RestApiId: !Ref RestApi, ResourceId: !Ref DashboardFilesResource, HttpMethod: GET, AuthorizationType: COGNITO_USER_POOLS, AuthorizerId: !Ref CognitoAuthorizer, Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}}
+  DashboardFileUploadPostMethod:
+    Type: AWS::ApiGateway::Method
+    Properties: {RestApiId: !Ref RestApi, ResourceId: !Ref DashboardFileUploadResource, HttpMethod: POST, AuthorizationType: COGNITO_USER_POOLS, AuthorizerId: !Ref CognitoAuthorizer, Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}}
+  DashboardFileDownloadGetMethod:
+    Type: AWS::ApiGateway::Method
+    Properties: {RestApiId: !Ref RestApi, ResourceId: !Ref DashboardFileDownloadResource, HttpMethod: GET, AuthorizationType: COGNITO_USER_POOLS, AuthorizerId: !Ref CognitoAuthorizer, Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}}
+  DashboardFileDeleteMethod:
+    Type: AWS::ApiGateway::Method
+    Properties: {RestApiId: !Ref RestApi, ResourceId: !Ref DashboardFileItemResource, HttpMethod: DELETE, AuthorizationType: COGNITO_USER_POOLS, AuthorizerId: !Ref CognitoAuthorizer, Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}}
+  DashboardBatchesPostMethod:
+    Type: AWS::ApiGateway::Method
+    Properties: {RestApiId: !Ref RestApi, ResourceId: !Ref DashboardBatchesResource, HttpMethod: POST, AuthorizationType: COGNITO_USER_POOLS, AuthorizerId: !Ref CognitoAuthorizer, Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}}
+  DashboardBatchGetMethod:
+    Type: AWS::ApiGateway::Method
+    Properties: {RestApiId: !Ref RestApi, ResourceId: !Ref DashboardBatchItemResource, HttpMethod: GET, AuthorizationType: COGNITO_USER_POOLS, AuthorizerId: !Ref CognitoAuthorizer, Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}}
+  DashboardBatchItemsGetMethod:
+    Type: AWS::ApiGateway::Method
+    Properties: {RestApiId: !Ref RestApi, ResourceId: !Ref DashboardBatchItemsResource, HttpMethod: GET, AuthorizationType: COGNITO_USER_POOLS, AuthorizerId: !Ref CognitoAuthorizer, Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}}
+  DashboardBatchCancelPostMethod:
+    Type: AWS::ApiGateway::Method
+    Properties: {RestApiId: !Ref RestApi, ResourceId: !Ref DashboardBatchCancelResource, HttpMethod: POST, AuthorizationType: COGNITO_USER_POOLS, AuthorizerId: !Ref CognitoAuthorizer, Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}}
+  DashboardBatchDownloadGetMethod:
+    Type: AWS::ApiGateway::Method
+    Properties: {RestApiId: !Ref RestApi, ResourceId: !Ref DashboardBatchDownloadResource, HttpMethod: GET, AuthorizationType: COGNITO_USER_POOLS, AuthorizerId: !Ref CognitoAuthorizer, Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}}
+
   DashboardTemplatesPostMethod:
     Type: AWS::ApiGateway::Method
     Properties:
@@ -1437,6 +1718,16 @@ Resources:
       AuthorizerId: !Ref CognitoAuthorizer
       Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}
 
+  DashboardDocumentRenderPostMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref DashboardDocumentRenderResource
+      HttpMethod: POST
+      AuthorizationType: COGNITO_USER_POOLS
+      AuthorizerId: !Ref CognitoAuthorizer
+      Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}
+
 
   BillingCheckoutPostMethod:
     Type: AWS::ApiGateway::Method
@@ -1478,22 +1769,34 @@ Resources:
 
   # API Gateway deployments are immutable snapshots. Bump this logical ID when
   # routes or methods change so CloudFormation publishes them to the prod stage.
-  ApiDeploymentV22:
+  ApiDeploymentV31:
     Type: AWS::ApiGateway::Deployment
     DependsOn:
       - ApiRootGetMethod
       - ApiResource
       - ApiV1Resource
-      - GenerateMethod
-      - GenerateOptionsMethod
+      - RenderMethod
+      - RenderOptionsMethod
+      - FilesGetMethod
+      - FileUploadPostMethod
+      - FileDownloadGetMethod
+      - FileDeleteMethod
+      - BatchesPostMethod
+      - BatchGetMethod
+      - BatchItemsGetMethod
+      - BatchCancelPostMethod
+      - BatchDownloadGetMethod
+      - SourcesGetMethod
+      - SourcesPostMethod
+      - SourcesOptionsMethod
+      - SourceGetMethod
+      - SourcePutMethod
+      - SourceDeleteMethod
+      - SourceOptionsMethod
       - RenderURLMethod
       - RenderURLOptionsMethod
-      - TemplateRenderMethod
-      - TemplateRenderOptionsMethod
       - PackageUploadMethod
       - PackageUploadOptionsMethod
-      - PackageRenderMethod
-      - PackageRenderOptionsMethod
       - TemplatesPostMethod
       - TemplatesGetMethod
       - TemplatesOptionsMethod
@@ -1515,11 +1818,26 @@ Resources:
       - AnalyticsPostMethod
       - DashboardGetMethod
       - DashboardTemplatesGetMethod
+      - DashboardSourcesGetMethod
+      - DashboardSourcesPostMethod
+      - DashboardSourceGetMethod
+      - DashboardSourcePutMethod
+      - DashboardSourceDeleteMethod
+      - DashboardFilesGetMethod
+      - DashboardFileUploadPostMethod
+      - DashboardFileDownloadGetMethod
+      - DashboardFileDeleteMethod
+      - DashboardBatchesPostMethod
+      - DashboardBatchGetMethod
+      - DashboardBatchItemsGetMethod
+      - DashboardBatchCancelPostMethod
+      - DashboardBatchDownloadGetMethod
       - DashboardTemplatesPostMethod
       - DashboardTemplateGetMethod
       - DashboardTemplatePutMethod
       - DashboardTemplateDeleteMethod
       - DashboardTemplateRenderPostMethod
+      - DashboardDocumentRenderPostMethod
       - BillingCheckoutPostMethod
       - BillingPortalPostMethod
       - BillingWebhookPostMethod
@@ -1541,7 +1859,7 @@ Resources:
       FunctionName: !Ref TrialPdfFunction
       Action: lambda:InvokeFunction
       Principal: apigateway.amazonaws.com
-      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/*/POST/api/v1/trial/render-html'
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/*/POST/api/v1/trial/render'
 
   TrialQuotaLambdaApiPermission:
     Type: AWS::Lambda::Permission
@@ -1583,7 +1901,7 @@ Outputs:
   ApiURL:
     Value: !Sub 'https://${LandingDomain}/api/v1/'
   TrialApiURL:
-    Value: !Sub 'https://${LandingDomain}/api/v1/trial/render-html'
+    Value: !Sub 'https://${LandingDomain}/api/v1/trial/render'
   DocsURL:
     Value: !Sub 'https://${LandingDomain}/docs/api'
   WebsiteBucketName:

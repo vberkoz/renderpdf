@@ -144,6 +144,16 @@ aws lambda update-function-code \
   --query 'LastUpdateStatus' \
   --output text
 
+for function_name in ${STACK_NAME}-batch-worker ${STACK_NAME}-batch-reconciler ${STACK_NAME}-batch-outbox-dispatcher; do
+  aws lambda update-function-code \
+    --function-name "${function_name}" \
+    --image-uri ${ECR_REPO}:latest \
+    --region ${REGION} \
+    --profile ${PROFILE} \
+    --query 'LastUpdateStatus' \
+    --output text 2>/dev/null || echo "${function_name} not yet created"
+done
+
 aws lambda update-function-code \
   --function-name ${STACK_NAME}-authorizer \
   --image-uri ${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/${STACK_NAME}-authorizer:latest \
@@ -186,6 +196,13 @@ aws lambda wait function-updated \
   --function-name ${STACK_NAME}-trial-generate \
   --region ${REGION} \
   --profile ${PROFILE}
+
+for function_name in ${STACK_NAME}-batch-worker ${STACK_NAME}-batch-reconciler ${STACK_NAME}-batch-outbox-dispatcher; do
+  aws lambda wait function-updated \
+    --function-name "${function_name}" \
+    --region ${REGION} \
+    --profile ${PROFILE} 2>/dev/null || true
+done
 
 aws lambda wait function-updated \
   --function-name ${ANALYTICS_FUNCTION_NAME} \

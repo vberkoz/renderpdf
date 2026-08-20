@@ -5,7 +5,8 @@
 ### PDF API
 
 - Purpose:
-  - Convert posted HTML, public URLs, or authenticated uploaded ZIP packages into PDF and return a download URL.
+  - Normalize and render HTML, Markdown, templates, public URLs, uploaded ZIP
+    packages, or saved sources into a private PDF and return a signed URL.
 - Source:
   - `api/main.go`
 - Build/runtime entrypoints:
@@ -15,8 +16,19 @@
   - `scripts/verify-api.sh`
   - `scripts/verify-deployed-api.sh`
 - Package API:
-  - `POST /api/v1/uploads` returns a short-lived presigned ZIP upload URL.
-  - `POST /api/v1/render-upload` renders an uploaded ZIP's `index.html` or requested entrypoint.
+  - `POST /api/v1/files/upload` returns a short-lived presigned ZIP upload URL.
+  - `POST /api/v1/render` with an `upload` source renders an uploaded ZIP's
+    `index.html` or requested entrypoint.
+  - Sources: `/api/v1/sources`; files: `/api/v1/files`; batches:
+    `/api/v1/batches`.
+
+### Batch Processing
+
+- Source: `api/batch_api.go`, `api/batch_worker.go`
+- Runtime: DynamoDB Stream outbox dispatcher → SQS batch queue → Go worker;
+  batch DLQ → Go reconciler.
+- At-least-once delivery is safe because conditional item claims prevent
+  duplicate PDFs. Terminal jobs can emit job-level webhooks.
 
 ### Auth Services
 

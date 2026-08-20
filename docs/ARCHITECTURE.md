@@ -9,11 +9,16 @@
   - Static authenticated UI.
   - Uses Cognito hosted UI redirect flow and calls the deployed API.
 - `api/`
-  - Go Lambda that converts posted HTML, public URLs, and uploaded ZIP packages into PDF.
+  - Go Lambdas that render normalized HTML, Markdown, templates, public URLs,
+    uploaded ZIP packages, saved sources, and queued batch items into PDFs.
   - Stores PDFs in S3 and writes usage records to DynamoDB.
   - Includes a DynamoDB-backed, owner-isolated template repository for durable
     customer templates.
-  - Generated PDF objects expire after 30 days; incomplete multipart uploads expire after 7 days.
+  - The active source, file, and batch persistence model is documented in
+    `/Users/basilsergius/projects/renderpdf/docs/persistence-model.md`.
+  - Rendered PDFs are encrypted, private objects under opaque account-hash
+    prefixes. Responses contain 15-minute signed download URLs; PDF objects
+    expire after 30 days and abandoned batch artifacts after 7 days.
   - Uploaded packages use a separate private S3 bucket and expire after one day.
 - `auth/`
   - Go Lambda authorizer for API keys sent as `Authorization: Bearer <key>`.
@@ -31,7 +36,7 @@
 ### Public Demo Flow
 
 - Browser loads `/Users/basilsergius/projects/renderpdf/landing/index.html` through `https://renderpdf.vberkoz.com/`.
-- Page posts HTML to `https://renderpdf.vberkoz.com/api/v1/render-html`.
+- Page posts HTML to `https://renderpdf.vberkoz.com/api/v1/trial/render`.
 - `api/main.go` renders PDF and uploads to S3.
 - API returns a download URL and file metadata.
 
@@ -46,22 +51,32 @@
 ### API Key Flow
 
 - Dashboard creates a key through the API-key Lambda.
-- Client uses the returned key against `/api/v1/render-html`.
+- Client uses the returned key against `/api/v1/render`.
 - Authorizer Lambda validates the Bearer API key against DynamoDB.
 - Main API Lambda processes the request only if authorization passes.
 
 ### Uploaded Package Flow
 
-- An authenticated client calls `POST /api/v1/uploads` and receives a 15-minute presigned PUT URL for a ZIP package.
+- An authenticated client calls `POST /api/v1/files/upload` and receives a 15-minute presigned PUT URL for a ZIP package.
 - The browser or client uploads the ZIP directly to the private package bucket; it is never placed in the public PDF bucket.
-- `POST /api/v1/render-upload` resolves the package only for the API-key owner, rejects unsafe or oversized archives, expands it under `/tmp`, and renders its local HTML entrypoint with relative assets available.
+- `POST /api/v1/render` with `source.type: "upload"` resolves the package only for the API-key owner, rejects unsafe or oversized archives, expands it under `/tmp`, and renders its local HTML entrypoint with relative assets available.
 - Uploaded documents are prevented from loading network subresources and package objects expire after one day.
 
 ### Customer Webhook Flow
 
-- An authenticated `/render`, `/render-url`, or `/render-upload` request may provide a public HTTPS `webhookUrl` and optional signing secret.
+- An authenticated `/render` request may provide a public HTTPS `webhookUrl` and optional signing secret.
 - After S3 accepts the PDF, the API Lambda sends a small `pdf.completed` event to SQS and returns the normal synchronous response.
 - The webhook worker POSTs the event to the resolved public IP without following redirects. Non-2xx results are retried by SQS; after four receives they land in the dead-letter queue.
+
+### Batch Flow
+
+- `POST /api/v1/batches` transactionally stores a job and 1–99 pending items.
+- A DynamoDB Stream invokes the outbox dispatcher, which conditionally leases
+  an item and sends it to `BatchQueue`. Retried stream delivery is safe because
+  the worker conditionally claims each item before rendering.
+- The worker stores each private PDF and transitions job counters atomically.
+  Failed worker messages reach the batch DLQ, where the reconciler makes the
+  item terminal. Terminal jobs emit one job-level webhook when configured.
 
 ### Analytics Flow
 
