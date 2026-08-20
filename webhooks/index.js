@@ -22,17 +22,18 @@ exports.handler = async (event) => {
 
 async function deliver(event) {
   const target = await validatedTarget(event.url);
+  const eventType = event.type || 'pdf.completed';
   const payload = JSON.stringify({
     id: event.id,
-    type: 'pdf.completed',
+    type: eventType,
     createdAt: event.createdAt,
-    data: { requestId: event.id, url: event.pdfUrl, size: event.pdfSize }
+    data: event.data || { requestId: event.id, url: event.pdfUrl, size: event.pdfSize }
   });
   const timestamp = Math.floor(Date.now() / 1000).toString();
   const signature = event.secret
     ? `t=${timestamp},v1=${crypto.createHmac('sha256', event.secret).update(`${timestamp}.${payload}`).digest('hex')}`
     : undefined;
-  const status = await post(target, payload, event.id, signature);
+  const status = await post(target, payload, event.id, eventType, signature);
   if (status < 200 || status >= 300) throw new Error(`endpoint returned HTTP ${status}`);
 }
 
@@ -56,13 +57,13 @@ function isPublicAddress(address) {
   return net.isIP(address) === 6 && value !== '::1' && !value.startsWith('fc') && !value.startsWith('fd') && !value.startsWith('fe80:');
 }
 
-function post({ target, address, family }, payload, eventID, signature) {
+function post({ target, address, family }, payload, eventID, eventType, signature) {
   return new Promise((resolve, reject) => {
     const request = https.request({
       protocol: 'https:', hostname: address, family, port: 443, method: 'POST', path: `${target.pathname}${target.search}`,
       servername: target.hostname, headers: {
         Host: target.host, 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload),
-        'User-Agent': 'RenderPDF-Webhooks/1.0', 'X-RenderPDF-Event': 'pdf.completed', 'X-RenderPDF-Event-ID': eventID,
+        'User-Agent': 'RenderPDF-Webhooks/1.0', 'X-RenderPDF-Event': eventType, 'X-RenderPDF-Event-ID': eventID,
         ...(signature ? { 'X-RenderPDF-Signature': signature } : {})
       }, timeout: timeoutMs
     }, (response) => { response.resume(); response.on('end', () => resolve(response.statusCode)); });
