@@ -16,10 +16,10 @@ global.fetch = async (url, options) => {
     await client.render('/api/v1', 'key', 'template-a', { customer: { name: 'Ada' } });
 
     assert.deepStrictEqual(calls.map(({ url, options }) => [url, options.method]), [
-        ['/api/v1/templates', 'GET'], ['/api/v1/templates/template-a', 'GET'], ['/api/v1/templates', 'POST'], ['/api/v1/templates/template%2Fa', 'PUT'], ['/api/v1/templates/template%2Fa', 'DELETE'], ['/api/v1/render-template', 'POST']
+        ['/api/v1/templates', 'GET'], ['/api/v1/templates/template-a', 'GET'], ['/api/v1/templates', 'POST'], ['/api/v1/templates/template%2Fa', 'PUT'], ['/api/v1/templates/template%2Fa', 'DELETE'], ['/api/v1/render', 'POST']
     ]);
     assert.strictEqual(calls[2].options.headers.Authorization, 'Bearer key');
-    assert.deepStrictEqual(JSON.parse(calls[5].options.body), { templateId: 'template-a', variables: { customer: { name: 'Ada' } } });
+    assert.deepStrictEqual(JSON.parse(calls[5].options.body), { version: '1', source: { type: 'template', templateId: 'template-a', variables: { customer: { name: 'Ada' } } } });
 
     global.fetch = async () => ({ ok: false, status: 422, json: async () => ({ error: 'Missing required template variable "customer.name"' }) });
     await assert.rejects(() => client.render('/api/v1', 'key', 'template-a', {}), /Missing required template variable/);

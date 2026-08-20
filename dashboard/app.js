@@ -48,6 +48,7 @@ async function apiRequest(path, options = {}) {
         try {
             const payload = await response.json();
             message = payload.error || payload.message || message;
+            if (payload.code) message = `${message} [${payload.code}]`;
         } catch (error) {
             // Keep the status-based message when the response is not JSON.
         }
@@ -137,6 +138,233 @@ function getStoredTemplate(templateId) { return dashboardTemplateRequest(`/dashb
 function updateTemplate(templateId, template) { return dashboardTemplateRequest(`/dashboard/templates/${encodeURIComponent(templateId)}`, { method: 'PUT', body: JSON.stringify(template) }); }
 function removeTemplate(templateId) { return dashboardTemplateRequest(`/dashboard/templates/${encodeURIComponent(templateId)}`, { method: 'DELETE' }); }
 function renderStoredTemplate(templateId, variables) { return dashboardTemplateRequest('/dashboard/render-template', { method: 'POST', body: JSON.stringify({ templateId, variables }) }); }
+function renderInlineDocument(documentRequest) { return dashboardTemplateRequest('/dashboard/render-document', { method: 'POST', body: JSON.stringify(documentRequest) }); }
+
+const sampleDocumentRequest = {
+    version: '1',
+    html: '<main class="report"><p class="eyebrow">{{report.period}}</p><h1>{{report.title}}</h1><p>{{report.summary}}</p><dl><div><dt>Prepared for</dt><dd>{{customer.name}}</dd></div><div><dt>Status</dt><dd>{{report.status}}</dd></div></dl></main>',
+    css: 'body { margin: 0; color: #17202a; font-family: Arial, sans-serif; } .report { padding: 8mm; border-top: 4px solid #123456; } .eyebrow { color: #64748b; font-size: 11px; font-weight: bold; letter-spacing: 0.12em; text-transform: uppercase; } h1 { margin: 8px 0 24px; color: #123456; font-size: 32px; } p { line-height: 1.55; } dl { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 32px; } dl div { padding: 14px; background: #f3f6f9; } dt { color: #64748b; font-size: 10px; text-transform: uppercase; } dd { margin: 6px 0 0; font-weight: bold; }',
+    data: {
+        report: {
+            period: 'August 2026',
+            title: 'Monthly report',
+            summary: 'A concise overview generated from a versioned JSON document.',
+            status: 'Ready for review'
+        },
+        customer: { name: 'Ada & Sons.' }
+    },
+    options: { format: 'A4', margin: '18mm' }
+};
+
+const sampleMarkdownDocumentRequest = {
+    version: '1',
+    source: {
+        type: 'markdown',
+        content: '# {{report.title}}\n\n{{report.summary}}\n\n| Prepared for | Status |\n| --- | --- |\n| {{customer.name}} | {{report.status}} |\n\n- [x] Ready for review'
+    },
+    css: 'body { margin: 0; padding: 8mm; color: #17202a; font-family: Arial, sans-serif; } h1 { color: #123456; font-size: 32px; } table { width: 100%; margin-top: 28px; border-collapse: collapse; } th, td { padding: 12px; border: 1px solid #d7dde4; text-align: left; } th { color: #64748b; font-size: 11px; text-transform: uppercase; }',
+    data: {
+        report: {
+            title: 'Monthly report',
+            summary: 'A concise overview generated from a Markdown document.',
+            status: 'Ready for review'
+        },
+        customer: { name: 'Ada & Sons.' }
+    },
+    options: { format: 'A4', margin: '18mm' }
+};
+
+const documentPlaceholderPattern = /{{\s*([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*)\s*}}/g;
+const documentTopLevelFields = new Set(['version', 'html', 'source', 'css', 'data', 'options', 'webhookUrl', 'webhookSecret']);
+
+function isPlainObject(value) {
+    return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function documentByteLength(value) {
+    return new TextEncoder().encode(value).length;
+}
+
+function flattenDocumentData(value, prefix = '', depth = 1, output = new Map()) {
+    if (depth > 10) throw new Error('data must not exceed 10 nested levels.');
+    Object.entries(value).forEach(([key, child]) => {
+        if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) throw new Error(`Invalid data variable name "${key}".`);
+        const path = prefix ? `${prefix}.${key}` : key;
+        if (isPlainObject(child)) {
+            flattenDocumentData(child, path, depth + 1, output);
+        } else {
+            if (child === null) throw new Error(`Missing required data variable "${path}".`);
+            output.set(path, child);
+        }
+    });
+    return output;
+}
+
+function validateDocumentCSSForPreview(css) {
+    if (/@page\b/i.test(css)) throw new Error('@page settings must be supplied through options.');
+    if (/@import\b/i.test(css)) throw new Error('CSS @import rules are not allowed.');
+    if (/url\s*\(/i.test(css)) throw new Error('CSS url() assets are not allowed.');
+    if (/(expression\s*\(|-moz-binding\b|behavior\s*:)/i.test(css)) throw new Error('Unsafe CSS is not allowed.');
+}
+
+function validateDocumentMarkupForPreview(html) {
+    if (/@page\b/i.test(html)) throw new Error('@page settings must be supplied through options.');
+    const parsed = new DOMParser().parseFromString(html, 'text/html');
+    const forbidden = parsed.querySelector('script, iframe, embed, object, applet, base, link, meta[http-equiv="refresh" i]');
+    if (forbidden) throw new Error(`HTML <${forbidden.tagName.toLowerCase()}> elements are not allowed.`);
+    parsed.querySelectorAll('*').forEach((element) => {
+        element.getAttributeNames().forEach((attributeName) => {
+            const name = attributeName.toLowerCase();
+            const value = (element.getAttribute(attributeName) || '').trim();
+            if (name.startsWith('on')) throw new Error('HTML event-handler attributes are not allowed.');
+            if (name === 'style') validateDocumentCSSForPreview(value);
+            if (['src', 'srcset', 'poster', 'data', 'background'].includes(name) && value) throw new Error('Document assets are not allowed.');
+            if (['href', 'action', 'formaction', 'xlink:href'].includes(name) && value && !value.startsWith('#') && !/^(https?|mailto):/i.test(value)) {
+                throw new Error('Document URLs must use http, https, or mailto.');
+            }
+        });
+    });
+}
+
+function parseDocumentSettingsEditor() {
+    const source = templateEditorValue('documentMarkdownSettingsInput');
+    let settings;
+    try {
+        settings = JSON.parse(source);
+    } catch (error) {
+        throw new Error(`Data, CSS, and options JSON is invalid. ${error.message}`);
+    }
+    if (!isPlainObject(settings)) throw new Error('Data, CSS, and options must be a JSON object.');
+    const unknownField = Object.keys(settings).find((field) => !['css', 'data', 'options', 'webhookUrl', 'webhookSecret'].includes(field));
+    if (unknownField) throw new Error(`Unknown Markdown settings field "${unknownField}".`);
+    return settings;
+}
+
+function documentRequestFromEditor() {
+    if (document.getElementById('documentSourceTypeInput').value === 'markdown') {
+        const content = templateEditorValue('documentMarkdownInput');
+        const settings = parseDocumentSettingsEditor();
+        return { version: '1', source: { type: 'markdown', content }, ...settings };
+    }
+    const source = templateEditorValue('documentJsonInput');
+    if (documentByteLength(source) > 1024 * 1024) throw new Error('Document request must not exceed 1 MB.');
+    let request;
+    try {
+        request = JSON.parse(source);
+    } catch (error) {
+        throw new Error(`Invalid JSON. ${error.message}`);
+    }
+    return request;
+}
+
+function parseDocumentEditor() {
+    const request = documentRequestFromEditor();
+    if (documentByteLength(JSON.stringify(request)) > 1024 * 1024) throw new Error('Document request must not exceed 1 MB.');
+    if (!isPlainObject(request)) throw new Error('The request must be a JSON object.');
+    const unknownField = Object.keys(request).find((field) => !documentTopLevelFields.has(field));
+    if (unknownField) throw new Error(`Unknown top-level field "${unknownField}".`);
+    if (request.version !== '1') throw new Error('version must be "1".');
+    const usesMarkdown = request.source !== undefined;
+    if (usesMarkdown && request.html !== undefined) throw new Error('source and html cannot be used together.');
+    if (usesMarkdown) {
+        const unknownSourceField = isPlainObject(request.source) && Object.keys(request.source).find((field) => !['type', 'content'].includes(field));
+        if (unknownSourceField) throw new Error(`Unknown source field "${unknownSourceField}".`);
+        if (!isPlainObject(request.source) || request.source.type !== 'markdown' || typeof request.source.content !== 'string' || !request.source.content.trim()) {
+            throw new Error('source must contain type "markdown" and non-empty content.');
+        }
+        if (documentByteLength(request.source.content) > 768 * 1024) throw new Error('source.content must not exceed 768 KB.');
+    } else if (typeof request.html !== 'string' || !request.html.trim()) {
+        throw new Error('html is required and must be a string.');
+    }
+    if (request.css !== undefined && typeof request.css !== 'string') throw new Error('css must be a string.');
+    if (!isPlainObject(request.data)) throw new Error('data is required and must be an object.');
+    if (request.options !== undefined && !isPlainObject(request.options)) throw new Error('options must be an object.');
+    if (!usesMarkdown && documentByteLength(request.html) > 768 * 1024) throw new Error('html must not exceed 768 KB.');
+    if (documentByteLength(request.css || '') > 128 * 1024) throw new Error('css must not exceed 128 KB.');
+    if (documentByteLength(JSON.stringify(request.data)) > 256 * 1024) throw new Error('data must not exceed 256 KB.');
+
+    const options = { format: 'A4', margin: '18mm', ...(request.options || {}) };
+    const unknownOption = Object.keys(options).find((field) => !['format', 'margin'].includes(field));
+    if (unknownOption) throw new Error(`Unknown options field "${unknownOption}".`);
+    if (!['A4', 'Letter', 'Legal'].includes(options.format)) throw new Error('options.format must be one of A4, Letter, or Legal.');
+    const marginMatch = typeof options.margin === 'string' && options.margin.match(/^([0-9]+(?:\.[0-9]+)?)(mm|in)$/);
+    if (!marginMatch || Number(marginMatch[1]) > (marginMatch[2] === 'in' ? 2 : 50)) throw new Error('options.margin must be a value from 0mm to 50mm or 0in to 2in.');
+
+    const css = request.css || '';
+    validateDocumentCSSForPreview(css);
+    const content = usesMarkdown ? request.source.content : request.html;
+    if (/@page\b/i.test(content)) throw new Error('@page settings must be supplied through options.');
+    if (!usesMarkdown) validateDocumentMarkupForPreview(content);
+    const values = flattenDocumentData(request.data);
+    const placeholders = [...content.matchAll(documentPlaceholderPattern)];
+    const unmatched = content.replace(documentPlaceholderPattern, '');
+    if (unmatched.includes('{{') || unmatched.includes('}}')) throw new Error('HTML contains an invalid placeholder; use {{path.to.value}}.');
+    const expected = new Set(placeholders.map((match) => match[1]));
+    const missing = [...expected].find((path) => !values.has(path));
+    if (missing) throw new Error(`Missing required data variable "${missing}".`);
+    const unused = [...values.keys()].find((path) => !expected.has(path));
+    if (unused) throw new Error(`Unknown data variable "${unused}"; every supplied value must be used.`);
+    return { request: { ...request, css, options }, values, usesMarkdown };
+}
+
+function escapeMarkdownBindingValue(value) {
+    return escapeTemplatePreviewHTML(value).replace(/[\\`*_{}\[\]()<>#+\-.!|~]/g, '\\$&');
+}
+
+function renderMarkdownPreviewFragment(markdown) {
+    if (!window.marked?.parse || !window.marked.Renderer) throw new Error('Markdown preview is unavailable. Reload the dashboard and try again.');
+    const renderer = new window.marked.Renderer();
+    renderer.html = () => '';
+    return window.marked.parse(markdown, { gfm: true, renderer });
+}
+
+function buildDocumentJsonPreview(request, values, usesMarkdown) {
+    let resolvedHTML;
+    if (usesMarkdown) {
+        const resolvedMarkdown = request.source.content.replace(documentPlaceholderPattern, (_, path) => escapeMarkdownBindingValue(values.get(path)));
+        resolvedHTML = renderMarkdownPreviewFragment(resolvedMarkdown);
+        validateDocumentMarkupForPreview(resolvedHTML);
+    } else {
+        resolvedHTML = request.html.replace(documentPlaceholderPattern, (_, path) => escapeTemplatePreviewHTML(values.get(path)));
+    }
+    const parsed = new DOMParser().parseFromString(resolvedHTML, 'text/html');
+    parsed.querySelectorAll('*').forEach((element) => {
+        ['href', 'action', 'formaction', 'xlink:href'].forEach((attribute) => element.removeAttribute(attribute));
+    });
+    const contentSecurityPolicy = "default-src 'none'; style-src 'unsafe-inline'; img-src 'none'; font-src 'none'; connect-src 'none'; frame-src 'none'; form-action 'none'; base-uri 'none'";
+    return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${contentSecurityPolicy}"><style>${request.css}\n@page { size: ${request.options.format}; margin: ${request.options.margin}; }</style></head><body>${parsed.body.innerHTML}</body></html>`;
+}
+
+function previewDocumentJson() {
+    const parsed = parseDocumentEditor();
+    document.getElementById('documentJsonPreview').srcdoc = buildDocumentJsonPreview(parsed.request, parsed.values, parsed.usesMarkdown);
+    return parsed.request;
+}
+
+function loadDocumentEditorSample(type) {
+    if (type === 'markdown') {
+        setTemplateEditorValue('documentMarkdownInput', sampleMarkdownDocumentRequest.source.content);
+        setTemplateEditorValue('documentMarkdownSettingsInput', JSON.stringify({
+            css: sampleMarkdownDocumentRequest.css,
+            data: sampleMarkdownDocumentRequest.data,
+            options: sampleMarkdownDocumentRequest.options
+        }, null, 2));
+        return;
+    }
+    setTemplateEditorValue('documentJsonInput', JSON.stringify(sampleDocumentRequest, null, 2));
+}
+
+function setDocumentEditorMode(type, loadSample = false) {
+    const isMarkdown = type === 'markdown';
+    document.getElementById('documentSourceTypeInput').value = isMarkdown ? 'markdown' : 'html';
+    window.customSelect?.setValue('documentSourceTypeInput', isMarkdown ? 'markdown' : 'html');
+    document.getElementById('documentJsonField').hidden = isMarkdown;
+    document.getElementById('documentMarkdownFields').hidden = !isMarkdown;
+    if (loadSample) loadDocumentEditorSample(isMarkdown ? 'markdown' : 'html');
+    ['documentJsonInput', 'documentMarkdownInput', 'documentMarkdownSettingsInput'].forEach((id) => {
+        window.setTimeout(() => templateCodeEditors[id]?.refresh(), 0);
+    });
+}
 
 function setNotice(element, message = '', state = '') {
     element.textContent = message;
@@ -500,10 +728,17 @@ if (checkAuth()) {
     const templateRenderResult = document.getElementById('templateRenderResult');
     const saveTemplateButton = document.getElementById('saveTemplateBtn');
     const renderTemplateButton = document.getElementById('renderTemplateBtn');
+    const documentJsonStatus = document.getElementById('documentJsonStatus');
+    const documentJsonResult = document.getElementById('documentJsonResult');
+    const previewDocumentJsonButton = document.getElementById('previewDocumentJsonBtn');
+    const renderDocumentJsonButton = document.getElementById('renderDocumentJsonBtn');
 
     window.customSelect?.init();
     initializeTemplateCodeEditor('templateHtmlInput', 'htmlmixed');
     initializeTemplateCodeEditor('templateVariablesInput', 'application/json');
+    initializeTemplateCodeEditor('documentJsonInput', 'application/json');
+    initializeTemplateCodeEditor('documentMarkdownInput', 'markdown');
+    initializeTemplateCodeEditor('documentMarkdownSettingsInput', 'application/json');
     let savedTemplates = new Map();
     let starterTemplates = new Map();
 
@@ -550,6 +785,10 @@ if (checkAuth()) {
     }
     if (!IS_LOCAL_PREVIEW) refreshDashboard();
     resetTemplateEditor();
+    loadDocumentEditorSample('html');
+    loadDocumentEditorSample('markdown');
+    setDocumentEditorMode('html');
+    previewDocumentJson();
 
     document.querySelectorAll('[data-plan]').forEach((button) => button.addEventListener('click', async () => {
         const billingStatus = document.getElementById('billingStatus');
@@ -700,6 +939,151 @@ if (checkAuth()) {
             setButtonPending(renderTemplateButton, false);
         }
     });
+
+    ['documentJsonInput', 'documentMarkdownInput', 'documentMarkdownSettingsInput'].forEach((id) => document.getElementById(id).addEventListener('input', () => {
+        try {
+            parseDocumentEditor();
+            setNotice(documentJsonStatus);
+        } catch (error) {
+            setNotice(documentJsonStatus, error.message, 'error');
+        }
+        setNotice(documentJsonResult);
+    }));
+
+    document.getElementById('documentSourceTypeInput').addEventListener('change', (event) => {
+        setDocumentEditorMode(event.target.value, true);
+        try {
+            previewDocumentJson();
+            setNotice(documentJsonStatus, `Loaded the ${event.target.value === 'markdown' ? 'Markdown' : 'HTML/CSS JSON'} sample.`, 'success');
+        } catch (error) {
+            setNotice(documentJsonStatus, error.message, 'error');
+        }
+    });
+
+    previewDocumentJsonButton.addEventListener('click', () => {
+        try {
+            previewDocumentJson();
+            setNotice(documentJsonStatus, 'Preview updated. Values are HTML-escaped and network access is disabled.', 'success');
+        } catch (error) {
+            setNotice(documentJsonStatus, error.message, 'error');
+        }
+    });
+
+    document.getElementById('resetDocumentJsonBtn').addEventListener('click', () => {
+        const type = document.getElementById('documentSourceTypeInput').value;
+        loadDocumentEditorSample(type);
+        previewDocumentJson();
+        setNotice(documentJsonStatus, `${type === 'markdown' ? 'Markdown' : 'HTML/CSS JSON'} sample restored.`, 'success');
+        setNotice(documentJsonResult);
+    });
+
+    renderDocumentJsonButton.addEventListener('click', async () => {
+        let request;
+        try {
+            request = previewDocumentJson();
+            setNotice(documentJsonStatus);
+        } catch (error) {
+            setNotice(documentJsonStatus, error.message, 'error');
+            return;
+        }
+        if (IS_LOCAL_PREVIEW) {
+            setNotice(documentJsonResult, 'PDF rendering requires a signed-in dashboard session.', 'error');
+            return;
+        }
+        setButtonPending(renderDocumentJsonButton, true, 'Rendering PDF...');
+        setNotice(documentJsonResult, 'Validating the document and rendering its PDF...', 'pending');
+        try {
+            const result = await renderInlineDocument(request);
+            documentJsonResult.dataset.state = 'success';
+            documentJsonResult.replaceChildren();
+            const summary = document.createElement('div');
+            const title = document.createElement('strong');
+            title.textContent = 'PDF ready';
+            const detail = document.createElement('span');
+            detail.textContent = `${(result.size / 1024).toFixed(1)} KB · request ${result.requestId}`;
+            summary.append(title, detail);
+            const link = document.createElement('a');
+            link.href = result.url;
+            link.target = '_blank';
+            link.rel = 'noopener';
+            link.download = '';
+            link.textContent = 'Download PDF →';
+            documentJsonResult.append(summary, link);
+            documentJsonResult.hidden = false;
+        } catch (error) {
+            setNotice(documentJsonResult, `Could not render document. ${error.message}`, 'error');
+        } finally {
+            setButtonPending(renderDocumentJsonButton, false);
+        }
+    });
+
+    document.getElementById('saveDocumentSourceBtn').addEventListener('click', async () => {
+        let definition;
+        try {
+            definition = previewDocumentJson();
+            if (definition.html) {
+                definition = { ...definition, source: { type: 'html', content: definition.html } };
+                delete definition.html;
+            }
+        } catch (error) {
+            setNotice(documentJsonStatus, error.message, 'error');
+            return;
+        }
+        const name = window.prompt('Name this saved source');
+        if (!name) return;
+        try {
+            await dashboardTemplateRequest('/dashboard/sources', { method: 'POST', body: JSON.stringify({ name, definition }) });
+            setNotice(documentJsonStatus, 'Source saved. You can reuse it in a future batch.', 'success');
+        } catch (error) {
+            setNotice(documentJsonStatus, `Could not save source. ${error.message}`, 'error');
+        }
+    });
+
+    const managedRequest = (path, options = {}) => dashboardTemplateRequest(path, options);
+    async function refreshManagers() {
+        try {
+            const [sourceResult, fileResult] = await Promise.all([managedRequest('/dashboard/sources'), managedRequest('/dashboard/files')]);
+            const sourceList = sourceResult.sources || [];
+            const sourcesManager = document.getElementById('sourcesManager');
+            sourcesManager.replaceChildren();
+            const batchOptions = sourceList.map((source) => ({ value: source.id, label: source.name }));
+            sourceList.forEach((source) => {
+                const row = document.createElement('div'); row.className = 'log-row';
+                row.innerHTML = `<strong></strong><span></span><button class="dashboard-button dashboard-button-secondary" type="button">Delete</button>`;
+                row.querySelector('strong').textContent = source.name;
+                row.querySelector('span').textContent = `${source.sourceType} · ${(source.sizeBytes / 1024).toFixed(1)} KB`;
+                row.querySelector('button').onclick = async () => { await managedRequest(`/dashboard/sources/${encodeURIComponent(source.id)}`, { method: 'DELETE' }); refreshManagers(); };
+                sourcesManager.append(row);
+            });
+            window.customSelect?.replaceOptions('batchSourceSelect', [{ label: 'Saved sources', options: batchOptions.length ? batchOptions : [{ value: '', label: 'No saved sources' }] }], batchOptions[0]?.value || '');
+            const filesManager = document.getElementById('filesManager'); filesManager.replaceChildren();
+            (fileResult.files || []).forEach((file) => {
+                const row = document.createElement('div'); row.className = 'log-row';
+                row.innerHTML = `<strong></strong><span></span><button class="dashboard-button dashboard-button-secondary" type="button">Download</button><button class="dashboard-button dashboard-button-secondary" type="button">Delete</button>`;
+                row.querySelector('strong').textContent = file.kind;
+                row.querySelector('span').textContent = `${(file.sizeBytes / 1024).toFixed(1)} KB`;
+                const [download, remove] = row.querySelectorAll('button');
+                download.onclick = async () => { const result = await managedRequest(`/dashboard/files/${encodeURIComponent(file.id)}/download`); window.open(result.url, '_blank', 'noopener'); };
+                remove.onclick = async () => { await managedRequest(`/dashboard/files/${encodeURIComponent(file.id)}`, { method: 'DELETE' }); refreshManagers(); };
+                filesManager.append(row);
+            });
+        } catch (error) { console.error('Could not refresh storage managers', error); }
+    }
+    document.getElementById('refreshSourcesBtn').onclick = refreshManagers;
+    document.getElementById('packageUploadInput').onchange = async (event) => {
+        const file = event.target.files[0]; if (!file) return;
+        const upload = await managedRequest('/dashboard/files/upload', { method: 'POST' });
+        await fetch(upload.uploadUrl, { method: 'PUT', body: file, headers: { 'Content-Type': 'application/zip' } });
+        await refreshManagers();
+    };
+    document.getElementById('submitBatchBtn').onclick = async () => {
+        const sourceID = document.getElementById('batchSourceSelect').value;
+        const items = JSON.parse(document.getElementById('batchItemsInput').value);
+        const job = await managedRequest('/dashboard/batches', { method: 'POST', body: JSON.stringify({ version: '1', source: { type: 'stored', id: sourceID }, items }) });
+        document.getElementById('batchesManager').textContent = `Submitted ${job.jobId}. Refresh to view progress.`;
+    };
+    document.getElementById('refreshBatchesBtn').onclick = async () => { document.getElementById('batchesManager').textContent = 'Enter a job ID from a submitted batch to inspect it. Batch history listing is not available yet.'; };
+    refreshManagers();
 
     keysList.addEventListener('click', async (event) => {
         const revokeButton = event.target.closest('[data-key-id]');

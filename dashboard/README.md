@@ -2,7 +2,8 @@
 
 ## Purpose
 
-- Static dashboard for sign-in, API key management, and test PDF generation.
+- Static dashboard for sign-in, API key and template management, and test PDF generation.
+- Includes HTML/CSS JSON and Markdown document editors with local validation, a network-isolated preview, authenticated rendering, and a PDF download result.
 - Served publicly at `https://renderpdf.vberkoz.com/app/`.
 
 ## Entrypoints
@@ -40,6 +41,7 @@
   - callback token storage
   - API key list/create/delete flow
   - test PDF generation button
+  - HTML/CSS JSON and Markdown samples, validation errors, preview, render, and download flow
 
 ## Common Pitfalls
 

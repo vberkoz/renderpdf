@@ -144,27 +144,86 @@
                                 </div>
                                 <label class="dashboard-field" for="templateVariablesInput"><span>Variable JSON</span><textarea id="templateVariablesInput" rows="9" spellcheck="false">{}</textarea></label>
                             </section>
-                            <div class="template-actions">
-                                <button id="saveTemplateBtn" class="dashboard-button dashboard-button-primary" type="submit"><i data-lucide="save" aria-hidden="true"></i>Save template</button>
-                                <button id="deleteTemplateBtn" class="dashboard-button dashboard-button-secondary" type="button" hidden><i data-lucide="trash-2" aria-hidden="true"></i>Delete</button>
-                                <button id="renderTemplateBtn" class="dashboard-button dashboard-button-secondary" type="button"><i data-lucide="file-down" aria-hidden="true"></i>Render PDF</button>
-                                <span>Uses your dashboard session.</span>
-                            </div>
                         </form>
 
-                            <div class="template-preview-wrap">
-                                <div class="templates-sidebar-header"><strong>Preview</strong><span>Live test data · paged A4 preview</span></div>
-                                <iframe id="templatePreview" class="template-preview" title="Template preview" sandbox="allow-scripts"></iframe>
-                            </div>
+                        <div class="template-preview-wrap">
+                            <div class="templates-sidebar-header"><strong>Preview</strong><span>Live test data · paged A4 preview</span></div>
+                            <div class="template-preview-stage"><iframe id="templatePreview" class="template-preview" title="Template preview" sandbox="allow-scripts"></iframe></div>
+                        </div>
+
+                        <div class="template-actions">
+                            <span>Uses your dashboard session.</span>
+                            <button id="saveTemplateBtn" class="dashboard-button dashboard-button-primary" type="submit" form="templateForm"><i data-lucide="save" aria-hidden="true"></i>Save template</button>
+                            <button id="deleteTemplateBtn" class="dashboard-button dashboard-button-secondary" type="button" hidden><i data-lucide="trash-2" aria-hidden="true"></i>Delete</button>
+                            <button id="renderTemplateBtn" class="dashboard-button dashboard-button-secondary" type="button"><i data-lucide="file-down" aria-hidden="true"></i>Render PDF</button>
+                        </div>
 
                         <div id="templateRenderResult" class="dashboard-result" role="status" aria-live="polite" hidden></div>
                     </div>
                 </article>
 
+                <article class="workspace-panel document-json-panel">
+                    <header class="panel-header">
+                        <div>
+                            <p class="panel-kicker">05 / Document JSON</p>
+                            <h2>Test an inline document</h2>
+                            <p>Edit the versioned HTML/CSS JSON contract, preview its bound content locally, then render it with your dashboard session.</p>
+                        </div>
+                        <span class="endpoint-route"><span>POST</span><code>/api/v1/render</code></span>
+                    </header>
+
+                    <div id="documentJsonStatus" class="dashboard-notice" role="status" aria-live="polite" hidden></div>
+                    <div class="document-json-workspace">
+                        <section class="document-json-editor" aria-labelledby="document-json-editor-title">
+                            <div class="template-card-heading">
+                                <div><span class="template-card-kicker">Request body</span><h3 id="document-json-editor-title">Document JSON <span class="document-json-version">Contract version 1</span></h3></div>
+                            </div>
+                            <div class="custom-select document-source-select" data-custom-select><span class="custom-select-label">Source type</span><input id="documentSourceTypeInput" type="hidden" value="html"><button class="custom-select-trigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="documentSourceTypeInput-menu"><span class="custom-select-value">HTML/CSS JSON</span><i class="custom-select-icon" data-lucide="chevron-down" aria-hidden="true"></i></button><div id="documentSourceTypeInput-menu" class="custom-select-menu" role="listbox" hidden><button class="custom-select-option is-active" type="button" role="option" aria-selected="true" data-custom-select-option data-value="html">HTML/CSS JSON</button><button class="custom-select-option" type="button" role="option" aria-selected="false" data-custom-select-option data-value="markdown">Markdown</button></div></div>
+                            <label id="documentJsonField" class="dashboard-field" for="documentJsonInput"><span>JSON payload</span><textarea id="documentJsonInput" rows="20" spellcheck="false"></textarea></label>
+                            <div id="documentMarkdownFields" class="document-markdown-fields" hidden>
+                                <label class="dashboard-field" for="documentMarkdownInput"><span>Markdown source</span><textarea id="documentMarkdownInput" rows="12" spellcheck="false"></textarea></label>
+                                <label class="dashboard-field" for="documentMarkdownSettingsInput"><span>Data, CSS, and options JSON</span><textarea id="documentMarkdownSettingsInput" rows="7" spellcheck="false"></textarea></label>
+                            </div>
+                        </section>
+
+                        <section class="document-json-preview-wrap" aria-labelledby="document-json-preview-title">
+                            <div class="templates-sidebar-header"><strong id="document-json-preview-title">Preview</strong><span>Bound values · network disabled</span></div>
+                            <div class="document-json-preview-stage"><iframe id="documentJsonPreview" class="document-json-preview" title="Document JSON preview" sandbox=""></iframe></div>
+                        </section>
+
+                        <div class="document-json-actions">
+                            <button id="previewDocumentJsonBtn" class="dashboard-button dashboard-button-secondary" type="button"><i data-lucide="eye" aria-hidden="true"></i>Preview</button>
+                            <button id="renderDocumentJsonBtn" class="dashboard-button dashboard-button-primary" type="button"><i data-lucide="file-down" aria-hidden="true"></i>Render PDF</button>
+                            <button id="saveDocumentSourceBtn" class="dashboard-button dashboard-button-secondary" type="button"><i data-lucide="save" aria-hidden="true"></i>Save source</button>
+                            <button id="resetDocumentJsonBtn" class="dashboard-button dashboard-button-secondary" type="button"><i data-lucide="rotate-ccw" aria-hidden="true"></i>Load sample</button>
+                        </div>
+
+                        <div id="documentJsonResult" class="dashboard-result" role="status" aria-live="polite" hidden></div>
+                    </div>
+                </article>
+
+                <article class="workspace-panel">
+                    <header class="panel-header panel-header-compact"><div><p class="panel-kicker">06 / Sources</p><h2>Saved sources</h2><p>Load, duplicate, render, and delete saved HTML/Markdown definitions.</p></div><button id="refreshSourcesBtn" class="dashboard-button dashboard-button-secondary" type="button">Refresh</button></header>
+                    <div id="sourcesManager" class="logs-list"></div>
+                </article>
+
+                <article class="workspace-panel">
+                    <header class="panel-header panel-header-compact"><div><p class="panel-kicker">07 / Files</p><h2>Private files</h2><p>Upload packages or download and delete retained PDFs.</p></div><label class="dashboard-button dashboard-button-secondary" for="packageUploadInput">Upload ZIP</label><input id="packageUploadInput" type="file" accept=".zip,application/zip" hidden></header>
+                    <div id="filesManager" class="logs-list"></div>
+                </article>
+
+                <article class="workspace-panel">
+                    <header class="panel-header panel-header-compact"><div><p class="panel-kicker">08 / Batches</p><h2>Batch jobs</h2><p>Submit data rows for a saved source, track progress, cancel pending work, and download completed PDFs.</p></div></header>
+                    <div class="custom-select" data-custom-select><span class="custom-select-label">Saved source</span><input id="batchSourceSelect" type="hidden" value=""><button class="custom-select-trigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="batchSourceSelect-menu"><span class="custom-select-value">No saved sources</span><i class="custom-select-icon" data-lucide="chevron-down" aria-hidden="true"></i></button><div id="batchSourceSelect-menu" class="custom-select-menu" role="listbox" hidden><button class="custom-select-option is-active" type="button" role="option" aria-selected="true" data-custom-select-option data-value="">No saved sources</button></div></div>
+                    <div class="dashboard-field"><label for="batchItemsInput">Item data JSON array</label><textarea id="batchItemsInput" rows="7" spellcheck="false">[{"data":{"customer":{"name":"Ada"}}}]</textarea></div>
+                    <div class="document-json-actions"><button id="submitBatchBtn" class="dashboard-button dashboard-button-primary" type="button">Submit batch</button><button id="refreshBatchesBtn" class="dashboard-button dashboard-button-secondary" type="button">Refresh jobs</button></div>
+                    <div id="batchesManager" class="logs-list"></div>
+                </article>
+
                 <article class="workspace-panel logs-panel">
                     <header class="panel-header panel-header-compact">
                         <div>
-                            <p class="panel-kicker">05 / Logs</p>
+                            <p class="panel-kicker">06 / Logs</p>
                             <h2>Recent requests</h2>
                             <p>Latest 25 authenticated render attempts. Request content is never stored here.</p>
                         </div>
@@ -190,6 +249,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/javascript/javascript.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/css/css.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/htmlmixed/htmlmixed.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/markdown/markdown.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
     <script src="custom-select.js"></script>
     <script src="template-client.js"></script>
     <script src="app.js"></script>

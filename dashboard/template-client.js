@@ -25,7 +25,7 @@
         create: (baseUrl, apiKey, template) => request(baseUrl, '/templates', apiKey, 'POST', template),
         update: (baseUrl, apiKey, id, template) => request(baseUrl, `/templates/${encodeURIComponent(id)}`, apiKey, 'PUT', template),
         remove: (baseUrl, apiKey, id) => request(baseUrl, `/templates/${encodeURIComponent(id)}`, apiKey, 'DELETE'),
-        render: (baseUrl, apiKey, templateId, variables) => request(baseUrl, '/render-template', apiKey, 'POST', { templateId, variables })
+        render: (baseUrl, apiKey, templateId, variables) => request(baseUrl, '/render', apiKey, 'POST', { version: '1', source: { type: 'template', templateId, variables } })
     };
 
     global.templateClient = client;

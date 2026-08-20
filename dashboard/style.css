@@ -565,7 +565,8 @@ textarea {
 }
 
 /* Template management workspace. */
-.templates-panel { grid-column: 1 / -1; }
+.templates-panel,
+.document-json-panel { grid-column: 1 / -1; }
 
 .template-editor { margin-top: 18px; }
 
@@ -608,20 +609,19 @@ textarea {
     grid-template-columns: minmax(0, 1.04fr) minmax(320px, .96fr);
     grid-template-areas:
         "form preview"
+        "actions actions"
         "result result";
-    gap: 18px;
+    column-gap: 28px;
+    row-gap: 18px;
     min-width: 0;
     align-items: start;
 }
-.template-form,
-.template-preview-wrap {
-    padding: 18px;
-    border: 1px solid var(--dashboard-line);
-    border-radius: 12px;
-    background: #fff;
-}
 
-.template-form { grid-area: form; }
+.template-form {
+    grid-area: form;
+    padding-right: 28px;
+    border-right: 1px solid var(--dashboard-line);
+}
 .template-preview-wrap { grid-area: preview; align-self: stretch; }
 #templateRenderResult { grid-area: result; margin: 0; }
 .template-card-heading { display: flex; align-items: start; justify-content: space-between; gap: 14px; padding-bottom: 12px; border-bottom: 1px solid var(--dashboard-line); }
@@ -643,10 +643,14 @@ textarea {
 }
 
 .template-actions {
+    grid-area: actions;
     display: flex;
     align-items: center;
+    justify-content: flex-end;
     flex-wrap: wrap;
     gap: 10px;
+    padding-top: 16px;
+    border-top: 1px solid var(--dashboard-line);
 }
 
 .template-actions > span,
@@ -655,25 +659,173 @@ textarea {
     font-size: 0.7rem;
 }
 
+.template-actions > span { margin-right: auto; }
+
 .template-form :is(input, select, textarea):disabled { cursor: not-allowed; opacity: 0.65; background: var(--dashboard-soft); }
 
 .template-preview-wrap { display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 12px; }
+.template-preview-stage {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    min-height: 0;
+    padding: 18px;
+    border: 1px solid var(--dashboard-line);
+    border-radius: 12px;
+    background: #eef1f4;
+}
 .template-preview {
-    width: 100%;
+    width: min(100%, 700px);
     min-height: 0;
     height: 100%;
     border: 1px solid var(--dashboard-line);
     border-radius: 8px;
     background: #fff;
+    box-shadow: 0 8px 22px rgba(23, 32, 42, .1);
 }
 
 @media (max-width: 760px) {
-    .template-editor { grid-template-columns: 1fr; grid-template-areas: "form" "preview" "result"; }
+    .template-editor { grid-template-columns: 1fr; grid-template-areas: "form" "preview" "actions" "result"; }
+    .template-form { padding-right: 0; border-right: 0; }
+    .template-actions { justify-content: flex-start; }
     .template-preview { aspect-ratio: 1 / 2; height: auto; min-height: 0; }
 }
 
 @media (max-width: 520px) {
     .template-form-row { grid-template-columns: 1fr; }
+}
+
+/* Inline document JSON test surface. */
+.document-json-workspace {
+    display: grid;
+    grid-template-columns: minmax(0, 1.04fr) minmax(320px, .96fr);
+    grid-template-areas:
+        "editor preview"
+        "actions actions"
+        "result result";
+    column-gap: 28px;
+    row-gap: 18px;
+    margin-top: 18px;
+    min-width: 0;
+    align-items: stretch;
+}
+
+.document-json-editor,
+.document-json-preview-wrap {
+    min-width: 0;
+}
+
+.document-json-editor {
+    grid-area: editor;
+    display: grid;
+    gap: 14px;
+    align-content: start;
+    padding-right: 28px;
+    border-right: 1px solid var(--dashboard-line);
+}
+
+.document-json-version {
+    margin-left: 8px;
+    color: var(--dashboard-muted);
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.62rem;
+    font-weight: 400;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+}
+
+.document-json-preview-wrap {
+    grid-area: preview;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 12px;
+}
+
+.document-json-actions {
+    grid-area: actions;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding-top: 16px;
+    border-top: 1px solid var(--dashboard-line);
+}
+
+.document-json-actions .dashboard-button {
+    height: 42px;
+}
+
+.document-source-select { max-width: 210px; }
+
+.document-source-select select {
+    min-height: 42px;
+    padding: 0 11px;
+    border: 1px solid var(--dashboard-line);
+    border-radius: 10px;
+    background: var(--dashboard-surface);
+    color: var(--dashboard-ink);
+    font: inherit;
+    font-size: 0.76rem;
+}
+
+.document-markdown-fields {
+    display: grid;
+    gap: 14px;
+}
+
+#documentJsonField textarea,
+#documentJsonField .CodeMirror {
+    height: 480px;
+    min-height: 480px;
+}
+
+#documentMarkdownInput + .CodeMirror { height: 300px; min-height: 300px; }
+#documentMarkdownSettingsInput + .CodeMirror { height: 132px; min-height: 132px; }
+
+.document-json-preview-stage {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    min-height: 0;
+    padding: 18px;
+    border: 1px solid var(--dashboard-line);
+    border-radius: 12px;
+    background: #eef1f4;
+}
+
+.document-json-preview {
+    width: min(100%, 700px);
+    height: 480px;
+    min-height: 0;
+    border: 1px solid var(--dashboard-line);
+    border-radius: 8px;
+    background: #fff;
+    box-shadow: 0 8px 22px rgba(23, 32, 42, .1);
+}
+
+#documentJsonResult { grid-area: result; margin: 0; }
+
+@media (max-width: 760px) {
+    .document-json-workspace {
+        grid-template-columns: 1fr;
+        grid-template-areas: "editor" "preview" "actions" "result";
+    }
+
+    .document-json-editor { padding-right: 0; border-right: 0; }
+
+    .document-json-actions { justify-content: flex-start; }
+
+    #documentJsonField textarea,
+    #documentJsonField .CodeMirror {
+        height: 420px;
+        min-height: 420px;
+    }
+
+    #documentMarkdownInput + .CodeMirror { height: 260px; min-height: 260px; }
+    #documentMarkdownSettingsInput + .CodeMirror { height: 120px; min-height: 120px; }
+
+    .document-json-preview { height: 420px; }
 }
 
 /* Authenticated dashboard workspace. */
@@ -1331,6 +1483,12 @@ textarea {
     border-color: #e8c2c2;
     background: var(--dashboard-error-bg);
     color: var(--dashboard-error);
+}
+
+.dashboard-notice[data-state="success"] {
+    border-color: #bddfc9;
+    background: var(--dashboard-success-bg);
+    color: var(--dashboard-success);
 }
 
 .dashboard-result[data-state="pending"] {
