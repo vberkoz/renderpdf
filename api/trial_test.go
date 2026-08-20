@@ -41,6 +41,7 @@ func TestTrialViewerIPRejectsInvalidInjectedHeader(t *testing.T) {
 type fakeDynamoDB struct {
 	updateInput  *dynamodb.UpdateItemInput
 	updateInputs []*dynamodb.UpdateItemInput
+	putInput     *dynamodb.PutItemInput
 	updateErr    error
 	updateErrors []error
 	count        string
@@ -50,7 +51,8 @@ func (f *fakeDynamoDB) GetItem(*dynamodb.GetItemInput) (*dynamodb.GetItemOutput,
 	return &dynamodb.GetItemOutput{}, nil
 }
 
-func (f *fakeDynamoDB) PutItem(*dynamodb.PutItemInput) (*dynamodb.PutItemOutput, error) {
+func (f *fakeDynamoDB) PutItem(input *dynamodb.PutItemInput) (*dynamodb.PutItemOutput, error) {
+	f.putInput = input
 	return &dynamodb.PutItemOutput{}, nil
 }
 

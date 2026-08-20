@@ -11,7 +11,6 @@ import (
 )
 
 const (
-	templateRenderResource          = "/api/v1/render-template"
 	dashboardTemplateRenderResource = "/api/v1/dashboard/render-template"
 )
 
@@ -23,8 +22,7 @@ type templateRenderRequest struct {
 }
 
 func isTemplateRenderRequest(request events.APIGatewayProxyRequest) bool {
-	return request.Resource == templateRenderResource || request.Path == templateRenderResource ||
-		request.Resource == dashboardTemplateRenderResource || request.Path == dashboardTemplateRenderResource
+	return request.Resource == dashboardTemplateRenderResource || request.Path == dashboardTemplateRenderResource
 }
 
 func resolveTemplateRenderHTML(ctx context.Context, store templateStore, ownerID, body string) (string, templateRenderRequest, error) {

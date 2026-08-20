@@ -4,6 +4,8 @@ import (
 	"archive/tar"
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -76,17 +78,21 @@ type renderError struct {
 func (e *renderError) Error() string { return e.Message }
 
 type requestAnalytics struct {
-	RequestID  string
-	Plan       string
-	Status     string
-	ErrorType  string
-	HTMLBytes  int64
-	PDFBytes   int64
-	DurationMs int64
-	RenderMs   int64
-	Country    string
-	CustomerID string
-	APIKeyID   string
+	RequestID     string
+	Plan          string
+	Status        string
+	ErrorType     string
+	HTMLBytes     int64
+	PDFBytes      int64
+	DurationMs    int64
+	RenderMs      int64
+	Country       string
+	CustomerID    string
+	APIKeyID      string
+	SourceType    string
+	SourceMode    string
+	SourceVersion string
+	SourceBytes   int64
 }
 
 type dynamoDBAPI interface {
@@ -95,13 +101,17 @@ type dynamoDBAPI interface {
 	UpdateItem(*dynamodb.UpdateItemInput) (*dynamodb.UpdateItemOutput, error)
 }
 
+type sqsAPI interface {
+	SendMessageWithContext(aws.Context, *sqs.SendMessageInput, ...request.Option) (*sqs.SendMessageOutput, error)
+}
+
 var (
 	bucketName                    = os.Getenv("BUCKET_NAME")
 	packageBucketName             = os.Getenv("PACKAGE_BUCKET_NAME")
 	tableName                     = os.Getenv("TABLE_NAME")
 	sess                          = session.Must(session.NewSession())
 	s3Client                      = s3.New(sess)
-	sqsClient                     = sqs.New(sess)
+	sqsClient         sqsAPI      = sqs.New(sess)
 	ddbClient         dynamoDBAPI = dynamodb.New(sess)
 	chromeSetupOnce   sync.Once
 	chromeSetupErr    error
@@ -119,6 +129,15 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 	}
 	if isTemplateRequest(request) {
 		return handleTemplateRequest(ctx, request, corsHeaders, templateStoreFactory()), nil
+	}
+	if isSourceRequest(request) {
+		return handleSourceRequest(ctx, request, corsHeaders, sourceStoreFactory()), nil
+	}
+	if isFileRequest(request) {
+		return handleFileRequest(ctx, request, corsHeaders, fileStoreFactory()), nil
+	}
+	if isBatchRequest(request) {
+		return handleBatchRequest(ctx, request, corsHeaders), nil
 	}
 	if isTrialQuotaRequest(request) {
 		quota, err := currentTrialQuota(trialViewerIP(request), time.Now().UTC())
@@ -144,9 +163,17 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		return events.APIGatewayProxyResponse{StatusCode: 200, Body: string(body), Headers: corsHeaders}, nil
 	}
 	isTrial := isTrialRequest(request)
-	isURLRender := isURLRenderRequest(request)
-	isPackageRender := isPackageRenderRequest(request)
-	isTemplateRender := isTemplateRenderRequest(request)
+	normalized, normalizeErr := normalizeRenderRequest(ctx, request, authorizerValue(request, "userId"))
+	if normalizeErr != nil {
+		return renderErrorResponse(normalizeErr, corsHeaders), nil
+	}
+	isURLRender := normalized.Kind == renderKindURL
+	isPackageRender := normalized.Kind == renderKindUpload
+	isTemplateRender := normalized.Kind == renderKindTemplate
+	isDocumentRender := normalized.Kind == renderKindDocument
+	if (isCanonicalRenderRequest(request) || isDocumentRender || isTemplateRender || isURLRender || isPackageRender) && request.HTTPMethod != "POST" {
+		return errorResponse(404, "Not found", corsHeaders), nil
+	}
 	plan := "api"
 	if isTrial {
 		plan = "trial"
@@ -157,7 +184,7 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		Plan:       plan,
 		Status:     "error",
 		ErrorType:  "unknown",
-		HTMLBytes:  int64(len(request.Body)),
+		HTMLBytes:  int64(len(normalized.Body)),
 		Country:    requestCountry(request),
 		CustomerID: authorizerValue(request, "userId"),
 		APIKeyID:   authorizerValue(request, "apiKeyId"),
@@ -187,8 +214,27 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 			packageCleanup()
 		}
 	}()
-	if isTemplateRender {
-		resolvedHTML, templateRequest, err := resolveTemplateRenderHTML(ctx, templateStoreFactory(), analytics.CustomerID, request.Body)
+	if isDocumentRender {
+		documentHTML, documentRequest, err := resolveDocumentRenderHTML(normalized.Body)
+		if err != nil {
+			analytics.ErrorType = "validation"
+			return renderErrorResponse(err, corsHeaders), nil
+		}
+		html = documentHTML
+		webhookURL, webhookSecret = documentRequest.WebhookURL, documentRequest.WebhookSecret
+		analytics.HTMLBytes = int64(len(html))
+		analytics.SourceType = "document_json"
+		if documentRequest.Source != nil {
+			analytics.SourceType = documentRequest.Source.Type
+		}
+		if normalized.Canonical {
+			analytics.SourceType = normalized.SourceType
+		}
+		analytics.SourceMode = "inline"
+		analytics.SourceVersion = documentRequest.Version
+		analytics.SourceBytes = normalizedDocumentDefinitionBytes(documentRequest)
+	} else if isTemplateRender {
+		resolvedHTML, templateRequest, err := resolveTemplateRenderHTML(ctx, templateStoreFactory(), analytics.CustomerID, normalized.Body)
 		if err != nil {
 			analytics.ErrorType = "validation"
 			return templateRenderErrorResponse(err, corsHeaders), nil
@@ -198,7 +244,7 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		analytics.HTMLBytes = int64(len(html))
 	} else if isURLRender {
 		var req URLRequest
-		if err := json.Unmarshal([]byte(request.Body), &req); err != nil {
+		if err := json.Unmarshal([]byte(normalized.Body), &req); err != nil {
 			analytics.ErrorType = "validation"
 			return errorResponse(400, "Invalid request", corsHeaders), nil
 		}
@@ -213,7 +259,7 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		analytics.HTMLBytes = int64(len(renderURL))
 	} else if isPackageRender {
 		var req packageRenderRequest
-		if err := json.Unmarshal([]byte(request.Body), &req); err != nil {
+		if err := json.Unmarshal([]byte(normalized.Body), &req); err != nil {
 			analytics.ErrorType = "validation"
 			return errorResponse(400, "Invalid request", corsHeaders), nil
 		}
@@ -227,7 +273,7 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		analytics.HTMLBytes = packageBytes
 	} else {
 		var req Request
-		if err := json.Unmarshal([]byte(request.Body), &req); err != nil {
+		if err := json.Unmarshal([]byte(normalized.Body), &req); err != nil {
 			analytics.ErrorType = "validation"
 			return errorResponse(400, "Invalid request", corsHeaders), nil
 		}
@@ -243,6 +289,12 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		webhookURL = req.WebhookURL
 		webhookSecret = req.WebhookSecret
 		analytics.HTMLBytes = int64(len(html))
+	}
+	if normalized.Canonical && !isDocumentRender {
+		analytics.SourceType = normalized.SourceType
+		analytics.SourceMode = normalized.SourceMode
+		analytics.SourceVersion = normalized.SourceVersion
+		analytics.SourceBytes = int64(len(normalized.Body))
 	}
 	if webhookURL != "" {
 		if isTrial {
@@ -304,7 +356,9 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 	renderStartedAt := time.Now()
 	var pdfBytes []byte
 	var err error
-	if isURLRender {
+	if isDocumentRender {
+		pdfBytes, err = generateDocumentPDF(ctx, html)
+	} else if isURLRender {
 		pdfBytes, err = generatePDFURL(ctx, renderURL)
 	} else if isPackageRender {
 		pdfBytes, err = generatePDFURL(ctx, packageURL)
@@ -334,7 +388,13 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		return renderErrorResponse(err, corsHeaders), nil
 	}
 
-	key := fmt.Sprintf("%s.pdf", requestID)
+	key := renderedPDFObjectKey(analytics.CustomerID, requestID)
+	if err := ensurePrivateFileStorage(ctx, analytics.CustomerID, int64(len(pdfBytes))); err != nil {
+		refundTrialQuota(quota)
+		refundAccountQuota(reservedAccountQuota)
+		restoreTrialRemainingHeader(quota, corsHeaders)
+		return renderErrorResponse(err, corsHeaders), nil
+	}
 	_, err = s3Client.PutObject(&s3.PutObjectInput{
 		Bucket: aws.String(bucketName),
 		Key:    aws.String(key),
@@ -349,7 +409,17 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		return errorResponseWithCode(500, "storage_failed", "PDF storage is temporarily unavailable", corsHeaders), nil
 	}
 
-	url := fmt.Sprintf("https://%s.s3.amazonaws.com/%s", bucketName, key)
+	url, err := presignPDFDownload(bucketName, key)
+	if err != nil {
+		analytics.ErrorType = "storage"
+		fmt.Printf("PDF download URL signing failed for %s: %v\n", requestID, err)
+		return errorResponseWithCode(503, "download_url_unavailable", "PDF download URL is temporarily unavailable", corsHeaders), nil
+	}
+	checksum := sha256.Sum256(pdfBytes)
+	expiresAt := time.Now().UTC().Add(maxPDFRetentionDays * 24 * time.Hour)
+	if err := fileStoreFactory().Create(ctx, storedFile{ID: "file_" + requestID, Kind: "rendered_pdf", ContentType: "application/pdf", SizeBytes: int64(len(pdfBytes)), Checksum: "sha256:" + hex.EncodeToString(checksum[:]), RetentionExpiresAt: &expiresAt, Origin: map[string]string{"requestId": requestID}, OwnerID: analytics.CustomerID, Bucket: bucketName, ObjectKey: key, CreatedAt: time.Now().UTC()}); err != nil {
+		fmt.Printf("PDF file metadata write skipped for %s: %v\n", requestID, err)
+	}
 	analytics.Status = "success"
 	analytics.ErrorType = ""
 	analytics.PDFBytes = int64(len(pdfBytes))
@@ -493,11 +563,23 @@ func generatePDF(ctx context.Context, html string) ([]byte, error) {
 		!strings.Contains(strings.ToLower(html), "renderpdf:no-header-footer"))
 }
 
+// generateDocumentPDF is the restricted renderer for the document JSON mode.
+// Its input has already passed document safety validation, and JavaScript is
+// disabled as a defense in depth measure before navigation.
+func generateDocumentPDF(ctx context.Context, documentHTML string) ([]byte, error) {
+	escaped := url.PathEscape(documentHTML)
+	return generatePDFURLWithRenderSettings(ctx, "data:text/html;charset=utf-8,"+escaped, true, true)
+}
+
 func generatePDFURL(ctx context.Context, targetURL string) ([]byte, error) {
 	return generatePDFURLWithOptions(ctx, targetURL, true)
 }
 
 func generatePDFURLWithOptions(ctx context.Context, targetURL string, displayHeaderFooter bool) ([]byte, error) {
+	return generatePDFURLWithRenderSettings(ctx, targetURL, displayHeaderFooter, false)
+}
+
+func generatePDFURLWithRenderSettings(ctx context.Context, targetURL string, displayHeaderFooter, disableJavaScript bool) ([]byte, error) {
 	// Use one deadline for the browser's entire lifetime. A launch-only child
 	// context becomes Chrome's owner inside chromedp; when that shorter context
 	// expires it kills an otherwise healthy browser during PDF rendering.
@@ -570,10 +652,11 @@ func generatePDFURLWithOptions(ctx context.Context, targetURL string, displayHea
 	stage := "navigation"
 
 	fmt.Println("Running chromedp...")
-	err = chromedp.Run(taskCtx,
-		network.Enable(),
-		runtime.Enable(),
-		log.Enable(),
+	actions := []chromedp.Action{network.Enable(), runtime.Enable(), log.Enable()}
+	if disableJavaScript {
+		actions = append(actions, emulation.SetScriptExecutionDisabled(true))
+	}
+	actions = append(actions,
 		// Do not wait for every remote asset to finish. A slow image or
 		// stylesheet must not consume the API Gateway timeout before print.
 		chromedp.ActionFunc(func(ctx context.Context) error {
@@ -628,6 +711,7 @@ func generatePDFURLWithOptions(ctx context.Context, targetURL string, displayHea
 			return err
 		}),
 	)
+	err = chromedp.Run(taskCtx, actions...)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
 			if stage == "navigation" {
@@ -897,6 +981,12 @@ func trackUsage(parentCtx context.Context, analytics requestAnalytics) {
 	if analytics.APIKeyID != "" {
 		input.Item["apiKeyId"] = &dynamodb.AttributeValue{S: aws.String(analytics.APIKeyID)}
 	}
+	if analytics.SourceType != "" {
+		input.Item["sourceType"] = &dynamodb.AttributeValue{S: aws.String(analytics.SourceType)}
+		input.Item["sourceMode"] = &dynamodb.AttributeValue{S: aws.String(analytics.SourceMode)}
+		input.Item["sourceVersion"] = &dynamodb.AttributeValue{S: aws.String(analytics.SourceVersion)}
+		input.Item["sourceBytes"] = &dynamodb.AttributeValue{N: aws.String(strconv.FormatInt(analytics.SourceBytes, 10))}
+	}
 
 	// Usage analytics must never consume the remaining request time after a PDF
 	// has already been generated. The indexed write is best-effort.
@@ -923,5 +1013,17 @@ func maxInt64(a, b int64) int64 {
 }
 
 func main() {
+	if os.Getenv("BATCH_OUTBOX_DISPATCHER") == "true" {
+		lambda.Start(batchOutboxDispatcherHandler)
+		return
+	}
+	if os.Getenv("BATCH_RECONCILER") == "true" {
+		lambda.Start(batchRetryExhaustedHandler)
+		return
+	}
+	if os.Getenv("BATCH_WORKER") == "true" {
+		lambda.Start(batchWorkerHandler)
+		return
+	}
 	lambda.Start(handler)
 }

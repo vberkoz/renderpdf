@@ -11,6 +11,7 @@ require (
 	github.com/chromedp/cdproto v0.0.0-20250724212937-08a3db8b4327
 	github.com/chromedp/chromedp v0.14.2
 	github.com/google/uuid v1.5.0
+	github.com/yuin/goldmark v1.8.5
 	golang.org/x/net v0.49.0
 )
 

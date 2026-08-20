@@ -4,8 +4,6 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -24,7 +22,6 @@ import (
 
 const (
 	packageUploadResource = "/api/v1/uploads"
-	packageRenderResource = "/api/v1/render-upload"
 	packageUploadTTL      = 15 * time.Minute
 	maxPackageBytes       = 25 * 1024 * 1024
 	maxExtractedBytes     = 50 * 1024 * 1024
@@ -49,10 +46,6 @@ func isPackageUploadRequest(request events.APIGatewayProxyRequest) bool {
 	return request.Resource == packageUploadResource || request.Path == packageUploadResource
 }
 
-func isPackageRenderRequest(request events.APIGatewayProxyRequest) bool {
-	return request.Resource == packageRenderResource || request.Path == packageRenderResource
-}
-
 func createPackageUpload(owner string) (packageUploadResponse, error) {
 	if packageBucketName == "" || owner == "" {
 		return packageUploadResponse{}, errors.New("package uploads are unavailable")
@@ -68,6 +61,10 @@ func createPackageUpload(owner string) (packageUploadResponse, error) {
 	if err != nil {
 		return packageUploadResponse{}, fmt.Errorf("presign package upload: %w", err)
 	}
+	retention := time.Now().UTC().Add(24 * time.Hour)
+	if err := fileStoreFactory().Create(context.Background(), storedFile{ID: "file_" + uploadID, Kind: "uploaded_package", ContentType: "application/zip", SizeBytes: 0, RetentionExpiresAt: &retention, Origin: map[string]string{"uploadId": uploadID}, OwnerID: owner, Bucket: packageBucketName, ObjectKey: key, CreatedAt: time.Now().UTC()}); err != nil {
+		return packageUploadResponse{}, fmt.Errorf("save upload metadata: %w", err)
+	}
 	return packageUploadResponse{
 		UploadID: uploadID, UploadURL: uploadURL, ExpiresAt: expiresAt.Format(time.RFC3339), MaxBytes: maxPackageBytes,
 	}, nil
@@ -76,8 +73,7 @@ func createPackageUpload(owner string) (packageUploadResponse, error) {
 // packageObjectKey makes packages private to the API-key owner without storing
 // customer identifiers in object keys.
 func packageObjectKey(owner, uploadID string) string {
-	digest := sha256.Sum256([]byte(owner))
-	return fmt.Sprintf("uploads/%s/%s.zip", hex.EncodeToString(digest[:]), uploadID)
+	return fmt.Sprintf("uploads/%s/%s.zip", privateAccountObjectPrefix(owner), uploadID)
 }
 
 // preparePackage downloads a customer ZIP, expands only normal relative files,
