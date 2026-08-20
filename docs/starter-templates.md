@@ -42,7 +42,9 @@ Values always use `{{path.to.value}}` and are HTML escaped.
 1. Start with existing HTML sent to <code>POST /render</code>, or copy a bundled starter from <code>GET /api/v1/templates</code>.
 2. Replace dynamic text with exact placeholders such as <code>{{customer.name}}</code>.
 3. Create it with <code>POST /api/v1/templates</code> and retain its returned <code>id</code>.
-4. Send <code>templateId</code> and matching nested <code>variables</code> to <code>POST /api/v1/render-template</code>.
+4. Send a <code>source</code> object with <code>type: "template"</code>, the
+   returned <code>templateId</code>, and matching nested <code>variables</code>
+   to <code>POST /api/v1/render</code>.
 5. Treat <code>422</code> as a variable-contract error: every placeholder must be present and no additional leaf values are allowed.
 
 Each bundled definition includes representative data in source and is unit-tested before it is offered to clients.

@@ -46,9 +46,9 @@
                     <div class="request-card" aria-label="API request example">
                         <div class="request-card-header">
                             <span>POST</span>
-                            <code>/api/v1/trial/render-html</code>
+                            <code>/api/v1/trial/render</code>
                         </div>
-                        <pre><code>curl -X POST https://renderpdf.vberkoz.com/api/v1/trial/render-html \
+                        <pre><code>curl -X POST https://renderpdf.vberkoz.com/api/v1/trial/render \
   -H "Content-Type: application/json" \
   -d '{"html":"&lt;h1&gt;Hello World&lt;/h1&gt;"}'</code></pre>
                     </div>
@@ -445,7 +445,7 @@ Content-management handover and launch support</div></div></li>
         const API_ORIGIN = window.location.protocol === 'file:'
             ? 'https://renderpdf.vberkoz.com'
             : window.location.origin;
-        const TRIAL_RENDER_URL = new URL('/api/v1/trial/render-html', API_ORIGIN).toString();
+        const TRIAL_RENDER_URL = new URL('/api/v1/trial/render', API_ORIGIN).toString();
         const form = document.getElementById('pdfForm');
         const btn = document.getElementById('generateBtn');
         const btnLabel = document.getElementById('generateBtnLabel');

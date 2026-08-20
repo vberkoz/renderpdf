@@ -170,7 +170,9 @@ h1 {
 .sidebar {
     position: sticky;
     top: 24px;
+    max-height: calc(100vh - 48px);
     display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto;
     gap: 16px;
     padding: 34px 0;
 }
@@ -178,6 +180,12 @@ h1 {
 .sidebar nav {
     display: grid;
     gap: 4px;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+    align-content: start;
+    padding-right: 4px;
 }
 
 .sidebar nav a {
@@ -597,6 +605,8 @@ pre {
 
     .sidebar {
         position: static;
+        max-height: none;
+        overflow: visible;
         padding: 24px 0 0;
     }
 
@@ -604,6 +614,8 @@ pre {
         display: flex;
         flex-wrap: wrap;
         gap: 6px;
+        overflow: visible;
+        padding-right: 0;
     }
 
     .sidebar nav a {

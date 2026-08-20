@@ -8,7 +8,7 @@
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.11.1/build/styles/github.min.css">
     <script data-project="renderpdf" data-source="docs" src="https://analytics.vberkoz.com/track.js" defer></script>
@@ -50,10 +50,15 @@
                         <a href="#request-basics">Request basics</a>
                         <a href="#authentication">Authentication</a>
                         <a href="#render">Render HTML</a>
+                        <a href="#render-document">Render document JSON</a>
+                        <a href="#markdown">Render Markdown</a>
                         <a href="#render-url">Render URL</a>
                         <a href="#render-upload">Render package</a>
                         <a href="#templates">Templates</a>
                         <a href="#render-template">Render template</a>
+                        <a href="#sources">Saved sources</a>
+                        <a href="#files">Files &amp; downloads</a>
+                        <a href="#batches">Batch rendering</a>
                         <a href="#webhooks">Webhooks</a>
                         <a href="#examples">Language examples</a>
                         <a href="#trial">Anonymous trial</a>
@@ -80,7 +85,7 @@
                                 <span>Terminal</span>
                                 <button type="button" class="copy-button" data-copy-target="quick-start-code">Copy</button>
                             </div>
-                            <pre id="quick-start-code"><code class="language-bash">curl -X POST https://renderpdf.vberkoz.com/api/v1/trial/render-html \
+                            <pre id="quick-start-code"><code class="language-bash">curl -X POST https://renderpdf.vberkoz.com/api/v1/trial/render \
   -H "Content-Type: application/json" \
   -d '{"html":"&lt;h1&gt;Hello World&lt;/h1&gt;"}'</code></pre>
                         </div>
@@ -91,7 +96,7 @@
                                 <span>Terminal</span>
                                 <button type="button" class="copy-button" data-copy-target="file-example-code">Copy</button>
                             </div>
-                            <pre id="file-example-code"><code class="language-bash">curl -X POST https://renderpdf.vberkoz.com/api/v1/trial/render-html \
+                            <pre id="file-example-code"><code class="language-bash">curl -X POST https://renderpdf.vberkoz.com/api/v1/trial/render \
   -H "Content-Type: application/json" \
   --data "$(jq -Rs '{html: .}' /Users/basilsergius/projects/renderpdf/doc-examples/invoice.html)"</code></pre>
                         </div>
@@ -99,7 +104,7 @@
                             <span class="callout-mark" aria-hidden="true">i</span>
                             <p>The trial allows 3 successful PDFs per public IP per UTC day. Failed renders are refunded automatically.</p>
                         </div>
-                        <p class="section-footnote">When you are ready for production, create an API key in the <a href="/app/">dashboard</a>, switch the path to <code>/render-html</code>, and send the key in the <code>Authorization</code> header.</p>
+                        <p class="section-footnote">When you are ready for production, create an API key in the <a href="/app/">dashboard</a>, switch the path to <code>/render</code>, and send the key in the <code>Authorization</code> header.</p>
                     </section>
 
                     <section class="doc-section" id="request-basics">
@@ -144,18 +149,18 @@
                         <div class="endpoint-heading">
                             <div>
                                 <p class="eyebrow">04 / Endpoint</p>
-                                <h2>Render HTML</h2>
+                                <h2>Render</h2>
                             </div>
-                            <div class="route"><span class="method">POST</span><code>/render-html</code></div>
+                            <div class="route"><span class="method">POST</span><code>/render</code></div>
                         </div>
-                        <p class="section-copy">Renders the supplied HTML with headless Chromium, uploads the PDF, and returns its download URL.</p>
+                        <p class="section-copy">The canonical authenticated endpoint selects HTML, Markdown, saved templates or sources, public URLs, or uploaded packages with <code>source.type</code>, then stores the PDF privately and returns a signed download URL.</p>
 
                         <h3>Request body</h3>
                         <div class="property-row">
-                            <code>html</code>
-                            <span class="type">string</span>
+                            <code>source</code>
+                            <span class="type">object</span>
                             <span class="required">required</span>
-                            <p>The complete HTML document or fragment to render.</p>
+                            <p>A versioned source object. Use <code>{ "type": "html", "content": "..." }</code> for controlled HTML/CSS documents, or <code>markdown</code>, <code>template</code>, <code>url</code>, and <code>upload</code> for the matching source mode.</p>
                         </div>
 
                         <div class="code-block">
@@ -163,20 +168,71 @@
                                 <span>cURL</span>
                                 <button type="button" class="copy-button" data-copy-target="generate-code">Copy</button>
                             </div>
-                            <pre id="generate-code"><code class="language-bash">curl -X POST https://renderpdf.vberkoz.com/api/v1/render-html \
+                            <pre id="generate-code"><code class="language-bash">curl -X POST https://renderpdf.vberkoz.com/api/v1/render \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_API_KEY" \
-  -d '{"html":"&lt;main&gt;&lt;h1&gt;Invoice #1042&lt;/h1&gt;&lt;/main&gt;"}'</code></pre>
+  -d '{"version":"1","source":{"type":"html","content":"&lt;main&gt;&lt;h1&gt;Invoice #1042&lt;/h1&gt;&lt;/main&gt;"},"data":{}}'</code></pre>
                         </div>
+                    </section>
+
+                    <section class="doc-section endpoint-section" id="render-document">
+                        <div class="endpoint-heading">
+                            <div>
+                                <p class="eyebrow">05 / Structured input</p>
+                                <h2>Render an HTML/CSS JSON document</h2>
+                            </div>
+                            <div class="route"><span class="method">POST</span><code>/render</code></div>
+                        </div>
+                        <p class="section-copy">Send HTML structure, CSS, and dynamic values separately. The authenticated endpoint validates the versioned contract, escapes bound values, builds a complete HTML document, and returns the standard PDF response.</p>
+                        <div class="property-row"><code>version</code><span class="type">string</span><span class="required">required</span><p>Contract version. The only supported value is <code>"1"</code>.</p></div>
+                        <div class="property-row"><code>html</code><span class="type">string</span><span class="required">required unless source is supplied</span><p>A non-empty HTML fragment containing optional <code>{{path.to.value}}</code> bindings.</p></div>
+                        <div class="property-row"><code>source</code><span class="type">object</span><span class="optional">optional</span><p>Mutually exclusive with <code>html</code>. The Markdown shape is <code>{ type: "markdown", content: "..." }</code>; it is converted to HTML with raw HTML disabled.</p></div>
+                        <div class="property-row"><code>css</code><span class="type">string</span><span class="optional">optional</span><p>Document CSS supported by headless Chrome, subject to the restrictions below.</p></div>
+                        <div class="property-row"><code>data</code><span class="type">object</span><span class="required">required</span><p>Nested values for every binding. Missing values, unused leaves, and malformed bindings return <code>422</code>; inserted values are HTML-escaped.</p></div>
+                        <div class="property-row"><code>options</code><span class="type">object</span><span class="optional">optional</span><p><code>format</code> may be <code>A4</code>, <code>Letter</code>, or <code>Legal</code>. <code>margin</code> accepts <code>0–50mm</code> or <code>0–2in</code>. Defaults are <code>A4</code> and <code>18mm</code>.</p></div>
+                        <div class="code-block">
+                            <div class="code-header"><span>cURL</span><button type="button" class="copy-button" data-copy-target="render-document-code">Copy</button></div>
+                            <pre id="render-document-code"><code class="language-bash">curl -X POST https://renderpdf.vberkoz.com/api/v1/render \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -d '{
+    "version":"1",
+    "source":{"type":"html","content":"&lt;main&gt;&lt;h1&gt;{{report.title}}&lt;/h1&gt;&lt;p&gt;{{customer.name}}&lt;/p&gt;&lt;/main&gt;"},
+    "css":"body { font-family: Arial, sans-serif; } h1 { color: #123456; }",
+    "data":{"report":{"title":"Monthly report"},"customer":{"name":"Ada &amp; Sons"}},
+    "options":{"format":"A4","margin":"18mm"}
+  }'</code></pre>
+                        </div>
+                        <h3>CSS, limits, and security</h3>
+                        <p class="section-copy">Page size and margin are generated from <code>options</code>; <code>@page</code> in HTML or CSS is rejected. CSS <code>@import</code>, <code>url()</code>, unsafe legacy expressions, scripts, event-handler attributes, <code>iframe</code>, <code>embed</code>, <code>object</code>, <code>applet</code>, local files, and local or remote assets are rejected. JavaScript is disabled. Normal <code>http</code>, <code>https</code>, <code>mailto</code>, and <code>#anchor</code> links remain allowed.</p>
+                        <div class="limits-grid">
+                            <div><span>Request / final input</span><strong>1 MiB</strong></div>
+                            <div><span>HTML / CSS</span><strong>768 / 128 KiB</strong></div>
+                            <div><span>Data</span><strong>256 KiB / 10 levels</strong></div>
+                        </div>
+                        <p class="section-footnote">Optional <code>webhookUrl</code> and <code>webhookSecret</code> fields use the same signed <code>pdf.completed</code> delivery flow as other authenticated render endpoints.</p>
+                    </section>
+
+                    <section class="doc-section endpoint-section" id="markdown">
+                        <div class="endpoint-heading">
+                            <div><p class="eyebrow">06 / Source variant</p><h2>Render Markdown</h2></div>
+                            <div class="route"><span class="method">POST</span><code>/render</code></div>
+                        </div>
+                        <p class="section-copy">Use CommonMark-compatible Markdown when document structure is text-first. Bindings are resolved before conversion, then treated as plain text; raw HTML is disabled.</p>
+                        <div class="code-block"><div class="code-header"><span>cURL</span><button type="button" class="copy-button" data-copy-target="markdown-code">Copy</button></div><pre id="markdown-code"><code class="language-bash">curl -X POST https://renderpdf.vberkoz.com/api/v1/render \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -d '{"version":"1","source":{"type":"markdown","content":"# {{report.title}}\\n\\n{{report.summary}}"},"css":"body { font-family: Arial, sans-serif; }","data":{"report":{"title":"Monthly report","summary":"Ready for review."}},"options":{"format":"A4","margin":"18mm"}}'</code></pre></div>
+                        <p class="section-footnote">Tables, strikethrough, and task lists are supported. Markdown is limited to 768 KiB; the same CSS, binding, page-option, and private-PDF rules apply.</p>
                     </section>
 
                     <section class="doc-section endpoint-section" id="render-url">
                         <div class="endpoint-heading">
                             <div>
-                                <p class="eyebrow">05 / Endpoint</p>
+                                <p class="eyebrow">06 / Endpoint</p>
                                 <h2>Render a URL</h2>
                             </div>
-                            <div class="route"><span class="method">POST</span><code>/render-url</code></div>
+                            <div class="route"><span class="method">POST</span><code>/render</code></div>
                         </div>
                         <p class="section-copy">Navigates Chromium to a public webpage before printing it. This preserves the page's original URL context, so relative images, stylesheets, fonts, and scripts can load.</p>
                         <div class="property-row">
@@ -187,10 +243,10 @@
                         </div>
                         <div class="code-block">
                             <div class="code-header"><span>cURL</span><button type="button" class="copy-button" data-copy-target="render-url-code">Copy</button></div>
-                            <pre id="render-url-code"><code class="language-bash">curl -X POST https://renderpdf.vberkoz.com/api/v1/render-url \
+                            <pre id="render-url-code"><code class="language-bash">curl -X POST https://renderpdf.vberkoz.com/api/v1/render \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_API_KEY" \
-  -d '{"url":"https://example.com/invoice"}'</code></pre>
+  -d '{"version":"1","source":{"type":"url","url":"https://example.com/invoice"}}'</code></pre>
                         </div>
                         <div class="callout">
                             <span class="callout-mark" aria-hidden="true">i</span>
@@ -201,27 +257,27 @@
                     <section class="doc-section endpoint-section" id="render-upload">
                         <div class="endpoint-heading">
                             <div>
-                                <p class="eyebrow">06 / Package workflow</p>
+                                <p class="eyebrow">07 / Package workflow</p>
                                 <h2>Render a local HTML package</h2>
                             </div>
-                            <div class="route"><span class="method">POST</span><code>/render-upload</code></div>
+                            <div class="route"><span class="method">POST</span><code>/render</code></div>
                         </div>
                         <p class="section-copy">Use this authenticated two-step workflow when a document has local CSS, images, fonts, or JavaScript. ZIP files must use relative paths, contain <code>index.html</code> by default, and are limited to 25 MB compressed, 50 MB extracted, and 500 files. Packages are private, expire after one day, and cannot load network resources while rendering.</p>
                         <div class="code-block">
                             <div class="code-header"><span>cURL</span><button type="button" class="copy-button" data-copy-target="render-upload-code">Copy</button></div>
-                            <pre id="render-upload-code"><code class="language-bash">upload=$(curl -s -X POST https://renderpdf.vberkoz.com/api/v1/uploads \
+                            <pre id="render-upload-code"><code class="language-bash">upload=$(curl -s -X POST https://renderpdf.vberkoz.com/api/v1/files/upload \
   -H "Authorization: Bearer YOUR_API_KEY")
 curl -X PUT --upload-file invoice.zip "$(jq -r .uploadUrl &lt;&lt;&lt;"$upload")"
-curl -X POST https://renderpdf.vberkoz.com/api/v1/render-upload \
+curl -X POST https://renderpdf.vberkoz.com/api/v1/render \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_API_KEY" \
-  -d "{\"uploadId\":\"$(jq -r .uploadId &lt;&lt;&lt;"$upload")\"}"</code></pre>
+  -d "{\"version\":\"1\",\"source\":{\"type\":\"upload\",\"uploadId\":\"$(jq -r .uploadId &lt;&lt;&lt;"$upload")\"}}"</code></pre>
                         </div>
                     </section>
 
                     <section class="doc-section endpoint-section" id="templates">
                         <div class="endpoint-heading">
-                            <div><p class="eyebrow">07 / Templates</p><h2>Store HTML templates</h2></div>
+                            <div><p class="eyebrow">08 / Templates</p><h2>Store HTML templates</h2></div>
                             <div class="route"><span class="method">CRUD</span><code>/templates</code></div>
                         </div>
                         <p class="section-copy">Save reusable HTML once, then render it with only variable data. Templates belong to the API-key owner; another customer receives <code>404</code> for the same ID.</p>
@@ -241,24 +297,73 @@ curl -X POST https://renderpdf.vberkoz.com/api/v1/render-upload \
 
                     <section class="doc-section endpoint-section" id="render-template">
                         <div class="endpoint-heading">
-                            <div><p class="eyebrow">08 / Endpoint</p><h2>Render a stored template</h2></div>
-                            <div class="route"><span class="method">POST</span><code>/render-template</code></div>
+                            <div><p class="eyebrow">09 / Endpoint</p><h2>Render a stored template</h2></div>
+                            <div class="route"><span class="method">POST</span><code>/render</code></div>
                         </div>
                         <p class="section-copy">Resolve a customer-owned template with nested variables, then receive the normal PDF response.</p>
                         <div class="property-row"><code>templateId</code><span class="type">string</span><span class="required">required</span><p>The ID returned by <code>POST /templates</code>.</p></div>
                         <div class="property-row"><code>variables</code><span class="type">object</span><span class="required">required</span><p>Nested values matching every <code>{{path.to.value}}</code> placeholder. Missing or additional leaves return <code>422</code>.</p></div>
-                        <div class="code-block"><div class="code-header"><span>cURL</span><button type="button" class="copy-button" data-copy-target="template-render-code">Copy</button></div><pre id="template-render-code"><code class="language-bash">curl -X POST https://renderpdf.vberkoz.com/api/v1/render-template \
+                        <div class="code-block"><div class="code-header"><span>cURL</span><button type="button" class="copy-button" data-copy-target="template-render-code">Copy</button></div><pre id="template-render-code"><code class="language-bash">curl -X POST https://renderpdf.vberkoz.com/api/v1/render \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_API_KEY" \
-  -d '{"templateId":"TEMPLATE_ID","variables":{"invoice":{"number":"INV-1042"},"customer":{"name":"Ada &amp; Sons"}}}'</code></pre></div>
-                        <h3>Migration from <code>/render-html</code></h3>
+  -d '{"version":"1","source":{"type":"template","templateId":"TEMPLATE_ID","variables":{"invoice":{"number":"INV-1042"},"customer":{"name":"Ada &amp; Sons"}}}}'</code></pre></div>
+                        <h3>HTML source example</h3>
                         <ol class="section-copy"><li>Move stable HTML into <code>POST /templates</code>.</li><li>Replace dynamic text with <code>{{path.to.value}}</code>.</li><li>Save the returned template ID in application configuration.</li><li>Send <code>templateId</code> and <code>variables</code> instead of full HTML.</li><li>Handle <code>422</code> by adding missing values or removing extras.</li></ol>
                         <p class="section-footnote">Invoice, Contract, Certificate, and Receipt starter schemas are returned by <code>GET /templates</code>.</p>
                     </section>
 
+                    <section class="doc-section endpoint-section" id="sources">
+                        <div class="endpoint-heading">
+                            <div><p class="eyebrow">10 / Persistence</p><h2>Saved sources</h2></div>
+                            <div class="route"><span class="method">CRUD</span><code>/sources</code></div>
+                        </div>
+                        <p class="section-copy">Save reusable HTML/CSS JSON or Markdown definitions privately, then render them later with per-request data. Source definitions are never returned in list or metadata responses.</p>
+                        <div class="property-row"><code>POST /sources</code><span class="required">API key</span><p>Create <code>{ name, definition }</code>, where <code>definition</code> is a version-1 HTML or Markdown render request without webhook settings.</p></div>
+                        <div class="property-row"><code>GET /sources</code><span class="required">API key</span><p>List owned source metadata. Use <code>GET</code>, <code>PUT</code>, or <code>DELETE /sources/{id}</code> for one source.</p></div>
+                        <div class="code-block"><pre><code class="language-json">{
+  "version": "1",
+  "source": { "type": "stored", "id": "src_..." },
+  "data": { "customer": { "name": "Ada" } }
+}</code></pre></div>
+                        <p class="section-footnote">Render this payload through <code>POST /render</code>. Sources are limited to 100 definitions and 25 MiB total per account.</p>
+                    </section>
+
+                    <section class="doc-section endpoint-section" id="files">
+                        <div class="endpoint-heading">
+                            <div><p class="eyebrow">11 / Storage</p><h2>Files and private downloads</h2></div>
+                            <div class="route"><span class="method">GET</span><code>/files</code></div>
+                        </div>
+                        <p class="section-copy">Uploaded packages, rendered PDFs, and batch ZIPs remain private. File routes authorize every record by API-key owner and issue short-lived signed URLs instead of public object links.</p>
+                        <div class="property-row"><code>POST /files/upload</code><span class="required">API key</span><p>Issue a 15-minute ZIP upload URL. Packages are limited to 25 MiB compressed, 50 MiB extracted, and 500 files.</p></div>
+                        <div class="property-row"><code>GET /files/{id}/download</code><span class="required">API key</span><p>Issue a 15-minute signed download URL for an owned file.</p></div>
+                        <div class="property-row"><code>DELETE /files/{id}</code><span class="required">API key</span><p>Delete owned metadata and its private object. PDFs retain for up to 30 days; uploads retain for one day.</p></div>
+                    </section>
+
+                    <section class="doc-section endpoint-section" id="batches">
+                        <div class="endpoint-heading">
+                            <div><p class="eyebrow">12 / Asynchronous work</p><h2>Batch rendering</h2></div>
+                            <div class="route"><span class="method">POST</span><code>/batches</code></div>
+                        </div>
+                        <p class="section-copy">Submit up to 99 PDFs in one job. A durable DynamoDB outbox dispatches each item to SQS; retries are at-least-once, while conditional worker claims prevent duplicate PDFs.</p>
+                        <div class="code-block"><pre><code class="language-json">{
+  "version": "1",
+  "source": { "type": "stored", "id": "src_..." },
+  "items": [
+    { "data": { "customer": { "name": "Ada" } } },
+    { "data": { "customer": { "name": "Grace" } } }
+  ],
+  "options": { "webhookUrl": "https://example.com/hooks/render" }
+}</code></pre></div>
+                        <div class="property-row"><code>GET /batches/{id}</code><span class="required">API key</span><p>Read job state, totals, progress, and timestamps.</p></div>
+                        <div class="property-row"><code>GET /batches/{id}/items</code><span class="required">API key</span><p>List item status and output file IDs.</p></div>
+                        <div class="property-row"><code>POST /batches/{id}/cancel</code><span class="required">API key</span><p>Cancel pending items; active work completes safely.</p></div>
+                        <div class="property-row"><code>GET /batches/{id}/download</code><span class="required">API key</span><p>Create or reuse a private ZIP of completed PDFs, up to 100 MiB.</p></div>
+                        <p class="section-footnote">A job-level webhook emits one terminal <code>batch.completed</code> or <code>batch.failed</code> event. Permanently failing worker items are reconciled through the batch dead-letter queue.</p>
+                    </section>
+
                     <section class="doc-section" id="webhooks">
                         <div class="section-heading">
-                            <p class="eyebrow">09 / Async delivery</p>
+                            <p class="eyebrow">10 / Async delivery</p>
                             <h2>Webhooks</h2>
                             <p>Add <code>webhookUrl</code> to an authenticated render request to receive a <code>pdf.completed</code> event after the PDF is stored. Only public HTTPS endpoints on port 443 are accepted. For a quick test, create a unique endpoint at <a href="https://webhook.site/">Webhook.site</a>.</p>
                         </div>
@@ -280,20 +385,20 @@ curl -X POST https://renderpdf.vberkoz.com/api/v1/render-upload \
 
                     <section class="doc-section" id="examples">
                         <div class="section-heading">
-                            <p class="eyebrow">10 / Examples</p>
+                            <p class="eyebrow">11 / Examples</p>
                             <h2>Language examples</h2>
                             <p>These are direct HTTP examples, not official SDKs. Set <code>RENDERPDF_API_KEY</code> in your server environment before running one. Each example prints the PDF URL on success and reports the API error message for a non-2xx response.</p>
                         </div>
 
                         <div class="code-block">
                             <div class="code-header"><span>Node.js 18+</span><button type="button" class="copy-button" data-copy-target="node-example-code">Copy</button></div>
-                            <pre id="node-example-code"><code class="language-javascript">const response = await fetch("https://renderpdf.vberkoz.com/api/v1/render-html", {
+                            <pre id="node-example-code"><code class="language-javascript">const response = await fetch("https://renderpdf.vberkoz.com/api/v1/render", {
   method: "POST",
   headers: {
     "Content-Type": "application/json",
     "Authorization": `Bearer ${process.env.RENDERPDF_API_KEY}`
   },
-  body: JSON.stringify({ html: "&lt;h1&gt;Hello World&lt;/h1&gt;" })
+  body: JSON.stringify({ version: "1", source: { type: "html", content: "&lt;h1&gt;Hello World&lt;/h1&gt;" }, data: {} })
 });
 
 const payload = await response.json().catch(() =&gt; ({}));
@@ -310,9 +415,9 @@ console.log(payload.url);</code></pre>
 import requests
 
 response = requests.post(
-    "https://renderpdf.vberkoz.com/api/v1/render-html",
+    "https://renderpdf.vberkoz.com/api/v1/render",
     headers={"Authorization": f"Bearer {os.environ['RENDERPDF_API_KEY']}"},
-    json={"html": "&lt;h1&gt;Hello World&lt;/h1&gt;"},
+    json={"version": "1", "source": {"type": "html", "content": "&lt;h1&gt;Hello World&lt;/h1&gt;"}, "data": {}},
 )
 
 try:
@@ -344,8 +449,8 @@ type apiResponse struct {
 }
 
 func main() {
-    body, _ := json.Marshal(map[string]string{"html": "&lt;h1&gt;Hello World&lt;/h1&gt;"})
-    request, err := http.NewRequest(http.MethodPost, "https://renderpdf.vberkoz.com/api/v1/render-html", bytes.NewReader(body))
+    body, _ := json.Marshal(map[string]any{"version": "1", "source": map[string]string{"type": "html", "content": "&lt;h1&gt;Hello World&lt;/h1&gt;"}, "data": map[string]string{}})
+    request, err := http.NewRequest(http.MethodPost, "https://renderpdf.vberkoz.com/api/v1/render", bytes.NewReader(body))
     if err != nil { log.Fatal(err) }
     request.Header.Set("Content-Type", "application/json")
     request.Header.Set("Authorization", "Bearer "+os.Getenv("RENDERPDF_API_KEY"))
@@ -370,9 +475,9 @@ func main() {
 using System.Text.Json;
 
 using var client = new HttpClient();
-using var request = new HttpRequestMessage(HttpMethod.Post, "https://renderpdf.vberkoz.com/api/v1/render-html")
+using var request = new HttpRequestMessage(HttpMethod.Post, "https://renderpdf.vberkoz.com/api/v1/render")
 {
-    Content = JsonContent.Create(new { html = "&lt;h1&gt;Hello World&lt;/h1&gt;" })
+    Content = JsonContent.Create(new { version = "1", source = new { type = "html", content = "&lt;h1&gt;Hello World&lt;/h1&gt;" }, data = new { } })
 };
 request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", Environment.GetEnvironmentVariable("RENDERPDF_API_KEY"));
 
@@ -400,10 +505,10 @@ import java.net.http.HttpResponse;
 
 public class RenderPdf {
     public static void main(String[] args) throws Exception {
-        var request = HttpRequest.newBuilder(URI.create("https://renderpdf.vberkoz.com/api/v1/render-html"))
+        var request = HttpRequest.newBuilder(URI.create("https://renderpdf.vberkoz.com/api/v1/render"))
             .header("Content-Type", "application/json")
             .header("Authorization", "Bearer " + System.getenv("RENDERPDF_API_KEY"))
-            .POST(HttpRequest.BodyPublishers.ofString("{\"html\":\"&lt;h1&gt;Hello World&lt;/h1&gt;\"}"))
+            .POST(HttpRequest.BodyPublishers.ofString("{\"version\":\"1\",\"source\":{\"type\":\"html\",\"content\":\"&lt;h1&gt;Hello World&lt;/h1&gt;\"},\"data\":{}}"))
             .build();
 
         var response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
@@ -420,10 +525,10 @@ public class RenderPdf {
                     <section class="doc-section endpoint-section" id="trial">
                         <div class="endpoint-heading">
                             <div>
-                                <p class="eyebrow">11 / Endpoint</p>
+                                <p class="eyebrow">12 / Endpoint</p>
                                 <h2>Anonymous trial</h2>
                             </div>
-                            <div class="route"><span class="method">POST</span><code>/trial/render-html</code></div>
+                            <div class="route"><span class="method">POST</span><code>/trial/render</code></div>
                         </div>
                         <p class="section-copy">Uses the same renderer without an API key. Trial requests are rate-limited by a privacy-preserving hash of the viewer IP.</p>
                         <div class="limits-grid">
@@ -450,14 +555,14 @@ public class RenderPdf {
 
                     <section class="doc-section" id="response">
                         <div class="section-heading">
-                            <p class="eyebrow">12 / Output</p>
+                            <p class="eyebrow">13 / Output</p>
                             <h2>Response</h2>
                             <p>Successful generate requests return HTTP <code>200</code> and a JSON object describing the stored PDF.</p>
                         </div>
                         <div class="response-grid">
                             <div class="headers-list">
                                 <div><code>requestId</code><span>Unique identifier for this render.</span></div>
-                                <div><code>url</code><span>Public S3 download URL for the PDF.</span></div>
+                                <div><code>url</code><span>15-minute signed private download URL for the PDF.</span></div>
                                 <div><code>size</code><span>Generated file size in bytes.</span></div>
                             </div>
                             <div class="code-block">
@@ -474,7 +579,7 @@ public class RenderPdf {
 
                     <section class="doc-section" id="errors">
                         <div class="section-heading">
-                            <p class="eyebrow">13 / Failures</p>
+                            <p class="eyebrow">14 / Failures</p>
                             <h2>Errors</h2>
                             <p>Error responses are JSON and always include a human-readable <code>error</code> message plus a stable <code>code</code> for programmatic handling. When a request reaches the API service, it also includes <code>requestId</code>; retain it when contacting support.</p>
                         </div>
@@ -489,10 +594,15 @@ public class RenderPdf {
                         <div class="error-table" role="table" aria-label="API errors">
                             <div class="table-row table-head" role="row"><span>Status</span><span>Code</span><span>Meaning</span></div>
                             <div class="table-row" role="row"><code>400</code><code>invalid_request</code><span>Invalid JSON, missing HTML, an empty document, or an invalid render URL.</span></div>
+                            <div class="table-row" role="row"><code>400</code><code>document_request_invalid</code><span>Malformed document JSON, wrong field types, trailing JSON, or unknown fields.</span></div>
                             <div class="table-row" role="row"><code>401</code><code>authentication_required</code><span>Authentication is required for the requested route.</span></div>
                             <div class="table-row" role="row"><code>403</code><span>—</span><span>Missing, invalid, or inactive API key; this response is produced by API Gateway before the request reaches the service.</span></div>
                             <div class="table-row" role="row"><code>404</code><code>not_found</code><span>The requested endpoint is unavailable or does not exist in this deployment mode.</span></div>
                             <div class="table-row" role="row"><code>413</code><code>payload_too_large</code><span>Trial HTML exceeds the 1 MB limit.</span></div>
+                            <div class="table-row" role="row"><code>413</code><code>document_*_too_large</code><span>Document request, HTML, CSS, data, or compiled renderer input exceeds its documented limit.</span></div>
+                            <div class="table-row" role="row"><code>422</code><code>document_binding_*</code><span>A document binding is missing, unused, or malformed.</span></div>
+                            <div class="table-row" role="row"><code>422</code><code>document_format_invalid / document_margin_invalid</code><span>Paper format or margin is unsupported.</span></div>
+                            <div class="table-row" role="row"><code>422</code><code>document_*_unsafe / document_asset_disallowed / document_page_settings_disallowed</code><span>Document HTML, CSS, URL, asset, or page settings violate the security policy.</span></div>
                             <div class="table-row" role="row"><code>422</code><code>image_loading_failed</code><span>An image resource could not be loaded while rendering.</span></div>
                             <div class="table-row" role="row"><code>422</code><code>css_parsing_error</code><span>Chromium reported a CSS parsing error.</span></div>
                             <div class="table-row" role="row"><code>422</code><code>javascript_exception</code><span>The page raised an uncaught JavaScript exception.</span></div>
@@ -517,7 +627,7 @@ public class RenderPdf {
 
                     <section class="doc-section" id="api-keys">
                         <div class="section-heading">
-                            <p class="eyebrow">14 / Management</p>
+                            <p class="eyebrow">15 / Management</p>
                             <h2>API keys</h2>
                             <p>Authenticated dashboard users can create, list, and revoke keys through the management API.</p>
                         </div>
