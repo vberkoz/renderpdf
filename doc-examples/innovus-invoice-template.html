@@ -4,52 +4,6 @@
   <meta charset="utf-8">
   <meta name="renderpdf:no-header-footer" content="true">
   <title>Invoice {{invoice.number}}</title>
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
-    @page { size: A4; margin: 0; }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      background: #f4f2e8;
-      color: #22231f;
-      font-family: "IBM Plex Sans", Arial, sans-serif;
-      font-size: 10pt;
-      line-height: 1.35;
-    }
-    .page { min-height: 297mm; padding: 18mm 18mm 14mm; }
-    .top, .company-row, .invoice-meta, .address-row, .summary-row, .bottom-row {
-      display: flex;
-      justify-content: space-between;
-      gap: 24px;
-    }
-    .top { align-items: flex-start; margin-bottom: 22mm; }
-    .brand { font-size: 31px; font-weight: 800; letter-spacing: -1.5px; line-height: 1; }
-    .invoice-title { color: #f10e0e; font-size: 29px; font-weight: 800; }
-    .company-row { margin-bottom: 6mm; }
-    .company-row > div, .address-row > div { width: 50%; }
-    .label, th { font-family: "IBM Plex Mono", "Courier New", monospace; font-size: .78em; font-weight: 700; }
-    .rule { border-top: 2px solid #3e3e36; margin: 6mm 0 3mm; }
-    .invoice-meta > div { width: 25%; }
-    .invoice-meta p, .address-row p, .summary-row p, .bottom-row p { margin: 5px 0 0; }
-    .address-row { min-height: 29mm; }
-    table { width: 100%; border-collapse: collapse; margin-top: 5mm; }
-    th, td { border-top: 1px solid #4a4a40; padding: 5px 0; text-align: left; }
-    th:nth-child(n+3), td:nth-child(n+3) { text-align: right; }
-    th:nth-child(1), td:nth-child(1) { width: 28px; }
-    th:nth-child(2), td:nth-child(2) { width: 49%; }
-    .summary-row { align-items: flex-start; }
-    .payment-method { width: 23%; }
-    .in-words { width: 42%; }
-    .totals { width: 25%; }
-    .total-line { display: flex; justify-content: space-between; border-top: 1px solid #4a4a40; padding: 6px 0; }
-    .total-line:last-child { border-bottom: 2px solid #3e3e36; }
-    .bottom-row { min-height: 42mm; align-items: flex-end; }
-    .bottom-row > div { width: 25%; }
-    .payment-info { border-top: 2px solid #3e3e36; padding-top: 10px; width: 57%; }
-    .payment-info dl { margin: 5px 0 0; display: grid; grid-template-columns: 78px 1fr; }
-    .payment-info dt { font-weight: 700; }
-    .payment-info dd { margin: 0; }
-  </style>
 </head>
 <body>
   <main class="page">

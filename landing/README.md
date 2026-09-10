@@ -8,18 +8,15 @@
 ## Entrypoints
 
 - `/Users/basilsergius/projects/renderpdf/landing/index.html`
-- `/Users/basilsergius/projects/renderpdf/landing/style.css`
 
 ## Safe To Edit
 
 - `/Users/basilsergius/projects/renderpdf/landing/index.html`
-- `/Users/basilsergius/projects/renderpdf/landing/style.css`
 
 ## Treat Carefully
 
 - `/Users/basilsergius/projects/renderpdf/landing/index.html`
   - Contains the live API URL and in-page fetch behavior.
-  - Includes external analytics script.
 - `/Users/basilsergius/projects/renderpdf/landing/docs/api/index.html`
   - Public API docs page served from the same CloudFront distribution.
 

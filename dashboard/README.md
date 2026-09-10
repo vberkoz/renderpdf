@@ -12,7 +12,6 @@
 - `/Users/basilsergius/projects/renderpdf/dashboard/callback.html`
 - `/Users/basilsergius/projects/renderpdf/dashboard/index.html`
 - `/Users/basilsergius/projects/renderpdf/dashboard/app.js`
-- `/Users/basilsergius/projects/renderpdf/dashboard/style.css`
 - `/Users/basilsergius/projects/renderpdf/dashboard/stats/index.html`
 
 ## Safe To Edit

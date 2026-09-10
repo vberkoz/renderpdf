@@ -9,27 +9,29 @@
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/app/stats/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="/style.css" rel="stylesheet">
+
 </head>
 <body>
-    <main>
-        <header>
+    <a class="skip-link" href="#main-content">Skip to main content</a>
+    <div><header class="stats-topbar">
             <a class="stats-brand" href="/" aria-label="RenderPDF home">RenderPDF</a>
             <div class="stats-header-actions">
                 <p aria-live="polite">
                     <span id="refreshStatus" data-state="pending">Checking access...</span>
                 </p>
-                <nav class="stats-nav" aria-label="Primary navigation">
+                <nav id="stats-primary-navigation" class="stats-nav" data-carbon-header-nav aria-label="Primary navigation">
                     <a href="/">Home</a>
                     <a href="/app/">Dashboard</a>
                     <a href="/docs/api/">API docs</a>
-                    <button id="logoutBtn" type="button"><i data-lucide="log-out" aria-hidden="true"></i>Sign out</button>
+                    <button id="logoutBtn" type="button">Sign out</button>
                 </nav>
             </div>
-        </header>
+    </header></div>
+    <main id="main-content" tabindex="-1">
 
-        <section aria-labelledby="stats-title">
+        <section id="stats-content" aria-labelledby="stats-title" tabindex="-1">
             <p>Service telemetry</p>
             <h1 id="stats-title">RenderPDF statistics</h1>
             <p>Live PDF request volume, renderer performance, and API availability.</p>
@@ -97,7 +99,7 @@
                 <h2>API heartbeat</h2>
                 <p id="apiBadge" data-state="pending">Pending</p>
                 <dl>
-                    <div><dt>Endpoint</dt><dd><code>/api/v1/</code></dd></div>
+                    <div><dt>Endpoint</dt><dd><pre><code>/api/v1/</code></pre></dd></div>
                     <div><dt>Version</dt><dd id="apiVersion">Checking...</dd></div>
                     <div><dt>Response time</dt><dd id="responseTime">Checking...</dd></div>
                 </dl>
@@ -126,9 +128,9 @@
         </footer>
     </main>
 
-    <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.js"></script>
+
+
     <script>
-        window.lucide?.createIcons({ attrs: { 'aria-hidden': 'true' } });
         const refreshStatus = document.getElementById('refreshStatus');
         const apiBadge = document.getElementById('apiBadge');
         const apiVersion = document.getElementById('apiVersion');

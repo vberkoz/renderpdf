@@ -17,7 +17,7 @@ Common modification recipes for AI agents working in this repository.
 - `/Users/basilsergius/projects/renderpdf/auth/**`
 - `/Users/basilsergius/projects/renderpdf/dashboard/**`
 - `/Users/basilsergius/projects/renderpdf/landing/**`
-- `/Users/basilsergius/projects/renderpdf/api/renderpdf`
+- local generated API binary (`api/renderpdf`)
 
 ### Validation Steps
 
@@ -43,7 +43,7 @@ cd /Users/basilsergius/projects/renderpdf && ./scripts/verify-deployed-api.sh
 
 - Adding route logic in a second Go entrypoint instead of `api/main.go`
 - Forgetting the matching API Gateway or Lambda wiring in `infra/cloudformation.yaml`
-- Editing `api/renderpdf` instead of source files
+- Editing a local generated API binary instead of source files
 - Changing the JSON response shape without updating consumers
 
 ## Change Auth Logic In `auth/`
@@ -62,8 +62,7 @@ cd /Users/basilsergius/projects/renderpdf && ./scripts/verify-deployed-api.sh
 ### Files Usually Not Touched
 
 - `/Users/basilsergius/projects/renderpdf/landing/**`
-- `/Users/basilsergius/projects/renderpdf/auth/authorizer`
-- `/Users/basilsergius/projects/renderpdf/auth/api-keys`
+- local generated auth binaries (`auth/authorizer` and `auth/api-keys`)
 
 ### Validation Steps
 
@@ -89,7 +88,7 @@ Manual follow-up:
 - Breaking build tags by mixing authorizer and API-key code paths
 - Changing DynamoDB key assumptions without updating `infra/cloudformation.yaml`
 - Claiming automated auth E2E coverage exists when it does not
-- Editing the checked-in binaries instead of `authorizer.go` or `api-keys.go`
+- Editing local generated binaries instead of `authorizer.go` or `api-keys.go`
 
 ## Update Dashboard UI
 
@@ -99,7 +98,6 @@ Manual follow-up:
 - `/Users/basilsergius/projects/renderpdf/dashboard/login.html`
 - `/Users/basilsergius/projects/renderpdf/dashboard/callback.html`
 - `/Users/basilsergius/projects/renderpdf/dashboard/app.js`
-- `/Users/basilsergius/projects/renderpdf/dashboard/style.css`
 
 ### Files Usually Not Touched
 
@@ -139,7 +137,6 @@ cd /Users/basilsergius/projects/renderpdf && ./scripts/deploy.sh
 ### Files Usually Touched
 
 - `/Users/basilsergius/projects/renderpdf/landing/index.html`
-- `/Users/basilsergius/projects/renderpdf/landing/style.css`
 
 ### Files Usually Not Touched
 
@@ -153,7 +150,6 @@ Static review:
 
 ```bash
 cd /Users/basilsergius/projects/renderpdf && sed -n '1,220p' landing/index.html
-cd /Users/basilsergius/projects/renderpdf && sed -n '1,220p' landing/style.css
 ```
 
 Deployment-backed verification if needed:
@@ -164,7 +160,7 @@ cd /Users/basilsergius/projects/renderpdf && ./scripts/deploy-landing.sh
 
 ### Rollback Considerations
 
-- Revert markup and CSS together if the style changes depend on new structure.
+- Revert markup changes together if they affect the live demo behavior.
 - If copy changes also touched the live API demo behavior, revert the script section in `landing/index.html` too.
 
 ### Common Mistakes
@@ -186,7 +182,7 @@ cd /Users/basilsergius/projects/renderpdf && ./scripts/deploy-landing.sh
 
 - `/Users/basilsergius/projects/renderpdf/cloudformation.yaml` directly
 - `/Users/basilsergius/projects/renderpdf/parameters.json` unless the task explicitly requires environment-local config changes
-- checked-in binaries
+- generated local binaries
 
 ### Validation Steps
 

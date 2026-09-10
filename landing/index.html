@@ -8,62 +8,60 @@
     <link rel="icon" href="favicon.svg" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
-    <script data-project="renderpdf" data-source="landing" src="https://analytics.vberkoz.com/track.js" defer></script>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="/style.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css" rel="stylesheet">
+
+
 </head>
 <body>
+    <a class="skip-link" href="#main-content">Skip to main content</a>
     <div class="shell">
+        <div>
         <header class="topbar">
             <a class="brand" href="/" aria-label="RenderPDF home">
                 <span class="brand-mark" aria-hidden="true"></span>
-                RenderPDF
+                <span>RenderPDF</span>
             </a>
-            <nav class="topnav" aria-label="Primary navigation">
+            <nav id="landing-primary-navigation" class="topnav" data-carbon-header-nav aria-label="Primary navigation">
                 <a href="#pricing">Pricing</a>
                 <a href="/docs/api/">API docs</a>
                 <a href="/app/">Dashboard</a>
                 <a href="https://github.com/vberkoz/renderpdf">GitHub</a>
             </nav>
         </header>
+        </div>
 
-        <main>
+        <main id="main-content" tabindex="-1">
             <section class="hero" aria-labelledby="hero-title">
                 <div class="hero-copy">
                     <p class="eyebrow">HTML-to-PDF API for product teams</p>
                     <h1 id="hero-title">Turn your HTML into PDFs your customers can use.</h1>
                     <p class="lead">Render invoices, agreements, reports, and certificates without operating Chrome or PDF infrastructure. One API handles print CSS, secure storage, and delivery.</p>
 
-                    <div class="hero-actions">
-                        <a class="button button-primary" href="#playground"><i data-lucide="play" aria-hidden="true"></i>Open the playground</a>
-                        <a class="button button-secondary" href="/docs/api/"><i data-lucide="book-open" aria-hidden="true"></i>Read the docs</a>
+                    <div class="hero-actions" role="group" aria-label="Get started">
+                        <a class="button button-primary" href="#playground">Open the playground</a>
+                        <a class="button button-secondary" href="/docs/api/">Read the docs</a>
                     </div>
 
                 </div>
 
                 <aside class="hero-aside" aria-label="Trial API overview">
-                    <div class="request-card" aria-label="API request example">
-                        <div class="request-card-header">
-                            <span>POST</span>
-                            <code>/api/v1/trial/render</code>
-                        </div>
-                        <pre><code>curl -X POST https://renderpdf.vberkoz.com/api/v1/trial/render \
+                    <pre><code class="language-bash">curl -X POST https://renderpdf.vberkoz.com/api/v1/trial/render \
   -H "Content-Type: application/json" \
   -d '{"html":"&lt;h1&gt;Hello World&lt;/h1&gt;"}'</code></pre>
-                    </div>
                     <div class="hero-trial-card">
                         <p class="eyebrow">Try it before you integrate</p>
-                        <div class="hero-trial-items">
-                            <p><strong>3 free PDFs</strong><span>per public IP, each UTC day</span></p>
-                            <p><strong>Preview first</strong><span>make changes before you spend a render</span></p>
-                            <p><strong>No account</strong><span>needed for your first PDF</span></p>
-                        </div>
+                        <dl class="hero-trial-items">
+                            <div><dt>3 free PDFs</dt><dd>per public IP, each UTC day</dd></div>
+                            <div><dt>Preview first</dt><dd>make changes before you spend a render</dd></div>
+                            <div><dt>No account</dt><dd>needed for your first PDF</dd></div>
+                        </dl>
                     </div>
                 </aside>
 
                 <section class="playground" id="playground" aria-labelledby="playground-title">
-                    <div class="playground-header">
+                    <header class="playground-header">
                         <div>
                             <p class="eyebrow">Live playground</p>
                             <h2 id="playground-title">Edit the HTML. Preview it. Download the PDF.</h2>
@@ -72,7 +70,7 @@
                             <span id="quotaRemaining">3</span>
                             <span id="quotaLabel">free PDFs left today</span>
                         </p>
-                    </div>
+                    </header>
 
                     <p class="playground-copy">The preview updates in your browser as you type and never uses your trial quota. When it looks right, render the same HTML as a PDF—no account or API key required.</p>
 
@@ -80,7 +78,7 @@
                         <div class="playground-editor">
                             <div class="playground-input-wrap">
                                 <label class="field-label" for="htmlInput">HTML input</label>
-                                <textarea id="htmlInput" placeholder="Enter HTML content..." rows="11"><!doctype html>
+                                <textarea id="htmlInput" placeholder="Enter HTML content..." rows="11" aria-describedby="htmlInputHelp"><!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
@@ -336,19 +334,20 @@ Content-management handover and launch support</div></div></li>
   </main>
 </body>
 </html></textarea>
+                                <small id="htmlInputHelp" class="field-help">The preview stays in your browser. Trial renders accept up to 1 MB of HTML.</small>
                             </div>
                             <div class="playground-preview-wrap">
-                                <div class="preview-heading"><span class="field-label"><i data-lucide="file-text" aria-hidden="true"></i>Document preview</span><span><i data-lucide="monitor" aria-hidden="true"></i>Local only</span></div>
+                                <header class="preview-heading"><span class="field-label">Document preview</span><span>Local only</span></header>
                                 <iframe id="htmlPreview" class="html-preview" title="Local HTML document preview" sandbox="allow-scripts"></iframe>
                             </div>
                         </div>
                         <button type="submit" id="generateBtn" class="button button-primary generate-button">
-                            <i data-lucide="file-down" aria-hidden="true"></i><span id="generateBtnLabel">Render PDF</span>
+                            <span id="generateBtnLabel">Render PDF</span>
                         </button>
                     </form>
 
-                    <div id="result" class="notice notice-success hidden"></div>
-                    <div id="error" class="notice notice-error hidden"></div>
+                    <div id="result" class="notice notice-success hidden" role="status" aria-live="polite"></div>
+                    <div id="error" class="notice notice-error hidden" role="alert"></div>
                 </section>
             </section>
 
@@ -356,28 +355,28 @@ Content-management handover and launch support</div></div></li>
                 <article>
                     <span class="capability-index">01</span>
                     <div>
-                        <h2><i data-lucide="braces" aria-hidden="true"></i>REST API</h2>
+                        <h2>REST API</h2>
                         <p>Start with HTML, then support public URLs and uploaded document packages when your workflow needs them.</p>
                     </div>
                 </article>
                 <article>
                     <span class="capability-index">02</span>
                     <div>
-                        <h2><i data-lucide="cloud" aria-hidden="true"></i>AWS-powered</h2>
+                        <h2>AWS-powered</h2>
                         <p>Run rendering without managing browser workers, PDF files, or scaling infrastructure.</p>
                     </div>
                 </article>
                 <article>
                     <span class="capability-index">03</span>
                     <div>
-                        <h2><i data-lucide="gift" aria-hidden="true"></i>Free tier</h2>
+                        <h2>Free tier</h2>
                         <p>Test three PDFs a day without signing up. Create an account for 25 PDFs every month and API access.</p>
                     </div>
                 </article>
                 <article>
                     <span class="capability-index">04</span>
                     <div>
-                        <h2><i data-lucide="monitor-cog" aria-hidden="true"></i>Browser-grade rendering</h2>
+                        <h2>Browser-grade rendering</h2>
                         <p>Use modern HTML and CSS, then render with Chromium for documents that match your web output.</p>
                     </div>
                 </article>
@@ -424,22 +423,25 @@ Content-management handover and launch support</div></div></li>
 
         <footer class="footer">
             <p>RenderPDF / Built for developers shipping documents.</p>
-            <div>
+            <nav aria-label="Footer navigation">
                 <a href="/docs/api/">Documentation</a>
                 <a href="/app/">API keys</a>
                 <a href="https://vberkoz.com/">vberkoz.com</a>
-            </div>
+            </nav>
         </footer>
     </div>
 
-    <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.js"></script>
+
+
+
+    <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.11.1/build/highlight.min.js"></script>
+    <script>if (window.hljs) window.hljs.highlightAll();</script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/xml/xml.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/javascript/javascript.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/css/css.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/htmlmixed/htmlmixed.min.js"></script>
     <script>
-        window.lucide?.createIcons({ attrs: { 'aria-hidden': 'true' } });
         // A page opened directly from disk has no HTTP origin, so use the
         // deployed API rather than resolving endpoints to file:///api/...
         const API_ORIGIN = window.location.protocol === 'file:'
@@ -452,13 +454,20 @@ Content-management handover and launch support</div></div></li>
         const result = document.getElementById('result');
         const error = document.getElementById('error');
         const htmlInput = document.getElementById('htmlInput');
-        const htmlEditor = window.CodeMirror?.fromTextArea(htmlInput, {
-            mode: 'htmlmixed',
-            lineNumbers: true,
-            lineWrapping: true,
-            indentUnit: 2,
-            tabSize: 2
-        });
+        let htmlEditor = null;
+        if (window.CodeMirror) {
+            htmlEditor = window.CodeMirror.fromTextArea(htmlInput, {
+                mode: 'htmlmixed',
+                lineNumbers: true,
+                lineWrapping: false,
+                indentUnit: 2,
+                tabSize: 2
+            });
+            htmlEditor.on('change', () => {
+                htmlEditor.save();
+                htmlInput.dispatchEvent(new Event('input', { bubbles: true }));
+            });
+        }
         const playgroundHTML = () => htmlEditor ? htmlEditor.getValue() : htmlInput.value;
         const htmlPreview = document.getElementById('htmlPreview');
         const quotaStatus = document.getElementById('quotaStatus');
@@ -488,39 +497,27 @@ Content-management handover and launch support</div></div></li>
 
         loadQuota();
 
-        const pagedPreviewHead = `
-            <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data: https:; style-src 'unsafe-inline' https:; font-src data: https:; script-src 'unsafe-inline' https://unpkg.com; connect-src https:">
-            <style>
-                html, body { overflow-x: hidden !important; background: #eef1f3 !important; }
-                body { margin: 0 !important; padding: 0 !important; }
-                .a4-page { height: auto !important; min-height: 0 !important; width: auto !important; margin: 0 !important; overflow: visible !important; padding: 0 !important; zoom: 1 !important; }
-                .a4-page.pin-signatures { display: flex !important; flex-direction: column !important; min-height: 279mm !important; }
-                .a4-page.pin-signatures .signatures { margin-top: auto !important; }
-                .pagedjs_pages { box-sizing: border-box; display: grid; justify-content: center; gap: 18px; width: 100%; margin: 0 !important; padding: 0; }
-                .pagedjs_page { margin: 0 !important; box-shadow: 0 8px 24px rgba(23, 32, 42, .16); transform-origin: top center; }
-                .pagedjs_sheet { background: #fff; }
-            </style>
+        const previewHead = `
+            <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data: https:; style-src 'unsafe-inline' https:; font-src data: https:; script-src 'unsafe-inline'">
+            <style>html { overflow-x: hidden; overflow-y: auto; } body { margin: 0; transform-origin: top left; }</style>
             <script>
-                function fitPagedPreviewPages() {
-                    const pages = document.querySelector('.pagedjs_pages');
-                    const page = document.querySelector('.pagedjs_page');
-                    if (!pages || !page) return;
-                    pages.style.zoom = '1';
-                    pages.style.zoom = String(Math.min(1, pages.clientWidth / page.getBoundingClientRect().width));
+              function fitPreviewToWidth() {
+                document.body.style.zoom = '1';
+                const availableWidth = document.documentElement.clientWidth;
+                const documentWidth = Math.max(document.documentElement.scrollWidth, document.body.scrollWidth);
+                if (availableWidth && documentWidth > availableWidth) {
+                  document.body.style.zoom = String(Math.max(0.2, availableWidth / documentWidth));
                 }
-                window.PagedConfig = { auto: false };
-                window.addEventListener('load', () => {
-                    if (!window.PagedPolyfill) return;
-                    const render = window.PagedPolyfill.preview();
-                    if (render && typeof render.then === 'function') render.then(fitPagedPreviewPages);
-                    else requestAnimationFrame(fitPagedPreviewPages);
-                });
-                window.addEventListener('resize', fitPagedPreviewPages);
-            <\/script>
-            <script src="https://unpkg.com/pagedjs@0.4.3/dist/paged.polyfill.js"><\/script>`;
+              }
+              window.addEventListener('load', () => {
+                fitPreviewToWidth();
+                window.setTimeout(fitPreviewToWidth, 120);
+              });
+              window.addEventListener('resize', fitPreviewToWidth);
+            <\/script>`;
 
         const previewHTML = (html) => {
-            const fallback = '<main style="font-family:Arial,sans-serif;padding:24px;color:#586473">Start typing HTML to preview your document.</main>';
+            const fallback = '<main>Start typing HTML to preview your document.</main>';
             const documentPreview = new DOMParser().parseFromString(html.trim() || fallback, 'text/html');
             documentPreview.querySelectorAll('script, iframe, object, embed, base').forEach((element) => element.remove());
             documentPreview.querySelectorAll('*').forEach((element) => {
@@ -531,7 +528,7 @@ Content-management handover and launch support</div></div></li>
                     }
                 });
             });
-            documentPreview.head.insertAdjacentHTML('afterbegin', pagedPreviewHead);
+            documentPreview.head.insertAdjacentHTML('afterbegin', previewHead);
             htmlPreview.srcdoc = `<!doctype html>${documentPreview.documentElement.outerHTML}`;
         };
 
@@ -540,14 +537,7 @@ Content-management handover and launch support</div></div></li>
             cancelAnimationFrame(previewFrame);
             previewFrame = requestAnimationFrame(() => previewHTML(playgroundHTML()));
         };
-        if (htmlEditor) {
-            htmlEditor.on('change', () => {
-                htmlEditor.save();
-                schedulePreview();
-            });
-        } else {
-            htmlInput.addEventListener('input', schedulePreview);
-        }
+        htmlInput.addEventListener('input', schedulePreview);
         previewHTML(playgroundHTML());
 
         form.addEventListener('submit', async (event) => {
@@ -583,9 +573,8 @@ Content-management handover and launch support</div></div></li>
                         <strong>PDF ready</strong>
                         <span>${(data.size / 1024).toFixed(1)} KB</span>
                     </div>
-                    <a href="${data.url}" target="_blank" rel="noopener"><i data-lucide="download" aria-hidden="true"></i>Download PDF</a>
+                    <a href="${data.url}" target="_blank" rel="noopener">Download PDF</a>
                 `;
-                window.lucide?.createIcons({ attrs: { 'aria-hidden': 'true' } });
                 result.classList.remove('hidden');
             } catch (err) {
                 error.innerHTML = `<strong>Could not generate PDF</strong><span>${err.message}</span>`;

@@ -32,8 +32,13 @@ if [ -z "$WEBSITE_BUCKET" ]; then
   exit 1
 fi
 
-echo "Deploying landing page to S3 bucket: ${WEBSITE_BUCKET}"
+echo "Deploying landing page and shared assets to S3 bucket: ${WEBSITE_BUCKET}"
 aws s3 sync "${ROOT_DIR}/landing/" s3://${WEBSITE_BUCKET}/ \
+  --profile ${PROFILE} \
+  --cache-control "no-cache"
+
+echo "Deploying dashboard app..."
+aws s3 sync "${ROOT_DIR}/dashboard/" s3://${WEBSITE_BUCKET}/app/ \
   --profile ${PROFILE} \
   --cache-control "no-cache"
 
@@ -51,7 +56,7 @@ else
 fi
 
 echo ""
-echo "Landing page deployment complete!"
+echo "Landing page and dashboard deployment complete!"
 echo "URL: https://$(aws cloudformation describe-stacks \
   --stack-name ${STACK_NAME} \
   --region ${REGION} \

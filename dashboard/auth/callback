@@ -8,24 +8,24 @@
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="../style.css">
-    <script data-project="renderpdf" data-source="dashboard-legacy-callback" src="https://analytics.vberkoz.com/track.js" defer></script>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="/style.css" rel="stylesheet">
 </head>
 <body class="auth-page callback-page">
+    <a class="skip-link" href="#main-content">Skip to main content</a>
     <div class="auth-shell">
-        <header class="auth-topbar">
+        <div><header class="auth-topbar">
             <a class="auth-brand" href="/" aria-label="RenderPDF home">
                 <span class="auth-brand-mark" aria-hidden="true"></span>
                 RenderPDF
             </a>
-            <nav class="auth-nav" aria-label="Primary navigation">
+            <nav id="legacy-callback-primary-navigation" class="auth-nav" data-carbon-header-nav aria-label="Primary navigation">
                 <a href="/">Home</a>
                 <a href="/docs/api/">API docs</a>
             </nav>
-        </header>
+        </header></div>
 
-        <main class="auth-main callback-main">
+        <main id="main-content" class="auth-main callback-main" tabindex="-1">
             <section class="auth-intro" aria-labelledby="callback-title">
                 <p class="auth-eyebrow">Secure account handoff</p>
                 <h1 id="callback-title">Completing sign-in.</h1>

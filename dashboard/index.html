@@ -3,90 +3,81 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Manage RenderPDF API keys and test authenticated PDF generation.">
+    <meta name="description" content="Review RenderPDF usage, manage API keys, and create PDFs.">
     <title>RenderPDF | Developer Dashboard</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
-    <script data-project="renderpdf" data-source="dashboard" src="https://analytics.vberkoz.com/track.js" defer></script>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="/style.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css" rel="stylesheet">
+
+
+    <script>
+        const dashboardView = new URLSearchParams(window.location.search).get('view') || 'overview';
+        document.documentElement.classList.add(`dashboard-view-${dashboardView}`);
+    </script>
 </head>
 <body class="dashboard-page">
-    <div class="dashboard-shell">
-        <header class="dashboard-topbar">
+    <a class="skip-link" href="#main-content">Skip to main content</a>
+    <div>
+        <header class="dashboard-topbar" aria-label="RenderPDF application header">
             <a class="dashboard-brand" href="/" aria-label="RenderPDF home">
                 <span class="dashboard-brand-mark" aria-hidden="true"></span>
-                RenderPDF
+                <span>RenderPDF</span>
             </a>
-            <nav class="dashboard-nav" aria-label="Primary navigation">
-                <a href="/">Home</a>
-                <a href="/docs/api/">API docs</a>
-                <a id="statsNav" href="/app/stats" hidden>Stats</a>
-                <button id="logoutBtn" class="dashboard-logout" type="button"><i data-lucide="log-out" aria-hidden="true"></i>Sign out</button>
+            <nav id="dashboard-primary-navigation" class="dashboard-nav" aria-label="Primary navigation">
+                <a href="/app/" aria-current="page">Dashboard</a><a href="/docs/api/">API docs</a><a href="/#pricing">Pricing</a><a id="logoutBtn" href="/app/login">Sign out</a>
             </nav>
         </header>
 
-        <main>
-            <section class="dashboard-hero" aria-labelledby="dashboard-title">
-                <div>
-                    <p class="dashboard-eyebrow">Developer workspace / API v1</p>
-                    <h1 id="dashboard-title">Render, manage, ship.</h1>
-                    <p class="dashboard-lead">Create production API keys and test HTML-to-PDF requests from one focused workspace.</p>
-                </div>
-                <aside class="session-card" aria-label="Current session">
-                    <div class="session-status"><span aria-hidden="true"></span>Authenticated session</div>
-                    <strong id="accountLabel">RenderPDF developer</strong>
-                    <div class="session-meta">
-                        <span>Active keys</span>
-                        <b id="keyCount">-</b>
-                    </div>
-                </aside>
-            </section>
-
-            <section class="dashboard-workspace" aria-label="RenderPDF workspace">
-                <article class="workspace-panel overview-panel">
+        <main id="main-content" class="dashboard-main" tabindex="-1">
+            <div id="dashboard-content" class="dashboard-content" tabindex="-1">
+                <header class="dashboard-page-intro">
+                    <p id="dashboardPageKicker" class="panel-kicker">Developer dashboard</p>
+                    <h1 id="dashboardPageTitle">Developer dashboard</h1>
+                    <p id="dashboardPageDescription">Review PDF capacity, manage API keys, and create PDFs.</p>
+                </header>
+                <section class="dashboard-workspace" aria-label="Dashboard content">
+                <article class="workspace-panel quiet-section overview-panel" data-dashboard-view="overview">
                     <header class="panel-header panel-header-compact">
                         <div>
-                            <p class="panel-kicker">01 / Usage</p>
-                            <h2>Your PDF activity</h2>
-                            <p>Usage is calculated in UTC and resets on the first day of each month.</p>
+                            <p class="panel-kicker">Usage</p>
+                            <h2>Monthly PDF capacity</h2>
+                            <p>Usage resets on the first day of each month.</p>
                         </div>
                     </header>
-                    <div class="dashboard-metrics">
-                        <div><span>PDFs today</span><strong id="pdfsToday">—</strong></div>
-                        <div><span>Failed today</span><strong id="failedToday">—</strong></div>
-                        <div><span>Quota remaining</span><strong id="quotaRemaining">—</strong><small id="quotaDetail"></small></div>
+                    <div class="dashboard-metrics usage-metrics">
+                        <div class="usage-summary"><span>PDFs used this month</span><strong id="monthlyUsage">—</strong><small id="quotaDetail"></small></div>
+                        <div class="daily-activity"><span>Today</span><strong id="pdfsToday">—</strong><small id="dailyActivityDetail"></small></div>
                     </div>
                 </article>
 
-                <article class="workspace-panel billing-panel">
+                <article class="workspace-panel quiet-section billing-panel" data-dashboard-view="billing">
                     <header class="panel-header panel-header-compact">
                         <div>
-                            <p class="panel-kicker">02 / Billing</p>
+                            <p class="panel-kicker">Plan &amp; billing</p>
                             <h2 id="billingPlan">Free</h2>
                             <p id="billingDetail">Free includes 25 PDFs each month. Upgrade for more capacity.</p>
+                            <p id="billingUsageDetail" class="billing-usage-detail">Current usage: —</p>
                         </div>
                         <div class="billing-actions">
-                            <button class="dashboard-button dashboard-button-secondary" type="button" data-plan="starter">Starter · $19 / 5k PDFs</button>
-                            <button class="dashboard-button dashboard-button-primary" type="button" data-plan="pro">Professional · $49 / 20k PDFs</button>
-                            <button class="dashboard-button dashboard-button-secondary" type="button" data-plan="business">Business · $199 / 100k PDFs</button>
+                            <button id="upgradePlanBtn" class="dashboard-button dashboard-button-primary" type="button">Upgrade plan</button>
                             <button id="manageBillingBtn" class="dashboard-button dashboard-button-secondary" type="button" hidden>Manage billing</button>
                         </div>
                     </header>
                     <div id="billingStatus" class="dashboard-notice" role="status" aria-live="polite" hidden></div>
                 </article>
 
-                <article class="workspace-panel keys-panel">
+                <article class="workspace-panel quiet-section keys-panel" data-dashboard-view="overview">
                     <header class="panel-header">
                         <div>
-                            <p class="panel-kicker">03 / Credentials</p>
+                            <p class="panel-kicker">Credentials</p>
                             <h2>API keys</h2>
-                            <p>Create credentials for server-side PDF generation. Revoked keys stop working immediately.</p>
+                            <p>Use keys to authenticate PDF requests from your server or backend.</p>
                         </div>
                         <button id="generateKeyBtn" class="dashboard-button dashboard-button-primary" type="button">
-                            <i data-lucide="key-round" aria-hidden="true"></i>Create API key
+                            Create API key
                         </button>
                     </header>
 
@@ -100,85 +91,67 @@
                         </div>
                         <div class="key-display">
                             <code id="newKeyValue"></code>
-                            <button id="copyKeyBtn" class="dashboard-button dashboard-button-secondary" type="button"><i data-lucide="copy" aria-hidden="true"></i>Copy key</button>
                         </div>
                     </section>
 
-                    <div class="keys-heading">
-                        <span>Credential</span>
-                        <span>Activity</span>
-                        <span>State</span>
-                    </div>
-                    <div id="keysList" class="keys-list" aria-live="polite">
-                        <p class="empty-state">Loading API keys...</p>
-                    </div>
+                    <div id="keysList" aria-live="polite"></div>
                 </article>
 
-                <article class="workspace-panel templates-panel">
+                <article class="workspace-panel templates-panel create-render-panel" data-dashboard-view="create-render">
                     <header class="panel-header">
                         <div>
-                            <p class="panel-kicker">04 / Render</p>
-                            <h2>Render documents</h2>
-                            <p>Select a starter or custom template, provide variables, and render a PDF from your dashboard session.</p>
+                            <p class="panel-kicker">Create &amp; render</p>
+                            <h2 id="createRenderTitle">Create &amp; render</h2>
+                            <p id="createRenderDescription">Build from a saved template or an inline HTML/CSS or Markdown document, then preview and render a PDF.</p>
+                        </div>
+                        <div class="create-render-header-actions">
+                            <div class="custom-select create-render-mode-select" data-custom-select><span class="custom-select-label">Authoring mode</span><input id="createRenderModeInput" type="hidden" value="template"><button class="custom-select-trigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="createRenderModeInput-menu"><span class="custom-select-value">Template</span></button><div id="createRenderModeInput-menu" class="custom-select-menu" role="listbox" hidden><button class="custom-select-option is-active" type="button" role="option" aria-selected="true" data-custom-select-option data-value="template">Template</button><button class="custom-select-option" type="button" role="option" aria-selected="false" data-custom-select-option data-value="document">Inline document</button></div></div>
                         </div>
                     </header>
 
                     <div id="templatesStatus" class="dashboard-notice" role="status" aria-live="polite" hidden></div>
+                    <div id="templateWorkspace">
                     <div class="template-editor">
                         <form id="templateForm" class="template-form">
                             <input id="templateId" type="hidden">
                             <input id="templateTypeInput" type="hidden" value="custom">
-                            <div class="template-card-heading">
-                                <div><span class="template-card-kicker">Document editor</span><h3>Template and default data</h3></div>
-                                <span id="templateVersion" class="template-version"></span>
-                            </div>
                             <div class="template-form-row">
-                                <div class="custom-select" data-custom-select><span class="custom-select-label">Template</span><input id="templatePickerInput" type="hidden" value="new"><button class="custom-select-trigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="templatePickerInput-menu"><span class="custom-select-value">Blank custom template</span><i class="custom-select-icon" data-lucide="chevron-down" aria-hidden="true"></i></button><div id="templatePickerInput-menu" class="custom-select-menu" role="listbox" hidden><div class="custom-select-group-label">Custom templates</div><button class="custom-select-option is-active" type="button" role="option" aria-selected="true" data-custom-select-option data-value="new">Blank custom template</button><div class="custom-select-divider" role="separator"></div><div class="custom-select-group-label">Starter templates</div><button class="custom-select-option" type="button" role="option" aria-selected="false" data-custom-select-option data-value="starter:invoice">Invoice starter</button><button class="custom-select-option" type="button" role="option" aria-selected="false" data-custom-select-option data-value="starter:contract">Contract starter</button><button class="custom-select-option" type="button" role="option" aria-selected="false" data-custom-select-option data-value="starter:certificate">Certificate starter</button><button class="custom-select-option" type="button" role="option" aria-selected="false" data-custom-select-option data-value="starter:receipt">Receipt starter</button></div></div>
-                                <label class="dashboard-field" for="templateNameInput"><span>Name</span><input id="templateNameInput" maxlength="120" placeholder="Monthly invoice" required></label>
+                                <div class="custom-select" data-custom-select><span class="custom-select-label">Template</span><input id="templatePickerInput" type="hidden" value="new"><button class="custom-select-trigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="templatePickerInput-menu"><span class="custom-select-value">Blank custom template</span></button><div id="templatePickerInput-menu" class="custom-select-menu" role="listbox" hidden><div class="custom-select-group-label">Custom templates</div><button class="custom-select-option is-active" type="button" role="option" aria-selected="true" data-custom-select-option data-value="new">Blank custom template</button><div class="custom-select-divider" role="separator"></div><div class="custom-select-group-label">Starter templates</div><button class="custom-select-option" type="button" role="option" aria-selected="false" data-custom-select-option data-value="starter:invoice">Invoice starter</button><button class="custom-select-option" type="button" role="option" aria-selected="false" data-custom-select-option data-value="starter:contract">Contract starter</button><button class="custom-select-option" type="button" role="option" aria-selected="false" data-custom-select-option data-value="starter:certificate">Certificate starter</button><button class="custom-select-option" type="button" role="option" aria-selected="false" data-custom-select-option data-value="starter:receipt">Receipt starter</button></div></div>
+                                <label class="dashboard-field" for="templateNameInput"><span>Name <em>Required</em></span><input id="templateNameInput" maxlength="120" placeholder="Monthly invoice" required></label>
                             </div>
-                            <label class="dashboard-field" for="templateHtmlInput"><span>Template HTML</span><textarea id="templateHtmlInput" rows="13" spellcheck="false" placeholder="Use {{customer.name}} for variable values." required></textarea></label>
-                            <section class="template-data-section" aria-labelledby="template-data-title">
-                                <div class="template-card-heading">
-                                    <div><span class="template-card-kicker">Default data</span><h3 id="template-data-title">Test data</h3></div>
-                                    <span>Saved with this template</span>
-                                </div>
+                            <label class="dashboard-field" for="templateHtmlInput"><span>Template HTML <em>Required</em></span><textarea id="templateHtmlInput" rows="13" spellcheck="false" placeholder="Use {{customer.name}} for variable values." aria-describedby="template-html-help" required></textarea><small id="template-html-help" class="field-help">Use double curly braces, for example {{customer.name}}, for values supplied in the JSON data.</small></label>
+                            <section class="template-data-section" aria-label="Default template data">
                                 <label class="dashboard-field" for="templateVariablesInput"><span>Variable JSON</span><textarea id="templateVariablesInput" rows="9" spellcheck="false">{}</textarea></label>
                             </section>
                         </form>
 
-                        <div class="template-preview-wrap">
-                            <div class="templates-sidebar-header"><strong>Preview</strong><span>Live test data · paged A4 preview</span></div>
-                            <div class="template-preview-stage"><iframe id="templatePreview" class="template-preview" title="Template preview" sandbox="allow-scripts"></iframe></div>
+                        <div class="template-preview-wrap paged-preview">
+                            <header class="preview-panel-header">
+                                <strong>Preview</strong>
+                                <span>Live test data · paged A4 preview</span>
+                            </header>
+                            <div class="template-preview-stage paged-preview-stage"><iframe id="templatePreview" class="template-preview paged-preview-frame" title="Template preview" sandbox="allow-scripts" scrolling="no"></iframe></div>
                         </div>
 
                         <div class="template-actions">
                             <span>Uses your dashboard session.</span>
-                            <button id="saveTemplateBtn" class="dashboard-button dashboard-button-primary" type="submit" form="templateForm"><i data-lucide="save" aria-hidden="true"></i>Save template</button>
-                            <button id="deleteTemplateBtn" class="dashboard-button dashboard-button-secondary" type="button" hidden><i data-lucide="trash-2" aria-hidden="true"></i>Delete</button>
-                            <button id="renderTemplateBtn" class="dashboard-button dashboard-button-secondary" type="button"><i data-lucide="file-down" aria-hidden="true"></i>Render PDF</button>
+                            <button id="previewTemplateBtn" class="dashboard-button dashboard-button-secondary" type="button">Preview</button>
+                            <button id="saveTemplateBtn" class="dashboard-button dashboard-button-primary" type="submit" form="templateForm">Save template</button>
+                            <button id="deleteTemplateBtn" class="dashboard-button dashboard-button-secondary" type="button" hidden>Delete template</button>
+                            <button id="renderTemplateBtn" class="dashboard-button dashboard-button-secondary" type="button">Render PDF</button>
                         </div>
 
                         <div id="templateRenderResult" class="dashboard-result" role="status" aria-live="polite" hidden></div>
                     </div>
-                </article>
+                    </div>
 
-                <article class="workspace-panel document-json-panel">
-                    <header class="panel-header">
-                        <div>
-                            <p class="panel-kicker">05 / Document JSON</p>
-                            <h2>Test an inline document</h2>
-                            <p>Edit the versioned HTML/CSS JSON contract, preview its bound content locally, then render it with your dashboard session.</p>
-                        </div>
-                        <span class="endpoint-route"><span>POST</span><code>/api/v1/render</code></span>
-                    </header>
+                    <div id="documentWorkspace" hidden>
+                    <div class="document-workspace-intro"><span class="endpoint-route"><span>POST</span><code>/api/v1/render</code></span><p>Edit the versioned HTML/CSS JSON contract or Markdown source, preview bound content locally, then render it with your dashboard session.</p></div>
 
                     <div id="documentJsonStatus" class="dashboard-notice" role="status" aria-live="polite" hidden></div>
                     <div class="document-json-workspace">
-                        <section class="document-json-editor" aria-labelledby="document-json-editor-title">
-                            <div class="template-card-heading">
-                                <div><span class="template-card-kicker">Request body</span><h3 id="document-json-editor-title">Document JSON <span class="document-json-version">Contract version 1</span></h3></div>
-                            </div>
-                            <div class="custom-select document-source-select" data-custom-select><span class="custom-select-label">Source type</span><input id="documentSourceTypeInput" type="hidden" value="html"><button class="custom-select-trigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="documentSourceTypeInput-menu"><span class="custom-select-value">HTML/CSS JSON</span><i class="custom-select-icon" data-lucide="chevron-down" aria-hidden="true"></i></button><div id="documentSourceTypeInput-menu" class="custom-select-menu" role="listbox" hidden><button class="custom-select-option is-active" type="button" role="option" aria-selected="true" data-custom-select-option data-value="html">HTML/CSS JSON</button><button class="custom-select-option" type="button" role="option" aria-selected="false" data-custom-select-option data-value="markdown">Markdown</button></div></div>
+                        <section class="document-json-editor" aria-label="Document request body">
+                            <div class="custom-select document-source-select" data-custom-select><span class="custom-select-label">Source type</span><input id="documentSourceTypeInput" type="hidden" value="html"><button class="custom-select-trigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="documentSourceTypeInput-menu"><span class="custom-select-value">HTML/CSS JSON</span></button><div id="documentSourceTypeInput-menu" class="custom-select-menu" role="listbox" hidden><button class="custom-select-option is-active" type="button" role="option" aria-selected="true" data-custom-select-option data-value="html">HTML/CSS JSON</button><button class="custom-select-option" type="button" role="option" aria-selected="false" data-custom-select-option data-value="markdown">Markdown</button></div></div>
                             <label id="documentJsonField" class="dashboard-field" for="documentJsonInput"><span>JSON payload</span><textarea id="documentJsonInput" rows="20" spellcheck="false"></textarea></label>
                             <div id="documentMarkdownFields" class="document-markdown-fields" hidden>
                                 <label class="dashboard-field" for="documentMarkdownInput"><span>Markdown source</span><textarea id="documentMarkdownInput" rows="12" spellcheck="false"></textarea></label>
@@ -186,64 +159,121 @@
                             </div>
                         </section>
 
-                        <section class="document-json-preview-wrap" aria-labelledby="document-json-preview-title">
-                            <div class="templates-sidebar-header"><strong id="document-json-preview-title">Preview</strong><span>Bound values · network disabled</span></div>
-                            <div class="document-json-preview-stage"><iframe id="documentJsonPreview" class="document-json-preview" title="Document JSON preview" sandbox=""></iframe></div>
+                        <section class="document-json-preview-wrap paged-preview" aria-labelledby="document-json-preview-title">
+                            <header class="preview-panel-header">
+                                <strong id="document-json-preview-title">Preview</strong>
+                                <span>Bound values · network disabled</span>
+                            </header>
+                            <div class="document-json-preview-stage paged-preview-stage"><iframe id="documentJsonPreview" class="document-json-preview paged-preview-frame" title="Document JSON preview" sandbox="allow-scripts" scrolling="no"></iframe></div>
                         </section>
 
                         <div class="document-json-actions">
-                            <button id="previewDocumentJsonBtn" class="dashboard-button dashboard-button-secondary" type="button"><i data-lucide="eye" aria-hidden="true"></i>Preview</button>
-                            <button id="renderDocumentJsonBtn" class="dashboard-button dashboard-button-primary" type="button"><i data-lucide="file-down" aria-hidden="true"></i>Render PDF</button>
-                            <button id="saveDocumentSourceBtn" class="dashboard-button dashboard-button-secondary" type="button"><i data-lucide="save" aria-hidden="true"></i>Save source</button>
-                            <button id="resetDocumentJsonBtn" class="dashboard-button dashboard-button-secondary" type="button"><i data-lucide="rotate-ccw" aria-hidden="true"></i>Load sample</button>
+                            <button id="previewDocumentJsonBtn" class="dashboard-button dashboard-button-secondary" type="button">Preview</button>
+                            <button id="renderDocumentJsonBtn" class="dashboard-button dashboard-button-primary" type="button">Render PDF</button>
+                            <button id="saveDocumentSourceBtn" class="dashboard-button dashboard-button-secondary" type="button">Save source</button>
+                            <button id="resetDocumentJsonBtn" class="dashboard-button dashboard-button-secondary" type="button">Load sample</button>
                         </div>
 
                         <div id="documentJsonResult" class="dashboard-result" role="status" aria-live="polite" hidden></div>
                     </div>
+                    </div>
                 </article>
 
-                <article class="workspace-panel">
-                    <header class="panel-header panel-header-compact"><div><p class="panel-kicker">06 / Sources</p><h2>Saved sources</h2><p>Load, duplicate, render, and delete saved HTML/Markdown definitions.</p></div><button id="refreshSourcesBtn" class="dashboard-button dashboard-button-secondary" type="button">Refresh</button></header>
-                    <div id="sourcesManager" class="logs-list"></div>
+                <article class="workspace-panel quiet-section" data-dashboard-view="sources">
+                    <header class="panel-header panel-header-compact"><div><p class="panel-kicker">Sources</p><h2>Saved sources</h2><p>Reusable HTML and Markdown definitions for repeat renders and batches.</p></div><button id="refreshSourcesBtn" class="dashboard-button dashboard-button-secondary" type="button">Refresh</button></header>
+                    <div id="sourcesStatus" class="dashboard-notice" role="status" aria-live="polite" hidden></div>
+                    <div id="sourcesManager" aria-live="polite"></div>
                 </article>
 
-                <article class="workspace-panel">
-                    <header class="panel-header panel-header-compact"><div><p class="panel-kicker">07 / Files</p><h2>Private files</h2><p>Upload packages or download and delete retained PDFs.</p></div><label class="dashboard-button dashboard-button-secondary" for="packageUploadInput">Upload ZIP</label><input id="packageUploadInput" type="file" accept=".zip,application/zip" hidden></header>
-                    <div id="filesManager" class="logs-list"></div>
+                <article class="workspace-panel quiet-section" data-dashboard-view="files">
+                    <header class="panel-header panel-header-compact"><div><p class="panel-kicker">Files</p><h2>Private files</h2><p>Upload packages, download rendered PDFs, and manage retained files.</p></div><input id="packageUploadInput" type="file" accept=".zip,application/zip" hidden><label for="packageUploadInput" class="dashboard-button dashboard-button-secondary" role="button" tabindex="0">Upload ZIP</label></header>
+                    <div id="filesStatus" class="dashboard-notice" role="status" aria-live="polite" hidden></div>
+                    <div id="filesManager" aria-live="polite"></div>
                 </article>
 
-                <article class="workspace-panel">
-                    <header class="panel-header panel-header-compact"><div><p class="panel-kicker">08 / Batches</p><h2>Batch jobs</h2><p>Submit data rows for a saved source, track progress, cancel pending work, and download completed PDFs.</p></div></header>
-                    <div class="custom-select" data-custom-select><span class="custom-select-label">Saved source</span><input id="batchSourceSelect" type="hidden" value=""><button class="custom-select-trigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="batchSourceSelect-menu"><span class="custom-select-value">No saved sources</span><i class="custom-select-icon" data-lucide="chevron-down" aria-hidden="true"></i></button><div id="batchSourceSelect-menu" class="custom-select-menu" role="listbox" hidden><button class="custom-select-option is-active" type="button" role="option" aria-selected="true" data-custom-select-option data-value="">No saved sources</button></div></div>
-                    <div class="dashboard-field"><label for="batchItemsInput">Item data JSON array</label><textarea id="batchItemsInput" rows="7" spellcheck="false">[{"data":{"customer":{"name":"Ada"}}}]</textarea></div>
+                <article class="workspace-panel quiet-section batches-panel" data-dashboard-view="batches">
+                    <header class="panel-header panel-header-compact"><div><p class="panel-kicker">Advanced</p><h2>Batch rendering</h2><p>Render a saved source for multiple data rows. Prepare the source first, then submit one job for the full set.</p></div></header>
+                    <div id="batchesStatus" class="dashboard-notice" role="status" aria-live="polite" hidden></div>
+                    <ol class="batch-flow" aria-label="Batch rendering steps"><li><span>1</span>Choose source</li><li><span>2</span>Upload data</li><li><span>3</span>Review</li><li><span>4</span>Submit</li></ol>
+                    <section class="batch-step batch-source-step" aria-labelledby="batch-source-title"><div><p class="panel-kicker">Choose source</p><h3 id="batch-source-title">Select a saved source</h3></div><div class="custom-select batch-source-select" data-custom-select><span class="custom-select-label">Saved source</span><input id="batchSourceSelect" type="hidden" value=""><button class="custom-select-trigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="batchSourceSelect-menu"><span class="custom-select-value">No saved sources</span></button><div id="batchSourceSelect-menu" class="custom-select-menu" role="listbox" hidden><button class="custom-select-option is-active" type="button" role="option" aria-selected="true" data-custom-select-option data-value="">No saved sources</button></div></div></section>
+                    <section class="batch-step batch-data-step" aria-labelledby="batch-data-title"><div><p class="panel-kicker">Upload data</p><h3 id="batch-data-title">Add your item data</h3><p>Upload a JSON array or paste it below. Each item should match the data expected by the selected source.</p></div><input id="batchDataUpload" type="file" accept="application/json,.json" hidden><label for="batchDataUpload" class="dashboard-button dashboard-button-secondary" role="button" tabindex="0">Upload JSON</label><label class="dashboard-field batch-items-field" for="batchItemsInput"><span>Item data JSON array <em>Required</em></span><textarea id="batchItemsInput" rows="5" spellcheck="false" aria-describedby="batch-items-help">[{"data":{"customer":{"name":"Ada"}}}]</textarea><small id="batch-items-help" class="field-help">Provide 1 to 99 items in a JSON array.</small></label></section>
+                    <section class="batch-step batch-review" aria-labelledby="batch-review-title"><div><p class="panel-kicker">Review</p><h3 id="batch-review-title">Ready to submit</h3></div><p id="batchReview" class="dashboard-notice" role="status" aria-live="polite">Select a saved source to review this batch.</p></section>
                     <div class="document-json-actions"><button id="submitBatchBtn" class="dashboard-button dashboard-button-primary" type="button">Submit batch</button><button id="refreshBatchesBtn" class="dashboard-button dashboard-button-secondary" type="button">Refresh jobs</button></div>
-                    <div id="batchesManager" class="logs-list"></div>
+                    <div id="batchesManager" aria-live="polite"></div>
                 </article>
 
-                <article class="workspace-panel logs-panel">
+                <article class="workspace-panel quiet-section logs-panel" data-dashboard-view="logs">
                     <header class="panel-header panel-header-compact">
                         <div>
-                            <p class="panel-kicker">06 / Logs</p>
+                            <p class="panel-kicker">Activity</p>
                             <h2>Recent requests</h2>
-                            <p>Latest 25 authenticated render attempts. Request content is never stored here.</p>
+                            <p>Browse recent authenticated render attempts. Request content is never stored here.</p>
                         </div>
                     </header>
-                    <div id="logsList" class="logs-list" aria-live="polite"><p class="empty-state">Loading recent requests...</p></div>
+                    <div class="logs-controls" aria-label="Request filters"><div class="custom-select" data-custom-select><span class="custom-select-label">Status</span><input id="logsStatusFilter" type="hidden" value="all"><button class="custom-select-trigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="logsStatusFilter-menu"><span class="custom-select-value">All requests</span></button><div id="logsStatusFilter-menu" class="custom-select-menu" role="listbox" hidden><button class="custom-select-option is-active" type="button" role="option" aria-selected="true" data-custom-select-option data-value="all">All requests</button><button class="custom-select-option" type="button" role="option" aria-selected="false" data-custom-select-option data-value="success">Successful</button><button class="custom-select-option" type="button" role="option" aria-selected="false" data-custom-select-option data-value="error">Failed</button></div></div><div class="custom-select" data-custom-select><span class="custom-select-label">Sort</span><input id="logsSort" type="hidden" value="newest"><button class="custom-select-trigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="logsSort-menu"><span class="custom-select-value">Newest first</span></button><div id="logsSort-menu" class="custom-select-menu" role="listbox" hidden><button class="custom-select-option is-active" type="button" role="option" aria-selected="true" data-custom-select-option data-value="newest">Newest first</button><button class="custom-select-option" type="button" role="option" aria-selected="false" data-custom-select-option data-value="oldest">Oldest first</button></div></div></div>
+                    <div id="logsList" class="logs-list logs-list-request" aria-live="polite"><p class="empty-state">Loading recent requests...</p></div>
+                    <nav id="logsPagination" class="logs-pagination" aria-label="Request log pages" hidden><button id="logsPreviousPage" class="dashboard-button dashboard-button-secondary" type="button">Previous</button><span id="logsPageStatus" aria-live="polite"></span><button id="logsNextPage" class="dashboard-button dashboard-button-secondary" type="button">Next</button></nav>
                 </article>
-            </section>
+
+                <article class="workspace-panel quiet-section recent-activity-panel" data-dashboard-view="overview">
+                    <header class="panel-header panel-header-compact">
+                        <div>
+                            <p class="panel-kicker">Recent activity</p>
+                            <h2>Latest PDF requests</h2>
+                            <p>Your most recent authenticated render attempts.</p>
+                        </div>
+                        <a class="dashboard-button dashboard-button-secondary" href="/app/?view=logs">View activity</a>
+                    </header>
+                    <div id="recentActivityList" class="logs-list" aria-live="polite"><p class="empty-state">Loading recent activity...</p></div>
+                </article>
+                </section>
+            </div>
         </main>
 
         <footer class="dashboard-footer">
             <p>RenderPDF / Developer workspace</p>
-            <div>
+            <nav aria-label="Footer navigation">
                 <a href="/docs/api/">Documentation</a>
                 <a href="https://github.com/vberkoz/renderpdf">GitHub</a>
                 <a href="https://vberkoz.com/">vberkoz.com</a>
-            </div>
+            </nav>
         </footer>
     </div>
 
-    <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.js"></script>
+    <dialog id="dashboardTextDialog" class="dashboard-dialog" aria-labelledby="dashboardDialogTitle">
+        <form id="dashboardTextDialogForm" class="dashboard-dialog-card" novalidate>
+            <div class="dashboard-dialog-heading">
+                <p class="panel-kicker">Saved source</p>
+                <h2 id="dashboardDialogTitle">Name this source</h2>
+                <p id="dashboardDialogDescription">Choose a name you will recognize when selecting it for a batch.</p>
+            </div>
+            <label id="dashboardDialogField" class="dashboard-field" for="dashboardDialogInput">
+                <span id="dashboardDialogLabel">Source name</span>
+                <input id="dashboardDialogInput" type="text" maxlength="120" autocomplete="off" required>
+            </label>
+            <div class="dashboard-dialog-actions">
+                <button id="dashboardDialogCancel" class="dashboard-button dashboard-button-secondary" type="button">Cancel</button>
+                <button id="dashboardDialogConfirm" class="dashboard-button dashboard-button-primary" type="submit">Save source</button>
+            </div>
+        </form>
+    </dialog>
+
+    <dialog id="billingPlanDialog" class="dashboard-dialog" aria-labelledby="billingPlanDialogTitle">
+        <div class="dashboard-dialog-card billing-plan-dialog">
+            <div class="dashboard-dialog-heading">
+                <p class="panel-kicker">Upgrade plan</p>
+                <h2 id="billingPlanDialogTitle">Choose the capacity you need</h2>
+                <p>All plans include private PDF storage and API-key access.</p>
+            </div>
+            <div class="plan-options">
+                <button type="button" data-plan="starter"><strong>Starter</strong><span>$19/month · 5,000 PDFs</span></button>
+                <button type="button" data-plan="pro"><strong>Professional</strong><span>$49/month · 20,000 PDFs</span></button>
+                <button type="button" data-plan="business"><strong>Business</strong><span>$199/month · 100,000 PDFs</span></button>
+            </div>
+            <div class="dashboard-dialog-actions"><button id="billingPlanDialogClose" class="dashboard-button dashboard-button-secondary" type="button">Close</button></div>
+        </div>
+    </dialog>
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/xml/xml.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/javascript/javascript.min.js"></script>
@@ -251,8 +281,14 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/htmlmixed/htmlmixed.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/markdown/markdown.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
-    <script src="custom-select.js"></script>
+
     <script src="template-client.js"></script>
+
+
+
+
+
+    <script src="custom-select.js"></script>
     <script src="app.js"></script>
 </body>
 </html>

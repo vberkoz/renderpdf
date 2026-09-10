@@ -8,25 +8,26 @@
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
-    <script data-project="renderpdf" data-source="dashboard-debug" src="https://analytics.vberkoz.com/track.js" defer></script>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="/style.css" rel="stylesheet">
+
 </head>
 <body class="dashboard-page debug-page">
-    <div class="dashboard-shell">
+    <a class="skip-link" href="#main-content">Skip to main content</a>
+    <div>
         <header class="dashboard-topbar">
             <a class="dashboard-brand" href="/" aria-label="RenderPDF home">
                 <span class="dashboard-brand-mark" aria-hidden="true"></span>
                 RenderPDF
             </a>
-            <nav class="dashboard-nav" aria-label="Primary navigation">
+            <nav id="debug-primary-navigation" class="dashboard-nav" data-carbon-header-nav aria-label="Primary navigation">
                 <a href="/app/">Dashboard</a>
                 <a href="/docs/api/">API docs</a>
-                <button id="clearSessionBtn" class="dashboard-logout" type="button"><i data-lucide="log-out" aria-hidden="true"></i>Clear session</button>
+                <button id="clearSessionBtn" class="dashboard-logout" type="button">Clear session</button>
             </nav>
         </header>
 
-        <main>
+        <main id="main-content" tabindex="-1">
             <section class="dashboard-hero debug-hero" aria-labelledby="debug-title">
                 <div>
                     <p class="dashboard-eyebrow">Internal tool / Authentication</p>
@@ -62,7 +63,7 @@
                         </div>
                         <span class="endpoint-route"><span>JWT</span><code>id_token</code></span>
                     </header>
-                    <pre id="payloadOutput" class="debug-payload">No ID token found.</pre>
+                    <pre><code>No ID token found.</code></pre>
                 </article>
 
                 <article class="workspace-panel debug-api-panel">
@@ -91,9 +92,9 @@
         </footer>
     </div>
 
-    <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.js"></script>
+
+
     <script>
-        window.lucide?.createIcons({ attrs: { 'aria-hidden': 'true' } });
         const EXPECTED_ISSUER = 'https://cognito-idp.us-east-1.amazonaws.com/us-east-1_S5G3bsO7s';
         const EXPECTED_AUDIENCE = '78pkhoj4ml959gb80coslgm42t';
 
@@ -165,7 +166,7 @@
                 ];
 
                 checks.forEach(renderCheck);
-                payloadOutput.textContent = JSON.stringify(payload, null, 2);
+                payloadOutput.value = JSON.stringify(payload, null, 2);
 
                 const allPassed = checks.every((check) => check.pass);
                 debugSummary.dataset.state = allPassed ? 'success' : 'error';

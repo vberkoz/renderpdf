@@ -8,27 +8,29 @@
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.11.1/build/styles/github.min.css">
-    <script data-project="renderpdf" data-source="docs" src="https://analytics.vberkoz.com/track.js" defer></script>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="/style.css" rel="stylesheet">
+
 </head>
-<body>
+<body data-enhance-code-snippets>
+    <a class="skip-link" href="#main-content">Skip to main content</a>
     <div class="shell">
+        <div>
         <header class="topbar">
             <a class="brand" href="/" aria-label="RenderPDF home">
                 <span class="brand-mark" aria-hidden="true"></span>
-                RenderPDF
+                <span>RenderPDF</span>
             </a>
-            <nav class="topnav" aria-label="Primary navigation">
+            <nav id="docs-primary-navigation" class="topnav" data-carbon-header-nav aria-label="Primary navigation">
                 <a href="/" >Home</a>
                 <a href="/docs/api/" aria-current="page">API docs</a>
                 <a href="/app/">Dashboard</a>
                 <a href="https://github.com/vberkoz/renderpdf">GitHub</a>
             </nav>
         </header>
+        </div>
 
-        <main>
+        <main id="main-content" tabindex="-1">
             <section class="docs-hero">
                 <div>
                     <p class="eyebrow">Developer reference / v1</p>
@@ -37,8 +39,8 @@
                 </div>
                 <div class="base-url-card">
                     <span>Base URL</span>
-                    <code>https://renderpdf.vberkoz.com/api/v1</code>
-                    <a href="https://renderpdf.vberkoz.com/api/v1/"><i data-lucide="activity" aria-hidden="true"></i>Check API status</a>
+                    <pre><code>https://renderpdf.vberkoz.com/api/v1</code></pre>
+                    <a href="https://renderpdf.vberkoz.com/api/v1/">Check API status</a>
                 </div>
             </section>
 
@@ -69,7 +71,7 @@
                     <div class="sidebar-note">
                         <strong>Need an API key?</strong>
                         <p>Create and revoke keys from the dashboard.</p>
-                        <a href="/app/"><i data-lucide="layout-dashboard" aria-hidden="true"></i>Open dashboard</a>
+                        <a href="/app/">Open dashboard</a>
                     </div>
                 </aside>
 
@@ -107,7 +109,7 @@
                         <p class="section-footnote">When you are ready for production, create an API key in the <a href="/app/">dashboard</a>, switch the path to <code>/render</code>, and send the key in the <code>Authorization</code> header.</p>
                     </section>
 
-                    <section class="doc-section" id="request-basics">
+                    <section class="doc-section request-basics" id="request-basics">
                         <div class="section-heading">
                             <p class="eyebrow">02 / Conventions</p>
                             <h2>Request basics</h2>
@@ -560,10 +562,16 @@ public class RenderPdf {
                             <p>Successful generate requests return HTTP <code>200</code> and a JSON object describing the stored PDF.</p>
                         </div>
                         <div class="response-grid">
-                            <div class="headers-list">
-                                <div><code>requestId</code><span>Unique identifier for this render.</span></div>
-                                <div><code>url</code><span>15-minute signed private download URL for the PDF.</span></div>
-                                <div><code>size</code><span>Generated file size in bytes.</span></div>
+                            <div class="response-fields-table-wrap">
+                                <table class="response-fields-table">
+                                    <caption>Successful render response fields</caption>
+                                    <thead><tr><th scope="col">Field</th><th scope="col">Description</th></tr></thead>
+                                    <tbody>
+                                        <tr><td><code>requestId</code></td><td>Unique identifier for this render.</td></tr>
+                                        <tr><td><code>url</code></td><td>15-minute signed private download URL for the PDF.</td></tr>
+                                        <tr><td><code>size</code></td><td>Generated file size in bytes.</td></tr>
+                                    </tbody>
+                                </table>
                             </div>
                             <div class="code-block">
                                 <div class="code-header"><span>200 / application/json</span></div>
@@ -591,29 +599,33 @@ public class RenderPdf {
   "requestId": "7db7..."
 }</code></pre>
                         </div>
-                        <div class="error-table" role="table" aria-label="API errors">
-                            <div class="table-row table-head" role="row"><span>Status</span><span>Code</span><span>Meaning</span></div>
-                            <div class="table-row" role="row"><code>400</code><code>invalid_request</code><span>Invalid JSON, missing HTML, an empty document, or an invalid render URL.</span></div>
-                            <div class="table-row" role="row"><code>400</code><code>document_request_invalid</code><span>Malformed document JSON, wrong field types, trailing JSON, or unknown fields.</span></div>
-                            <div class="table-row" role="row"><code>401</code><code>authentication_required</code><span>Authentication is required for the requested route.</span></div>
-                            <div class="table-row" role="row"><code>403</code><span>—</span><span>Missing, invalid, or inactive API key; this response is produced by API Gateway before the request reaches the service.</span></div>
-                            <div class="table-row" role="row"><code>404</code><code>not_found</code><span>The requested endpoint is unavailable or does not exist in this deployment mode.</span></div>
-                            <div class="table-row" role="row"><code>413</code><code>payload_too_large</code><span>Trial HTML exceeds the 1 MB limit.</span></div>
-                            <div class="table-row" role="row"><code>413</code><code>document_*_too_large</code><span>Document request, HTML, CSS, data, or compiled renderer input exceeds its documented limit.</span></div>
-                            <div class="table-row" role="row"><code>422</code><code>document_binding_*</code><span>A document binding is missing, unused, or malformed.</span></div>
-                            <div class="table-row" role="row"><code>422</code><code>document_format_invalid / document_margin_invalid</code><span>Paper format or margin is unsupported.</span></div>
-                            <div class="table-row" role="row"><code>422</code><code>document_*_unsafe / document_asset_disallowed / document_page_settings_disallowed</code><span>Document HTML, CSS, URL, asset, or page settings violate the security policy.</span></div>
-                            <div class="table-row" role="row"><code>422</code><code>image_loading_failed</code><span>An image resource could not be loaded while rendering.</span></div>
-                            <div class="table-row" role="row"><code>422</code><code>css_parsing_error</code><span>Chromium reported a CSS parsing error.</span></div>
-                            <div class="table-row" role="row"><code>422</code><code>javascript_exception</code><span>The page raised an uncaught JavaScript exception.</span></div>
-                            <div class="table-row" role="row"><code>422</code><code>navigation_failed</code><span>Chromium could not navigate to the requested page.</span></div>
-                            <div class="table-row" role="row"><code>429</code><code>rate_limited</code><span>Daily anonymous trial or monthly account limit reached.</span></div>
-                            <div class="table-row" role="row"><code>500</code><code>storage_failed</code><span>The rendered PDF could not be stored; retry the request.</span></div>
-                            <div class="table-row" role="row"><code>500</code><code>rendering_failed</code><span>An unexpected rendering failure occurred.</span></div>
-                            <div class="table-row" role="row"><code>503</code><code>service_unavailable</code><span>A dependent service is temporarily unavailable.</span></div>
-                            <div class="table-row" role="row"><code>503</code><code>api_keys_unavailable</code><span>API-key management is temporarily unavailable.</span></div>
-                            <div class="table-row" role="row"><code>504</code><code>navigation_timeout</code><span>The page did not finish navigating before the render deadline.</span></div>
-                            <div class="table-row" role="row"><code>504</code><code>chromium_timeout</code><span>Chromium timed out while starting or generating the PDF.</span></div>
+                        <div class="error-table" aria-label="API errors">
+                            <table>
+                            <caption>API errors</caption>
+                            <thead><tr><th scope="col">Status</th><th scope="col">Code</th><th scope="col">Meaning</th></tr></thead>
+                            <tbody>
+                            <tr><td><code>400</code></td><td><code>invalid_request</code></td><td>Invalid JSON, missing HTML, an empty document, or an invalid render URL.</td></tr>
+                            <tr><td><code>400</code></td><td><code>document_request_invalid</code></td><td>Malformed document JSON, wrong field types, trailing JSON, or unknown fields.</td></tr>
+                            <tr><td><code>401</code></td><td><code>authentication_required</code></td><td>Authentication is required for the requested route.</td></tr>
+                            <tr><td><code>403</code></td><td>—</td><td>Missing, invalid, or inactive API key; this response is produced by API Gateway before the request reaches the service.</td></tr>
+                            <tr><td><code>404</code></td><td><code>not_found</code></td><td>The requested endpoint is unavailable or does not exist in this deployment mode.</td></tr>
+                            <tr><td><code>413</code></td><td><code>payload_too_large</code></td><td>Trial HTML exceeds the 1 MB limit.</td></tr>
+                            <tr><td><code>413</code></td><td><code>document_*_too_large</code></td><td>Document request, HTML, CSS, data, or compiled renderer input exceeds its documented limit.</td></tr>
+                            <tr><td><code>422</code></td><td><code>document_binding_*</code></td><td>A document binding is missing, unused, or malformed.</td></tr>
+                            <tr><td><code>422</code></td><td><code>document_format_invalid / document_margin_invalid</code></td><td>Paper format or margin is unsupported.</td></tr>
+                            <tr><td><code>422</code></td><td><code>document_*_unsafe / document_asset_disallowed / document_page_settings_disallowed</code></td><td>Document HTML, CSS, URL, asset, or page settings violate the security policy.</td></tr>
+                            <tr><td><code>422</code></td><td><code>image_loading_failed</code></td><td>An image resource could not be loaded while rendering.</td></tr>
+                            <tr><td><code>422</code></td><td><code>css_parsing_error</code></td><td>Chromium reported a CSS parsing error.</td></tr>
+                            <tr><td><code>422</code></td><td><code>javascript_exception</code></td><td>The page raised an uncaught JavaScript exception.</td></tr>
+                            <tr><td><code>422</code></td><td><code>navigation_failed</code></td><td>Chromium could not navigate to the requested page.</td></tr>
+                            <tr><td><code>429</code></td><td><code>rate_limited</code></td><td>Daily anonymous trial or monthly account limit reached.</td></tr>
+                            <tr><td><code>500</code></td><td><code>storage_failed</code></td><td>The rendered PDF could not be stored; retry the request.</td></tr>
+                            <tr><td><code>500</code></td><td><code>rendering_failed</code></td><td>An unexpected rendering failure occurred.</td></tr>
+                            <tr><td><code>503</code></td><td><code>service_unavailable</code></td><td>A dependent service is temporarily unavailable.</td></tr>
+                            <tr><td><code>503</code></td><td><code>api_keys_unavailable</code></td><td>API-key management is temporarily unavailable.</td></tr>
+                            <tr><td><code>504</code></td><td><code>navigation_timeout</code></td><td>The page did not finish navigating before the render deadline.</td></tr>
+                            <tr><td><code>504</code></td><td><code>chromium_timeout</code></td><td>Chromium timed out while starting or generating the PDF.</td></tr>
+                            </tbody></table>
                         </div>
                         <h3>Handling failures</h3>
                         <div class="headers-list">
@@ -692,42 +704,59 @@ public class RenderPdf {
 
         <footer class="footer">
             <p>RenderPDF / API reference v1</p>
-            <div>
+            <nav aria-label="Footer navigation">
                 <a href="/">Home</a>
                 <a href="/app/">Dashboard</a>
                 <a href="https://vberkoz.com/">vberkoz.com</a>
-            </div>
+            </nav>
         </footer>
     </div>
 
+
+
+
+
     <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.11.1/build/highlight.min.js"></script>
-    <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.js"></script>
     <script>
         if (window.hljs) window.hljs.highlightAll();
-        window.lucide?.createIcons({ attrs: { 'aria-hidden': 'true' } });
+
+        async function copyCode(button) {
+            const target = document.getElementById(button.dataset.copyTarget);
+            if (!target) return;
+
+            const originalLabel = button.textContent;
+            const text = target.textContent;
+            button.disabled = true;
+            button.classList.remove('is-copied', 'is-copy-error');
+
+            try {
+                if (navigator.clipboard?.writeText) {
+                    await navigator.clipboard.writeText(text);
+                } else {
+                    const selection = window.getSelection();
+                    const range = document.createRange();
+                    range.selectNodeContents(target);
+                    selection.removeAllRanges();
+                    selection.addRange(range);
+                    document.execCommand('copy');
+                    selection.removeAllRanges();
+                }
+                button.textContent = 'Copied';
+                button.classList.add('is-copied');
+            } catch {
+                button.textContent = 'Select text';
+                button.classList.add('is-copy-error');
+            } finally {
+                window.setTimeout(() => {
+                    button.textContent = originalLabel;
+                    button.classList.remove('is-copied', 'is-copy-error');
+                    button.disabled = false;
+                }, 1600);
+            }
+        }
 
         document.querySelectorAll('.copy-button').forEach((button) => {
-            button.addEventListener('click', async () => {
-                const target = document.getElementById(button.dataset.copyTarget);
-                if (!target) return;
-                const originalLabel = button.textContent;
-                button.disabled = true;
-                button.setAttribute('aria-busy', 'true');
-                button.classList.add('is-processing');
-                button.textContent = 'Copying';
-
-                try {
-                    await navigator.clipboard.writeText(target.innerText);
-                    button.textContent = 'Copied';
-                    window.setTimeout(() => { button.textContent = originalLabel; }, 1600);
-                } catch (error) {
-                    button.textContent = 'Select text';
-                } finally {
-                    button.disabled = false;
-                    button.setAttribute('aria-busy', 'false');
-                    button.classList.remove('is-processing');
-                }
-            });
+            button.addEventListener('click', () => copyCode(button));
         });
     </script>
 </body>

@@ -51,7 +51,6 @@
   - `dashboard/login.html`
   - `dashboard/callback.html`
   - `dashboard/app.js`
-  - `dashboard/style.css`
 - Verify:
   - manual dashboard checks from `docs/VERIFICATION.md`
 
@@ -59,9 +58,9 @@
 
 - Check:
   - `landing/index.html`
-  - `landing/style.css`
 - Verify:
   - manual landing checks from `docs/VERIFICATION.md`
+
 
 ## Use Existing Files Instead Of Creating New Ones
 

@@ -13,7 +13,6 @@
 ## Files/Folders In Scope
 
 - `/Users/basilsergius/projects/renderpdf/landing/index.html`
-- `/Users/basilsergius/projects/renderpdf/landing/style.css`
 
 ## Files/Folders Out Of Scope
 

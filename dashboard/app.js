@@ -1,6 +1,28 @@
 const API_URL = '/api/v1';
 const IS_LOCAL_PREVIEW = window.location.protocol === 'file:' ||
     ['localhost', '127.0.0.1'].includes(window.location.hostname);
+const activeDashboardView = new URLSearchParams(window.location.search).get('view') || 'overview';
+const markdownDocumentDefaultCSS = `
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 16px; line-height: 1.6; color: #24292e; max-width: 800px; margin: 0 auto; padding: 2rem; background-color: #ffffff; }
+h1, h2, h3, h4, h5, h6 { margin-top: 1.5rem; margin-bottom: 1rem; font-weight: 600; line-height: 1.25; }
+h1 { font-size: 2em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+h2 { font-size: 1.5em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+h3 { font-size: 1.25em; }
+a { color: #0366d6; text-decoration: none; }
+a:hover { text-decoration: underline; }
+p, blockquote, ul, ol, dl, table, pre { margin-top: 0; margin-bottom: 16px; }
+ul, ol { padding-left: 2em; }
+li + li { margin-top: 0.25em; }
+blockquote { padding: 0 1em; color: #6a737d; border-left: 0.25em solid #dfe2e5; margin-left: 0; }
+code { padding: 0.2em 0.4em; margin: 0; font-size: 85%; background-color: rgba(27, 31, 35, 0.05); border-radius: 3px; font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace; }
+pre { max-width: 100%; padding: 16px; overflow: visible; font-size: 85%; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; background-color: #f6f8fa; border-radius: 3px; }
+pre code { background-color: transparent; padding: 0; font-size: 100%; white-space: inherit; overflow-wrap: inherit; word-break: inherit; }
+table { border-spacing: 0; border-collapse: collapse; width: 100%; }
+table th, table td { padding: 6px 13px; border: 1px solid #dfe2e5; }
+table tr { background-color: #fff; border-top: 1px solid #c6cbd1; }
+table tr:nth-child(2n) { background-color: #f6f8fa; }
+img { max-width: 100%; box-sizing: content-box; background-color: #fff; }
+`;
 
 function decodeTokenPayload(token) {
     try {
@@ -65,6 +87,82 @@ function authHeaders() {
         'Content-Type': 'application/json'
     };
 }
+
+// Shared in-app replacement for browser prompts. Keep it generic so future
+// dashboard actions can request text without relying on transient native UI.
+function showDashboardDialog({ title, description, label = 'Name', value = '', confirmLabel = 'Save', requiresText = true, destructive = false }) {
+    const dialog = document.getElementById('dashboardTextDialog');
+    const form = document.getElementById('dashboardTextDialogForm');
+    const input = document.getElementById('dashboardDialogInput');
+    const field = document.getElementById('dashboardDialogField');
+    const cancelButton = document.getElementById('dashboardDialogCancel');
+    const confirmButton = document.getElementById('dashboardDialogConfirm');
+    document.getElementById('dashboardDialogTitle').textContent = title;
+    document.getElementById('dashboardDialogDescription').textContent = description;
+    document.getElementById('dashboardDialogLabel').textContent = label;
+    confirmButton.textContent = confirmLabel;
+    field.hidden = !requiresText;
+    input.required = requiresText;
+    confirmButton.classList.toggle('dashboard-button-danger', destructive);
+    confirmButton.classList.toggle('dashboard-button-primary', !destructive);
+    input.value = value;
+    input.setCustomValidity('');
+
+    return new Promise((resolve) => {
+        let settled = false;
+        const cleanup = () => {
+            form.removeEventListener('submit', onSubmit);
+            cancelButton.removeEventListener('click', onCancel);
+            dialog.removeEventListener('cancel', onCancel);
+            dialog.removeEventListener('close', onClose);
+        };
+        const finish = (result) => {
+            if (settled) return;
+            settled = true;
+            cleanup();
+            if (dialog.open) dialog.close();
+            resolve(result);
+        };
+        const onSubmit = (event) => {
+            event.preventDefault();
+            const text = input.value.trim();
+            if (requiresText && !text) {
+                input.setCustomValidity(`${label} is required`);
+                input.reportValidity();
+                return;
+            }
+            finish(requiresText ? text : true);
+        };
+        const onCancel = (event) => {
+            event?.preventDefault();
+            finish(requiresText ? null : false);
+        };
+        const onClose = () => finish(null);
+        form.addEventListener('submit', onSubmit);
+        cancelButton.addEventListener('click', onCancel);
+        dialog.addEventListener('cancel', onCancel);
+        dialog.addEventListener('close', onClose);
+        dialog.showModal();
+        window.requestAnimationFrame(() => {
+            if (requiresText) {
+                input.focus();
+                input.select();
+            } else {
+                confirmButton.focus();
+            }
+        });
+    });
+}
+
+function promptDashboardText(options) {
+    return showDashboardDialog({ ...options, requiresText: true });
+}
+
+function confirmDashboardAction(options) {
+    return showDashboardDialog({ ...options, requiresText: false, destructive: true });
+}
+
+window.dashboardDialog = { promptText: promptDashboardText, confirm: confirmDashboardAction };
 
 function generateKey() {
     return apiRequest('/api-keys', { method: 'POST', headers: authHeaders() });
@@ -318,6 +416,47 @@ function renderMarkdownPreviewFragment(markdown) {
     return window.marked.parse(markdown, { gfm: true, renderer });
 }
 
+function syncDocumentPreviewStageHeight() {
+    const isMarkdown = document.getElementById('documentSourceTypeInput')?.value === 'markdown';
+    const payload = document.getElementById(isMarkdown ? 'documentMarkdownFields' : 'documentJsonField');
+    const stage = document.querySelector('.document-json-preview-stage');
+    if (!payload || !stage) return;
+    if (window.matchMedia('(max-width: 760px)').matches) {
+        stage.style.removeProperty('height');
+        return;
+    }
+
+    const height = Math.round(payload.getBoundingClientRect().bottom - stage.getBoundingClientRect().top);
+    if (height > 0) stage.style.height = `${height}px`;
+}
+
+window.addEventListener('message', (event) => {
+    const { data } = event;
+    if (!data || data.type !== 'renderpdf-paged-preview-size' || !Number.isFinite(data.height)) return;
+
+    const preview = ['templatePreview', 'documentJsonPreview']
+        .map((id) => document.getElementById(id))
+        .find((frame) => frame?.contentWindow === event.source);
+    if (!preview) return;
+
+    // The iframe contains only the rendered page stack. The gray, scrollable
+    // stage belongs to the reusable preview component outside the document.
+    preview.style.height = `${Math.max(1, Math.ceil(data.height))}px`;
+    if (preview.id === 'documentJsonPreview') syncDocumentPreviewStageHeight();
+});
+
+window.addEventListener('resize', () => window.requestAnimationFrame(syncDocumentPreviewStageHeight));
+window.requestAnimationFrame(() => {
+    syncDocumentPreviewStageHeight();
+    const fields = ['documentJsonField', 'documentMarkdownFields']
+        .map((id) => document.getElementById(id))
+        .filter(Boolean);
+    if (fields.length && window.ResizeObserver) {
+        const observer = new ResizeObserver(syncDocumentPreviewStageHeight);
+        fields.forEach((field) => observer.observe(field));
+    }
+});
+
 function buildDocumentJsonPreview(request, values, usesMarkdown) {
     let resolvedHTML;
     if (usesMarkdown) {
@@ -328,16 +467,22 @@ function buildDocumentJsonPreview(request, values, usesMarkdown) {
         resolvedHTML = request.html.replace(documentPlaceholderPattern, (_, path) => escapeTemplatePreviewHTML(values.get(path)));
     }
     const parsed = new DOMParser().parseFromString(resolvedHTML, 'text/html');
+    parsed.querySelectorAll('script, iframe, object, embed').forEach((element) => element.remove());
     parsed.querySelectorAll('*').forEach((element) => {
+        element.getAttributeNames().forEach((name) => {
+            const value = element.getAttribute(name)?.trim().toLowerCase() || '';
+            if (name.toLowerCase().startsWith('on') || value.startsWith('javascript:')) element.removeAttribute(name);
+        });
         ['href', 'action', 'formaction', 'xlink:href'].forEach((attribute) => element.removeAttribute(attribute));
     });
-    const contentSecurityPolicy = "default-src 'none'; style-src 'unsafe-inline'; img-src 'none'; font-src 'none'; connect-src 'none'; frame-src 'none'; form-action 'none'; base-uri 'none'";
-    return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${contentSecurityPolicy}"><style>${request.css}\n@page { size: ${request.options.format}; margin: ${request.options.margin}; }</style></head><body>${parsed.body.innerHTML}</body></html>`;
+    const contentSecurityPolicy = "default-src 'none'; img-src data: https:; style-src 'unsafe-inline' https:; font-src data: https:; script-src 'unsafe-inline' https://unpkg.com; connect-src https:; frame-src 'none'; form-action 'none'; base-uri 'none'";
+    const documentCSS = usesMarkdown ? markdownDocumentDefaultCSS + request.css : request.css;
+    return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${contentSecurityPolicy}"><style>${documentCSS}\n@page { size: ${request.options.format}; margin: ${request.options.margin}; }</style>${pagedPreviewHead}</head><body>${parsed.body.innerHTML}</body></html>`;
 }
 
 function previewDocumentJson() {
     const parsed = parseDocumentEditor();
-    document.getElementById('documentJsonPreview').srcdoc = buildDocumentJsonPreview(parsed.request, parsed.values, parsed.usesMarkdown);
+    setPagedPreview('documentJsonPreview', buildDocumentJsonPreview(parsed.request, parsed.values, parsed.usesMarkdown));
     return parsed.request;
 }
 
@@ -363,6 +508,27 @@ function setDocumentEditorMode(type, loadSample = false) {
     if (loadSample) loadDocumentEditorSample(isMarkdown ? 'markdown' : 'html');
     ['documentJsonInput', 'documentMarkdownInput', 'documentMarkdownSettingsInput'].forEach((id) => {
         window.setTimeout(() => templateCodeEditors[id]?.refresh(), 0);
+    });
+    window.requestAnimationFrame(syncDocumentPreviewStageHeight);
+}
+
+function setCreateRenderMode(mode) {
+    const isTemplate = mode !== 'document';
+    const templateWorkspace = document.getElementById('templateWorkspace');
+    const documentWorkspace = document.getElementById('documentWorkspace');
+    const title = document.getElementById('createRenderTitle');
+    const description = document.getElementById('createRenderDescription');
+
+    templateWorkspace.hidden = !isTemplate;
+    documentWorkspace.hidden = isTemplate;
+    title.textContent = isTemplate ? 'Create & render' : 'Create an inline document';
+    description.textContent = isTemplate
+        ? 'Select a starter or saved template, provide variables, and render a PDF from your dashboard session.'
+        : 'Edit an HTML/CSS JSON contract or Markdown source, preview bound content locally, then render a PDF.';
+
+    window.requestAnimationFrame(() => {
+        Object.values(templateCodeEditors).forEach((editor) => editor.refresh());
+        if (!isTemplate) syncDocumentPreviewStageHeight();
     });
 }
 
@@ -509,18 +675,54 @@ const pagedPreviewHead = `
     pages.style.zoom = String(Math.min(1, availableWidth / page.getBoundingClientRect().width));
   }
 
+  function reportPagedPreviewSize() {
+    const pages = document.querySelector('.pagedjs_pages');
+    const height = pages
+      ? Math.ceil(pages.getBoundingClientRect().height)
+      : Math.ceil(Math.max(document.documentElement.scrollHeight, document.body.scrollHeight));
+    window.parent.postMessage({ type: 'renderpdf-paged-preview-size', height: Math.max(1, height) }, '*');
+  }
+
   window.PagedConfig = { auto: false };
   window.addEventListener('load', () => {
     applyTemplatePrintRules();
     reducePagedPreviewMargins();
-    if (!window.PagedPolyfill) return;
+    if (!window.PagedPolyfill) {
+      reportPagedPreviewSize();
+      return;
+    }
     const render = window.PagedPolyfill.preview();
-    if (render && typeof render.then === 'function') render.then(fitPagedPreviewPages);
-    else requestAnimationFrame(fitPagedPreviewPages);
+    if (render && typeof render.then === 'function') render.then(
+      () => { fitPagedPreviewPages(); reportPagedPreviewSize(); },
+      // A parent iframe refresh cancels an in-flight pagination run. Paged.js
+      // can then measure a node it has already removed; retain the unpaged
+      // document as the preview rather than surfacing an uncaught rejection.
+      () => { reportPagedPreviewSize(); }
+    );
+    else requestAnimationFrame(() => { fitPagedPreviewPages(); reportPagedPreviewSize(); });
+    window.setTimeout(reportPagedPreviewSize, 250);
+    if (window.ResizeObserver) new ResizeObserver(reportPagedPreviewSize).observe(document.body);
   });
   window.addEventListener('resize', fitPagedPreviewPages);
 </script>
 <script src="https://unpkg.com/pagedjs@0.4.3/dist/paged.polyfill.js"></script>`;
+
+const pendingPagedPreviews = new Map();
+
+function setPagedPreview(previewId, srcdoc) {
+    const preview = document.getElementById(previewId);
+    const pending = pendingPagedPreviews.get(previewId);
+    if (pending) window.clearTimeout(pending);
+    preview.style.height = '1px';
+    preview.parentElement.scrollTop = 0;
+    // CodeMirror emits an input event for every edit. Coalesce those updates
+    // before replacing srcdoc so Paged.js never has competing render passes.
+    const timer = window.setTimeout(() => {
+        pendingPagedPreviews.delete(previewId);
+        preview.srcdoc = srcdoc;
+    }, 160);
+    pendingPagedPreviews.set(previewId, timer);
+}
 
 function previewTemplateHTML(html) {
     const fallback = '<main style="font-family:\'IBM Plex Sans\',Arial,sans-serif;padding:24px;color:#586473">Your template preview appears here.</main>';
@@ -533,7 +735,7 @@ function previewTemplateHTML(html) {
         });
     });
     documentPreview.head.insertAdjacentHTML('afterbegin', pagedPreviewHead);
-    document.getElementById('templatePreview').srcdoc = `<!doctype html>${documentPreview.documentElement.outerHTML}`;
+    setPagedPreview('templatePreview', `<!doctype html>${documentPreview.documentElement.outerHTML}`);
 }
 
 function escapeTemplatePreviewHTML(value) {
@@ -554,7 +756,6 @@ function previewTemplateWithVariables() {
 function resetTemplateEditor() {
     document.getElementById('templateForm').reset();
     document.getElementById('templateId').value = '';
-    document.getElementById('templateVersion').textContent = 'New template';
     document.getElementById('deleteTemplateBtn').hidden = true;
     document.getElementById('saveTemplateBtn').disabled = false;
     ['templateNameInput', 'templateTypeInput', 'templateHtmlInput'].forEach((id) => { document.getElementById(id).disabled = false; });
@@ -571,8 +772,9 @@ function populateTemplateEditor(template, pickerValue) {
     document.getElementById('templateTypeInput').value = template.type || 'custom';
     if (pickerValue) window.customSelect?.setValue('templatePickerInput', pickerValue);
     setTemplateEditorValue('templateHtmlInput', template.html || '');
-    setTemplateEditorValue('templateVariablesInput', JSON.stringify(template.variables || template.exampleVariables || {}, null, 2));
-    document.getElementById('templateVersion').textContent = template.id ? `Version ${template.version || 1}` : 'Starter template — save to customize';
+    // Starters include variable documentation as well as a concrete example
+    // payload. The latter is what both the local preview and PDF renderer need.
+    setTemplateEditorValue('templateVariablesInput', JSON.stringify(template.exampleVariables || template.variables || {}, null, 2));
     document.getElementById('deleteTemplateBtn').hidden = !template.id;
     document.getElementById('saveTemplateBtn').disabled = false;
     ['templateNameInput', 'templateTypeInput', 'templateHtmlInput'].forEach((id) => { document.getElementById(id).disabled = false; });
@@ -587,27 +789,73 @@ function formatDate(timestamp) {
     }).format(new Date(timestamp * 1000));
 }
 
-function renderKeys(keys) {
-    const container = document.getElementById('keysList');
-    const keyCount = document.getElementById('keyCount');
-    const activeKeys = (keys || []).filter((key) => key.isActive);
-    keyCount.textContent = String(activeKeys.length);
+function renderTable(container, { columns = [], rows = [], empty, loading, caption }) {
     container.replaceChildren();
-
-    if (!keys || keys.length === 0) {
-        const empty = document.createElement('div');
-        empty.className = 'empty-state';
-        empty.innerHTML = '<strong>No API keys yet</strong><span>Create your first key to use the production endpoint.</span>';
-        container.appendChild(empty);
+    container.classList.add('dashboard-table-wrap');
+    container.scrollLeft = 0;
+    if (loading) {
+        container.textContent = loading;
         return;
     }
+    if (!rows.length) {
+        if (empty instanceof Node) container.append(empty);
+        else container.textContent = empty || 'No data available.';
+        return;
+    }
+    const table = document.createElement('table');
+    table.className = 'dashboard-table';
+    if (caption) {
+        const tableCaption = document.createElement('caption');
+        tableCaption.textContent = caption;
+        table.append(tableCaption);
+    }
+    const head = document.createElement('thead');
+    const headRow = document.createElement('tr');
+    columns.forEach((column) => {
+        const cell = document.createElement('th');
+        cell.scope = 'col';
+        if (column.className) cell.classList.add(column.className);
+        cell.textContent = column.label;
+        headRow.append(cell);
+    });
+    head.append(headRow);
+    table.append(head);
+    const body = document.createElement('tbody');
+    rows.forEach((row) => {
+        const tableRow = document.createElement('tr');
+        row.cells.forEach((content, index) => {
+            const cell = document.createElement('td');
+            cell.classList.add(`dashboard-table-cell-${index + 1}`);
+            if (columns[index]?.className) cell.classList.add(columns[index].className);
+            if (content instanceof Node) cell.append(content);
+            else cell.textContent = content ?? '';
+            tableRow.append(cell);
+        });
+        body.append(tableRow);
+    });
+    table.append(body);
+    container.append(table);
+}
 
-    keys.forEach((key) => {
-        const item = document.createElement('div');
-        item.className = 'key-item';
-
+function renderKeys(keys) {
+    const container = document.getElementById('keysList');
+    if (!keys || keys.length === 0) {
+        const empty = document.createElement('div');
+        const title = document.createElement('strong');
+        title.textContent = 'No API keys yet';
+        const explanation = document.createElement('span');
+        explanation.textContent = 'An API key authenticates server-side requests. Store it in a secret manager or environment variable—never in browser code.';
+        const exampleLink = document.createElement('a');
+        exampleLink.className = 'empty-state-link';
+        exampleLink.href = '/docs/api/#render';
+        exampleLink.textContent = 'See your first render example →';
+        empty.append(title, explanation, exampleLink);
+        renderTable(container, { caption: 'API keys', empty });
+        return;
+    }
+    const rows = keys.map((key) => {
         const identity = document.createElement('div');
-        identity.className = 'key-identity';
+        identity.className = 'dashboard-table-primary';
         const keyLabel = document.createElement('code');
         keyLabel.textContent = key.keyId;
         const created = document.createElement('span');
@@ -615,33 +863,36 @@ function renderKeys(keys) {
         identity.append(keyLabel, created);
 
         const activity = document.createElement('div');
-        activity.className = 'key-activity';
-        const activityLabel = document.createElement('span');
-        activityLabel.textContent = key.lastUsed ? 'Last used' : 'Usage';
-        const activityValue = document.createElement('strong');
-        activityValue.textContent = formatDate(key.lastUsed);
-        activity.append(activityLabel, activityValue);
+        activity.className = 'dashboard-table-activity';
+        const activityValue = document.createElement('strong'); activityValue.textContent = formatDate(key.lastUsed);
+        activity.append(activityValue);
 
-        const controls = document.createElement('div');
-        controls.className = 'key-controls';
         const state = document.createElement('span');
-        state.className = key.isActive ? 'key-state is-active' : 'key-state';
+        state.className = 'dashboard-table-state';
         state.textContent = key.isActive ? 'Active' : 'Revoked';
-        controls.appendChild(state);
+        const actions = document.createElement('div');
+        actions.className = 'dashboard-table-actions';
 
         if (key.isActive) {
             const revokeButton = document.createElement('button');
-            revokeButton.className = 'revoke-button';
+            revokeButton.className = 'table-action danger';
             revokeButton.type = 'button';
-            revokeButton.innerHTML = '<i data-lucide="ban" aria-hidden="true"></i>Revoke';
+            revokeButton.textContent = 'Revoke';
             revokeButton.dataset.keyId = key.keyId;
-            controls.appendChild(revokeButton);
+            actions.appendChild(revokeButton);
         }
 
-        item.append(identity, activity, controls);
-        container.appendChild(item);
+        return { cells: [identity, activity, state, actions], sortValues: [key.keyId, key.lastUsed || 0, key.isActive ? 1 : 0] };
     });
-    window.lucide?.createIcons({ attrs: { 'aria-hidden': 'true' } });
+    renderTable(container, {
+        caption: 'API keys', density: 'comfortable',
+        columns: [
+            { label: 'Credential', sortable: true },
+            { label: 'Last used', sortable: true },
+            { label: 'State', sortable: true, className: 'state' },
+            { label: 'Actions', className: 'dashboard-table-actions-cell' }
+        ], rows
+    });
 }
 
 async function loadKeys() {
@@ -655,26 +906,110 @@ async function loadKeys() {
     }
 }
 
-function renderAccount() {
-    const payload = decodeTokenPayload(localStorage.getItem('id_token'));
-    const accountLabel = document.getElementById('accountLabel');
-    accountLabel.textContent = payload?.email || 'RenderPDF developer';
-    document.getElementById('statsNav').hidden = payload?.email?.toLowerCase() !== 'vberkoz@gmail.com';
-}
-
 function formatLogDate(timestamp) {
     if (!timestamp) return 'Unknown time';
     return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(timestamp * 1000));
 }
 
+const requestLogState = { logs: [], page: 1, pageSize: 5 };
+
+const dashboardPageContexts = {
+    overview: {
+        kicker: 'Developer dashboard',
+        title: 'Developer dashboard',
+        description: 'Review PDF capacity, manage API keys, and create PDFs.'
+    },
+    'create-render': {
+        kicker: 'Create and render',
+        title: 'Create a PDF',
+        description: 'Start with a template or inline document, preview it, then render a PDF.'
+    },
+    sources: {
+        kicker: 'Sources',
+        title: 'Saved sources',
+        description: 'Manage reusable document definitions for future renders and batches.'
+    },
+    files: {
+        kicker: 'Files',
+        title: 'Private files',
+        description: 'Upload document packages and download or remove your retained files.'
+    },
+    batches: {
+        kicker: 'Batch rendering',
+        title: 'Render a batch',
+        description: 'Use one saved source to render PDFs for multiple data rows.'
+    },
+    logs: {
+        kicker: 'Activity',
+        title: 'Request activity',
+        description: 'Review recent authenticated PDF render attempts.'
+    },
+    billing: {
+        kicker: 'Billing',
+        title: 'Plan and billing',
+        description: 'Review your current PDF capacity and manage your subscription.'
+    }
+};
+
+function setDashboardPageContext(view) {
+    const context = dashboardPageContexts[view] || dashboardPageContexts.overview;
+    document.getElementById('dashboardPageKicker').textContent = context.kicker;
+    document.getElementById('dashboardPageTitle').textContent = context.title;
+    document.getElementById('dashboardPageDescription').textContent = context.description;
+}
+
 function renderLogs(logs) {
-    const container = document.getElementById('logsList');
+    requestLogState.logs = logs || [];
+    requestLogState.page = 1;
+    updateVisibleLogs();
+}
+
+function renderRecentActivity(logs) {
+    const container = document.getElementById('recentActivityList');
+    if (!container) return;
     container.replaceChildren();
-    if (!logs?.length) {
+    const recent = (logs || []).slice().sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)).slice(0, 5);
+    if (!recent.length) {
         container.innerHTML = '<p class="empty-state">No authenticated PDF requests yet.</p>';
         return;
     }
-    logs.forEach((log) => {
+    recent.forEach((log) => {
+        const item = document.createElement('div');
+        item.className = `log-item ${log.status === 'success' ? 'is-success' : 'is-error'}`;
+        const main = document.createElement('div');
+        const title = document.createElement('strong');
+        title.textContent = log.status === 'success' ? 'PDF generated' : 'PDF failed';
+        const detail = document.createElement('span');
+        detail.textContent = `${formatLogDate(log.timestamp)} · ${log.apiKeyId ? `key ${log.apiKeyId.slice(0, 8)}` : 'account request'}`;
+        main.append(title, detail);
+        const meta = document.createElement('span');
+        meta.textContent = log.status === 'success' ? `${(log.size / 1024).toFixed(1)} KB` : (log.errorType || log.status);
+        item.append(main, meta);
+        container.appendChild(item);
+    });
+}
+
+function updateVisibleLogs() {
+    const container = document.getElementById('logsList');
+    const pagination = document.getElementById('logsPagination');
+    const previous = document.getElementById('logsPreviousPage');
+    const next = document.getElementById('logsNextPage');
+    const pageStatus = document.getElementById('logsPageStatus');
+    container.replaceChildren();
+    const status = document.getElementById('logsStatusFilter')?.value || 'all';
+    const sort = document.getElementById('logsSort')?.value || 'newest';
+    const logs = requestLogState.logs
+        .filter((log) => status === 'all' || log.status === status)
+        .sort((a, b) => sort === 'oldest' ? (a.timestamp || 0) - (b.timestamp || 0) : (b.timestamp || 0) - (a.timestamp || 0));
+    if (!logs.length) {
+        container.innerHTML = '<p class="empty-state">No authenticated PDF requests yet.</p>';
+        pagination.hidden = true;
+        return;
+    }
+    const pageCount = Math.ceil(logs.length / requestLogState.pageSize);
+    requestLogState.page = Math.min(requestLogState.page, pageCount);
+    const start = (requestLogState.page - 1) * requestLogState.pageSize;
+    logs.slice(start, start + requestLogState.pageSize).forEach((log) => {
         const item = document.createElement('div');
         item.className = `log-item ${log.status === 'success' ? 'is-success' : 'is-error'}`;
         const main = document.createElement('div');
@@ -688,23 +1023,40 @@ function renderLogs(logs) {
         item.append(main, meta);
         container.appendChild(item);
     });
+    pagination.hidden = pageCount < 2;
+    previous.disabled = requestLogState.page === 1;
+    next.disabled = requestLogState.page === pageCount;
+    pageStatus.textContent = `${requestLogState.page} / ${pageCount}`;
 }
+
+function initializeLogExplorer() {
+    const refresh = () => { requestLogState.page = 1; updateVisibleLogs(); };
+    document.getElementById('logsStatusFilter')?.addEventListener('change', refresh);
+    document.getElementById('logsSort')?.addEventListener('change', refresh);
+    document.getElementById('logsPreviousPage')?.addEventListener('click', () => { requestLogState.page -= 1; updateVisibleLogs(); });
+    document.getElementById('logsNextPage')?.addEventListener('click', () => { requestLogState.page += 1; updateVisibleLogs(); });
+}
+
+initializeLogExplorer();
 
 function renderDashboard(data) {
     const usage = data.usage || {};
     const billing = data.billing || { status: 'free', plan: 'Free' };
     document.getElementById('pdfsToday').textContent = String(usage.pdfsToday ?? 0);
-    document.getElementById('failedToday').textContent = String(usage.failedToday ?? 0);
-    document.getElementById('quotaRemaining').textContent = String(usage.remaining ?? 0);
-    document.getElementById('quotaDetail').textContent = `${usage.usedThisMonth ?? 0} of ${usage.quota ?? 0} PDFs used this month`;
+    document.getElementById('monthlyUsage').textContent = `${usage.usedThisMonth ?? 0} of ${usage.quota ?? 0}`;
+    document.getElementById('quotaDetail').textContent = `${usage.remaining ?? 0} PDFs remaining this month`;
+    document.getElementById('dailyActivityDetail').textContent = usage.failedToday ? `${usage.failedToday} failed` : 'No failed renders';
     document.getElementById('billingPlan').textContent = billing.plan || 'Free';
     document.getElementById('billingDetail').textContent = billing.status === 'free'
         ? 'Upgrade for more monthly PDF capacity.'
         : `${billing.status.replace(/_/g, ' ')}${billing.renewsAt ? ` · renews ${new Date(billing.renewsAt).toLocaleDateString()}` : ''}`;
+    document.getElementById('billingUsageDetail').textContent = `Current usage: ${usage.usedThisMonth ?? 0} of ${usage.quota ?? 0} PDFs this month`;
     const subscribed = ['active', 'trialing', 'past_due'].includes(billing.status);
     document.querySelectorAll('[data-plan]').forEach((button) => { button.hidden = subscribed; });
+    document.getElementById('upgradePlanBtn').hidden = subscribed;
     document.getElementById('manageBillingBtn').hidden = !subscribed;
     renderLogs(data.logs);
+    renderRecentActivity(data.logs);
 }
 
 async function refreshDashboard() {
@@ -718,15 +1070,27 @@ async function refreshDashboard() {
 }
 
 if (checkAuth()) {
+    document.querySelectorAll('label[role="button"][for]').forEach((label) => {
+        label.addEventListener('keydown', (event) => {
+            if (!['Enter', ' '].includes(event.key)) return;
+            event.preventDefault();
+            document.getElementById(label.htmlFor)?.click();
+        });
+    });
+    const activeNavigationItem = document.querySelector(`[data-dashboard-nav="${activeDashboardView}"]`);
+    activeNavigationItem?.classList.add('is-active');
+    activeNavigationItem?.setAttribute('aria-current', 'page');
+    setDashboardPageContext(activeDashboardView);
     const generateButton = document.getElementById('generateKeyBtn');
-    const copyButton = document.getElementById('copyKeyBtn');
     const keysList = document.getElementById('keysList');
     const keysStatus = document.getElementById('keysStatus');
     const templatesStatus = document.getElementById('templatesStatus');
     const templatePickerInput = document.getElementById('templatePickerInput');
+    const createRenderModeInput = document.getElementById('createRenderModeInput');
     const templateForm = document.getElementById('templateForm');
     const templateRenderResult = document.getElementById('templateRenderResult');
     const saveTemplateButton = document.getElementById('saveTemplateBtn');
+    const previewTemplateButton = document.getElementById('previewTemplateBtn');
     const renderTemplateButton = document.getElementById('renderTemplateBtn');
     const documentJsonStatus = document.getElementById('documentJsonStatus');
     const documentJsonResult = document.getElementById('documentJsonResult');
@@ -739,6 +1103,7 @@ if (checkAuth()) {
     initializeTemplateCodeEditor('documentJsonInput', 'application/json');
     initializeTemplateCodeEditor('documentMarkdownInput', 'markdown');
     initializeTemplateCodeEditor('documentMarkdownSettingsInput', 'application/json');
+    setCreateRenderMode(createRenderModeInput.value);
     let savedTemplates = new Map();
     let starterTemplates = new Map();
 
@@ -776,7 +1141,6 @@ if (checkAuth()) {
         }
     }
 
-    renderAccount();
     if (IS_LOCAL_PREVIEW) {
         renderKeys([]);
     } else {
@@ -790,11 +1154,14 @@ if (checkAuth()) {
     setDocumentEditorMode('html');
     previewDocumentJson();
 
+    document.getElementById('upgradePlanBtn').addEventListener('click', () => document.getElementById('billingPlanDialog').showModal());
+    document.getElementById('billingPlanDialogClose').addEventListener('click', () => document.getElementById('billingPlanDialog').close());
     document.querySelectorAll('[data-plan]').forEach((button) => button.addEventListener('click', async () => {
         const billingStatus = document.getElementById('billingStatus');
         setButtonPending(button, true, 'Opening checkout...');
         try {
             const data = await startCheckout(button.dataset.plan);
+            document.getElementById('billingPlanDialog').close();
             await openPaddleCheckout(data);
             setButtonPending(button, false);
         } catch (error) {
@@ -831,17 +1198,6 @@ if (checkAuth()) {
         }
     });
 
-    copyButton.addEventListener('click', async () => {
-        const key = document.getElementById('newKeyValue').textContent;
-        try {
-            await navigator.clipboard.writeText(key);
-            copyButton.textContent = 'Copied';
-            window.setTimeout(() => { copyButton.textContent = 'Copy key'; }, 1600);
-        } catch (error) {
-            setNotice(keysStatus, 'Clipboard access is unavailable. Select and copy the key manually.', 'error');
-        }
-    });
-
     templatePickerInput.addEventListener('change', async () => {
         const [kind, value] = templatePickerInput.value.split(':', 2);
         if (kind === 'new') {
@@ -859,8 +1215,20 @@ if (checkAuth()) {
         }
     });
 
+    createRenderModeInput.addEventListener('change', () => setCreateRenderMode(createRenderModeInput.value));
+
     document.getElementById('templateHtmlInput').addEventListener('input', previewTemplateWithVariables);
     document.getElementById('templateVariablesInput').addEventListener('input', previewTemplateWithVariables);
+    previewTemplateButton.addEventListener('click', () => {
+        try {
+            templateVariablesFromEditor();
+            previewTemplateWithVariables();
+            setNotice(templatesStatus, 'Preview updated with the current template and variable data.', 'success');
+        } catch (error) {
+            previewTemplateHTML(templateEditorValue('templateHtmlInput'));
+            setNotice(templatesStatus, `Preview uses template HTML only: Variable JSON is invalid. ${error.message}`, 'error');
+        }
+    });
 
     templateForm.addEventListener('submit', async (event) => {
         event.preventDefault();
@@ -892,7 +1260,11 @@ if (checkAuth()) {
     document.getElementById('deleteTemplateBtn').addEventListener('click', async () => {
         const templateId = document.getElementById('templateId').value;
         if (!templateId) return;
-        if (!window.confirm('Delete this template? This cannot be undone.')) return;
+        if (!await confirmDashboardAction({
+            title: 'Delete this template?',
+            description: 'This cannot be undone.',
+            confirmLabel: 'Delete template'
+        })) return;
         const button = document.getElementById('deleteTemplateBtn');
         setButtonPending(button, true, 'Deleting...');
         try {
@@ -1029,7 +1401,12 @@ if (checkAuth()) {
             setNotice(documentJsonStatus, error.message, 'error');
             return;
         }
-        const name = window.prompt('Name this saved source');
+        const name = await promptDashboardText({
+            title: 'Name this source',
+            description: 'Choose a name you will recognize when selecting it for a batch.',
+            label: 'Source name',
+            confirmLabel: 'Save source'
+        });
         if (!name) return;
         try {
             await dashboardTemplateRequest('/dashboard/sources', { method: 'POST', body: JSON.stringify({ name, definition }) });
@@ -1040,55 +1417,225 @@ if (checkAuth()) {
     });
 
     const managedRequest = (path, options = {}) => dashboardTemplateRequest(path, options);
-    async function refreshManagers() {
+
+    function batchSubmission() {
+        const sourceID = document.getElementById('batchSourceSelect').value;
+        if (!sourceID) throw new Error('Choose a saved source first.');
+        let items;
         try {
-            const [sourceResult, fileResult] = await Promise.all([managedRequest('/dashboard/sources'), managedRequest('/dashboard/files')]);
+            items = JSON.parse(document.getElementById('batchItemsInput').value);
+        } catch (error) {
+            throw new Error('Item data must be valid JSON.');
+        }
+        if (!Array.isArray(items) || items.length < 1 || items.length > 99) throw new Error('Provide a JSON array with 1–99 items.');
+        return { sourceID, items };
+    }
+
+    function updateBatchReview() {
+        const review = document.getElementById('batchReview');
+        try {
+            const { sourceID, items } = batchSubmission();
+            const sourceName = [...document.querySelectorAll('#batchSourceSelect-menu [data-custom-select-option]')]
+                .find((option) => option.dataset.value === sourceID)?.textContent || 'selected source';
+            review.textContent = `Ready to render ${items.length} PDF${items.length === 1 ? '' : 's'} from ${sourceName.trim()}.`;
+            review.dataset.state = 'success';
+            return { sourceID, items };
+        } catch (error) {
+            review.textContent = error.message;
+            review.dataset.state = 'error';
+            return null;
+        }
+    }
+
+    function renderManagerEmpty(container, title, description) {
+        const empty = document.createElement('div');
+        const heading = document.createElement('strong');
+        heading.textContent = title;
+        const detail = document.createElement('span');
+        detail.textContent = description;
+        empty.append(heading, detail);
+        renderTable(container, { caption: container.getAttribute('aria-label') || title, empty });
+    }
+
+    function renderManagerLoading(container, label) {
+        renderTable(container, { loading: `Loading ${label}` });
+    }
+
+    let managersLoaded = false;
+
+    function renderBatchJobs(jobs) {
+        const batchesManager = document.getElementById('batchesManager');
+        if (!jobs.length) {
+            renderManagerEmpty(batchesManager, 'No batch jobs yet', 'Choose a saved source and add item data to submit your first batch.');
+            return;
+        }
+        const rows = jobs.map((job) => {
+            const details = document.createElement('div'); const name = document.createElement('strong'); const meta = document.createElement('span'); details.append(name, meta);
+            name.textContent = job.jobId;
+            const finished = (job.succeededCount || 0) + (job.failedCount || 0) + (job.cancelledCount || 0);
+            const createdAt = job.createdAt ? new Date(job.createdAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Date unavailable';
+            meta.textContent = `${finished}/${job.itemCount} finished · ${job.succeededCount || 0} PDFs · ${createdAt}`;
+            const status = document.createElement('span'); status.textContent = job.status;
+            const actions = document.createElement('div');
+            if ((job.succeededCount || 0) > 0) {
+                const download = document.createElement('button'); download.className = 'table-action'; download.type = 'button'; download.textContent = 'Download ZIP'; download.setAttribute('aria-label', `Download ZIP for batch ${job.jobId}`);
+                download.onclick = async () => { const result = await managedRequest(`/dashboard/batches/${encodeURIComponent(job.jobId)}/download`); window.open(result.url, '_blank', 'noopener'); };
+                actions.append(download);
+            }
+            if (job.status === 'queued' || job.status === 'running') {
+                const cancel = document.createElement('button'); cancel.className = 'table-action'; cancel.type = 'button'; cancel.textContent = 'Cancel batch'; cancel.setAttribute('aria-label', `Cancel batch ${job.jobId}`);
+                cancel.onclick = async () => { await managedRequest(`/dashboard/batches/${encodeURIComponent(job.jobId)}/cancel`, { method: 'POST' }); await refreshManagers(); };
+                actions.append(cancel);
+            }
+            return { cells: [details, status, actions], sortValues: [job.jobId, job.status, job.createdAt || ''] };
+        });
+        renderTable(batchesManager, { caption: 'Batch jobs', columns: [{ label: 'Batch' }, { label: 'Status' }, { label: 'Actions' }], rows });
+    }
+
+    async function refreshManagers() {
+        const sourcesManager = document.getElementById('sourcesManager');
+        const filesManager = document.getElementById('filesManager');
+        const batchesManager = document.getElementById('batchesManager');
+        if (!managersLoaded) {
+            renderManagerLoading(sourcesManager, 'saved sources');
+            renderManagerLoading(filesManager, 'private files');
+            renderManagerLoading(batchesManager, 'batch jobs');
+        }
+        try {
+            const [sourceResult, fileResult, batchResult] = await Promise.all([managedRequest('/dashboard/sources'), managedRequest('/dashboard/files'), managedRequest('/dashboard/batches')]);
             const sourceList = sourceResult.sources || [];
-            const sourcesManager = document.getElementById('sourcesManager');
-            sourcesManager.replaceChildren();
             const batchOptions = sourceList.map((source) => ({ value: source.id, label: source.name }));
-            sourceList.forEach((source) => {
-                const row = document.createElement('div'); row.className = 'log-row';
-                row.innerHTML = `<strong></strong><span></span><button class="dashboard-button dashboard-button-secondary" type="button">Delete</button>`;
-                row.querySelector('strong').textContent = source.name;
-                row.querySelector('span').textContent = `${source.sourceType} · ${(source.sizeBytes / 1024).toFixed(1)} KB`;
-                row.querySelector('button').onclick = async () => { await managedRequest(`/dashboard/sources/${encodeURIComponent(source.id)}`, { method: 'DELETE' }); refreshManagers(); };
-                sourcesManager.append(row);
+            if (!sourceList.length) {
+                renderManagerEmpty(sourcesManager, 'No saved sources yet', 'Save an inline document to reuse it for future renders and batches.');
+            }
+            const sourceRows = sourceList.map((source) => {
+                const details = document.createElement('div'); const name = document.createElement('strong'); const meta = document.createElement('span'); name.textContent = source.name; meta.textContent = `${source.sourceType} · ${(source.sizeBytes / 1024).toFixed(1)} KB`; details.append(name, meta);
+                const type = document.createElement('span'); type.textContent = source.sourceType;
+                const actions = document.createElement('div'); const remove = document.createElement('button'); remove.className = 'table-action danger'; remove.type = 'button'; remove.textContent = 'Delete'; remove.setAttribute('aria-label', `Delete saved source ${source.name}`); actions.append(remove);
+                remove.onclick = async () => {
+                    if (!await confirmDashboardAction({
+                        title: `Delete “${source.name}”?`,
+                        description: 'This saved source will be permanently deleted and cannot be used in future renders or batches.',
+                        confirmLabel: 'Delete source'
+                    })) return;
+                    try {
+                        await managedRequest(`/dashboard/sources/${encodeURIComponent(source.id)}`, { method: 'DELETE' });
+                        await refreshManagers();
+                        setNotice(document.getElementById('sourcesStatus'), 'Source deleted.', 'success');
+                    } catch (error) {
+                        setNotice(document.getElementById('sourcesStatus'), `Could not delete this source. ${error.message}`, 'error');
+                    }
+                };
+                return { cells: [details, type, actions], sortValues: [source.name, source.sourceType, source.sizeBytes || 0] };
             });
+            if (sourceRows.length) renderTable(sourcesManager, { caption: 'Saved sources', columns: [{ label: 'Source' }, { label: 'Type' }, { label: 'Actions' }], rows: sourceRows });
             window.customSelect?.replaceOptions('batchSourceSelect', [{ label: 'Saved sources', options: batchOptions.length ? batchOptions : [{ value: '', label: 'No saved sources' }] }], batchOptions[0]?.value || '');
-            const filesManager = document.getElementById('filesManager'); filesManager.replaceChildren();
-            (fileResult.files || []).forEach((file) => {
-                const row = document.createElement('div'); row.className = 'log-row';
-                row.innerHTML = `<strong></strong><span></span><button class="dashboard-button dashboard-button-secondary" type="button">Download</button><button class="dashboard-button dashboard-button-secondary" type="button">Delete</button>`;
-                row.querySelector('strong').textContent = file.kind;
-                row.querySelector('span').textContent = `${(file.sizeBytes / 1024).toFixed(1)} KB`;
-                const [download, remove] = row.querySelectorAll('button');
+            updateBatchReview();
+            const files = fileResult.files || [];
+            if (!files.length) {
+                renderManagerEmpty(filesManager, 'No private files yet', 'Uploaded packages and rendered PDFs will appear here.');
+            }
+            const fileRows = files.map((file) => {
+                const displayName = file.displayName || file.kind.replace(/_/g, ' ');
+                const details = document.createElement('div'); const name = document.createElement('strong'); const meta = document.createElement('span'); name.textContent = displayName; details.append(name, meta);
+                const createdAt = file.createdAt ? new Date(file.createdAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Date unavailable';
+                meta.textContent = `${(file.sizeBytes / 1024).toFixed(1)} KB · ${createdAt}`;
+                const kind = document.createElement('span'); kind.textContent = file.kind.replace(/_/g, ' ');
+                const actions = document.createElement('div'); const download = document.createElement('button'); const remove = document.createElement('button');
+                download.className = 'table-action'; download.type = 'button'; download.textContent = 'Download'; remove.className = 'table-action danger'; remove.type = 'button'; remove.textContent = 'Delete'; actions.append(download, remove);
+                download.setAttribute('aria-label', `Download file ${displayName}`);
+                remove.setAttribute('aria-label', `Delete file ${displayName}`);
                 download.onclick = async () => { const result = await managedRequest(`/dashboard/files/${encodeURIComponent(file.id)}/download`); window.open(result.url, '_blank', 'noopener'); };
-                remove.onclick = async () => { await managedRequest(`/dashboard/files/${encodeURIComponent(file.id)}`, { method: 'DELETE' }); refreshManagers(); };
-                filesManager.append(row);
+                remove.onclick = async () => {
+                    const name = displayName;
+                    if (!await confirmDashboardAction({
+                        title: `Delete “${name}”?`,
+                        description: 'This private file will be permanently deleted and can no longer be downloaded.',
+                        confirmLabel: 'Delete file'
+                    })) return;
+                    try {
+                        await managedRequest(`/dashboard/files/${encodeURIComponent(file.id)}`, { method: 'DELETE' });
+                        await refreshManagers();
+                        setNotice(document.getElementById('filesStatus'), 'File deleted.', 'success');
+                    } catch (error) {
+                        setNotice(document.getElementById('filesStatus'), `Could not delete this file. ${error.message}`, 'error');
+                    }
+                };
+                return { cells: [details, kind, actions], sortValues: [displayName, file.kind, file.createdAt || ''] };
             });
-        } catch (error) { console.error('Could not refresh storage managers', error); }
+            if (fileRows.length) renderTable(filesManager, { caption: 'Private files', columns: [{ label: 'File' }, { label: 'Kind' }, { label: 'Actions' }], rows: fileRows });
+            renderBatchJobs(batchResult.jobs || []);
+            managersLoaded = true;
+        } catch (error) {
+            const managerView = ['sources', 'files', 'batches'].includes(activeDashboardView) ? activeDashboardView : 'sources';
+            const status = document.getElementById(`${managerView}Status`);
+            const resource = managerView === 'files' ? 'private files' : managerView === 'batches' ? 'batch jobs' : 'saved sources';
+            setNotice(status, `Could not load ${resource}. ${error.message}`, 'error');
+        }
     }
     document.getElementById('refreshSourcesBtn').onclick = refreshManagers;
     document.getElementById('packageUploadInput').onchange = async (event) => {
         const file = event.target.files[0]; if (!file) return;
-        const upload = await managedRequest('/dashboard/files/upload', { method: 'POST' });
-        await fetch(upload.uploadUrl, { method: 'PUT', body: file, headers: { 'Content-Type': 'application/zip' } });
-        await refreshManagers();
+        const status = document.getElementById('filesStatus');
+        setNotice(status, `Uploading ${file.name}…`, 'pending');
+        try {
+            const upload = await managedRequest('/dashboard/files/upload', { method: 'POST' });
+            await fetch(upload.uploadUrl, { method: 'PUT', body: file, headers: { 'Content-Type': 'application/zip' } });
+            await refreshManagers();
+            setNotice(status, 'ZIP package uploaded.', 'success');
+        } catch (error) {
+            setNotice(status, `Could not upload ${file.name}. ${error.message}`, 'error');
+        } finally {
+            event.target.value = '';
+        }
     };
+    document.getElementById('batchSourceSelect').addEventListener('change', updateBatchReview);
+    document.getElementById('batchItemsInput').addEventListener('input', updateBatchReview);
+    document.getElementById('batchDataUpload').addEventListener('change', async (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+        try {
+            const data = await file.text();
+            const parsed = JSON.parse(data);
+            if (!Array.isArray(parsed)) throw new Error('Upload a JSON array of batch items.');
+            document.getElementById('batchItemsInput').value = JSON.stringify(parsed, null, 2);
+        } catch (error) {
+            const review = document.getElementById('batchReview');
+            review.textContent = error.message || 'Could not read that JSON file.';
+            review.dataset.state = 'error';
+        } finally {
+            event.target.value = '';
+            updateBatchReview();
+        }
+    });
     document.getElementById('submitBatchBtn').onclick = async () => {
-        const sourceID = document.getElementById('batchSourceSelect').value;
-        const items = JSON.parse(document.getElementById('batchItemsInput').value);
-        const job = await managedRequest('/dashboard/batches', { method: 'POST', body: JSON.stringify({ version: '1', source: { type: 'stored', id: sourceID }, items }) });
-        document.getElementById('batchesManager').textContent = `Submitted ${job.jobId}. Refresh to view progress.`;
+        const submission = updateBatchReview();
+        if (!submission) return;
+        const button = document.getElementById('submitBatchBtn');
+        setButtonPending(button, true, 'Submitting batch...');
+        try {
+            const job = await managedRequest('/dashboard/batches', { method: 'POST', body: JSON.stringify({ version: '1', source: { type: 'stored', id: submission.sourceID }, items: submission.items }) });
+            await refreshManagers();
+            document.getElementById('batchReview').textContent = `Batch ${job.jobId} submitted. You can track it below.`;
+            document.getElementById('batchReview').dataset.state = 'success';
+        } catch (error) {
+            document.getElementById('batchReview').textContent = `Could not submit batch. ${error.message}`;
+            document.getElementById('batchReview').dataset.state = 'error';
+        } finally {
+            setButtonPending(button, false);
+        }
     };
-    document.getElementById('refreshBatchesBtn').onclick = async () => { document.getElementById('batchesManager').textContent = 'Enter a job ID from a submitted batch to inspect it. Batch history listing is not available yet.'; };
-    refreshManagers();
+    document.getElementById('refreshBatchesBtn').onclick = refreshManagers;
+    if (['sources', 'files', 'batches'].includes(activeDashboardView)) refreshManagers();
 
     keysList.addEventListener('click', async (event) => {
         const revokeButton = event.target.closest('[data-key-id]');
         if (!revokeButton) return;
-        if (!window.confirm('Revoke this API key? Requests using it will stop working immediately.')) return;
+        if (!await confirmDashboardAction({
+            title: 'Revoke this API key?',
+            description: 'Requests using this key will stop working immediately.',
+            confirmLabel: 'Revoke key'
+        })) return;
 
         setButtonPending(revokeButton, true, 'Revoking...');
         try {
@@ -1100,7 +1647,8 @@ if (checkAuth()) {
         }
     });
 
-    document.getElementById('logoutBtn').addEventListener('click', () => {
+    document.getElementById('logoutBtn').addEventListener('click', (event) => {
+        event.preventDefault();
         clearSession();
         window.location.href = '/app/login';
     });

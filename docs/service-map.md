@@ -91,7 +91,6 @@
   - Public marketing/demo page for the API.
 - Source:
   - `landing/index.html`
-  - `landing/style.css`
 - Deployment:
   - `scripts/deploy-landing.sh`
 - Public paths:

@@ -1,116 +1,183 @@
-(function (global) {
-    const instances = new Map();
+/* Shared custom-select construct, kept in sync with ExtractKit's workspace
+   controls while supporting the dashboard's dynamically loaded options. */
+window.customSelect = (() => {
+    let initialized = false;
 
-    function init(root = document) {
-        if (global.lucide) global.lucide.createIcons({ attrs: { 'aria-hidden': 'true' } });
-        root.querySelectorAll('[data-custom-select]').forEach((select) => {
-            if (select.dataset.initialized === 'true') return;
-            const trigger = select.querySelector('.custom-select-trigger');
-            const menu = select.querySelector('.custom-select-menu');
-            const input = select.querySelector('input[type="hidden"]');
-            const label = select.querySelector('.custom-select-value');
-            const accessibleLabel = select.querySelector('.custom-select-label');
-            let options = [];
-            if (!trigger || !menu || !input || !label) return;
+    const selects = () => [...document.querySelectorAll('[data-custom-select]')];
+    const parts = (select) => ({
+        trigger: select.querySelector('.custom-select-trigger'),
+        menu: select.querySelector('.custom-select-menu'),
+        input: select.querySelector('input[type="hidden"]'),
+        value: select.querySelector('.custom-select-value'),
+        label: select.querySelector('.custom-select-label')
+    });
+    const options = (select) => [...select.querySelectorAll('[data-custom-select-option]')];
 
-            if (accessibleLabel) {
-                if (!accessibleLabel.id) accessibleLabel.id = `${input.id}-label`;
-                trigger.setAttribute('aria-labelledby', accessibleLabel.id);
-            }
+    function ensureConstruct(select) {
+        const { trigger, value, label } = parts(select);
+        if (!trigger || !value || !label) return false;
+        const input = select.querySelector('input[type="hidden"]');
+        const baseId = input?.id || `custom-select-${Math.random().toString(36).slice(2)}`;
+        if (!label.id) label.id = `${baseId}-label`;
+        if (!value.id) value.id = `${baseId}-value-label`;
+        trigger.setAttribute('aria-labelledby', `${label.id} ${value.id}`);
+        if (!trigger.querySelector('.custom-select-icon')) {
+            const icon = document.createElement('span');
+            icon.className = 'custom-select-icon';
+            icon.setAttribute('aria-hidden', 'true');
+            icon.innerHTML = '<svg viewBox="0 0 16 16" width="16" height="16" focusable="false" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"></path></svg>';
+            trigger.append(icon);
+        }
+        return true;
+    }
 
-            const close = (restoreFocus = false) => {
-                trigger.setAttribute('aria-expanded', 'false');
-                menu.hidden = true;
-                select.dataset.open = 'false';
-                delete select.dataset.openDirection;
-                if (restoreFocus) trigger.focus();
-            };
-            const sync = (value, emit = true) => {
-                input.value = value;
-                options.forEach((option) => {
-                    const active = option.dataset.value === value;
-                    option.classList.toggle('is-active', active);
-                    option.setAttribute('aria-selected', String(active));
-                });
-                const active = options.find((option) => option.dataset.value === value) || options[0];
-                label.textContent = active.textContent.trim();
-                if (emit) input.dispatchEvent(new Event('change', { bubbles: true }));
-            };
-            const bindOptions = () => {
-                options = Array.from(select.querySelectorAll('[data-custom-select-option]'));
-                options.forEach((option) => option.addEventListener('click', () => { sync(option.dataset.value); close(true); }));
-            };
-            const open = () => {
-                menu.hidden = false;
-                trigger.setAttribute('aria-expanded', 'true');
-                select.dataset.open = 'true';
-                const triggerRect = trigger.getBoundingClientRect();
-                const menuHeight = menu.getBoundingClientRect().height;
-                select.dataset.openDirection = window.innerHeight - triggerRect.bottom < menuHeight + 12 && triggerRect.top > window.innerHeight - triggerRect.bottom ? 'up' : 'down';
-                (options.find((option) => option.classList.contains('is-active')) || options[0]).focus();
-            };
+    function sync(select, value, notify = true) {
+        if (!ensureConstruct(select)) return;
+        const { trigger, input, value: valueLabel, label } = parts(select);
+        const optionList = options(select);
+        const active = optionList.find((option) => option.dataset.value === value) || optionList[0];
+        const nextValue = active?.dataset.value || value || '';
+        if (input) input.value = nextValue;
+        optionList.forEach((option) => {
+            const selected = option === active;
+            option.classList.toggle('is-active', selected);
+            option.setAttribute('aria-selected', String(selected));
+        });
+        if (valueLabel) valueLabel.textContent = active?.textContent.trim() || nextValue;
+        trigger?.setAttribute('aria-label', `${label?.textContent.trim() || ''} ${valueLabel?.textContent || ''}`.trim());
+        if (notify && input) {
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+    }
 
-            trigger.addEventListener('click', () => menu.hidden ? open() : close());
-            trigger.addEventListener('keydown', (event) => {
-                if (['ArrowDown', 'Enter', ' '].includes(event.key)) { event.preventDefault(); open(); }
-                if (event.key === 'Escape') close();
-            });
-            menu.addEventListener('keydown', (event) => {
-                const index = options.indexOf(document.activeElement);
-                if (event.key === 'Escape') { event.preventDefault(); close(true); }
-                if (event.key === 'ArrowDown') { event.preventDefault(); options[Math.min(index + 1, options.length - 1)].focus(); }
-                if (event.key === 'ArrowUp') { event.preventDefault(); options[Math.max(index - 1, 0)].focus(); }
-                if (['Enter', ' '].includes(event.key) && document.activeElement.matches('[data-custom-select-option]')) { event.preventDefault(); document.activeElement.click(); }
-            });
-            bindOptions();
-            if (!options.length) return;
-            select.dataset.initialized = 'true';
-            instances.set(input.id, {
-                setValue: (value) => sync(value, false),
-                close,
-                replaceOptions: (groups, value = input.value) => {
-                    menu.replaceChildren();
-                    groups.forEach((group, index) => {
-                        if (index > 0) {
-                            const divider = document.createElement('div');
-                            divider.className = 'custom-select-divider';
-                            divider.setAttribute('role', 'separator');
-                            menu.appendChild(divider);
-                        }
-                        if (group.label) {
-                            const heading = document.createElement('div');
-                            heading.className = 'custom-select-group-label';
-                            heading.textContent = group.label;
-                            menu.appendChild(heading);
-                        }
-                        group.options.forEach((item) => {
-                            const option = document.createElement('button');
-                            option.type = 'button';
-                            option.className = 'custom-select-option';
-                            option.setAttribute('role', 'option');
-                            option.dataset.customSelectOption = '';
-                            option.dataset.value = item.value;
-                            option.textContent = item.label;
-                            menu.appendChild(option);
-                        });
-                    });
-                    bindOptions();
-                    sync(options.some((option) => option.dataset.value === value) ? value : options[0].dataset.value, false);
-                }
-            });
-            sync(input.value || options[0].dataset.value, false);
+    function setExpanded(select, expanded) {
+        if (!ensureConstruct(select)) return;
+        const { trigger, menu } = parts(select);
+        if (!trigger || !menu) return;
+        trigger.setAttribute('aria-expanded', String(expanded));
+        menu.hidden = !expanded;
+        select.dataset.open = String(expanded);
+        if (!expanded) {
+            delete select.dataset.openDirection;
+            return;
+        }
+        positionMenu(select, menu, trigger);
+    }
+
+    function positionMenu(select, menu, trigger) {
+        const triggerRect = trigger.getBoundingClientRect();
+        const spaceBelow = window.innerHeight - triggerRect.bottom;
+        const spaceAbove = triggerRect.top;
+        select.dataset.openDirection = spaceBelow < menu.getBoundingClientRect().height + 12 && spaceAbove > spaceBelow ? 'up' : 'down';
+    }
+
+    function closeOutside(target) {
+        selects().forEach((select) => {
+            if (!select.contains(target)) setExpanded(select, false);
         });
     }
 
-    document.addEventListener('pointerdown', (event) => {
-        document.querySelectorAll('[data-custom-select][data-open="true"]').forEach((select) => {
-            if (!select.contains(event.target)) instances.get(select.querySelector('input[type="hidden"]')?.id)?.close();
+    function init() {
+        selects().forEach((select) => {
+            if (!ensureConstruct(select)) return;
+            const { input } = parts(select);
+            sync(select, input?.value || options(select)[0]?.dataset.value || '', false);
         });
-    });
+        if (initialized) return;
+        initialized = true;
 
-    global.customSelect = {
-        init,
-        setValue: (id, value) => instances.get(id)?.setValue(value),
-        replaceOptions: (id, groups, value) => instances.get(id)?.replaceOptions(groups, value)
-    };
-}(window));
+        document.addEventListener('pointerdown', (event) => {
+            if (event.target instanceof Element) closeOutside(event.target);
+        });
+        document.addEventListener('click', (event) => {
+            const target = event.target instanceof Element ? event.target : null;
+            const trigger = target?.closest('.custom-select-trigger');
+            if (trigger) {
+                const select = trigger.closest('[data-custom-select]');
+                if (select) setExpanded(select, trigger.getAttribute('aria-expanded') !== 'true');
+                return;
+            }
+            const option = target?.closest('[data-custom-select-option]');
+            if (option) {
+                const select = option.closest('[data-custom-select]');
+                if (!select) return;
+                sync(select, option.dataset.value || '');
+                setExpanded(select, false);
+                parts(select).trigger?.focus();
+            }
+        });
+        document.addEventListener('keydown', (event) => {
+            const target = event.target instanceof Element ? event.target : null;
+            const trigger = target?.closest('.custom-select-trigger');
+            if (trigger && ['ArrowDown', 'Enter', ' '].includes(event.key)) {
+                event.preventDefault();
+                const select = trigger.closest('[data-custom-select]');
+                if (!select) return;
+                setExpanded(select, true);
+                options(select)[0]?.focus();
+                return;
+            }
+            if (trigger && event.key === 'Escape') {
+                const select = trigger.closest('[data-custom-select]');
+                if (select) setExpanded(select, false);
+                return;
+            }
+            const option = target?.closest('[data-custom-select-option]');
+            const select = option?.closest('[data-custom-select]');
+            if (!select) return;
+            const optionList = options(select);
+            const index = optionList.indexOf(option);
+            if (event.key === 'Escape') {
+                event.preventDefault(); setExpanded(select, false); parts(select).trigger?.focus();
+            } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                event.preventDefault(); optionList[Math.max(0, Math.min(optionList.length - 1, index + (event.key === 'ArrowDown' ? 1 : -1)))]?.focus();
+            } else if (event.key === 'Home' || event.key === 'End') {
+                event.preventDefault(); optionList[event.key === 'Home' ? 0 : optionList.length - 1]?.focus();
+            }
+        });
+        const reposition = () => selects().forEach((select) => {
+            const { menu, trigger } = parts(select);
+            if (select.dataset.open === 'true' && menu && trigger) positionMenu(select, menu, trigger);
+        });
+        window.addEventListener('resize', reposition);
+        window.addEventListener('scroll', reposition, { passive: true });
+    }
+
+    function setValue(id, value) {
+        const input = document.getElementById(id);
+        const select = input?.closest('[data-custom-select]');
+        // Programmatic updates are state synchronization, not a user choice.
+        // Emitting `change` here would re-enter listeners that themselves call
+        // setValue (for example, resetting the "new template" selection).
+        if (select) sync(select, value, false);
+    }
+
+    function replaceOptions(id, groups, selectedValue) {
+        const input = document.getElementById(id);
+        const select = input?.closest('[data-custom-select]');
+        const menu = select && parts(select).menu;
+        if (!select || !menu) return;
+        menu.replaceChildren();
+        groups.forEach((group, groupIndex) => {
+            if (group.label) {
+                const heading = document.createElement('div');
+                heading.className = 'custom-select-group-label';
+                heading.textContent = group.label;
+                menu.append(heading);
+            }
+            (group.options || []).forEach((item) => {
+                const option = document.createElement('button');
+                option.type = 'button'; option.className = 'custom-select-option'; option.role = 'option';
+                option.dataset.customSelectOption = ''; option.dataset.value = item.value; option.textContent = item.label;
+                menu.append(option);
+            });
+            if (groupIndex < groups.length - 1) {
+                const divider = document.createElement('div'); divider.className = 'custom-select-divider'; divider.role = 'separator'; menu.append(divider);
+            }
+        });
+        sync(select, selectedValue ?? input.value ?? options(select)[0]?.dataset.value ?? '', false);
+    }
+
+    return { init, setValue, replaceOptions };
+})();

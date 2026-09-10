@@ -13,12 +13,8 @@ Verification index for this repository.
 - deployed API
   - smoke test exists through `scripts/test-api.sh`
   - authenticated persistence integration test exists through `scripts/test-sources-files.sh`
-- `dashboard/`
-  - no automated test script exists today
 - `analytics/`
   - Node.js syntax and container build validation should run from the analytics folder.
-- `landing/`
-  - no automated test script exists today
 
 ## Standard Verification Commands
 
@@ -183,7 +179,7 @@ cd /Users/basilsergius/projects/renderpdf/webhooks && node --check index.js
 
 ### How To Test `dashboard/`
 
-- No automated dashboard test script exists in the repo today.
+- No automated dashboard build or test script exists in the repo today.
 - Manual verification checklist:
   - review `/Users/basilsergius/projects/renderpdf/dashboard/login.html`
   - review `/Users/basilsergius/projects/renderpdf/dashboard/callback.html`
@@ -211,7 +207,6 @@ cd /Users/basilsergius/projects/renderpdf && ./scripts/deploy.sh
 - No automated landing test script exists in the repo today.
 - Manual verification checklist:
   - review `/Users/basilsergius/projects/renderpdf/landing/index.html`
-  - review `/Users/basilsergius/projects/renderpdf/landing/style.css`
   - if deployment-backed verification is intended, use:
 
 ```bash

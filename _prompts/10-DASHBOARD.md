@@ -16,7 +16,6 @@
 - `/Users/basilsergius/projects/renderpdf/dashboard/callback.html`
 - `/Users/basilsergius/projects/renderpdf/dashboard/index.html`
 - `/Users/basilsergius/projects/renderpdf/dashboard/app.js`
-- `/Users/basilsergius/projects/renderpdf/dashboard/style.css`
 
 ## Files/Folders Out Of Scope
 
