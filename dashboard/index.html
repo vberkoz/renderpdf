@@ -14,25 +14,66 @@
 
 
     <script>
+        const dashboardViews = ['overview', 'create-render', 'keys', 'billing', 'sources', 'files', 'batches', 'logs'];
         const dashboardView = new URLSearchParams(window.location.search).get('view') || 'overview';
-        document.documentElement.classList.add(`dashboard-view-${dashboardView}`);
+        document.documentElement.dataset.dashboardCurrentView = dashboardViews.includes(dashboardView) ? dashboardView : 'overview';
     </script>
 </head>
 <body class="dashboard-page">
     <a class="skip-link" href="#main-content">Skip to main content</a>
-    <div>
+    <div class="dashboard-app-frame">
         <header class="dashboard-topbar" aria-label="RenderPDF application header">
             <a class="dashboard-brand" href="/" aria-label="RenderPDF home">
                 <span class="dashboard-brand-mark" aria-hidden="true"></span>
                 <span>RenderPDF</span>
             </a>
-            <nav id="dashboard-primary-navigation" class="dashboard-nav" aria-label="Primary navigation">
-                <a href="/app/" aria-current="page">Dashboard</a><a href="/docs/api/">API docs</a><a href="/#pricing">Pricing</a><a id="logoutBtn" href="/app/login">Sign out</a>
+            <nav class="dashboard-marketing-nav dashboard-nav" aria-label="Marketing and account links">
+                <a href="/docs/api/">API docs</a><a href="/#pricing">Pricing</a><a id="logoutBtn" href="/app/login">Sign out</a>
             </nav>
         </header>
 
-        <main id="main-content" class="dashboard-main" tabindex="-1">
-            <div id="dashboard-content" class="dashboard-content" tabindex="-1">
+        <div class="dashboard-app-layout">
+            <aside class="dashboard-sidebar" aria-label="Dashboard navigation">
+                <nav id="dashboard-primary-navigation" class="dashboard-app-nav" aria-label="Dashboard navigation">
+                    <a href="/app/?view=overview" data-dashboard-nav="overview">Home</a>
+                    <a class="dashboard-create-link" href="/app/?view=create-render" data-dashboard-nav="create-render">Create PDF</a>
+                    <div class="dashboard-nav-group">
+                        <p>Manage</p>
+                        <a href="/app/?view=sources" data-dashboard-nav="sources">Sources</a>
+                        <a href="/app/?view=files" data-dashboard-nav="files">Files</a>
+                        <a href="/app/?view=batches" data-dashboard-nav="batches">Batches</a>
+                        <a href="/app/?view=logs" data-dashboard-nav="logs">Logs</a>
+                    </div>
+                    <div class="dashboard-nav-group">
+                        <p>Account</p>
+                        <a href="/app/?view=keys" data-dashboard-nav="keys">API keys</a>
+                        <a href="/app/?view=billing" data-dashboard-nav="billing">Billing</a>
+                    </div>
+                </nav>
+            </aside>
+
+            <details class="dashboard-mobile-navigation">
+                <summary>Navigate dashboard</summary>
+                <nav class="dashboard-app-nav" aria-label="Dashboard navigation">
+                    <a href="/app/?view=overview" data-dashboard-nav="overview">Home</a>
+                    <a class="dashboard-create-link" href="/app/?view=create-render" data-dashboard-nav="create-render">Create PDF</a>
+                    <div class="dashboard-nav-group">
+                        <p>Manage</p>
+                        <a href="/app/?view=sources" data-dashboard-nav="sources">Sources</a>
+                        <a href="/app/?view=files" data-dashboard-nav="files">Files</a>
+                        <a href="/app/?view=batches" data-dashboard-nav="batches">Batches</a>
+                        <a href="/app/?view=logs" data-dashboard-nav="logs">Logs</a>
+                    </div>
+                    <div class="dashboard-nav-group">
+                        <p>Account</p>
+                        <a href="/app/?view=keys" data-dashboard-nav="keys">API keys</a>
+                        <a href="/app/?view=billing" data-dashboard-nav="billing">Billing</a>
+                    </div>
+                </nav>
+            </details>
+
+            <main id="main-content" class="dashboard-main" tabindex="-1">
+                <div id="dashboard-content" class="dashboard-content" tabindex="-1">
                 <header class="dashboard-page-intro">
                     <p id="dashboardPageKicker" class="panel-kicker">Developer dashboard</p>
                     <h1 id="dashboardPageTitle">Developer dashboard</h1>
@@ -62,21 +103,21 @@
                             <p id="billingUsageDetail" class="billing-usage-detail">Current usage: —</p>
                         </div>
                         <div class="billing-actions">
-                            <button id="upgradePlanBtn" class="dashboard-button dashboard-button-primary" type="button">Upgrade plan</button>
+                            <button id="upgradePlanBtn" class="dashboard-button dashboard-button-secondary" type="button">Upgrade plan</button>
                             <button id="manageBillingBtn" class="dashboard-button dashboard-button-secondary" type="button" hidden>Manage billing</button>
                         </div>
                     </header>
                     <div id="billingStatus" class="dashboard-notice" role="status" aria-live="polite" hidden></div>
                 </article>
 
-                <article class="workspace-panel quiet-section keys-panel" data-dashboard-view="overview">
+                <article id="api-keys" class="workspace-panel quiet-section keys-panel" data-dashboard-view="keys">
                     <header class="panel-header">
                         <div>
                             <p class="panel-kicker">Credentials</p>
                             <h2>API keys</h2>
                             <p>Use keys to authenticate PDF requests from your server or backend.</p>
                         </div>
-                        <button id="generateKeyBtn" class="dashboard-button dashboard-button-primary" type="button">
+                        <button id="generateKeyBtn" class="dashboard-button dashboard-button-secondary" type="button">
                             Create API key
                         </button>
                     </header>
@@ -136,7 +177,7 @@
                         <div class="template-actions">
                             <span>Uses your dashboard session.</span>
                             <button id="previewTemplateBtn" class="dashboard-button dashboard-button-secondary" type="button">Preview</button>
-                            <button id="saveTemplateBtn" class="dashboard-button dashboard-button-primary" type="submit" form="templateForm">Save template</button>
+                            <button id="saveTemplateBtn" class="dashboard-button dashboard-button-secondary" type="submit" form="templateForm">Save template</button>
                             <button id="deleteTemplateBtn" class="dashboard-button dashboard-button-secondary" type="button" hidden>Delete template</button>
                             <button id="renderTemplateBtn" class="dashboard-button dashboard-button-secondary" type="button">Render PDF</button>
                         </div>
@@ -169,7 +210,7 @@
 
                         <div class="document-json-actions">
                             <button id="previewDocumentJsonBtn" class="dashboard-button dashboard-button-secondary" type="button">Preview</button>
-                            <button id="renderDocumentJsonBtn" class="dashboard-button dashboard-button-primary" type="button">Render PDF</button>
+                            <button id="renderDocumentJsonBtn" class="dashboard-button dashboard-button-secondary" type="button">Render PDF</button>
                             <button id="saveDocumentSourceBtn" class="dashboard-button dashboard-button-secondary" type="button">Save source</button>
                             <button id="resetDocumentJsonBtn" class="dashboard-button dashboard-button-secondary" type="button">Load sample</button>
                         </div>
@@ -198,7 +239,7 @@
                     <section class="batch-step batch-source-step" aria-labelledby="batch-source-title"><div><p class="panel-kicker">Choose source</p><h3 id="batch-source-title">Select a saved source</h3></div><div class="custom-select batch-source-select" data-custom-select><span class="custom-select-label">Saved source</span><input id="batchSourceSelect" type="hidden" value=""><button class="custom-select-trigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="batchSourceSelect-menu"><span class="custom-select-value">No saved sources</span></button><div id="batchSourceSelect-menu" class="custom-select-menu" role="listbox" hidden><button class="custom-select-option is-active" type="button" role="option" aria-selected="true" data-custom-select-option data-value="">No saved sources</button></div></div></section>
                     <section class="batch-step batch-data-step" aria-labelledby="batch-data-title"><div><p class="panel-kicker">Upload data</p><h3 id="batch-data-title">Add your item data</h3><p>Upload a JSON array or paste it below. Each item should match the data expected by the selected source.</p></div><input id="batchDataUpload" type="file" accept="application/json,.json" hidden><label for="batchDataUpload" class="dashboard-button dashboard-button-secondary" role="button" tabindex="0">Upload JSON</label><label class="dashboard-field batch-items-field" for="batchItemsInput"><span>Item data JSON array <em>Required</em></span><textarea id="batchItemsInput" rows="5" spellcheck="false" aria-describedby="batch-items-help">[{"data":{"customer":{"name":"Ada"}}}]</textarea><small id="batch-items-help" class="field-help">Provide 1 to 99 items in a JSON array.</small></label></section>
                     <section class="batch-step batch-review" aria-labelledby="batch-review-title"><div><p class="panel-kicker">Review</p><h3 id="batch-review-title">Ready to submit</h3></div><p id="batchReview" class="dashboard-notice" role="status" aria-live="polite">Select a saved source to review this batch.</p></section>
-                    <div class="document-json-actions"><button id="submitBatchBtn" class="dashboard-button dashboard-button-primary" type="button">Submit batch</button><button id="refreshBatchesBtn" class="dashboard-button dashboard-button-secondary" type="button">Refresh jobs</button></div>
+                    <div class="document-json-actions"><button id="submitBatchBtn" class="dashboard-button dashboard-button-secondary" type="button">Submit batch</button><button id="refreshBatchesBtn" class="dashboard-button dashboard-button-secondary" type="button">Refresh jobs</button></div>
                     <div id="batchesManager" aria-live="polite"></div>
                 </article>
 
@@ -227,8 +268,9 @@
                     <div id="recentActivityList" class="logs-list" aria-live="polite"><p class="empty-state">Loading recent activity...</p></div>
                 </article>
                 </section>
-            </div>
-        </main>
+                </div>
+            </main>
+        </div>
 
         <footer class="dashboard-footer">
             <p>RenderPDF / Developer workspace</p>
@@ -253,7 +295,7 @@
             </label>
             <div class="dashboard-dialog-actions">
                 <button id="dashboardDialogCancel" class="dashboard-button dashboard-button-secondary" type="button">Cancel</button>
-                <button id="dashboardDialogConfirm" class="dashboard-button dashboard-button-primary" type="submit">Save source</button>
+                <button id="dashboardDialogConfirm" class="dashboard-button dashboard-button-secondary" type="submit">Save source</button>
             </div>
         </form>
     </dialog>

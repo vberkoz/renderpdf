@@ -1,7 +1,11 @@
 const API_URL = '/api/v1';
 const IS_LOCAL_PREVIEW = window.location.protocol === 'file:' ||
     ['localhost', '127.0.0.1'].includes(window.location.hostname);
-const activeDashboardView = new URLSearchParams(window.location.search).get('view') || 'overview';
+const dashboardViewNames = new Set(['overview', 'create-render', 'keys', 'billing', 'sources', 'files', 'batches', 'logs']);
+const requestedDashboardView = new URLSearchParams(window.location.search).get('view');
+let activeDashboardView = dashboardViewNames.has(requestedDashboardView)
+    ? requestedDashboardView
+    : 'overview';
 const markdownDocumentDefaultCSS = `
 body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 16px; line-height: 1.6; color: #24292e; max-width: 800px; margin: 0 auto; padding: 2rem; background-color: #ffffff; }
 h1, h2, h3, h4, h5, h6 { margin-top: 1.5rem; margin-bottom: 1rem; font-weight: 600; line-height: 1.25; }
@@ -924,6 +928,11 @@ const dashboardPageContexts = {
         title: 'Create a PDF',
         description: 'Start with a template or inline document, preview it, then render a PDF.'
     },
+    keys: {
+        kicker: 'Account',
+        title: 'API keys',
+        description: 'Create and revoke the keys your server uses to authenticate PDF requests.'
+    },
     sources: {
         kicker: 'Sources',
         title: 'Saved sources',
@@ -956,6 +965,65 @@ function setDashboardPageContext(view) {
     document.getElementById('dashboardPageKicker').textContent = context.kicker;
     document.getElementById('dashboardPageTitle').textContent = context.title;
     document.getElementById('dashboardPageDescription').textContent = context.description;
+}
+
+function setDashboardView(view, { history = 'none', focus = false } = {}) {
+    const nextView = dashboardViewNames.has(view) ? view : 'overview';
+    activeDashboardView = nextView;
+    document.documentElement.dataset.dashboardCurrentView = nextView;
+    document.body.dataset.dashboardCurrentView = nextView;
+
+    document.querySelectorAll('[data-dashboard-view]').forEach((panel) => {
+        panel.hidden = panel.dataset.dashboardView !== nextView;
+    });
+    document.querySelectorAll('[data-dashboard-nav]').forEach((item) => {
+        const isActive = item.dataset.dashboardNav === nextView;
+        item.classList.toggle('is-active', isActive);
+        item.toggleAttribute('aria-current', isActive);
+        if (isActive) item.setAttribute('aria-current', 'page');
+    });
+    setDashboardPageContext(nextView);
+    document.title = `RenderPDF | ${dashboardPageContexts[nextView].title}`;
+
+    if (history !== 'none') {
+        const url = new URL(window.location.href);
+        url.searchParams.set('view', nextView);
+        url.hash = '';
+        window.history[history === 'replace' ? 'replaceState' : 'pushState']({}, '', url);
+    }
+    if (focus) {
+        document.querySelector('.dashboard-mobile-navigation')?.removeAttribute('open');
+        document.getElementById('main-content')?.focus({ preventScroll: true });
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+}
+
+function initializeDashboardNavigation() {
+    setDashboardView(activeDashboardView);
+    document.querySelectorAll('.dashboard-mobile-navigation > summary').forEach((summary) => {
+        summary.addEventListener('keydown', (event) => {
+            if (!['Enter', ' '].includes(event.key)) return;
+            event.preventDefault();
+            const navigation = summary.parentElement;
+            if (navigation instanceof HTMLDetailsElement) navigation.open = !navigation.open;
+        });
+    });
+    document.querySelectorAll('[data-dashboard-nav]').forEach((item) => {
+        item.addEventListener('click', (event) => {
+            if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+            const url = new URL(item.href, window.location.href);
+            if (url.origin !== window.location.origin || url.pathname !== window.location.pathname) return;
+            const view = url.searchParams.get('view');
+            if (!dashboardViewNames.has(view)) return;
+            event.preventDefault();
+            setDashboardView(view, { history: 'push', focus: true });
+            document.dispatchEvent(new CustomEvent('dashboardviewchange', { detail: { view } }));
+        });
+    });
+    window.addEventListener('popstate', () => {
+        setDashboardView(new URLSearchParams(window.location.search).get('view') || 'overview', { focus: true });
+        document.dispatchEvent(new CustomEvent('dashboardviewchange', { detail: { view: activeDashboardView } }));
+    });
 }
 
 function renderLogs(logs) {
@@ -1077,10 +1145,7 @@ if (checkAuth()) {
             document.getElementById(label.htmlFor)?.click();
         });
     });
-    const activeNavigationItem = document.querySelector(`[data-dashboard-nav="${activeDashboardView}"]`);
-    activeNavigationItem?.classList.add('is-active');
-    activeNavigationItem?.setAttribute('aria-current', 'page');
-    setDashboardPageContext(activeDashboardView);
+    initializeDashboardNavigation();
     const generateButton = document.getElementById('generateKeyBtn');
     const keysList = document.getElementById('keysList');
     const keysStatus = document.getElementById('keysStatus');
@@ -1626,6 +1691,9 @@ if (checkAuth()) {
         }
     };
     document.getElementById('refreshBatchesBtn').onclick = refreshManagers;
+    document.addEventListener('dashboardviewchange', () => {
+        if (['sources', 'files', 'batches'].includes(activeDashboardView)) refreshManagers();
+    });
     if (['sources', 'files', 'batches'].includes(activeDashboardView)) refreshManagers();
 
     keysList.addEventListener('click', async (event) => {
