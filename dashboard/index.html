@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Review RenderPDF usage, manage API keys, and create PDFs.">
+    <meta name="description" content="Create PDFs, review usage, and manage RenderPDF API keys.">
     <title>RenderPDF | Developer Dashboard</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -76,23 +76,49 @@
                 <div id="dashboard-content" class="dashboard-content" tabindex="-1">
                 <header class="dashboard-page-intro">
                     <p id="dashboardPageKicker" class="panel-kicker">Developer dashboard</p>
-                    <h1 id="dashboardPageTitle">Developer dashboard</h1>
-                    <p id="dashboardPageDescription">Review PDF capacity, manage API keys, and create PDFs.</p>
+                    <h1 id="dashboardPageTitle">Home</h1>
+                    <p id="dashboardPageDescription">Your PDF activity, capacity, and next steps.</p>
                 </header>
                 <section class="dashboard-workspace" aria-label="Dashboard content">
-                <article class="workspace-panel quiet-section overview-panel" data-dashboard-view="overview">
-                    <header class="panel-header panel-header-compact">
-                        <div>
-                            <p class="panel-kicker">Usage</p>
-                            <h2>Monthly PDF capacity</h2>
-                            <p>Usage resets on the first day of each month.</p>
+                <section class="overview-home" data-dashboard-view="overview" aria-label="Dashboard overview">
+                    <section class="overview-section overview-usage" aria-labelledby="overview-usage-title">
+                        <header class="panel-header panel-header-compact">
+                            <h2 id="overview-usage-title">Usage</h2>
+                        </header>
+                        <div class="dashboard-metrics usage-metrics">
+                            <div class="usage-summary"><span>This month</span><strong id="monthlyUsage">—</strong><small id="quotaDetail"></small></div>
+                            <div class="daily-activity"><span>Today</span><strong id="pdfsToday">—</strong><small id="dailyActivityDetail"></small></div>
                         </div>
-                    </header>
-                    <div class="dashboard-metrics usage-metrics">
-                        <div class="usage-summary"><span>PDFs used this month</span><strong id="monthlyUsage">—</strong><small id="quotaDetail"></small></div>
-                        <div class="daily-activity"><span>Today</span><strong id="pdfsToday">—</strong><small id="dailyActivityDetail"></small></div>
-                    </div>
-                </article>
+                    </section>
+
+                    <section class="overview-section overview-next-actions" aria-labelledby="overview-actions-title">
+                        <header class="panel-header panel-header-compact">
+                            <h2 id="overview-actions-title">Next actions</h2>
+                        </header>
+                        <div class="dashboard-next-actions">
+                            <a class="dashboard-next-action dashboard-next-action-primary" href="/app/?view=create-render">
+                                <strong>Create PDF</strong>
+                                <span>Start from a template or document.</span>
+                            </a>
+                            <a class="dashboard-next-action" href="/app/?view=keys">
+                                <strong>Create API key</strong>
+                                <span>Authenticate requests from your server.</span>
+                            </a>
+                            <a id="overviewPlanAction" class="dashboard-next-action" href="/app/?view=billing">
+                                <strong>Upgrade plan</strong>
+                                <span>Increase your monthly PDF capacity.</span>
+                            </a>
+                        </div>
+                    </section>
+
+                    <section class="overview-section overview-recent-activity" aria-labelledby="overview-activity-title">
+                        <header class="panel-header panel-header-compact">
+                            <h2 id="overview-activity-title">Recent activity</h2>
+                            <a class="dashboard-button dashboard-button-secondary" href="/app/?view=logs">View activity</a>
+                        </header>
+                        <div id="recentActivityList" class="logs-list" aria-live="polite"><p class="empty-state">Loading recent activity...</p></div>
+                    </section>
+                </section>
 
                 <article class="workspace-panel quiet-section billing-panel" data-dashboard-view="billing">
                     <header class="panel-header panel-header-compact">
@@ -113,11 +139,10 @@
                 <article id="api-keys" class="workspace-panel quiet-section keys-panel" data-dashboard-view="keys">
                     <header class="panel-header">
                         <div>
-                            <p class="panel-kicker">Credentials</p>
-                            <h2>API keys</h2>
+                            <h2>Your API keys</h2>
                             <p>Use keys to authenticate PDF requests from your server or backend.</p>
                         </div>
-                        <button id="generateKeyBtn" class="dashboard-button dashboard-button-secondary" type="button">
+                        <button id="generateKeyBtn" class="dashboard-button dashboard-button-primary" type="button">
                             Create API key
                         </button>
                     </header>
@@ -256,17 +281,6 @@
                     <nav id="logsPagination" class="logs-pagination" aria-label="Request log pages" hidden><button id="logsPreviousPage" class="dashboard-button dashboard-button-secondary" type="button">Previous</button><span id="logsPageStatus" aria-live="polite"></span><button id="logsNextPage" class="dashboard-button dashboard-button-secondary" type="button">Next</button></nav>
                 </article>
 
-                <article class="workspace-panel quiet-section recent-activity-panel" data-dashboard-view="overview">
-                    <header class="panel-header panel-header-compact">
-                        <div>
-                            <p class="panel-kicker">Recent activity</p>
-                            <h2>Latest PDF requests</h2>
-                            <p>Your most recent authenticated render attempts.</p>
-                        </div>
-                        <a class="dashboard-button dashboard-button-secondary" href="/app/?view=logs">View activity</a>
-                    </header>
-                    <div id="recentActivityList" class="logs-list" aria-live="polite"><p class="empty-state">Loading recent activity...</p></div>
-                </article>
                 </section>
                 </div>
             </main>

@@ -920,8 +920,8 @@ const requestLogState = { logs: [], page: 1, pageSize: 5 };
 const dashboardPageContexts = {
     overview: {
         kicker: 'Developer dashboard',
-        title: 'Developer dashboard',
-        description: 'Review PDF capacity, manage API keys, and create PDFs.'
+        title: 'Home',
+        description: 'Your PDF activity, capacity, and next steps.'
     },
     'create-render': {
         kicker: 'Create and render',
@@ -1036,7 +1036,7 @@ function renderRecentActivity(logs) {
     const container = document.getElementById('recentActivityList');
     if (!container) return;
     container.replaceChildren();
-    const recent = (logs || []).slice().sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)).slice(0, 5);
+    const recent = (logs || []).slice().sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)).slice(0, 4);
     if (!recent.length) {
         container.innerHTML = '<p class="empty-state">No authenticated PDF requests yet.</p>';
         return;
@@ -1123,6 +1123,13 @@ function renderDashboard(data) {
     document.querySelectorAll('[data-plan]').forEach((button) => { button.hidden = subscribed; });
     document.getElementById('upgradePlanBtn').hidden = subscribed;
     document.getElementById('manageBillingBtn').hidden = !subscribed;
+    const overviewPlanAction = document.getElementById('overviewPlanAction');
+    if (overviewPlanAction) {
+        overviewPlanAction.querySelector('strong').textContent = subscribed ? 'Manage plan' : 'Upgrade plan';
+        overviewPlanAction.querySelector('span').textContent = subscribed
+            ? 'Review billing and subscription details.'
+            : 'Increase your monthly PDF capacity.';
+    }
     renderLogs(data.logs);
     renderRecentActivity(data.logs);
 }
