@@ -207,7 +207,7 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		return errorResponse(401, "Authentication is required", corsHeaders), nil
 	}
 
-	var html, renderURL, packageURL, webhookURL, webhookSecret string
+	var html, renderURL, packageURL, webhookURL, webhookSecret, displayName string
 	var packageCleanup func()
 	defer func() {
 		if packageCleanup != nil {
@@ -221,6 +221,7 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 			return renderErrorResponse(err, corsHeaders), nil
 		}
 		html = documentHTML
+		displayName = documentRequest.Label
 		webhookURL, webhookSecret = documentRequest.WebhookURL, documentRequest.WebhookSecret
 		analytics.HTMLBytes = int64(len(html))
 		analytics.SourceType = "document_json"
@@ -240,6 +241,7 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 			return templateRenderErrorResponse(err, corsHeaders), nil
 		}
 		html = resolvedHTML
+		displayName = templateRequest.Label
 		webhookURL, webhookSecret = templateRequest.WebhookURL, templateRequest.WebhookSecret
 		analytics.HTMLBytes = int64(len(html))
 	} else if isURLRender {
@@ -417,7 +419,10 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 	}
 	checksum := sha256.Sum256(pdfBytes)
 	expiresAt := time.Now().UTC().Add(maxPDFRetentionDays * 24 * time.Hour)
-	if err := fileStoreFactory().Create(ctx, storedFile{ID: "file_" + requestID, Kind: "rendered_pdf", ContentType: "application/pdf", SizeBytes: int64(len(pdfBytes)), Checksum: "sha256:" + hex.EncodeToString(checksum[:]), RetentionExpiresAt: &expiresAt, Origin: map[string]string{"requestId": requestID}, OwnerID: analytics.CustomerID, Bucket: bucketName, ObjectKey: key, CreatedAt: time.Now().UTC()}); err != nil {
+	if displayName == "" {
+		displayName = normalized.Label
+	}
+	if err := fileStoreFactory().Create(ctx, storedFile{ID: "file_" + requestID, Kind: "rendered_pdf", ContentType: "application/pdf", SizeBytes: int64(len(pdfBytes)), Checksum: "sha256:" + hex.EncodeToString(checksum[:]), DisplayName: displayName, RetentionExpiresAt: &expiresAt, Origin: map[string]string{"requestId": requestID}, OwnerID: analytics.CustomerID, Bucket: bucketName, ObjectKey: key, CreatedAt: time.Now().UTC()}); err != nil {
 		fmt.Printf("PDF file metadata write skipped for %s: %v\n", requestID, err)
 	}
 	analytics.Status = "success"
@@ -713,6 +718,9 @@ func generatePDFURLWithRenderSettings(ctx context.Context, targetURL string, dis
 	)
 	err = chromedp.Run(taskCtx, actions...)
 	if err != nil {
+		// Keep the document payload out of logs, while recording enough context to
+		// diagnose Chromium/CDP failures in the Lambda log stream.
+		fmt.Printf("Chromium render failed at stage %s (%T): %v\n", stage, err, err)
 		if errors.Is(err, context.DeadlineExceeded) {
 			if stage == "navigation" {
 				return nil, &renderError{Code: "navigation_timeout", Message: "Navigation timed out while loading the page", Status: 504}

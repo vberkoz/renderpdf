@@ -27,6 +27,7 @@ type storedFile struct {
 	ContentType        string            `json:"contentType"`
 	SizeBytes          int64             `json:"sizeBytes"`
 	Checksum           string            `json:"checksum,omitempty"`
+	DisplayName        string            `json:"displayName,omitempty"`
 	RetentionExpiresAt *time.Time        `json:"retentionExpiresAt,omitempty"`
 	Origin             map[string]string `json:"origin,omitempty"`
 	CreatedAt          time.Time         `json:"createdAt"`
@@ -65,6 +66,9 @@ func fileItem(v storedFile) map[string]*dynamodb.AttributeValue {
 	item["contentType"] = &dynamodb.AttributeValue{S: aws.String(v.ContentType)}
 	item["sizeBytes"] = &dynamodb.AttributeValue{N: aws.String(fmt.Sprint(v.SizeBytes))}
 	item["checksum"] = &dynamodb.AttributeValue{S: aws.String(v.Checksum)}
+	if v.DisplayName != "" {
+		item["displayName"] = &dynamodb.AttributeValue{S: aws.String(v.DisplayName)}
+	}
 	item["bucket"] = &dynamodb.AttributeValue{S: aws.String(v.Bucket)}
 	item["objectKey"] = &dynamodb.AttributeValue{S: aws.String(v.ObjectKey)}
 	item["createdAt"] = &dynamodb.AttributeValue{S: aws.String(v.CreatedAt.Format(time.RFC3339Nano))}
@@ -117,7 +121,7 @@ func fileFromItem(i map[string]*dynamodb.AttributeValue) (storedFile, error) {
 		}
 		return ""
 	}
-	v := storedFile{ID: s("id"), Kind: s("kind"), ContentType: s("contentType"), Checksum: s("checksum"), Bucket: s("bucket"), ObjectKey: s("objectKey")}
+	v := storedFile{ID: s("id"), Kind: s("kind"), ContentType: s("contentType"), Checksum: s("checksum"), DisplayName: s("displayName"), Bucket: s("bucket"), ObjectKey: s("objectKey")}
 	if a := i["sizeBytes"]; a != nil && a.N != nil {
 		fmt.Sscan(*a.N, &v.SizeBytes)
 	}

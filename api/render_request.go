@@ -28,6 +28,7 @@ type canonicalRenderRequest struct {
 	CSS           string                `json:"css,omitempty"`
 	Data          map[string]any        `json:"data,omitempty"`
 	Options       documentRenderOptions `json:"options,omitempty"`
+	Label         string                `json:"label,omitempty"`
 	WebhookURL    string                `json:"webhookUrl,omitempty"`
 	WebhookSecret string                `json:"webhookSecret,omitempty"`
 }
@@ -52,6 +53,7 @@ type normalizedRenderRequest struct {
 	SourceType    string
 	SourceMode    string
 	SourceVersion string
+	Label         string
 }
 
 func isCanonicalRenderRequest(request events.APIGatewayProxyRequest) bool {
@@ -71,9 +73,6 @@ func normalizeRenderRequest(ctx context.Context, request events.APIGatewayProxyR
 	}
 	if isTemplateRenderRequest(request) {
 		return normalizedRenderRequest{Kind: renderKindTemplate, Body: request.Body}, nil
-	}
-	if isURLRenderRequest(request) {
-		return normalizedRenderRequest{Kind: renderKindURL, Body: request.Body}, nil
 	}
 	// The anonymous trial route retains its separate free-form HTML contract.
 	// All authenticated source modes enter through /render.
@@ -96,8 +95,11 @@ func normalizeCanonicalRenderRequestWithOwner(ctx context.Context, body, ownerID
 	if request.Version != documentRequestVersion {
 		return normalizedRenderRequest{}, &renderError{Code: "render_version_unsupported", Message: "version must be \"1\"", Status: 422}
 	}
+	if len([]rune(strings.TrimSpace(request.Label))) > 120 {
+		return normalizedRenderRequest{}, &renderError{Code: "render_label_invalid", Message: "label must be 120 characters or fewer", Status: 422}
+	}
 
-	result := normalizedRenderRequest{Canonical: true, SourceType: request.Source.Type, SourceMode: "inline", SourceVersion: request.Version}
+	result := normalizedRenderRequest{Canonical: true, SourceType: request.Source.Type, SourceMode: "inline", SourceVersion: request.Version, Label: strings.TrimSpace(request.Label)}
 	marshal := func(value any) (string, error) {
 		encoded, err := json.Marshal(value)
 		if err != nil {
@@ -114,7 +116,7 @@ func normalizeCanonicalRenderRequestWithOwner(ctx context.Context, body, ownerID
 		if request.Source.ID != "" || request.Source.TemplateID != "" || request.Source.Variables != nil || request.Source.URL != "" || request.Source.UploadID != "" || request.Source.Entrypoint != "" {
 			return normalizedRenderRequest{}, &renderError{Code: "render_source_invalid", Message: "source contains fields not supported by its type", Status: 422}
 		}
-		document := documentRenderRequest{Version: request.Version, CSS: request.CSS, Data: request.Data, Options: request.Options, WebhookURL: request.WebhookURL, WebhookSecret: request.WebhookSecret}
+		document := documentRenderRequest{Version: request.Version, CSS: request.CSS, Data: request.Data, Options: request.Options, Label: result.Label, WebhookURL: request.WebhookURL, WebhookSecret: request.WebhookSecret}
 		if request.Source.Type == "html" {
 			document.HTML = request.Source.Content
 		} else {
@@ -129,7 +131,7 @@ func normalizeCanonicalRenderRequestWithOwner(ctx context.Context, body, ownerID
 		if request.Source.ID != "" || request.Source.Content != "" || request.Source.URL != "" || request.Source.UploadID != "" || request.Source.Entrypoint != "" || !noDocumentFields() {
 			return normalizedRenderRequest{}, &renderError{Code: "render_source_invalid", Message: "source contains fields not supported by its type", Status: 422}
 		}
-		encoded, err := marshal(templateRenderRequest{TemplateID: request.Source.TemplateID, Variables: request.Source.Variables, WebhookURL: request.WebhookURL, WebhookSecret: request.WebhookSecret})
+		encoded, err := marshal(templateRenderRequest{TemplateID: request.Source.TemplateID, Variables: request.Source.Variables, Label: result.Label, WebhookURL: request.WebhookURL, WebhookSecret: request.WebhookSecret})
 		if err != nil {
 			return normalizedRenderRequest{}, err
 		}
@@ -162,6 +164,12 @@ func normalizeCanonicalRenderRequestWithOwner(ctx context.Context, body, ownerID
 		}
 		if request.Data != nil {
 			definition.Data = request.Data
+		}
+		definition.Label = request.Label
+		if definition.Label == "" {
+			if meta, metaErr := sourceStoreFactory().Get(ctx, ownerID, request.Source.ID); metaErr == nil {
+				definition.Label = meta.Name
+			}
 		}
 		definition.WebhookURL, definition.WebhookSecret = request.WebhookURL, request.WebhookSecret
 		encoded, _ := json.Marshal(definition)

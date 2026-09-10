@@ -3,21 +3,7 @@ package main
 import (
 	"net"
 	"testing"
-
-	"github.com/aws/aws-lambda-go/events"
 )
-
-func TestIsURLRenderRequest(t *testing.T) {
-	request := events.APIGatewayProxyRequest{Resource: renderURLResource}
-	if !isURLRenderRequest(request) {
-		t.Fatal("expected render-url resource to be recognized")
-	}
-
-	request = events.APIGatewayProxyRequest{Path: renderURLResource}
-	if !isURLRenderRequest(request) {
-		t.Fatal("expected render-url path to be recognized")
-	}
-}
 
 func TestIsPublicIP(t *testing.T) {
 	tests := []struct {

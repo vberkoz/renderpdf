@@ -198,8 +198,8 @@ Render a saved definition through `/render` with
 
 Submit an asynchronous batch with `POST /api/v1/batches`. It accepts a saved
 source plus per-item `data`, or individual normalized render definitions, with
-1–99 items per job. Use `GET /batches/{id}` and `/batches/{id}/items` for
-status, `POST /batches/{id}/cancel` for pending work, and
+1–99 items per job. Use `GET /batches` to list your jobs, `GET /batches/{id}`
+and `/batches/{id}/items` for status, `POST /batches/{id}/cancel` for pending work, and
 `GET /batches/{id}/download` for a private ZIP of completed PDFs. Batch jobs
 are durably written before a DynamoDB Streams outbox dispatches their items to
 SQS; at-least-once delivery is safe because worker claims prevent duplicates.

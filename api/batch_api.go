@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -86,6 +87,9 @@ func handleBatchRequest(ctx context.Context, r events.APIGatewayProxyRequest, h 
 	}
 	db := dynamodb.New(sess)
 	parts := batchParts(r)
+	if r.HTTPMethod == http.MethodGet && len(parts) == 0 {
+		return listBatches(owner, h, db)
+	}
 	if r.HTTPMethod == http.MethodPost && len(parts) == 0 {
 		return createBatch(ctx, r, owner, h, db)
 	}
@@ -113,6 +117,49 @@ func handleBatchRequest(ctx context.Context, r events.APIGatewayProxyRequest, h 
 		return downloadBatchZIP(ctx, owner, job, h, db)
 	}
 	return errorResponse(404, "Not found", h)
+}
+
+// listBatches returns only the authenticated owner's jobs. Job counters are
+// stored separately from the original job JSON so that this list reflects
+// progress without issuing an additional read for every job.
+func listBatches(owner string, h map[string]string, db *dynamodb.DynamoDB) events.APIGatewayProxyResponse {
+	out, err := db.Query(&dynamodb.QueryInput{
+		TableName:              aws.String(batchTable()),
+		KeyConditionExpression: aws.String("PK = :pk AND begins_with(SK, :prefix)"),
+		ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{
+			":pk":     {S: aws.String(sourceOwnerKey(owner))},
+			":prefix": {S: aws.String("BATCH#")},
+		},
+	})
+	if err != nil {
+		return errorResponse(503, "Batch storage is temporarily unavailable", h)
+	}
+
+	jobs := make([]batchJobReply, 0, len(out.Items))
+	for _, item := range out.Items {
+		var job batchJobReply
+		if json.Unmarshal([]byte(aws.StringValue(item["job"].S)), &job) != nil {
+			continue
+		}
+		job.ItemCount = batchNumber(item, "itemCount", job.ItemCount)
+		job.QueuedCount = batchNumber(item, "queuedCount", job.QueuedCount)
+		job.RunningCount = batchNumber(item, "runningCount", job.RunningCount)
+		job.SucceededCount = batchNumber(item, "succeededCount", job.SucceededCount)
+		job.FailedCount = batchNumber(item, "failedCount", job.FailedCount)
+		job.CancelledCount = batchNumber(item, "cancelledCount", job.CancelledCount)
+		job.CancelRequested = item["cancelRequested"] != nil && aws.BoolValue(item["cancelRequested"].BOOL)
+		if raw := aws.StringValue(item["updatedAt"].S); raw != "" {
+			_ = job.UpdatedAt.UnmarshalText([]byte(raw))
+		}
+		job.Status = derivedBatchStatus(job)
+		jobs = append(jobs, job)
+	}
+	sortBatchJobsNewestFirst(jobs)
+	return sourceJSON(http.StatusOK, map[string]any{"jobs": jobs}, h)
+}
+
+func sortBatchJobsNewestFirst(jobs []batchJobReply) {
+	sort.Slice(jobs, func(i, j int) bool { return jobs[i].CreatedAt.After(jobs[j].CreatedAt) })
 }
 
 const maxBatchZIPBytes = 100 * 1024 * 1024

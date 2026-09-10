@@ -184,8 +184,9 @@ func processBatchItem(ctx context.Context, message batchQueueMessage) error {
 	if _, err = s3Client.PutObject(&s3.PutObjectInput{Bucket: aws.String(bucketName), Key: aws.String(objectKey), Body: bytes.NewReader(pdf)}); err != nil {
 		return err
 	}
-	expires := time.Now().UTC().Add(maxPDFRetentionDays * 24 * time.Hour)
-	if err := fileStoreFactory().Create(ctx, storedFile{ID: fileID, Kind: "rendered_pdf", ContentType: "application/pdf", SizeBytes: int64(len(pdf)), OwnerID: message.OwnerID, Bucket: bucketName, ObjectKey: objectKey, RetentionExpiresAt: &expires, Origin: map[string]string{"jobId": message.JobID}}); err != nil {
+	createdAt := time.Now().UTC()
+	expires := createdAt.Add(maxPDFRetentionDays * 24 * time.Hour)
+	if err := fileStoreFactory().Create(ctx, storedFile{ID: fileID, Kind: "rendered_pdf", ContentType: "application/pdf", SizeBytes: int64(len(pdf)), DisplayName: normalized.Label, OwnerID: message.OwnerID, Bucket: bucketName, ObjectKey: objectKey, RetentionExpiresAt: &expires, Origin: map[string]string{"jobId": message.JobID}, CreatedAt: createdAt}); err != nil {
 		// A retry can reach this point after S3 and the file record succeeded but
 		// before the item/job transaction committed. The deterministic file ID
 		// lets us treat that exact persisted record as an idempotent success.

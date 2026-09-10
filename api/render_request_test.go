@@ -82,11 +82,10 @@ func TestCanonicalRenderRequestRejectsInvalidSourceContract(t *testing.T) {
 	}
 }
 
-func TestLegacyRenderRoutesNormalizeToSharedKinds(t *testing.T) {
+func TestSpecializedRenderRoutesNormalizeToSharedKinds(t *testing.T) {
 	tests := []struct{ resource, want string }{
 		{dashboardDocumentRenderResource, renderKindDocument},
 		{dashboardTemplateRenderResource, renderKindTemplate},
-		{renderURLResource, renderKindURL},
 		{trialResource, renderKindHTML},
 	}
 	for _, test := range tests {

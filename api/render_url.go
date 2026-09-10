@@ -5,15 +5,7 @@ import (
 	"net"
 	"net/url"
 	"strings"
-
-	"github.com/aws/aws-lambda-go/events"
 )
-
-const renderURLResource = "/api/v1/render-url"
-
-func isURLRenderRequest(request events.APIGatewayProxyRequest) bool {
-	return request.Resource == renderURLResource || request.Path == renderURLResource
-}
 
 func validateRenderURL(rawURL string) (string, error) {
 	parsed, err := url.Parse(strings.TrimSpace(rawURL))

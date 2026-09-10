@@ -2,8 +2,6 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
-EXAMPLES_DIR="${ROOT_DIR}/doc-examples"
 
 STACK_NAME="renderpdf"
 REGION="us-east-1"
@@ -19,24 +17,49 @@ if [ -z "$API_URL" ]; then
 fi
 
 API_URL="${API_URL%/}"
+TRIAL_RENDER_URL="${API_URL}/trial/render"
+TRIAL_QUOTA_URL="${API_URL}/trial/quota"
+RENDER_URL="${API_URL}/render"
 
 echo "📍 API URL: $API_URL"
 
-test_html() {
+test_trial_quota() {
+  local response_file http_code remaining
+  response_file=$(mktemp -t renderpdf-trial-quota.XXXXXX)
+  trap 'rm -f "${response_file}"' RETURN
+
+  echo -n "Testing trial quota endpoint... "
+  http_code=$(curl -sS -o "${response_file}" -w "%{http_code}" "$TRIAL_QUOTA_URL")
+  if [ "$http_code" != "200" ]; then
+    echo "❌ FAILED (HTTP $http_code)"
+    cat "${response_file}"
+    return 1
+  fi
+  remaining=$(jq -r '.remaining // empty' < "${response_file}")
+  if ! [[ "$remaining" =~ ^[0-9]+$ ]]; then
+    echo "❌ FAILED (invalid quota response)"
+    cat "${response_file}"
+    return 1
+  fi
+  echo "✅ PASSED (${remaining} remaining)"
+}
+
+test_trial_html() {
   local name=$1
   local html=$2
-  echo -n "Testing $name... "
+  local request_file response_file http_code body request_id pdf_url size
+  request_file=$(mktemp -t renderpdf-trial-request.XXXXXX)
+  response_file=$(mktemp -t renderpdf-trial-response.XXXXXX)
+  trap 'rm -f "${request_file}" "${response_file}"' RETURN
+  jq -n --arg html "$html" '{html: $html}' > "${request_file}"
+
+  echo -n "Testing $name through the trial endpoint... "
 
   start=$(date +%s)
-  response=$(curl -s -X POST "$API_URL/render-html" \
+  http_code=$(curl -sS -o "${response_file}" -w "%{http_code}" -X POST "$TRIAL_RENDER_URL" \
     -H "Content-Type: application/json" \
-    -d "{\"html\":\"$html\"}")
-
-  http_code=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$API_URL/render-html" \
-    -H "Content-Type: application/json" \
-    -d "{\"html\":\"$html\"}")
-
-  body="$response"
+    --data-binary @"${request_file}")
+  body=$(<"${response_file}")
   end=$(date +%s)
   duration=$((end - start))
 
@@ -46,16 +69,16 @@ test_html() {
     return 1
   fi
 
-  request_id=$(echo "$body" | grep -o '"requestId":"[^"]*"' | cut -d'"' -f4)
-  pdf_url=$(echo "$body" | grep -o '"url":"[^"]*"' | cut -d'"' -f4)
-  size=$(echo "$body" | grep -o '"size":[0-9]*' | cut -d':' -f2)
+  request_id=$(jq -r '.requestId // empty' <<<"$body")
+  pdf_url=$(jq -r '.url // empty' <<<"$body")
+  size=$(jq -r '.size // empty' <<<"$body")
 
   if [ -z "$pdf_url" ] || [ -z "$size" ]; then
     echo "❌ FAILED (Invalid response)"
     return 1
   fi
 
-  curl -s "$pdf_url" -o "/tmp/test-$request_id.pdf"
+  curl -fsSL "$pdf_url" -o "/tmp/test-$request_id.pdf"
 
   if ! file "/tmp/test-$request_id.pdf" | grep -q "PDF"; then
     echo "❌ FAILED (Invalid PDF)"
@@ -66,8 +89,8 @@ test_html() {
   rm "/tmp/test-$request_id.pdf"
 }
 
-test_html "Simple HTML" "<h1>Hello World</h1>"
-test_html "Complex HTML" "<!DOCTYPE html><html><head><style>body{font-family:Arial}table{border-collapse:collapse}th,td{border:1px solid black;padding:8px}</style></head><body><h1>Invoice</h1><table><tr><th>Item</th><th>Price</th></tr><tr><td>Service</td><td>\$100</td></tr></table></body></html>"
+test_trial_quota
+test_trial_html "Simple HTML" "<h1>Hello World</h1>"
 
 test_template_lifecycle() {
   if [ -z "${RENDERPDF_API_KEY:-}" ]; then
@@ -106,9 +129,9 @@ EOF
 
   echo -n "Testing template render... "
   cat > "${request_file}" <<EOF
-{"templateId":"${template_id}","variables":{"customer":{"name":"Ada Lovelace"},"invoice":{"number":"INV-SMOKE-1"}}}
+{"version":"1","source":{"type":"template","templateId":"${template_id}","variables":{"customer":{"name":"Ada Lovelace"},"invoice":{"number":"INV-SMOKE-1"}}}}
 EOF
-  http_code=$(curl -sS -o "${response_file}" -w "%{http_code}" -X POST "${API_URL}/render-template" -H "Content-Type: application/json" -H "Authorization: Bearer ${RENDERPDF_API_KEY}" --data-binary @"${request_file}")
+  http_code=$(curl -sS -o "${response_file}" -w "%{http_code}" -X POST "${RENDER_URL}" -H "Content-Type: application/json" -H "Authorization: Bearer ${RENDERPDF_API_KEY}" --data-binary @"${request_file}")
   if [ "${http_code}" != "200" ]; then
     echo "❌ FAILED (HTTP ${http_code})"
     cat "${response_file}"
@@ -145,58 +168,6 @@ EOF
 }
 
 test_template_lifecycle
-
-if [ -f "${EXAMPLES_DIR}/invoice.html" ]; then
-  echo -n "Testing Invoice Example... "
-  start=$(date +%s)
-  response=$(curl -s -X POST "$API_URL/render-html" \
-    -H "Content-Type: application/json" \
-    --data-binary @- <<EOF
-{"html":$(jq -Rs . < "${EXAMPLES_DIR}/invoice.html")}
-EOF
-)
-  http_code=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$API_URL/render-html" \
-    -H "Content-Type: application/json" \
-    --data-binary @- <<EOF
-{"html":$(jq -Rs . < "${EXAMPLES_DIR}/invoice.html")}
-EOF
-)
-  end=$(date +%s)
-  duration=$((end - start))
-
-  if [ "$http_code" != "200" ]; then
-    echo "❌ FAILED (HTTP $http_code)"
-  else
-    size=$(echo "$response" | grep -o '"size":[0-9]*' | cut -d':' -f2)
-    echo "✅ PASSED (${duration}s, ${size} bytes)"
-  fi
-fi
-
-if [ -f "${EXAMPLES_DIR}/report.html" ]; then
-  echo -n "Testing Report Example... "
-  start=$(date +%s)
-  response=$(curl -s -X POST "$API_URL/render-html" \
-    -H "Content-Type: application/json" \
-    --data-binary @- <<EOF
-{"html":$(jq -Rs . < "${EXAMPLES_DIR}/report.html")}
-EOF
-)
-  http_code=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$API_URL/render-html" \
-    -H "Content-Type: application/json" \
-    --data-binary @- <<EOF
-{"html":$(jq -Rs . < "${EXAMPLES_DIR}/report.html")}
-EOF
-)
-  end=$(date +%s)
-  duration=$((end - start))
-
-  if [ "$http_code" != "200" ]; then
-    echo "❌ FAILED (HTTP $http_code)"
-  else
-    size=$(echo "$response" | grep -o '"size":[0-9]*' | cut -d':' -f2)
-    echo "✅ PASSED (${duration}s, ${size} bytes)"
-  fi
-fi
 
 echo ""
 echo "✅ ALL TESTS PASSED"

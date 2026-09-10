@@ -29,6 +29,27 @@ const (
 	defaultDocumentMargin           = "18mm"
 	maxDocumentMarginMillimeters    = 50
 	maxDocumentMarginInches         = 2
+	markdownDocumentDefaultCSS      = `
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 16px; line-height: 1.6; color: #24292e; max-width: 800px; margin: 0 auto; padding: 2rem; background-color: #ffffff; }
+h1, h2, h3, h4, h5, h6 { margin-top: 1.5rem; margin-bottom: 1rem; font-weight: 600; line-height: 1.25; }
+h1 { font-size: 2em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+h2 { font-size: 1.5em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+h3 { font-size: 1.25em; }
+a { color: #0366d6; text-decoration: none; }
+a:hover { text-decoration: underline; }
+p, blockquote, ul, ol, dl, table, pre { margin-top: 0; margin-bottom: 16px; }
+ul, ol { padding-left: 2em; }
+li + li { margin-top: 0.25em; }
+blockquote { padding: 0 1em; color: #6a737d; border-left: 0.25em solid #dfe2e5; margin-left: 0; }
+code { padding: 0.2em 0.4em; margin: 0; font-size: 85%; background-color: rgba(27, 31, 35, 0.05); border-radius: 3px; font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace; }
+pre { max-width: 100%; padding: 16px; overflow: visible; font-size: 85%; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; background-color: #f6f8fa; border-radius: 3px; }
+pre code { background-color: transparent; padding: 0; font-size: 100%; white-space: inherit; overflow-wrap: inherit; word-break: inherit; }
+table { border-spacing: 0; border-collapse: collapse; width: 100%; }
+table th, table td { padding: 6px 13px; border: 1px solid #dfe2e5; }
+table tr { background-color: #fff; border-top: 1px solid #c6cbd1; }
+table tr:nth-child(2n) { background-color: #f6f8fa; }
+img { max-width: 100%; box-sizing: content-box; background-color: #fff; }
+`
 )
 
 var (
@@ -76,6 +97,7 @@ type documentRenderRequest struct {
 	CSS           string                `json:"css"`
 	Data          map[string]any        `json:"data"`
 	Options       documentRenderOptions `json:"options"`
+	Label         string                `json:"label,omitempty"`
 	WebhookURL    string                `json:"webhookUrl,omitempty"`
 	WebhookSecret string                `json:"webhookSecret,omitempty"`
 }
@@ -147,7 +169,7 @@ func resolveDocumentRenderHTML(body string) (string, documentRenderRequest, erro
 		if err := validateDocumentSafety(fragment, request.CSS); err != nil {
 			return "", documentRenderRequest{}, err
 		}
-		documentHTML, err := buildDocumentHTMLFromResolvedHTML(fragment, request.CSS, request.Options)
+		documentHTML, err := buildDocumentHTMLFromResolvedHTML(fragment, markdownDocumentDefaultCSS+request.CSS, request.Options)
 		if err != nil {
 			return "", documentRenderRequest{}, err
 		}

@@ -40,3 +40,14 @@ func TestDerivedBatchStatus(t *testing.T) {
 		})
 	}
 }
+
+func TestBatchJobsAreSortedNewestFirst(t *testing.T) {
+	jobs := []batchJobReply{
+		{JobID: "job_old", CreatedAt: time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)},
+		{JobID: "job_new", CreatedAt: time.Date(2026, 8, 2, 0, 0, 0, 0, time.UTC)},
+	}
+	sortBatchJobsNewestFirst(jobs)
+	if got := jobs[0].JobID; got != "job_new" {
+		t.Fatalf("first job = %q, want newest job_new", got)
+	}
+}

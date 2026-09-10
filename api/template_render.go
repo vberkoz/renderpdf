@@ -17,6 +17,7 @@ const (
 type templateRenderRequest struct {
 	TemplateID    string         `json:"templateId"`
 	Variables     map[string]any `json:"variables"`
+	Label         string         `json:"label,omitempty"`
 	WebhookURL    string         `json:"webhookUrl,omitempty"`
 	WebhookSecret string         `json:"webhookSecret,omitempty"`
 }
@@ -41,6 +42,9 @@ func resolveTemplateRenderHTML(ctx context.Context, store templateStore, ownerID
 	template, err := store.Get(ctx, ownerID, request.TemplateID)
 	if err != nil {
 		return "", templateRenderRequest{}, err
+	}
+	if strings.TrimSpace(request.Label) == "" {
+		request.Label = template.Name
 	}
 	html, err := renderTemplateHTML(template.HTML, request.Variables)
 	if err != nil {
