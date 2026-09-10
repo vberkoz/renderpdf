@@ -39,7 +39,7 @@
                     <a class="dashboard-create-link" href="/app/?view=create-render" data-dashboard-nav="create-render">Create PDF</a>
                     <div class="dashboard-nav-group">
                         <p>Manage</p>
-                        <a href="/app/?view=sources" data-dashboard-nav="sources">Sources</a>
+                        <a href="/app/?view=sources" data-dashboard-nav="sources">Saved sources</a>
                         <a href="/app/?view=files" data-dashboard-nav="files">Files</a>
                         <a href="/app/?view=batches" data-dashboard-nav="batches">Batches</a>
                         <a href="/app/?view=logs" data-dashboard-nav="logs">Logs</a>
@@ -59,7 +59,7 @@
                     <a class="dashboard-create-link" href="/app/?view=create-render" data-dashboard-nav="create-render">Create PDF</a>
                     <div class="dashboard-nav-group">
                         <p>Manage</p>
-                        <a href="/app/?view=sources" data-dashboard-nav="sources">Sources</a>
+                        <a href="/app/?view=sources" data-dashboard-nav="sources">Saved sources</a>
                         <a href="/app/?view=files" data-dashboard-nav="files">Files</a>
                         <a href="/app/?view=batches" data-dashboard-nav="batches">Batches</a>
                         <a href="/app/?view=logs" data-dashboard-nav="logs">Logs</a>
@@ -180,11 +180,12 @@
                     <section class="workflow-stage workflow-source-stage" aria-labelledby="source-choice-title">
                         <div class="workflow-stage-heading">
                             <span class="workflow-step-number" aria-hidden="true">1</span>
-                            <div><h3 id="source-choice-title">Choose a source</h3><p>Start with a reusable template, a complete HTML/CSS JSON request, or Markdown.</p></div>
+                            <div><h3 id="source-choice-title">Choose a source</h3><p>Start with a reusable template or saved source, or create a new document.</p></div>
                         </div>
                         <input id="createRenderModeInput" type="hidden" value="template">
                         <div class="source-choice" role="group" aria-label="PDF source">
                             <button class="source-choice-option is-selected" type="button" data-source-choice="template" aria-pressed="true"><strong>Template</strong><span>Use a starter or saved reusable layout.</span></button>
+                            <button class="source-choice-option" type="button" data-source-choice="stored" aria-pressed="false"><strong>Saved source</strong><span>Continue with a source prepared for repeat or batch PDFs.</span></button>
                             <button class="source-choice-option" type="button" data-source-choice="html" aria-pressed="false"><strong>Inline HTML/CSS</strong><span>Paste a validated JSON document request.</span></button>
                             <button class="source-choice-option" type="button" data-source-choice="markdown" aria-pressed="false"><strong>Markdown</strong><span>Write Markdown with data and print settings.</span></button>
                         </div>
@@ -233,6 +234,20 @@
                     </div>
                     </div>
 
+                    <div id="storedSourceWorkspace" hidden>
+                        <section class="workflow-stage stored-source-stage" aria-labelledby="stored-source-title">
+                            <div class="workflow-stage-heading">
+                                <span class="workflow-step-number" aria-hidden="true">2</span>
+                                <div><h3 id="stored-source-title">Choose a saved source</h3><p>Saved sources keep their document definition private and are rendered through the batch workflow.</p></div>
+                            </div>
+                            <div class="stored-source-picker-row">
+                                <div class="custom-select" data-custom-select><span class="custom-select-label">Saved source</span><input id="storedSourcePickerInput" type="hidden" value=""><button class="custom-select-trigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="storedSourcePickerInput-menu"><span class="custom-select-value">Loading saved sources</span></button><div id="storedSourcePickerInput-menu" class="custom-select-menu" role="listbox" hidden><button class="custom-select-option is-active" type="button" role="option" aria-selected="true" data-custom-select-option data-value="">Loading saved sources</button></div></div>
+                                <button id="continueSavedSourceBtn" class="dashboard-button dashboard-button-primary" type="button">Continue to batch</button>
+                            </div>
+                            <div id="storedSourceStatus" class="dashboard-notice" role="status" aria-live="polite">Select a saved source to add data and create PDFs.</div>
+                        </section>
+                    </div>
+
                     <div id="documentWorkspace" hidden>
                     <div id="documentJsonStatus" class="dashboard-notice" role="status" aria-live="polite" hidden></div>
                     <input id="documentSourceTypeInput" type="hidden" value="html">
@@ -269,10 +284,11 @@
                     </div>
                 </article>
 
-                <article class="workspace-panel quiet-section" data-dashboard-view="sources">
-                    <header class="panel-header panel-header-compact"><div><p class="panel-kicker">Sources</p><h2>Saved sources</h2><p>Reusable HTML and Markdown definitions for repeat renders and batches.</p></div><button id="refreshSourcesBtn" class="dashboard-button dashboard-button-secondary" type="button">Refresh</button></header>
+                <article class="workspace-panel quiet-section reusable-assets-panel" data-dashboard-view="sources">
+                    <header class="panel-header panel-header-compact"><div><p class="panel-kicker">Reusable content</p><h2>Saved sources</h2><p>Choose, reuse, and manage templates alongside saved HTML and Markdown sources.</p></div><button id="refreshSourcesBtn" class="dashboard-button dashboard-button-secondary" type="button">Refresh</button></header>
                     <div id="sourcesStatus" class="dashboard-notice" role="status" aria-live="polite" hidden></div>
-                    <div id="sourcesManager" aria-live="polite"></div>
+                    <section class="reusable-assets-group" aria-labelledby="saved-templates-title"><header><div><h3 id="saved-templates-title">Templates</h3><p>Reusable layouts with variable data for individual PDFs.</p></div></header><div id="templatesManager" aria-live="polite"></div></section>
+                    <section class="reusable-assets-group" aria-labelledby="saved-document-sources-title"><header><div><h3 id="saved-document-sources-title">Saved document sources</h3><p>Reusable HTML and Markdown definitions for repeat renders and batches.</p></div></header><div id="sourcesManager" aria-live="polite"></div></section>
                 </article>
 
                 <article class="workspace-panel quiet-section" data-dashboard-view="files">

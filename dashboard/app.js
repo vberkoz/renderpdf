@@ -521,21 +521,24 @@ function setDocumentEditorMode(type, loadSample = false) {
 function setCreateRenderMode(mode, loadSample = false) {
     const isTemplate = mode === 'template';
     const isMarkdown = mode === 'markdown';
+    const isStored = mode === 'stored';
     const templateWorkspace = document.getElementById('templateWorkspace');
     const documentWorkspace = document.getElementById('documentWorkspace');
+    const storedSourceWorkspace = document.getElementById('storedSourceWorkspace');
 
     templateWorkspace.hidden = !isTemplate;
-    documentWorkspace.hidden = isTemplate;
+    documentWorkspace.hidden = isTemplate || isStored;
+    storedSourceWorkspace.hidden = !isStored;
     document.querySelectorAll('[data-source-choice]').forEach((choice) => {
         const selected = choice.dataset.sourceChoice === mode;
         choice.classList.toggle('is-selected', selected);
         choice.setAttribute('aria-pressed', String(selected));
     });
-    if (!isTemplate) setDocumentEditorMode(isMarkdown ? 'markdown' : 'html', loadSample);
+    if (!isTemplate && !isStored) setDocumentEditorMode(isMarkdown ? 'markdown' : 'html', loadSample);
 
     window.requestAnimationFrame(() => {
         Object.values(templateCodeEditors).forEach((editor) => editor.refresh());
-        if (!isTemplate) syncDocumentPreviewStageHeight();
+        if (!isTemplate && !isStored) syncDocumentPreviewStageHeight();
     });
 }
 
@@ -805,6 +808,13 @@ function formatDate(timestamp) {
     }).format(new Date(timestamp * 1000));
 }
 
+function formatAssetDate(timestamp) {
+    if (!timestamp) return 'Updated recently';
+    const date = typeof timestamp === 'string' ? new Date(timestamp) : new Date(timestamp * 1000);
+    if (Number.isNaN(date.getTime())) return 'Updated recently';
+    return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(date);
+}
+
 function renderTable(container, { columns = [], rows = [], empty, loading, caption }) {
     container.replaceChildren();
     container.classList.add('dashboard-table-wrap');
@@ -938,7 +948,7 @@ const dashboardPageContexts = {
     'create-render': {
         kicker: 'Create and render',
         title: 'Create a PDF',
-        description: 'Start with a template or inline document, preview it, then render a PDF.'
+        description: 'Start with a template, saved source, or inline document, then render a PDF.'
     },
     keys: {
         kicker: 'Account',
@@ -946,9 +956,9 @@ const dashboardPageContexts = {
         description: 'Create credentials for trusted server-side use, then store each key securely and revoke keys you no longer need.'
     },
     sources: {
-        kicker: 'Sources',
+        kicker: 'Reusable content',
         title: 'Saved sources',
-        description: 'Manage reusable document definitions for future renders and batches.'
+        description: 'Choose and manage templates alongside reusable document definitions for future renders and batches.'
     },
     files: {
         kicker: 'Files',
@@ -1198,6 +1208,56 @@ if (checkAuth()) {
     setCreateRenderMode(createRenderModeInput.value);
     let savedTemplates = new Map();
     let starterTemplates = new Map();
+    let savedSources = new Map();
+
+    function setSavedSourceInventory(sources, selectedValue = document.getElementById('storedSourcePickerInput').value) {
+        savedSources = new Map((sources || []).map((source) => [source.id, source]));
+        const options = (sources || []).map((source) => ({ value: source.id, label: source.name }));
+        const selected = savedSources.has(selectedValue) ? selectedValue : '';
+        window.customSelect?.replaceOptions('storedSourcePickerInput', [{
+            label: 'Saved sources',
+            options: options.length ? options : [{ value: '', label: 'No saved sources yet' }]
+        }], selected);
+        return selected;
+    }
+
+    function describeStoredSource(source) {
+        return source ? `${source.name} · ${source.sourceType} source` : 'Select a saved source to add data and create PDFs.';
+    }
+
+    function selectStoredSource(sourceID) {
+        const selected = setSavedSourceInventory([...savedSources.values()], sourceID);
+        const source = savedSources.get(selected);
+        setNotice(document.getElementById('storedSourceStatus'), describeStoredSource(source), source ? 'success' : '');
+        return source;
+    }
+
+    async function loadSavedSources(selectedValue) {
+        try {
+            const result = await dashboardTemplateRequest('/dashboard/sources');
+            const selected = setSavedSourceInventory(result.sources || [], selectedValue);
+            selectStoredSource(selected);
+            return result.sources || [];
+        } catch (error) {
+            setSavedSourceInventory([], '');
+            setNotice(document.getElementById('storedSourceStatus'), `Could not load saved sources. ${error.message}`, 'error');
+            return [];
+        }
+    }
+
+    function openReusableAsset(assetType, asset) {
+        setDashboardView('create-render', { history: 'push', focus: true });
+        document.dispatchEvent(new CustomEvent('dashboardviewchange', { detail: { view: 'create-render' } }));
+        if (assetType === 'template') {
+            createRenderModeInput.value = 'template';
+            setCreateRenderMode('template');
+            openStoredTemplate(asset);
+            return;
+        }
+        createRenderModeInput.value = 'stored';
+        setCreateRenderMode('stored');
+        selectStoredSource(asset.id);
+    }
 
     async function openStoredTemplate(summary) {
         try {
@@ -1235,9 +1295,11 @@ if (checkAuth()) {
 
     if (IS_LOCAL_PREVIEW) {
         renderKeys([]);
+        setSavedSourceInventory([], '');
     } else {
         loadKeys();
         loadTemplates();
+        loadSavedSources();
     }
     if (!IS_LOCAL_PREVIEW) refreshDashboard();
     resetTemplateEditor();
@@ -1319,7 +1381,7 @@ if (checkAuth()) {
             if (!nextMode || nextMode === createRenderModeInput.value) return;
             createRenderModeInput.value = nextMode;
             setCreateRenderMode(nextMode, true);
-            if (nextMode !== 'template') {
+            if (nextMode === 'html' || nextMode === 'markdown') {
                 try {
                     previewDocumentJson();
                     setNotice(documentJsonStatus, `Loaded the ${nextMode === 'markdown' ? 'Markdown' : 'HTML/CSS JSON'} sample.`, 'success');
@@ -1328,6 +1390,25 @@ if (checkAuth()) {
                 }
             }
         });
+    });
+
+    document.getElementById('storedSourcePickerInput').addEventListener('change', () => {
+        selectStoredSource(document.getElementById('storedSourcePickerInput').value);
+    });
+
+    document.getElementById('continueSavedSourceBtn').addEventListener('click', () => {
+        const source = savedSources.get(document.getElementById('storedSourcePickerInput').value);
+        if (!source) {
+            setNotice(document.getElementById('storedSourceStatus'), 'Choose a saved source first.', 'error');
+            return;
+        }
+        window.customSelect?.replaceOptions('batchSourceSelect', [{
+            label: 'Saved sources',
+            options: [...savedSources.values()].map((savedSource) => ({ value: savedSource.id, label: savedSource.name }))
+        }], source.id);
+        updateBatchReview();
+        setDashboardView('batches', { history: 'push', focus: true });
+        document.dispatchEvent(new CustomEvent('dashboardviewchange', { detail: { view: 'batches' } }));
     });
 
     document.getElementById('templateHtmlInput').addEventListener('input', previewTemplateWithVariables);
@@ -1515,8 +1596,9 @@ if (checkAuth()) {
         });
         if (!name) return;
         try {
-            await dashboardTemplateRequest('/dashboard/sources', { method: 'POST', body: JSON.stringify({ name, definition }) });
-            setNotice(documentJsonStatus, 'Source saved. You can reuse it in a future batch.', 'success');
+            const saved = await dashboardTemplateRequest('/dashboard/sources', { method: 'POST', body: JSON.stringify({ name, definition }) });
+            await loadSavedSources(saved.id);
+            setNotice(documentJsonStatus, 'Source saved. It is ready to use from Saved sources or batch rendering.', 'success');
         } catch (error) {
             setNotice(documentJsonStatus, `Could not save source. ${error.message}`, 'error');
         }
@@ -1553,13 +1635,21 @@ if (checkAuth()) {
         }
     }
 
-    function renderManagerEmpty(container, title, description) {
+    function renderManagerEmpty(container, title, description, action) {
         const empty = document.createElement('div');
+        empty.className = 'reusable-empty-state';
         const heading = document.createElement('strong');
         heading.textContent = title;
         const detail = document.createElement('span');
         detail.textContent = description;
         empty.append(heading, detail);
+        if (action) {
+            const link = document.createElement('a');
+            link.className = 'dashboard-button dashboard-button-secondary';
+            link.href = action.href;
+            link.textContent = action.label;
+            empty.append(link);
+        }
         renderTable(container, { caption: container.getAttribute('aria-label') || title, empty });
     }
 
@@ -1599,25 +1689,62 @@ if (checkAuth()) {
     }
 
     async function refreshManagers() {
+        const templatesManager = document.getElementById('templatesManager');
         const sourcesManager = document.getElementById('sourcesManager');
         const filesManager = document.getElementById('filesManager');
         const batchesManager = document.getElementById('batchesManager');
         if (!managersLoaded) {
+            renderManagerLoading(templatesManager, 'templates');
             renderManagerLoading(sourcesManager, 'saved sources');
             renderManagerLoading(filesManager, 'private files');
             renderManagerLoading(batchesManager, 'batch jobs');
         }
         try {
-            const [sourceResult, fileResult, batchResult] = await Promise.all([managedRequest('/dashboard/sources'), managedRequest('/dashboard/files'), managedRequest('/dashboard/batches')]);
+            const [templateResult, sourceResult, fileResult, batchResult] = await Promise.all([listTemplates(), managedRequest('/dashboard/sources'), managedRequest('/dashboard/files'), managedRequest('/dashboard/batches')]);
+            savedTemplates = new Map((templateResult.templates || []).map((template) => [template.id, template]));
+            starterTemplates = new Map((templateResult.starters || []).map((template) => [template.type, template]));
+            window.customSelect?.replaceOptions('templatePickerInput', [
+                { label: 'Custom templates', options: [{ value: 'new', label: 'Blank custom template' }, ...(templateResult.templates || []).map((template) => ({ value: `saved:${template.id}`, label: template.name }))] },
+                { label: 'Starter templates', options: (templateResult.starters || []).map((template) => ({ value: `starter:${template.type}`, label: `${template.name} starter` })) }
+            ], templatePickerInput.value);
+            const templates = templateResult.templates || [];
+            if (!templates.length) {
+                renderManagerEmpty(templatesManager, 'No templates yet', 'Create a reusable layout for individual PDFs.', { href: '/app/?view=create-render', label: 'Create template' });
+            } else {
+                const templateRows = templates.map((template) => {
+                    const details = document.createElement('div'); const name = document.createElement('strong'); const meta = document.createElement('span');
+                    name.textContent = template.name; meta.textContent = `${template.type} · updated ${formatAssetDate(template.updatedAt)}`; details.append(name, meta);
+                    const type = document.createElement('span'); type.textContent = template.type;
+                    const actions = document.createElement('div');
+                    const use = document.createElement('button'); use.className = 'table-action'; use.type = 'button'; use.textContent = 'Use in Create'; use.setAttribute('aria-label', `Use template ${template.name} in Create PDF`);
+                    use.onclick = () => openReusableAsset('template', template);
+                    const remove = document.createElement('button'); remove.className = 'table-action danger'; remove.type = 'button'; remove.textContent = 'Delete'; remove.setAttribute('aria-label', `Delete template ${template.name}`);
+                    remove.onclick = async () => {
+                        if (!await confirmDashboardAction({ title: `Delete “${template.name}”?`, description: 'This template will be permanently deleted.', confirmLabel: 'Delete template' })) return;
+                        try {
+                            await removeTemplate(template.id);
+                            await refreshManagers();
+                            setNotice(document.getElementById('sourcesStatus'), 'Template deleted.', 'success');
+                        } catch (error) {
+                            setNotice(document.getElementById('sourcesStatus'), `Could not delete this template. ${error.message}`, 'error');
+                        }
+                    };
+                    actions.append(use, remove);
+                    return { cells: [details, type, actions], sortValues: [template.name, template.type, template.updatedAt || ''] };
+                });
+                renderTable(templatesManager, { caption: 'Saved templates', columns: [{ label: 'Template' }, { label: 'Type' }, { label: 'Actions' }], rows: templateRows });
+            }
             const sourceList = sourceResult.sources || [];
+            setSavedSourceInventory(sourceList);
             const batchOptions = sourceList.map((source) => ({ value: source.id, label: source.name }));
             if (!sourceList.length) {
-                renderManagerEmpty(sourcesManager, 'No saved sources yet', 'Save an inline document to reuse it for future renders and batches.');
+                renderManagerEmpty(sourcesManager, 'No saved sources yet', 'Save a document definition for repeat renders and batches.', { href: '/app/?view=create-render', label: 'Create PDF' });
             }
             const sourceRows = sourceList.map((source) => {
                 const details = document.createElement('div'); const name = document.createElement('strong'); const meta = document.createElement('span'); name.textContent = source.name; meta.textContent = `${source.sourceType} · ${(source.sizeBytes / 1024).toFixed(1)} KB`; details.append(name, meta);
                 const type = document.createElement('span'); type.textContent = source.sourceType;
-                const actions = document.createElement('div'); const remove = document.createElement('button'); remove.className = 'table-action danger'; remove.type = 'button'; remove.textContent = 'Delete'; remove.setAttribute('aria-label', `Delete saved source ${source.name}`); actions.append(remove);
+                const actions = document.createElement('div'); const use = document.createElement('button'); use.className = 'table-action'; use.type = 'button'; use.textContent = 'Use in Create'; use.setAttribute('aria-label', `Use saved source ${source.name} in Create PDF`); const remove = document.createElement('button'); remove.className = 'table-action danger'; remove.type = 'button'; remove.textContent = 'Delete'; remove.setAttribute('aria-label', `Delete saved source ${source.name}`); actions.append(use, remove);
+                use.onclick = () => openReusableAsset('source', source);
                 remove.onclick = async () => {
                     if (!await confirmDashboardAction({
                         title: `Delete “${source.name}”?`,
@@ -1635,7 +1762,8 @@ if (checkAuth()) {
                 return { cells: [details, type, actions], sortValues: [source.name, source.sourceType, source.sizeBytes || 0] };
             });
             if (sourceRows.length) renderTable(sourcesManager, { caption: 'Saved sources', columns: [{ label: 'Source' }, { label: 'Type' }, { label: 'Actions' }], rows: sourceRows });
-            window.customSelect?.replaceOptions('batchSourceSelect', [{ label: 'Saved sources', options: batchOptions.length ? batchOptions : [{ value: '', label: 'No saved sources' }] }], batchOptions[0]?.value || '');
+            const currentBatchSource = document.getElementById('batchSourceSelect').value;
+            window.customSelect?.replaceOptions('batchSourceSelect', [{ label: 'Saved sources', options: batchOptions.length ? batchOptions : [{ value: '', label: 'No saved sources' }] }], batchOptions.some((source) => source.value === currentBatchSource) ? currentBatchSource : (batchOptions[0]?.value || ''));
             updateBatchReview();
             const files = fileResult.files || [];
             if (!files.length) {

@@ -393,6 +393,15 @@ html[data-dashboard-current-view="overview"] .dashboard-page-intro h1 { font-siz
 .api-keys-list-heading h3 { font-size: .9rem; }
 .api-keys-list-heading p { color: var(--muted); font-size: .78rem; line-height: 1.5; }
 .dashboard-table-wrap { width: 100%; overflow-x: auto; }
+.reusable-assets-panel { display: grid; gap: 20px; }
+.reusable-assets-group { display: grid; gap: 12px; padding-top: 18px; border-top: 1px solid var(--line); }
+.reusable-assets-group > header { display: grid; gap: 4px; }
+.reusable-assets-group h3, .reusable-assets-group p { margin: 0; }
+.reusable-assets-group h3 { font-size: .94rem; }
+.reusable-assets-group p { color: var(--muted); font-size: .78rem; line-height: 1.5; }
+.reusable-empty-state { display: grid; justify-items: start; gap: 7px; padding: 18px; border: 1px dashed var(--line-strong); border-radius: 12px; color: var(--muted); font-size: .8rem; }
+.reusable-empty-state strong { color: var(--text); }
+.reusable-empty-state .dashboard-button { margin-top: 3px; }
 .dashboard-table {
   width: 100%;
   min-width: 680px;
@@ -611,12 +620,15 @@ html[data-dashboard-current-view="overview"] .dashboard-page-intro h1 { font-siz
 .workflow-stage-heading h3 { margin: 0; font-size: 1rem; letter-spacing: -.025em; }
 .workflow-stage-heading p { margin: 3px 0 0; color: var(--muted); font-size: .78rem; line-height: 1.5; }
 .workflow-step-number { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; flex: 0 0 auto; border-radius: 50%; background: var(--accent); color: #fff; font-family: var(--font-mono); font-size: .7rem; font-weight: 700; }
-.source-choice { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
-.source-choice-option { display: grid; gap: 4px; min-width: 0; padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: #fff; color: var(--text); cursor: pointer; text-align: left; transition: border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease; }
+.source-choice { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.source-choice-option { display: grid; gap: 4px; min-width: 0; padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: #fff; color: var(--text); cursor: pointer; text-align: left; white-space: normal; overflow-wrap: break-word; transition: border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease; }
 .source-choice-option strong { font-size: .84rem; }
 .source-choice-option span { color: var(--muted); font-size: .72rem; line-height: 1.45; }
 .source-choice-option:hover, .source-choice-option:focus-visible { border-color: #94a3b8; outline: none; }
 .source-choice-option.is-selected { border-color: var(--accent); background: #f1f7ff; box-shadow: inset 0 0 0 1px var(--accent); }
+.stored-source-stage { display: grid; gap: 16px; width: 100%; max-width: none; }
+.stored-source-picker-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: end; }
+.stored-source-picker-row .dashboard-button { white-space: nowrap; }
 .workflow-stage-grid { display: grid; grid-template-columns: minmax(0, 1.08fr) minmax(320px, .92fr); gap: 14px; align-items: start; }
 .workflow-editor-stage, .workflow-preview-workflow { display: grid; gap: 16px; align-content: start; }
 .workflow-editor-stage.document-json-editor { grid-area: auto; padding: 18px; border: 1px solid var(--line); border-radius: 14px; background: #fff; }
@@ -649,6 +661,7 @@ html[data-dashboard-current-view="overview"] .dashboard-page-intro h1 { font-siz
 @media (max-width: 760px) {
   .workflow-stage { padding: 14px; }
   .source-choice { grid-template-columns: 1fr; }
+  .stored-source-picker-row { grid-template-columns: 1fr; }
   .workflow-preview-workflow .template-preview-stage, .workflow-preview-workflow .document-json-preview-stage { height: min(62vh, 560px); min-height: 300px; padding: 10px; }
   .workflow-secondary-actions > div { right: auto; left: 0; bottom: auto; top: calc(100% + 8px); }
   .workflow-primary-actions { align-items: flex-start; }
@@ -795,6 +808,7 @@ body:has(#stats-content) > main > section:nth-of-type(3) { display: grid; grid-t
     grid-template-columns: 1fr;
     grid-template-areas: "header" "status" "flow" "source" "data" "review" "actions" "manager";
   }
+  .source-choice { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 /* Preserve the desktop composition on laptops while using a denser vertical
    rhythm so the primary controls and next workflow section stay in view. */
