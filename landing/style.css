@@ -599,6 +599,60 @@ html[data-dashboard-current-view="overview"] .dashboard-page-intro h1 { font-siz
   overflow: auto;
 }
 .template-preview-stage .template-preview { pointer-events: none; }
+
+/* Create PDF is intentionally a sequence: selecting a source is separate from
+   authoring it, and rendering is kept with the preview rather than buried in
+   editor controls. The existing preview iframe and CodeMirror instances stay
+   in place; these rules only change the workspace composition. */
+.create-render-panel { display: grid; gap: 18px; }
+.workflow-stage { min-width: 0; border: 1px solid var(--line); border-radius: 14px; background: #fff; padding: 18px; }
+.workflow-source-stage { display: grid; gap: 14px; background: linear-gradient(180deg, #fff, #f8fafc); }
+.workflow-stage-heading { display: flex; align-items: flex-start; gap: 10px; }
+.workflow-stage-heading h3 { margin: 0; font-size: 1rem; letter-spacing: -.025em; }
+.workflow-stage-heading p { margin: 3px 0 0; color: var(--muted); font-size: .78rem; line-height: 1.5; }
+.workflow-step-number { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; flex: 0 0 auto; border-radius: 50%; background: var(--accent); color: #fff; font-family: var(--font-mono); font-size: .7rem; font-weight: 700; }
+.source-choice { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.source-choice-option { display: grid; gap: 4px; min-width: 0; padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: #fff; color: var(--text); cursor: pointer; text-align: left; transition: border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease; }
+.source-choice-option strong { font-size: .84rem; }
+.source-choice-option span { color: var(--muted); font-size: .72rem; line-height: 1.45; }
+.source-choice-option:hover, .source-choice-option:focus-visible { border-color: #94a3b8; outline: none; }
+.source-choice-option.is-selected { border-color: var(--accent); background: #f1f7ff; box-shadow: inset 0 0 0 1px var(--accent); }
+.workflow-stage-grid { display: grid; grid-template-columns: minmax(0, 1.08fr) minmax(320px, .92fr); gap: 14px; align-items: start; }
+.workflow-editor-stage, .workflow-preview-workflow { display: grid; gap: 16px; align-content: start; }
+.workflow-editor-stage.document-json-editor { grid-area: auto; padding: 18px; border: 1px solid var(--line); border-radius: 14px; background: #fff; }
+.workflow-editor-stage .template-form { grid-area: auto; padding: 0; align-self: auto; }
+.editor-secondary { display: grid; gap: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+.editor-secondary > summary { color: var(--muted); cursor: pointer; font-size: .72rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.editor-secondary > summary:focus-visible { outline: 2px solid rgb(106 169 255 / 35%); outline-offset: 3px; }
+.editor-secondary[open] > summary { color: var(--text); }
+.workflow-preview-details { min-width: 0; }
+.workflow-preview-details > summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 30px; cursor: pointer; list-style: none; }
+.workflow-preview-details > summary::-webkit-details-marker, .workflow-secondary-actions > summary::-webkit-details-marker { display: none; }
+.workflow-preview-details > summary strong { font-size: .82rem; }
+.workflow-preview-details > summary span { color: var(--muted); font-family: var(--font-mono); font-size: .65rem; line-height: 1.4; text-align: right; }
+.workflow-preview-details > .paged-preview { margin-top: 10px; }
+.workflow-preview-workflow .template-preview-wrap, .workflow-preview-workflow .document-json-preview-wrap { grid-area: auto; min-height: 0; overflow: hidden; contain: none; }
+.workflow-preview-workflow .document-json-preview-wrap { border: 0; border-radius: 0; background: transparent; }
+.workflow-preview-workflow .template-preview-stage, .workflow-preview-workflow .document-json-preview-stage { height: min(66vh, 760px); min-height: 360px; }
+.workflow-primary-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding-top: 2px; }
+.workflow-secondary-actions { position: relative; }
+.workflow-secondary-actions > summary { display: inline-flex; align-items: center; justify-content: center; height: 44px; padding: 0 13px; border: 1px solid var(--line); border-radius: 11px; background: #fff; color: var(--muted); cursor: pointer; font-size: .78rem; font-weight: 700; list-style: none; }
+.workflow-secondary-actions > summary:focus-visible { outline: 2px solid rgb(106 169 255 / 35%); outline-offset: 2px; }
+.workflow-secondary-actions[open] > summary { border-color: #94a3b8; color: var(--text); }
+.workflow-secondary-actions > div { position: absolute; z-index: 10; right: 0; bottom: calc(100% + 8px); display: grid; gap: 6px; min-width: max-content; padding: 8px; border: 1px solid var(--line); border-radius: 12px; background: #fff; box-shadow: 0 12px 28px rgb(15 23 42 / 12%); }
+.workflow-secondary-actions > div .dashboard-button { justify-content: flex-start; }
+.workflow-preview-workflow .dashboard-result { margin: 0; }
+
+@media (max-width: 1240px) {
+  .workflow-stage-grid { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 760px) {
+  .workflow-stage { padding: 14px; }
+  .source-choice { grid-template-columns: 1fr; }
+  .workflow-preview-workflow .template-preview-stage, .workflow-preview-workflow .document-json-preview-stage { height: min(62vh, 560px); min-height: 300px; padding: 10px; }
+  .workflow-secondary-actions > div { right: auto; left: 0; bottom: auto; top: calc(100% + 8px); }
+  .workflow-primary-actions { align-items: flex-start; }
+}
 @media (max-width: 760px) {
   .template-editor, .document-json-workspace { grid-template-columns: 1fr; grid-template-areas: "form" "preview" "actions" "result"; }
   .template-form, .document-json-editor { padding-right: 0; border-right: 0; }

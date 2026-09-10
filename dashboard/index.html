@@ -170,18 +170,34 @@
                     <header class="panel-header">
                         <div>
                             <p class="panel-kicker">Create &amp; render</p>
-                            <h2 id="createRenderTitle">Create &amp; render</h2>
-                            <p id="createRenderDescription">Build from a saved template or an inline HTML/CSS or Markdown document, then preview and render a PDF.</p>
-                        </div>
-                        <div class="create-render-header-actions">
-                            <div class="custom-select create-render-mode-select" data-custom-select><span class="custom-select-label">Authoring mode</span><input id="createRenderModeInput" type="hidden" value="template"><button class="custom-select-trigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="createRenderModeInput-menu"><span class="custom-select-value">Template</span></button><div id="createRenderModeInput-menu" class="custom-select-menu" role="listbox" hidden><button class="custom-select-option is-active" type="button" role="option" aria-selected="true" data-custom-select-option data-value="template">Template</button><button class="custom-select-option" type="button" role="option" aria-selected="false" data-custom-select-option data-value="document">Inline document</button></div></div>
+                            <h2 id="createRenderTitle">Create a PDF</h2>
+                            <p id="createRenderDescription">Choose a source, edit only its relevant fields, then preview and render your PDF.</p>
                         </div>
                     </header>
 
                     <div id="templatesStatus" class="dashboard-notice" role="status" aria-live="polite" hidden></div>
+
+                    <section class="workflow-stage workflow-source-stage" aria-labelledby="source-choice-title">
+                        <div class="workflow-stage-heading">
+                            <span class="workflow-step-number" aria-hidden="true">1</span>
+                            <div><h3 id="source-choice-title">Choose a source</h3><p>Start with a reusable template, a complete HTML/CSS JSON request, or Markdown.</p></div>
+                        </div>
+                        <input id="createRenderModeInput" type="hidden" value="template">
+                        <div class="source-choice" role="group" aria-label="PDF source">
+                            <button class="source-choice-option is-selected" type="button" data-source-choice="template" aria-pressed="true"><strong>Template</strong><span>Use a starter or saved reusable layout.</span></button>
+                            <button class="source-choice-option" type="button" data-source-choice="html" aria-pressed="false"><strong>Inline HTML/CSS</strong><span>Paste a validated JSON document request.</span></button>
+                            <button class="source-choice-option" type="button" data-source-choice="markdown" aria-pressed="false"><strong>Markdown</strong><span>Write Markdown with data and print settings.</span></button>
+                        </div>
+                    </section>
+
                     <div id="templateWorkspace">
-                    <div class="template-editor">
-                        <form id="templateForm" class="template-form">
+                    <div class="workflow-stage-grid">
+                        <section class="workflow-stage workflow-editor-stage" aria-labelledby="template-editor-title">
+                            <div class="workflow-stage-heading">
+                                <span class="workflow-step-number" aria-hidden="true">2</span>
+                                <div><h3 id="template-editor-title">Edit your template</h3><p>Set the layout and the values used for this test render.</p></div>
+                            </div>
+                            <form id="templateForm" class="template-form">
                             <input id="templateId" type="hidden">
                             <input id="templateTypeInput" type="hidden" value="custom">
                             <div class="template-form-row">
@@ -189,61 +205,66 @@
                                 <label class="dashboard-field" for="templateNameInput"><span>Name <em>Required</em></span><input id="templateNameInput" maxlength="120" placeholder="Monthly invoice" required></label>
                             </div>
                             <label class="dashboard-field" for="templateHtmlInput"><span>Template HTML <em>Required</em></span><textarea id="templateHtmlInput" rows="13" spellcheck="false" placeholder="Use {{customer.name}} for variable values." aria-describedby="template-html-help" required></textarea><small id="template-html-help" class="field-help">Use double curly braces, for example {{customer.name}}, for values supplied in the JSON data.</small></label>
-                            <section class="template-data-section" aria-label="Default template data">
+                            <details class="editor-secondary" open>
+                                <summary>Template data</summary>
+                                <section class="template-data-section" aria-label="Default template data">
                                 <label class="dashboard-field" for="templateVariablesInput"><span>Variable JSON</span><textarea id="templateVariablesInput" rows="9" spellcheck="false">{}</textarea></label>
-                            </section>
-                        </form>
+                                </section>
+                            </details>
+                            </form>
+                        </section>
 
-                        <div class="template-preview-wrap paged-preview">
-                            <header class="preview-panel-header">
-                                <strong>Preview</strong>
-                                <span>Live test data · paged A4 preview</span>
-                            </header>
-                            <div class="template-preview-stage paged-preview-stage"><iframe id="templatePreview" class="template-preview paged-preview-frame" title="Template preview" sandbox="allow-scripts" scrolling="no"></iframe></div>
-                        </div>
-
-                        <div class="template-actions">
-                            <span>Uses your dashboard session.</span>
-                            <button id="previewTemplateBtn" class="dashboard-button dashboard-button-secondary" type="button">Preview</button>
-                            <button id="saveTemplateBtn" class="dashboard-button dashboard-button-secondary" type="submit" form="templateForm">Save template</button>
-                            <button id="deleteTemplateBtn" class="dashboard-button dashboard-button-secondary" type="button" hidden>Delete template</button>
-                            <button id="renderTemplateBtn" class="dashboard-button dashboard-button-secondary" type="button">Render PDF</button>
-                        </div>
-
-                        <div id="templateRenderResult" class="dashboard-result" role="status" aria-live="polite" hidden></div>
+                        <section class="workflow-stage workflow-preview-workflow" aria-labelledby="template-preview-workflow-title">
+                            <div class="workflow-stage-heading">
+                                <span class="workflow-step-number" aria-hidden="true">3</span>
+                                <div><h3 id="template-preview-workflow-title">Preview &amp; render</h3><p>Review the paged output, then create a downloadable PDF.</p></div>
+                            </div>
+                            <details id="templatePreviewDetails" class="workflow-preview-details" open>
+                                <summary><strong>Preview</strong><span>Live test data · paged A4 preview</span></summary>
+                                <div class="template-preview-wrap paged-preview"><div class="template-preview-stage paged-preview-stage"><iframe id="templatePreview" class="template-preview paged-preview-frame" title="Template preview" sandbox="allow-scripts" scrolling="no"></iframe></div></div>
+                            </details>
+                            <div class="workflow-primary-actions">
+                                <button id="previewTemplateBtn" class="dashboard-button dashboard-button-secondary" type="button">Preview</button>
+                                <button id="renderTemplateBtn" class="dashboard-button dashboard-button-primary" type="button">Render PDF</button>
+                                <details class="workflow-secondary-actions"><summary>More actions</summary><div><button id="saveTemplateBtn" class="dashboard-button dashboard-button-secondary" type="submit" form="templateForm">Save template</button><button id="deleteTemplateBtn" class="dashboard-button dashboard-button-secondary" type="button" hidden>Delete template</button></div></details>
+                            </div>
+                            <div id="templateRenderResult" class="dashboard-result" role="status" aria-live="polite" hidden></div>
+                        </section>
                     </div>
                     </div>
 
                     <div id="documentWorkspace" hidden>
-                    <div class="document-workspace-intro"><span class="endpoint-route"><span>POST</span><code>/api/v1/render</code></span><p>Edit the versioned HTML/CSS JSON contract or Markdown source, preview bound content locally, then render it with your dashboard session.</p></div>
-
                     <div id="documentJsonStatus" class="dashboard-notice" role="status" aria-live="polite" hidden></div>
-                    <div class="document-json-workspace">
-                        <section class="document-json-editor" aria-label="Document request body">
-                            <div class="custom-select document-source-select" data-custom-select><span class="custom-select-label">Source type</span><input id="documentSourceTypeInput" type="hidden" value="html"><button class="custom-select-trigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="documentSourceTypeInput-menu"><span class="custom-select-value">HTML/CSS JSON</span></button><div id="documentSourceTypeInput-menu" class="custom-select-menu" role="listbox" hidden><button class="custom-select-option is-active" type="button" role="option" aria-selected="true" data-custom-select-option data-value="html">HTML/CSS JSON</button><button class="custom-select-option" type="button" role="option" aria-selected="false" data-custom-select-option data-value="markdown">Markdown</button></div></div>
+                    <input id="documentSourceTypeInput" type="hidden" value="html">
+                    <div class="workflow-stage-grid">
+                        <section class="workflow-stage workflow-editor-stage document-json-editor" aria-labelledby="document-editor-title">
+                            <div class="workflow-stage-heading">
+                                <span class="workflow-step-number" aria-hidden="true">2</span>
+                                <div><h3 id="document-editor-title">Edit your source</h3><p id="documentEditorDescription">Provide the complete, versioned HTML/CSS JSON request.</p></div>
+                            </div>
                             <label id="documentJsonField" class="dashboard-field" for="documentJsonInput"><span>JSON payload</span><textarea id="documentJsonInput" rows="20" spellcheck="false"></textarea></label>
                             <div id="documentMarkdownFields" class="document-markdown-fields" hidden>
                                 <label class="dashboard-field" for="documentMarkdownInput"><span>Markdown source</span><textarea id="documentMarkdownInput" rows="12" spellcheck="false"></textarea></label>
-                                <label class="dashboard-field" for="documentMarkdownSettingsInput"><span>Data, CSS, and options JSON</span><textarea id="documentMarkdownSettingsInput" rows="7" spellcheck="false"></textarea></label>
+                                <details class="editor-secondary"><summary>Data, CSS, and print settings</summary><label class="dashboard-field" for="documentMarkdownSettingsInput"><span>Data, CSS, and options JSON</span><textarea id="documentMarkdownSettingsInput" rows="7" spellcheck="false"></textarea></label></details>
                             </div>
                         </section>
 
-                        <section class="document-json-preview-wrap paged-preview" aria-labelledby="document-json-preview-title">
-                            <header class="preview-panel-header">
-                                <strong id="document-json-preview-title">Preview</strong>
-                                <span>Bound values · network disabled</span>
-                            </header>
-                            <div class="document-json-preview-stage paged-preview-stage"><iframe id="documentJsonPreview" class="document-json-preview paged-preview-frame" title="Document JSON preview" sandbox="allow-scripts" scrolling="no"></iframe></div>
+                        <section class="workflow-stage workflow-preview-workflow" aria-labelledby="document-preview-workflow-title">
+                            <div class="workflow-stage-heading">
+                                <span class="workflow-step-number" aria-hidden="true">3</span>
+                                <div><h3 id="document-preview-workflow-title">Preview &amp; render</h3><p>Preview bound values locally before creating the PDF.</p></div>
+                            </div>
+                            <details id="documentPreviewDetails" class="workflow-preview-details" open>
+                                <summary><strong>Preview</strong><span>Bound values · network disabled</span></summary>
+                                <div class="document-json-preview-wrap paged-preview"><div class="document-json-preview-stage paged-preview-stage"><iframe id="documentJsonPreview" class="document-json-preview paged-preview-frame" title="Document preview" sandbox="allow-scripts" scrolling="no"></iframe></div></div>
+                            </details>
+                            <div class="workflow-primary-actions">
+                                <button id="previewDocumentJsonBtn" class="dashboard-button dashboard-button-secondary" type="button">Preview</button>
+                                <button id="renderDocumentJsonBtn" class="dashboard-button dashboard-button-primary" type="button">Render PDF</button>
+                                <details class="workflow-secondary-actions"><summary>More actions</summary><div><button id="saveDocumentSourceBtn" class="dashboard-button dashboard-button-secondary" type="button">Save source</button><button id="resetDocumentJsonBtn" class="dashboard-button dashboard-button-secondary" type="button">Load sample</button></div></details>
+                            </div>
+                            <div id="documentJsonResult" class="dashboard-result" role="status" aria-live="polite" hidden></div>
                         </section>
-
-                        <div class="document-json-actions">
-                            <button id="previewDocumentJsonBtn" class="dashboard-button dashboard-button-secondary" type="button">Preview</button>
-                            <button id="renderDocumentJsonBtn" class="dashboard-button dashboard-button-secondary" type="button">Render PDF</button>
-                            <button id="saveDocumentSourceBtn" class="dashboard-button dashboard-button-secondary" type="button">Save source</button>
-                            <button id="resetDocumentJsonBtn" class="dashboard-button dashboard-button-secondary" type="button">Load sample</button>
-                        </div>
-
-                        <div id="documentJsonResult" class="dashboard-result" role="status" aria-live="polite" hidden></div>
                     </div>
                     </div>
                 </article>

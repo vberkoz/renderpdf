@@ -506,9 +506,11 @@ function loadDocumentEditorSample(type) {
 function setDocumentEditorMode(type, loadSample = false) {
     const isMarkdown = type === 'markdown';
     document.getElementById('documentSourceTypeInput').value = isMarkdown ? 'markdown' : 'html';
-    window.customSelect?.setValue('documentSourceTypeInput', isMarkdown ? 'markdown' : 'html');
     document.getElementById('documentJsonField').hidden = isMarkdown;
     document.getElementById('documentMarkdownFields').hidden = !isMarkdown;
+    document.getElementById('documentEditorDescription').textContent = isMarkdown
+        ? 'Write the Markdown content first, then open the optional data, CSS, and print settings.'
+        : 'Provide the complete, versioned HTML/CSS JSON request.';
     if (loadSample) loadDocumentEditorSample(isMarkdown ? 'markdown' : 'html');
     ['documentJsonInput', 'documentMarkdownInput', 'documentMarkdownSettingsInput'].forEach((id) => {
         window.setTimeout(() => templateCodeEditors[id]?.refresh(), 0);
@@ -516,19 +518,20 @@ function setDocumentEditorMode(type, loadSample = false) {
     window.requestAnimationFrame(syncDocumentPreviewStageHeight);
 }
 
-function setCreateRenderMode(mode) {
-    const isTemplate = mode !== 'document';
+function setCreateRenderMode(mode, loadSample = false) {
+    const isTemplate = mode === 'template';
+    const isMarkdown = mode === 'markdown';
     const templateWorkspace = document.getElementById('templateWorkspace');
     const documentWorkspace = document.getElementById('documentWorkspace');
-    const title = document.getElementById('createRenderTitle');
-    const description = document.getElementById('createRenderDescription');
 
     templateWorkspace.hidden = !isTemplate;
     documentWorkspace.hidden = isTemplate;
-    title.textContent = isTemplate ? 'Create & render' : 'Create an inline document';
-    description.textContent = isTemplate
-        ? 'Select a starter or saved template, provide variables, and render a PDF from your dashboard session.'
-        : 'Edit an HTML/CSS JSON contract or Markdown source, preview bound content locally, then render a PDF.';
+    document.querySelectorAll('[data-source-choice]').forEach((choice) => {
+        const selected = choice.dataset.sourceChoice === mode;
+        choice.classList.toggle('is-selected', selected);
+        choice.setAttribute('aria-pressed', String(selected));
+    });
+    if (!isTemplate) setDocumentEditorMode(isMarkdown ? 'markdown' : 'html', loadSample);
 
     window.requestAnimationFrame(() => {
         Object.values(templateCodeEditors).forEach((editor) => editor.refresh());
@@ -726,6 +729,15 @@ function setPagedPreview(previewId, srcdoc) {
         preview.srcdoc = srcdoc;
     }, 160);
     pendingPagedPreviews.set(previewId, timer);
+}
+
+function revealWorkflowPreview(detailsId) {
+    const details = document.getElementById(detailsId);
+    if (!details) return;
+    details.open = true;
+    if (window.matchMedia('(max-width: 760px)').matches) {
+        details.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
 }
 
 function previewTemplateHTML(html) {
@@ -1175,6 +1187,14 @@ if (checkAuth()) {
     initializeTemplateCodeEditor('documentJsonInput', 'application/json');
     initializeTemplateCodeEditor('documentMarkdownInput', 'markdown');
     initializeTemplateCodeEditor('documentMarkdownSettingsInput', 'application/json');
+    document.querySelectorAll('.editor-secondary').forEach((details) => {
+        details.addEventListener('toggle', () => {
+            if (!details.open) return;
+            window.requestAnimationFrame(() => details.querySelectorAll('textarea').forEach((textarea) => {
+                templateCodeEditors[textarea.id]?.refresh();
+            }));
+        });
+    });
     setCreateRenderMode(createRenderModeInput.value);
     let savedTemplates = new Map();
     let starterTemplates = new Map();
@@ -1225,6 +1245,12 @@ if (checkAuth()) {
     loadDocumentEditorSample('markdown');
     setDocumentEditorMode('html');
     previewDocumentJson();
+    // On a phone, editing remains the active stage. The paged preview is still
+    // one tap away (and Preview opens it), instead of competing for the whole
+    // screen before the source has been reviewed.
+    if (window.matchMedia('(max-width: 760px)').matches) {
+        document.querySelectorAll('.workflow-preview-details').forEach((details) => { details.open = false; });
+    }
 
     document.getElementById('upgradePlanBtn').addEventListener('click', () => document.getElementById('billingPlanDialog').showModal());
     document.getElementById('billingPlanDialogClose').addEventListener('click', () => document.getElementById('billingPlanDialog').close());
@@ -1287,7 +1313,22 @@ if (checkAuth()) {
         }
     });
 
-    createRenderModeInput.addEventListener('change', () => setCreateRenderMode(createRenderModeInput.value));
+    document.querySelectorAll('[data-source-choice]').forEach((choice) => {
+        choice.addEventListener('click', () => {
+            const nextMode = choice.dataset.sourceChoice;
+            if (!nextMode || nextMode === createRenderModeInput.value) return;
+            createRenderModeInput.value = nextMode;
+            setCreateRenderMode(nextMode, true);
+            if (nextMode !== 'template') {
+                try {
+                    previewDocumentJson();
+                    setNotice(documentJsonStatus, `Loaded the ${nextMode === 'markdown' ? 'Markdown' : 'HTML/CSS JSON'} sample.`, 'success');
+                } catch (error) {
+                    setNotice(documentJsonStatus, error.message, 'error');
+                }
+            }
+        });
+    });
 
     document.getElementById('templateHtmlInput').addEventListener('input', previewTemplateWithVariables);
     document.getElementById('templateVariablesInput').addEventListener('input', previewTemplateWithVariables);
@@ -1295,9 +1336,11 @@ if (checkAuth()) {
         try {
             templateVariablesFromEditor();
             previewTemplateWithVariables();
+            revealWorkflowPreview('templatePreviewDetails');
             setNotice(templatesStatus, 'Preview updated with the current template and variable data.', 'success');
         } catch (error) {
             previewTemplateHTML(templateEditorValue('templateHtmlInput'));
+            revealWorkflowPreview('templatePreviewDetails');
             setNotice(templatesStatus, `Preview uses template HTML only: Variable JSON is invalid. ${error.message}`, 'error');
         }
     });
@@ -1394,19 +1437,10 @@ if (checkAuth()) {
         setNotice(documentJsonResult);
     }));
 
-    document.getElementById('documentSourceTypeInput').addEventListener('change', (event) => {
-        setDocumentEditorMode(event.target.value, true);
-        try {
-            previewDocumentJson();
-            setNotice(documentJsonStatus, `Loaded the ${event.target.value === 'markdown' ? 'Markdown' : 'HTML/CSS JSON'} sample.`, 'success');
-        } catch (error) {
-            setNotice(documentJsonStatus, error.message, 'error');
-        }
-    });
-
     previewDocumentJsonButton.addEventListener('click', () => {
         try {
             previewDocumentJson();
+            revealWorkflowPreview('documentPreviewDetails');
             setNotice(documentJsonStatus, 'Preview updated. Values are HTML-escaped and network access is disabled.', 'success');
         } catch (error) {
             setNotice(documentJsonStatus, error.message, 'error');
