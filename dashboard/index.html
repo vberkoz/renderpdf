@@ -42,7 +42,7 @@
                         <a href="/app/?view=sources" data-dashboard-nav="sources">Saved sources</a>
                         <a href="/app/?view=files" data-dashboard-nav="files">Files</a>
                         <a href="/app/?view=batches" data-dashboard-nav="batches">Batches</a>
-                        <a href="/app/?view=logs" data-dashboard-nav="logs">Logs</a>
+                        <a href="/app/?view=logs" data-dashboard-nav="logs">Activity</a>
                     </div>
                     <div class="dashboard-nav-group">
                         <p>Account</p>
@@ -62,7 +62,7 @@
                         <a href="/app/?view=sources" data-dashboard-nav="sources">Saved sources</a>
                         <a href="/app/?view=files" data-dashboard-nav="files">Files</a>
                         <a href="/app/?view=batches" data-dashboard-nav="batches">Batches</a>
-                        <a href="/app/?view=logs" data-dashboard-nav="logs">Logs</a>
+                        <a href="/app/?view=logs" data-dashboard-nav="logs">Activity</a>
                     </div>
                     <div class="dashboard-nav-group">
                         <p>Account</p>
@@ -285,37 +285,43 @@
                 </article>
 
                 <article class="workspace-panel quiet-section reusable-assets-panel" data-dashboard-view="sources">
-                    <header class="panel-header panel-header-compact"><div><p class="panel-kicker">Reusable content</p><h2>Saved sources</h2><p>Choose, reuse, and manage templates alongside saved HTML and Markdown sources.</p></div><button id="refreshSourcesBtn" class="dashboard-button dashboard-button-secondary" type="button">Refresh</button></header>
+                    <header class="panel-header panel-header-compact"><div><p class="panel-kicker">Reusable content</p><h2>Saved sources</h2><p>Manage layouts and document definitions for repeat PDF work.</p></div><button id="refreshSourcesBtn" class="dashboard-button dashboard-button-secondary" type="button">Refresh</button></header>
                     <div id="sourcesStatus" class="dashboard-notice" role="status" aria-live="polite" hidden></div>
-                    <section class="reusable-assets-group" aria-labelledby="saved-templates-title"><header><div><h3 id="saved-templates-title">Templates</h3><p>Reusable layouts with variable data for individual PDFs.</p></div></header><div id="templatesManager" aria-live="polite"></div></section>
-                    <section class="reusable-assets-group" aria-labelledby="saved-document-sources-title"><header><div><h3 id="saved-document-sources-title">Saved document sources</h3><p>Reusable HTML and Markdown definitions for repeat renders and batches.</p></div></header><div id="sourcesManager" aria-live="polite"></div></section>
+                    <section class="reusable-assets-group" aria-labelledby="saved-templates-title"><header><div><h3 id="saved-templates-title">Templates</h3><p>Layouts with variable data.</p></div></header><div id="templatesManager" aria-live="polite"></div></section>
+                    <section class="reusable-assets-group" aria-labelledby="saved-document-sources-title"><header><div><h3 id="saved-document-sources-title">Document sources</h3><p>HTML and Markdown inputs for repeat renders and batches.</p></div></header><div id="sourcesManager" aria-live="polite"></div></section>
                 </article>
 
-                <article class="workspace-panel quiet-section" data-dashboard-view="files">
-                    <header class="panel-header panel-header-compact"><div><p class="panel-kicker">Files</p><h2>Private files</h2><p>Upload packages, download rendered PDFs, and manage retained files.</p></div><input id="packageUploadInput" type="file" accept=".zip,application/zip" hidden><label for="packageUploadInput" class="dashboard-button dashboard-button-secondary" role="button" tabindex="0">Upload ZIP</label></header>
-                    <div id="filesStatus" class="dashboard-notice" role="status" aria-live="polite" hidden></div>
+                <article class="workspace-panel quiet-section files-panel" data-dashboard-view="files" aria-labelledby="dashboardPageTitle">
                     <div id="filesManager" aria-live="polite"></div>
+                    <div id="filesStatus" class="dashboard-notice" role="status" aria-live="polite" hidden></div>
+                    <div class="files-actions">
+                        <input id="packageUploadInput" type="file" accept=".zip,application/zip" hidden>
+                        <button id="packageUploadButton" class="dashboard-button dashboard-button-primary" type="button">Upload ZIP</button>
+                    </div>
                 </article>
 
-                <article class="workspace-panel quiet-section batches-panel" data-dashboard-view="batches">
-                    <header class="panel-header panel-header-compact"><div><p class="panel-kicker">Advanced</p><h2>Batch rendering</h2><p>Render a saved source for multiple data rows. Prepare the source first, then submit one job for the full set.</p></div></header>
+                <article class="workspace-panel quiet-section batches-panel" data-dashboard-view="batches" aria-labelledby="dashboardPageTitle">
+                    <section class="batch-jobs" aria-labelledby="batch-jobs-title">
+                        <header class="batch-jobs-header">
+                            <h2 id="batch-jobs-title">Existing jobs</h2>
+                            <button id="refreshBatchesBtn" class="dashboard-button dashboard-button-secondary" type="button">Refresh jobs</button>
+                        </header>
+                        <div id="batchesManager" aria-live="polite"></div>
+                    </section>
                     <div id="batchesStatus" class="dashboard-notice" role="status" aria-live="polite" hidden></div>
-                    <ol class="batch-flow" aria-label="Batch rendering steps"><li><span>1</span>Choose source</li><li><span>2</span>Upload data</li><li><span>3</span>Review</li><li><span>4</span>Submit</li></ol>
-                    <section class="batch-step batch-source-step" aria-labelledby="batch-source-title"><div><p class="panel-kicker">Choose source</p><h3 id="batch-source-title">Select a saved source</h3></div><div class="custom-select batch-source-select" data-custom-select><span class="custom-select-label">Saved source</span><input id="batchSourceSelect" type="hidden" value=""><button class="custom-select-trigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="batchSourceSelect-menu"><span class="custom-select-value">No saved sources</span></button><div id="batchSourceSelect-menu" class="custom-select-menu" role="listbox" hidden><button class="custom-select-option is-active" type="button" role="option" aria-selected="true" data-custom-select-option data-value="">No saved sources</button></div></div></section>
-                    <section class="batch-step batch-data-step" aria-labelledby="batch-data-title"><div><p class="panel-kicker">Upload data</p><h3 id="batch-data-title">Add your item data</h3><p>Upload a JSON array or paste it below. Each item should match the data expected by the selected source.</p></div><input id="batchDataUpload" type="file" accept="application/json,.json" hidden><label for="batchDataUpload" class="dashboard-button dashboard-button-secondary" role="button" tabindex="0">Upload JSON</label><label class="dashboard-field batch-items-field" for="batchItemsInput"><span>Item data JSON array <em>Required</em></span><textarea id="batchItemsInput" rows="5" spellcheck="false" aria-describedby="batch-items-help">[{"data":{"customer":{"name":"Ada"}}}]</textarea><small id="batch-items-help" class="field-help">Provide 1 to 99 items in a JSON array.</small></label></section>
-                    <section class="batch-step batch-review" aria-labelledby="batch-review-title"><div><p class="panel-kicker">Review</p><h3 id="batch-review-title">Ready to submit</h3></div><p id="batchReview" class="dashboard-notice" role="status" aria-live="polite">Select a saved source to review this batch.</p></section>
-                    <div class="document-json-actions"><button id="submitBatchBtn" class="dashboard-button dashboard-button-secondary" type="button">Submit batch</button><button id="refreshBatchesBtn" class="dashboard-button dashboard-button-secondary" type="button">Refresh jobs</button></div>
-                    <div id="batchesManager" aria-live="polite"></div>
+                    <details class="batch-composer">
+                        <summary>New batch</summary>
+                        <div class="batch-composer-content">
+                            <ol class="batch-flow" aria-label="New batch steps"><li><span>1</span>Choose source</li><li><span>2</span>Upload data</li><li><span>3</span>Review</li><li><span>4</span>Submit</li></ol>
+                            <section class="batch-step batch-source-step" aria-labelledby="batch-source-title"><div><p class="panel-kicker">Choose source</p><h3 id="batch-source-title">Select a saved source</h3></div><div class="custom-select batch-source-select" data-custom-select><span class="custom-select-label">Saved source</span><input id="batchSourceSelect" type="hidden" value=""><button class="custom-select-trigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="batchSourceSelect-menu"><span class="custom-select-value">No saved sources</span></button><div id="batchSourceSelect-menu" class="custom-select-menu" role="listbox" hidden><button class="custom-select-option is-active" type="button" role="option" aria-selected="true" data-custom-select-option data-value="">No saved sources</button></div></div></section>
+                            <section class="batch-step batch-data-step" aria-labelledby="batch-data-title"><div><p class="panel-kicker">Upload data</p><h3 id="batch-data-title">Add your item data</h3><p>Upload a JSON array or paste it below. Each item should match the data expected by the selected source.</p></div><input id="batchDataUpload" type="file" accept="application/json,.json" hidden><label for="batchDataUpload" class="dashboard-button dashboard-button-secondary" role="button" tabindex="0">Upload JSON</label><label class="dashboard-field batch-items-field" for="batchItemsInput"><span>Item data JSON array <em>Required</em></span><textarea id="batchItemsInput" rows="5" spellcheck="false" aria-describedby="batch-items-help">[{"data":{"customer":{"name":"Ada"}}}]</textarea><small id="batch-items-help" class="field-help">Provide 1 to 99 items in a JSON array.</small></label></section>
+                            <section class="batch-step batch-review" aria-labelledby="batch-review-title"><div><p class="panel-kicker">Review</p><h3 id="batch-review-title">Ready to submit</h3></div><p id="batchReview" class="dashboard-notice" role="status" aria-live="polite">Select a saved source to review this batch.</p></section>
+                            <div class="document-json-actions"><button id="submitBatchBtn" class="dashboard-button dashboard-button-primary" type="button">Submit batch</button></div>
+                        </div>
+                    </details>
                 </article>
 
-                <article class="workspace-panel quiet-section logs-panel" data-dashboard-view="logs">
-                    <header class="panel-header panel-header-compact">
-                        <div>
-                            <p class="panel-kicker">Activity</p>
-                            <h2>Recent requests</h2>
-                            <p>Browse recent authenticated render attempts. Request content is never stored here.</p>
-                        </div>
-                    </header>
+                <article class="workspace-panel quiet-section logs-panel logs-panel-compact" data-dashboard-view="logs" aria-labelledby="dashboardPageTitle">
                     <div class="logs-controls" aria-label="Request filters"><div class="custom-select" data-custom-select><span class="custom-select-label">Status</span><input id="logsStatusFilter" type="hidden" value="all"><button class="custom-select-trigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="logsStatusFilter-menu"><span class="custom-select-value">All requests</span></button><div id="logsStatusFilter-menu" class="custom-select-menu" role="listbox" hidden><button class="custom-select-option is-active" type="button" role="option" aria-selected="true" data-custom-select-option data-value="all">All requests</button><button class="custom-select-option" type="button" role="option" aria-selected="false" data-custom-select-option data-value="success">Successful</button><button class="custom-select-option" type="button" role="option" aria-selected="false" data-custom-select-option data-value="error">Failed</button></div></div><div class="custom-select" data-custom-select><span class="custom-select-label">Sort</span><input id="logsSort" type="hidden" value="newest"><button class="custom-select-trigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="logsSort-menu"><span class="custom-select-value">Newest first</span></button><div id="logsSort-menu" class="custom-select-menu" role="listbox" hidden><button class="custom-select-option is-active" type="button" role="option" aria-selected="true" data-custom-select-option data-value="newest">Newest first</button><button class="custom-select-option" type="button" role="option" aria-selected="false" data-custom-select-option data-value="oldest">Oldest first</button></div></div></div>
                     <div id="logsList" class="logs-list logs-list-request" aria-live="polite"><p class="empty-state">Loading recent requests...</p></div>
                     <nav id="logsPagination" class="logs-pagination" aria-label="Request log pages" hidden><button id="logsPreviousPage" class="dashboard-button dashboard-button-secondary" type="button">Previous</button><span id="logsPageStatus" aria-live="polite"></span><button id="logsNextPage" class="dashboard-button dashboard-button-secondary" type="button">Next</button></nav>

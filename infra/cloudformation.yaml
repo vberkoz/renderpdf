@@ -1733,7 +1733,7 @@ Resources:
 
   # API Gateway deployments are immutable snapshots. Bump this logical ID when
   # routes or methods change so CloudFormation publishes them to the prod stage.
-  ApiDeploymentV31:
+  ApiDeploymentV32:
     Type: AWS::ApiGateway::Deployment
     DependsOn:
       - ApiRootGetMethod

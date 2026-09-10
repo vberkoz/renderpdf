@@ -962,18 +962,18 @@ const dashboardPageContexts = {
     },
     files: {
         kicker: 'Files',
-        title: 'Private files',
-        description: 'Upload document packages and download or remove your retained files.'
+        title: 'Files',
+        description: ''
     },
     batches: {
-        kicker: 'Batch rendering',
-        title: 'Render a batch',
-        description: 'Use one saved source to render PDFs for multiple data rows.'
+        kicker: 'Batches',
+        title: 'Batch jobs',
+        description: ''
     },
     logs: {
         kicker: 'Activity',
-        title: 'Request activity',
-        description: 'Review recent authenticated PDF render attempts.'
+        title: 'Activity',
+        description: ''
     },
     billing: {
         kicker: 'Billing',
@@ -984,9 +984,14 @@ const dashboardPageContexts = {
 
 function setDashboardPageContext(view) {
     const context = dashboardPageContexts[view] || dashboardPageContexts.overview;
-    document.getElementById('dashboardPageKicker').textContent = context.kicker;
-    document.getElementById('dashboardPageTitle').textContent = context.title;
-    document.getElementById('dashboardPageDescription').textContent = context.description;
+    const kicker = document.getElementById('dashboardPageKicker');
+    const title = document.getElementById('dashboardPageTitle');
+    const description = document.getElementById('dashboardPageDescription');
+    kicker.textContent = context.kicker;
+    kicker.hidden = !context.kicker;
+    title.textContent = context.title;
+    description.textContent = context.description;
+    description.hidden = !context.description;
 }
 
 function setDashboardView(view, { history = 'none', focus = false } = {}) {
@@ -1680,7 +1685,15 @@ if (checkAuth()) {
             }
             if (job.status === 'queued' || job.status === 'running') {
                 const cancel = document.createElement('button'); cancel.className = 'table-action'; cancel.type = 'button'; cancel.textContent = 'Cancel batch'; cancel.setAttribute('aria-label', `Cancel batch ${job.jobId}`);
-                cancel.onclick = async () => { await managedRequest(`/dashboard/batches/${encodeURIComponent(job.jobId)}/cancel`, { method: 'POST' }); await refreshManagers(); };
+                cancel.onclick = async () => {
+                    if (!await confirmDashboardAction({
+                        title: `Cancel batch “${job.jobId}”?`,
+                        description: 'Pending PDFs in this batch will not be rendered.',
+                        confirmLabel: 'Cancel batch'
+                    })) return;
+                    await managedRequest(`/dashboard/batches/${encodeURIComponent(job.jobId)}/cancel`, { method: 'POST' });
+                    await refreshManagers();
+                };
                 actions.append(cancel);
             }
             return { cells: [details, status, actions], sortValues: [job.jobId, job.status, job.createdAt || ''] };
@@ -1712,10 +1725,9 @@ if (checkAuth()) {
                 renderManagerEmpty(templatesManager, 'No templates yet', 'Create a reusable layout for individual PDFs.', { href: '/app/?view=create-render', label: 'Create template' });
             } else {
                 const templateRows = templates.map((template) => {
-                    const details = document.createElement('div'); const name = document.createElement('strong'); const meta = document.createElement('span');
-                    name.textContent = template.name; meta.textContent = `${template.type} · updated ${formatAssetDate(template.updatedAt)}`; details.append(name, meta);
-                    const type = document.createElement('span'); type.textContent = template.type;
-                    const actions = document.createElement('div');
+                    const details = document.createElement('div'); details.className = 'reusable-asset-details'; const name = document.createElement('strong'); const meta = document.createElement('span');
+                    name.textContent = template.name; meta.textContent = `${template.type} template · updated ${formatAssetDate(template.updatedAt)}`; details.append(name, meta);
+                    const actions = document.createElement('div'); actions.className = 'dashboard-table-actions reusable-asset-actions';
                     const use = document.createElement('button'); use.className = 'table-action'; use.type = 'button'; use.textContent = 'Use in Create'; use.setAttribute('aria-label', `Use template ${template.name} in Create PDF`);
                     use.onclick = () => openReusableAsset('template', template);
                     const remove = document.createElement('button'); remove.className = 'table-action danger'; remove.type = 'button'; remove.textContent = 'Delete'; remove.setAttribute('aria-label', `Delete template ${template.name}`);
@@ -1730,9 +1742,9 @@ if (checkAuth()) {
                         }
                     };
                     actions.append(use, remove);
-                    return { cells: [details, type, actions], sortValues: [template.name, template.type, template.updatedAt || ''] };
+                    return { cells: [details, actions], sortValues: [template.name, template.updatedAt || ''] };
                 });
-                renderTable(templatesManager, { caption: 'Saved templates', columns: [{ label: 'Template' }, { label: 'Type' }, { label: 'Actions' }], rows: templateRows });
+                renderTable(templatesManager, { caption: 'Saved templates', columns: [{ label: 'Template' }, { label: 'Actions', className: 'dashboard-table-actions-cell' }], rows: templateRows });
             }
             const sourceList = sourceResult.sources || [];
             setSavedSourceInventory(sourceList);
@@ -1741,9 +1753,8 @@ if (checkAuth()) {
                 renderManagerEmpty(sourcesManager, 'No saved sources yet', 'Save a document definition for repeat renders and batches.', { href: '/app/?view=create-render', label: 'Create PDF' });
             }
             const sourceRows = sourceList.map((source) => {
-                const details = document.createElement('div'); const name = document.createElement('strong'); const meta = document.createElement('span'); name.textContent = source.name; meta.textContent = `${source.sourceType} · ${(source.sizeBytes / 1024).toFixed(1)} KB`; details.append(name, meta);
-                const type = document.createElement('span'); type.textContent = source.sourceType;
-                const actions = document.createElement('div'); const use = document.createElement('button'); use.className = 'table-action'; use.type = 'button'; use.textContent = 'Use in Create'; use.setAttribute('aria-label', `Use saved source ${source.name} in Create PDF`); const remove = document.createElement('button'); remove.className = 'table-action danger'; remove.type = 'button'; remove.textContent = 'Delete'; remove.setAttribute('aria-label', `Delete saved source ${source.name}`); actions.append(use, remove);
+                const details = document.createElement('div'); details.className = 'reusable-asset-details'; const name = document.createElement('strong'); const meta = document.createElement('span'); name.textContent = source.name; meta.textContent = `${source.sourceType} · ${(source.sizeBytes / 1024).toFixed(1)} KB`; details.append(name, meta);
+                const actions = document.createElement('div'); actions.className = 'dashboard-table-actions reusable-asset-actions'; const use = document.createElement('button'); use.className = 'table-action'; use.type = 'button'; use.textContent = 'Use in Create'; use.setAttribute('aria-label', `Use saved source ${source.name} in Create PDF`); const remove = document.createElement('button'); remove.className = 'table-action danger'; remove.type = 'button'; remove.textContent = 'Delete'; remove.setAttribute('aria-label', `Delete saved source ${source.name}`); actions.append(use, remove);
                 use.onclick = () => openReusableAsset('source', source);
                 remove.onclick = async () => {
                     if (!await confirmDashboardAction({
@@ -1759,9 +1770,9 @@ if (checkAuth()) {
                         setNotice(document.getElementById('sourcesStatus'), `Could not delete this source. ${error.message}`, 'error');
                     }
                 };
-                return { cells: [details, type, actions], sortValues: [source.name, source.sourceType, source.sizeBytes || 0] };
+                return { cells: [details, actions], sortValues: [source.name, source.sizeBytes || 0] };
             });
-            if (sourceRows.length) renderTable(sourcesManager, { caption: 'Saved sources', columns: [{ label: 'Source' }, { label: 'Type' }, { label: 'Actions' }], rows: sourceRows });
+            if (sourceRows.length) renderTable(sourcesManager, { caption: 'Saved sources', columns: [{ label: 'Source' }, { label: 'Actions', className: 'dashboard-table-actions-cell' }], rows: sourceRows });
             const currentBatchSource = document.getElementById('batchSourceSelect').value;
             window.customSelect?.replaceOptions('batchSourceSelect', [{ label: 'Saved sources', options: batchOptions.length ? batchOptions : [{ value: '', label: 'No saved sources' }] }], batchOptions.some((source) => source.value === currentBatchSource) ? currentBatchSource : (batchOptions[0]?.value || ''));
             updateBatchReview();
@@ -1808,6 +1819,7 @@ if (checkAuth()) {
         }
     }
     document.getElementById('refreshSourcesBtn').onclick = refreshManagers;
+    document.getElementById('packageUploadButton').onclick = () => document.getElementById('packageUploadInput').click();
     document.getElementById('packageUploadInput').onchange = async (event) => {
         const file = event.target.files[0]; if (!file) return;
         const status = document.getElementById('filesStatus');

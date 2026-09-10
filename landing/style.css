@@ -393,12 +393,13 @@ html[data-dashboard-current-view="overview"] .dashboard-page-intro h1 { font-siz
 .api-keys-list-heading h3 { font-size: .9rem; }
 .api-keys-list-heading p { color: var(--muted); font-size: .78rem; line-height: 1.5; }
 .dashboard-table-wrap { width: 100%; overflow-x: auto; }
-.reusable-assets-panel { display: grid; gap: 20px; }
-.reusable-assets-group { display: grid; gap: 12px; padding-top: 18px; border-top: 1px solid var(--line); }
+.reusable-assets-panel { display: grid; gap: 16px; }
+.reusable-assets-group { display: grid; gap: 10px; padding-top: 16px; border-top: 1px solid var(--line); }
+.reusable-assets-group:first-of-type { padding-top: 2px; border-top: 0; }
 .reusable-assets-group > header { display: grid; gap: 4px; }
 .reusable-assets-group h3, .reusable-assets-group p { margin: 0; }
-.reusable-assets-group h3 { font-size: .94rem; }
-.reusable-assets-group p { color: var(--muted); font-size: .78rem; line-height: 1.5; }
+.reusable-assets-group h3 { font-size: .92rem; }
+.reusable-assets-group p { color: var(--muted); font-size: .76rem; line-height: 1.45; }
 .reusable-empty-state { display: grid; justify-items: start; gap: 7px; padding: 18px; border: 1px dashed var(--line-strong); border-radius: 12px; color: var(--muted); font-size: .8rem; }
 .reusable-empty-state strong { color: var(--text); }
 .reusable-empty-state .dashboard-button { margin-top: 3px; }
@@ -453,6 +454,18 @@ html[data-dashboard-current-view="overview"] .dashboard-page-intro h1 { font-siz
    `.actions` layout utility is intentionally not used inside table cells. */
 .dashboard-table .dashboard-table-actions-cell { text-align: right; }
 .dashboard-table-actions { display: flex; justify-content: flex-end; gap: 8px; white-space: nowrap; }
+.reusable-assets-panel .dashboard-table-wrap { min-width: 0; overflow-x: hidden; overflow-x: clip; }
+#templatesManager .dashboard-table, #sourcesManager .dashboard-table { width: 100%; min-width: 0; }
+#templatesManager .dashboard-table th:first-child, #templatesManager .dashboard-table td:first-child,
+#sourcesManager .dashboard-table th:first-child, #sourcesManager .dashboard-table td:first-child { width: auto; }
+#templatesManager .dashboard-table th:last-child, #templatesManager .dashboard-table td:last-child,
+#sourcesManager .dashboard-table th:last-child, #sourcesManager .dashboard-table td:last-child { width: 250px; }
+.reusable-assets-panel .dashboard-table th { padding-top: 8px; padding-bottom: 8px; }
+.reusable-assets-panel .dashboard-table td { padding-top: 10px; padding-bottom: 10px; }
+.reusable-asset-details { display: grid; gap: 3px; min-width: 0; }
+.reusable-asset-details strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .88rem; }
+.reusable-asset-details span { color: var(--muted); font-size: .74rem; }
+.reusable-asset-actions .table-action { height: 38px; min-height: 38px; padding-inline: 12px; }
 .table-action {
   height: 44px;
   min-height: 44px;
@@ -471,6 +484,11 @@ html[data-dashboard-current-view="overview"] .dashboard-page-intro h1 { font-siz
 @media (max-width: 760px) {
   .dashboard-table { min-width: 560px; }
   .dashboard-table th, .dashboard-table td { padding: 11px 10px; }
+  #templatesManager .dashboard-table, #sourcesManager .dashboard-table { min-width: 0; }
+  #templatesManager .dashboard-table th:last-child, #templatesManager .dashboard-table td:last-child,
+  #sourcesManager .dashboard-table th:last-child, #sourcesManager .dashboard-table td:last-child { width: 210px; }
+  .reusable-asset-actions { gap: 6px; }
+  .reusable-asset-actions .table-action { padding-inline: 9px; }
 }
 @media (max-width: 760px) {
   .pricing-header { grid-template-columns: 1fr; align-items: start; gap: 10px; }
@@ -725,24 +743,50 @@ html[data-dashboard-current-view="overview"] .dashboard-page-intro h1 { font-siz
 .batch-review { grid-template-columns: minmax(0, 1fr) minmax(300px, .7fr); }
 .batch-review .dashboard-notice { min-height: 44px; margin: 0; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-strong); }
 .batch-items-field { grid-column: 1 / -1; }
-.batches-panel {
-  grid-template-columns: minmax(0, 1.15fr) minmax(320px, .85fr);
-  grid-template-areas:
-    "header flow"
-    "status status"
-    "source review"
-    "data actions"
-    "manager manager";
-  align-items: start;
+.dashboard-page[data-dashboard-current-view="files"] .dashboard-page-intro,
+.dashboard-page[data-dashboard-current-view="batches"] .dashboard-page-intro,
+.dashboard-page[data-dashboard-current-view="logs"] .dashboard-page-intro,
+html[data-dashboard-current-view="files"] .dashboard-page-intro,
+html[data-dashboard-current-view="batches"] .dashboard-page-intro,
+html[data-dashboard-current-view="logs"] .dashboard-page-intro {
+  gap: 0; padding: 0; border: 0; border-radius: 0; background: transparent;
 }
-.batches-panel > .panel-header { grid-area: header; }
+.dashboard-page[data-dashboard-current-view="files"] #dashboardPageKicker,
+.dashboard-page[data-dashboard-current-view="batches"] #dashboardPageKicker,
+.dashboard-page[data-dashboard-current-view="logs"] #dashboardPageKicker,
+html[data-dashboard-current-view="files"] #dashboardPageKicker,
+html[data-dashboard-current-view="batches"] #dashboardPageKicker,
+html[data-dashboard-current-view="logs"] #dashboardPageKicker { display: none; }
+.dashboard-page[data-dashboard-current-view="files"] .dashboard-page-intro h1,
+.dashboard-page[data-dashboard-current-view="batches"] .dashboard-page-intro h1,
+.dashboard-page[data-dashboard-current-view="logs"] .dashboard-page-intro h1,
+html[data-dashboard-current-view="files"] .dashboard-page-intro h1,
+html[data-dashboard-current-view="batches"] .dashboard-page-intro h1,
+html[data-dashboard-current-view="logs"] .dashboard-page-intro h1 { font-size: 1.2rem; letter-spacing: -.025em; }
+.files-panel { grid-template-columns: 1fr; }
+.files-actions { display: flex; justify-content: flex-start; padding-top: 14px; border-top: 1px solid var(--line); }
+.batch-jobs { display: grid; gap: 12px; }
+.batch-jobs-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.batch-jobs-header h2 { margin: 0; font-size: 1rem; }
+.batches-panel {
+  grid-template-columns: 1fr;
+  grid-template-areas: "jobs" "status" "composer";
+}
+.batches-panel > .batch-jobs { grid-area: jobs; }
 .batches-panel > #batchesStatus { grid-area: status; }
-.batches-panel > .batch-flow { grid-area: flow; align-self: center; }
-.batches-panel > .batch-source-step { grid-area: source; }
-.batches-panel > .batch-data-step { grid-area: data; }
-.batches-panel > .batch-review { grid-area: review; grid-template-columns: 1fr; }
-.batches-panel > .document-json-actions { grid-area: actions; align-self: start; justify-content: flex-start; padding-top: 0; }
-.batches-panel > #batchesManager { grid-area: manager; }
+.batches-panel > .batch-composer { grid-area: composer; }
+.batch-composer { overflow: hidden; border: 1px solid var(--line); border-radius: 14px; background: var(--panel-strong); }
+.batch-composer > summary {
+  display: flex; align-items: center; justify-content: space-between; min-height: 48px; padding: 0 14px;
+  list-style: none; cursor: pointer; color: var(--text); font-size: .84rem; font-weight: 700;
+}
+.batch-composer > summary::-webkit-details-marker { display: none; }
+.batch-composer > summary::after { content: '+'; color: var(--muted); font-family: var(--font-mono); font-size: 1.1rem; font-weight: 400; }
+.batch-composer[open] > summary { border-bottom: 1px solid var(--line); }
+.batch-composer[open] > summary::after { content: '−'; }
+.batch-composer > summary:hover { background: #f8fafc; }
+.batch-composer > summary:focus-visible { background: #f8fafc; outline: none; box-shadow: inset 0 0 0 2px var(--accent); }
+.batch-composer-content { display: grid; gap: 14px; padding: 14px; }
 .logs-controls, .logs-pagination { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .logs-list { display: grid; gap: 8px; }
 .logs-list-request { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: .76rem; }
@@ -806,7 +850,7 @@ body:has(#stats-content) > main > section:nth-of-type(3) { display: grid; grid-t
   .playground-editor, .debug-grid, body:has(#stats-content) > main > section:nth-of-type(3) { grid-template-columns: 1fr; }.debug-api-panel { grid-column: auto; }
   .batches-panel {
     grid-template-columns: 1fr;
-    grid-template-areas: "header" "status" "flow" "source" "data" "review" "actions" "manager";
+    grid-template-areas: "jobs" "status" "composer";
   }
   .source-choice { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
