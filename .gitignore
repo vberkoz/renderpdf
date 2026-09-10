@@ -1,2 +1,9 @@
 .DS_Store
 parameters.json
+
+# Local Go build outputs. Lambda container builds produce their own bootstrap
+# executables, so these machine-specific binaries are never deployment inputs.
+api/renderpdf
+auth/authorizer
+auth/api-keys
+dist/

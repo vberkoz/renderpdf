@@ -124,7 +124,7 @@ Repository-safe editing guide for AI agents working in `renderpdf`.
   - changing directories without anchoring to script location
   - relying on caller cwd without documenting it
   - silently mutating unrelated AWS resources
-- Editing checked-in binaries as if they were source:
+- Editing generated local binaries as if they were source:
   - `/Users/basilsergius/projects/renderpdf/api/renderpdf`
   - `/Users/basilsergius/projects/renderpdf/auth/authorizer`
   - `/Users/basilsergius/projects/renderpdf/auth/api-keys`
@@ -209,7 +209,6 @@ cd /Users/basilsergius/projects/renderpdf && ./scripts/test-api.sh
 
 - Review:
   - `/Users/basilsergius/projects/renderpdf/landing/index.html`
-  - `/Users/basilsergius/projects/renderpdf/landing/style.css`
 - If deployment is intended:
 
 ```bash

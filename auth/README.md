@@ -34,7 +34,7 @@
   - Uses build tag `apikeys` and assumes Cognito claims shape in API Gateway authorizer context.
 - `/Users/basilsergius/projects/renderpdf/auth/authorizer`
 - `/Users/basilsergius/projects/renderpdf/auth/api-keys`
-  - Assumption: local compiled artifacts, not intended edit targets.
+  - Ignored local compiled artifacts, not intended edit targets.
 
 ## How To Test
 

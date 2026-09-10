@@ -41,7 +41,7 @@ Operational guide for AI agents working in this repository.
   - `/Users/basilsergius/projects/renderpdf/scripts/deploy-landing.sh`
   - `/Users/basilsergius/projects/renderpdf/scripts/test-api.sh`
   - `/Users/basilsergius/projects/renderpdf/parameters.json`
-- Treat as generated/local artifacts, not source of truth:
+- Generated/local artifacts excluded from Git, not source of truth:
   - `/Users/basilsergius/projects/renderpdf/api/renderpdf`
   - `/Users/basilsergius/projects/renderpdf/auth/authorizer`
   - `/Users/basilsergius/projects/renderpdf/auth/api-keys`
@@ -95,7 +95,7 @@ Operational guide for AI agents working in this repository.
   - Search for root-level scripts that reference the target path.
   - Check for hard-coded URLs, AWS names, and callback paths.
 - While editing:
-  - Prefer source files over checked-in binaries.
+- Prefer source files over local generated binaries.
   - Keep root-relative path assumptions intact unless you also update scripts.
   - Mark unclear behavior as an assumption in docs or handoff notes.
 - After editing:
@@ -112,5 +112,5 @@ Operational guide for AI agents working in this repository.
 
 ## Assumptions
 
-- Assumption: checked-in binaries are local build artifacts kept for convenience, not the intended edit target.
+- Assumption: local binaries are generated build artifacts, not the intended edit target.
 - Assumption: `parameters.json` is environment-specific and should not be rewritten unless the task is explicitly deployment-related.

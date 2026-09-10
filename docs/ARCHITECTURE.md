@@ -126,4 +126,4 @@
 
 ## Assumptions
 
-- Assumption: the checked-in binaries under `api/` and `auth/` are not used by deployment, because Dockerfiles compile fresh `bootstrap` binaries.
+- Local binaries under `api/` and `auth/` are ignored and not used by deployment; Dockerfiles compile fresh `bootstrap` binaries.

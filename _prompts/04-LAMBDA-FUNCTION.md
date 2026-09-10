@@ -23,8 +23,9 @@
 - `auth/`
 - frontend assets
 - non-canonical infra files
-- checked-in binary:
-  - `/Users/basilsergius/projects/renderpdf/api/renderpdf`
+- generated local binary:
+  - `/Users/basilsergius/projects/renderpdf/api/renderpdf` is an ignored local
+    compiled artifact, not the source of truth.
 
 ## Implementation Task
 
@@ -48,4 +49,4 @@ cd /Users/basilsergius/projects/renderpdf && ./scripts/verify-deployed-api.sh
 ## Stop Conditions
 
 - Stop if the change would break the current JSON API contract without explicit approval.
-- Stop if the only way forward is to edit the checked-in binary instead of source.
+- Stop if the only way forward is to edit a generated local binary instead of source.

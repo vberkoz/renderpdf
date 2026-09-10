@@ -23,7 +23,7 @@
 
 - Nonexistent planned files such as `oauth-callback.go`
 - frontend token parsing logic
-- checked-in binaries under `auth/`
+- generated local binaries under `auth/`
 
 ## Implementation Task
 

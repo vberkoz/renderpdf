@@ -29,10 +29,9 @@
 
 ## Files/Folders Out Of Scope
 
-- Checked-in binaries:
-  - `/Users/basilsergius/projects/renderpdf/api/renderpdf`
-  - `/Users/basilsergius/projects/renderpdf/auth/authorizer`
-  - `/Users/basilsergius/projects/renderpdf/auth/api-keys`
+- Generated local binaries:
+  - Local binaries (`api/renderpdf`, `auth/authorizer`, and `auth/api-keys`)
+    are ignored generated artifacts, not source files.
 - Environment-local secrets/config unless the task is explicitly deployment-related:
   - `/Users/basilsergius/projects/renderpdf/parameters.json`
 
@@ -62,5 +61,5 @@ cd /Users/basilsergius/projects/renderpdf && rg -n "scripts/|infra/|doc-examples
 ## Stop Conditions
 
 - Stop if the task would create a second source of truth for deploy, test, or infra behavior.
-- Stop if the only candidate file is a checked-in binary.
+- Stop if the only candidate file is a generated local binary.
 - Stop if the required ownership boundary is unclear after reading the docs; document the ambiguity first.

@@ -90,6 +90,7 @@ URL. Repeated requests reuse the same private artifact.
 
 - `POST /api/v1/batches` validates and creates a queued job, returning its
   `jobId` and counters.
+- `GET /api/v1/batches` lists the authenticated account's jobs, newest first.
 - `GET /api/v1/batches/{id}` returns job state, totals, progress, and times.
 - `GET /api/v1/batches/{id}/items` lists item state and output file IDs.
 - `POST /api/v1/batches/{id}/cancel` cancels pending work.
@@ -274,7 +275,7 @@ variable paths in its `starters` array, ready to copy into `POST /templates`.
 - `/Users/basilsergius/projects/renderpdf/api/Dockerfile`
   - Installs Chrome and defines the Lambda bootstrap build.
 - `/Users/basilsergius/projects/renderpdf/api/renderpdf`
-  - Assumption: local compiled artifact, not the source of truth.
+  - Ignored local compiled artifact, not the source of truth.
 
 ## How To Test
 
@@ -288,4 +289,4 @@ variable paths in its `starters` array, ready to copy into `POST /templates`.
 - `main_test.go` skips if Chrome is not found in the expected path.
 - The handler depends on env vars such as bucket/table names.
 - PDF behavior is sensitive to Chrome flags and `/tmp` usage.
-- Docker image build, not the checked-in binary, is the deploy path.
+- Docker image build, not a local binary, is the deploy path.
