@@ -46,7 +46,7 @@
                     </div>
                     <div class="dashboard-nav-group">
                         <p>Account</p>
-                        <a href="/app/?view=keys" data-dashboard-nav="keys">API keys</a>
+                        <a href="/app/?view=keys" data-dashboard-nav="keys">API Keys</a>
                         <a href="/app/?view=billing" data-dashboard-nav="billing">Billing</a>
                     </div>
                 </nav>
@@ -66,7 +66,7 @@
                     </div>
                     <div class="dashboard-nav-group">
                         <p>Account</p>
-                        <a href="/app/?view=keys" data-dashboard-nav="keys">API keys</a>
+                        <a href="/app/?view=keys" data-dashboard-nav="keys">API Keys</a>
                         <a href="/app/?view=billing" data-dashboard-nav="billing">Billing</a>
                     </div>
                 </nav>
@@ -99,10 +99,6 @@
                             <a class="dashboard-next-action dashboard-next-action-primary" href="/app/?view=create-render">
                                 <strong>Create PDF</strong>
                                 <span>Start from a template or document.</span>
-                            </a>
-                            <a class="dashboard-next-action" href="/app/?view=keys">
-                                <strong>Create API key</strong>
-                                <span>Authenticate requests from your server.</span>
                             </a>
                             <a id="overviewPlanAction" class="dashboard-next-action" href="/app/?view=billing">
                                 <strong>Upgrade plan</strong>
@@ -139,8 +135,9 @@
                 <article id="api-keys" class="workspace-panel quiet-section keys-panel" data-dashboard-view="keys">
                     <header class="panel-header">
                         <div>
-                            <h2>Your API keys</h2>
-                            <p>Use keys to authenticate PDF requests from your server or backend.</p>
+                            <p class="panel-kicker">Account security</p>
+                            <h2 id="api-keys-title">API Keys</h2>
+                            <p>Use keys only from a trusted server or backend. Store them in a secret manager or environment variable—never in browser code.</p>
                         </div>
                         <button id="generateKeyBtn" class="dashboard-button dashboard-button-primary" type="button">
                             Create API key
@@ -160,7 +157,13 @@
                         </div>
                     </section>
 
-                    <div id="keysList" aria-live="polite"></div>
+                    <section class="api-keys-list-section" aria-labelledby="existing-api-keys-title">
+                        <header class="api-keys-list-heading">
+                            <h3 id="existing-api-keys-title">Existing keys</h3>
+                            <p>Revoke keys you no longer use to stop requests immediately.</p>
+                        </header>
+                        <div id="keysList" aria-live="polite"></div>
+                    </section>
                 </article>
 
                 <article class="workspace-panel templates-panel create-render-panel" data-dashboard-view="create-render">

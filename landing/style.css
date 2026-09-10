@@ -20,7 +20,7 @@
 }
 
 * { box-sizing: border-box; }
-html { scroll-behavior: smooth; }
+html { overflow-y: scroll; scroll-behavior: smooth; }
 body {
   min-width: 320px;
   min-height: 100vh;
@@ -37,6 +37,7 @@ a { color: inherit; font-weight: 500; }
 button, input, textarea, select { font: inherit; }
 code, pre, textarea, .code-block, .key-display, .dashboard-result { font-family: var(--font-mono); }
 button, a { -webkit-tap-highlight-color: transparent; }
+button, .button, .dashboard-button, .google-button, .callback-action, .carbon-panel-button, .dashboard-logout, [role="button"] { white-space: nowrap; }
 h1, h2, h3, h4, p { margin-top: 0; }
 
 .skip-link {
@@ -386,6 +387,11 @@ html[data-dashboard-current-view="overview"] .dashboard-page-intro h1 { font-siz
 .dashboard-notice { padding: 12px; color: var(--muted); font-size: .78rem; }
 .new-key-card { display: grid; gap: 12px; padding: 14px; }
 .key-display { padding: 12px; overflow: auto; border: 1px solid var(--line); border-radius: 10px; background: #fff; font-size: .76rem; }
+.api-keys-list-section { display: grid; gap: 10px; }
+.api-keys-list-heading { display: grid; gap: 4px; }
+.api-keys-list-heading h3, .api-keys-list-heading p { margin: 0; }
+.api-keys-list-heading h3 { font-size: .9rem; }
+.api-keys-list-heading p { color: var(--muted); font-size: .78rem; line-height: 1.5; }
 .dashboard-table-wrap { width: 100%; overflow-x: auto; }
 .dashboard-table {
   width: 100%;

@@ -930,8 +930,8 @@ const dashboardPageContexts = {
     },
     keys: {
         kicker: 'Account',
-        title: 'API keys',
-        description: 'Create and revoke the keys your server uses to authenticate PDF requests.'
+        title: 'API Keys',
+        description: 'Create credentials for trusted server-side use, then store each key securely and revoke keys you no longer need.'
     },
     sources: {
         kicker: 'Sources',
