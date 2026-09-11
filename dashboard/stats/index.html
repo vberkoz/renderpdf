@@ -38,55 +38,70 @@
             <p>Live PDF request volume, renderer performance, and API availability.</p>
         </section>
 
-        <section class="stats-metrics" aria-label="RenderPDF statistics">
-            <article>
-                <h2>Requests today</h2>
-                <p id="requestsToday">—</p>
-                <p>All request outcomes</p>
-            </article>
-            <article>
-                <h2>Last 7 days</h2>
-                <p id="requestsLast7Days">—</p>
-                <p>PDF requests</p>
-            </article>
-            <article>
-                <h2>Last 30 days</h2>
-                <p id="requestsLast30Days">—</p>
-                <p>PDF requests</p>
-            </article>
-            <article>
-                <h2>Trial / authenticated</h2>
-                <p id="planSplit">—</p>
-                <p>Requests in the last 30 days</p>
-            </article>
-            <article>
-                <h2>Success rate</h2>
-                <p id="successRate">—</p>
-                <p>Successful PDF responses</p>
-            </article>
-            <article>
-                <h2>Average / p95 render</h2>
-                <p id="renderTime">—</p>
-                <p>Milliseconds</p>
-            </article>
-            <article>
-                <h2>Average PDF size</h2>
-                <p id="averagePdfSize">—</p>
-                <p>Successful responses</p>
-            </article>
-            <article>
-                <h2>Errors / timeouts</h2>
-                <p id="errorsTimeouts">—</p>
-                <p>Tracked renderer failures</p>
-            </article>
-            <article>
-                <h2>Trial to signup</h2>
-                <p id="trialConversion">—</p>
-                <p>API-key creation proxy</p>
-            </article>
+        <section class="stats-overview" aria-labelledby="overview-title">
+            <div class="stats-section-heading">
+                <p>At a glance</p>
+                <h2 id="overview-title">Key service signals</h2>
+            </div>
+            <div class="stats-metrics stats-metrics-primary" aria-label="Key RenderPDF statistics">
+                <article data-metric>
+                    <p class="metric-group">Volume</p>
+                    <h3>Requests today</h3>
+                    <p id="requestsToday" class="metric-value" aria-live="polite">Loading…</p>
+                    <p>All request outcomes</p>
+                </article>
+                <article data-metric>
+                    <p class="metric-group">Reliability</p>
+                    <h3>Success rate</h3>
+                    <p id="successRate" class="metric-value" aria-live="polite">Loading…</p>
+                    <p>Successful PDF responses</p>
+                </article>
+                <article data-metric>
+                    <p class="metric-group">Reliability</p>
+                    <h3>p95 render time</h3>
+                    <p id="p95RenderMs" class="metric-value" aria-live="polite">Loading…</p>
+                    <p>Slowest 5% of renders</p>
+                </article>
+                <article data-metric>
+                    <p class="metric-group">Conversion</p>
+                    <h3>Trial to signup</h3>
+                    <p id="trialConversion" class="metric-value" aria-live="polite">Loading…</p>
+                    <p>API-key creation proxy</p>
+                </article>
+            </div>
         </section>
 
-        <section class="stats-details" aria-label="Detailed statistics">
+        <section class="stats-groups" aria-labelledby="metrics-title">
+            <div class="stats-section-heading">
+                <p>Metrics</p>
+                <h2 id="metrics-title">Volume, reliability, and conversion</h2>
+            </div>
+            <section class="metric-group-section" aria-labelledby="volume-title">
+                <div class="metric-group-heading"><p>Volume</p><h3 id="volume-title">Request demand</h3></div>
+                <div class="stats-metrics" aria-label="Volume metrics">
+                    <article data-metric><h4>Last 7 days</h4><p id="requestsLast7Days" class="metric-value" aria-live="polite">Loading…</p><p>PDF requests</p></article>
+                    <article data-metric><h4>Last 30 days</h4><p id="requestsLast30Days" class="metric-value" aria-live="polite">Loading…</p><p>PDF requests</p></article>
+                    <article data-metric><h4>Trial / authenticated</h4><p id="planSplit" class="metric-value" aria-live="polite">Loading…</p><p>Requests in the last 30 days</p></article>
+                </div>
+            </section>
+            <section class="metric-group-section" aria-labelledby="reliability-title">
+                <div class="metric-group-heading"><p>Reliability</p><h3 id="reliability-title">Renderer outcomes</h3></div>
+                <div class="stats-metrics" aria-label="Reliability metrics">
+                    <article data-metric><h4>Errors / timeouts</h4><p id="errorsTimeouts" class="metric-value" aria-live="polite">Loading…</p><p>Tracked renderer failures</p></article>
+                </div>
+            </section>
+            <section class="metric-group-section" aria-labelledby="conversion-title">
+                <div class="metric-group-heading"><p>Conversion</p><h3 id="conversion-title">From trial to account</h3></div>
+                <p class="metric-group-copy">The highlighted trial-to-signup rate above is the current conversion signal, based on API-key creation.</p>
+            </section>
+        </section>
+
+        <section class="stats-breakdowns" aria-labelledby="breakdowns-title">
+            <div class="stats-section-heading">
+                <p>Breakdowns</p>
+                <h2 id="breakdowns-title">Where requests come from</h2>
+            </div>
+            <div class="stats-details" aria-label="Detailed statistics">
             <article>
                 <p>Volume</p>
                 <h2>Daily usage</h2>
@@ -98,7 +113,7 @@
             <article>
                 <p>Reliability</p>
                 <h2>API heartbeat</h2>
-                <p id="apiBadge" data-state="pending">Pending</p>
+                <p id="apiBadge" data-state="pending" aria-live="polite">Loading analytics</p>
                 <dl>
                     <div><dt>Endpoint</dt><dd><pre><code>/api/v1/</code></pre></dd></div>
                     <div><dt>Version</dt><dd id="apiVersion">Checking...</dd></div>
@@ -121,10 +136,11 @@
                 <h2>User country</h2>
                 <div id="countries"><p>Waiting for analytics...</p></div>
             </article>
+            </div>
         </section>
 
         <footer>
-            <span>Last checked <time id="checkedAt">—</time></span>
+            <span>Last checked <time id="checkedAt">Not checked yet</time></span>
             <span>RenderPDF / service stats</span>
         </footer>
     </main>
@@ -183,11 +199,23 @@
             window.location.assign('/app/login');
         });
 
-        function formatBytes(bytes) {
-            if (!bytes) return '0 B';
-            const units = ['B', 'KB', 'MB', 'GB'];
-            const index = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
-            return `${(bytes / (1024 ** index)).toFixed(index ? 1 : 0)} ${units[index]}`;
+        function setMetricState(state, message) {
+            document.querySelectorAll('[data-metric]').forEach((metric) => {
+                metric.dataset.state = state;
+                const value = metric.querySelector('.metric-value');
+                if (value) value.textContent = message;
+            });
+        }
+
+        function setBreakdownState(state, message) {
+            ['dailyChart', 'topApiKeys', 'topCustomers', 'countries'].forEach((elementId) => {
+                const container = document.getElementById(elementId);
+                container.replaceChildren();
+                const notice = document.createElement('p');
+                notice.className = `breakdown-state breakdown-state-${state}`;
+                notice.textContent = message;
+                container.appendChild(notice);
+            });
         }
 
         function renderRanks(elementId, values, emptyLabel) {
@@ -323,6 +351,8 @@
                 startSignIn();
                 return;
             }
+            setMetricState('loading', 'Loading…');
+            setBreakdownState('loading', 'Loading analytics…');
             const startedAt = performance.now();
             try {
                 const response = await fetch('/api/v1/analytics?days=30', {
@@ -347,6 +377,19 @@
                     startSignIn();
                     return;
                 }
+                if (response.status === 403) {
+                    apiBadge.textContent = 'Access denied';
+                    apiBadge.dataset.state = 'error';
+                    refreshStatus.textContent = 'Access denied';
+                    refreshStatus.dataset.state = 'error';
+                    apiVersion.textContent = 'Restricted';
+                    responseTime.textContent = `${duration} ms`;
+                    setMetricState('denied', 'Access denied');
+                    setBreakdownState('denied', 'You do not have access to analytics breakdowns.');
+                    accessMessage.textContent = payload.error || payload.message || 'This account is not allowed to view service analytics.';
+                    accessMessage.hidden = false;
+                    return;
+                }
                 if (!response.ok) throw new Error(payload.error || payload.message || `HTTP ${response.status}`);
 
                 apiBadge.textContent = 'Operational';
@@ -355,15 +398,20 @@
                 refreshStatus.dataset.state = 'success';
                 apiVersion.textContent = 'v1 analytics';
                 responseTime.textContent = `${duration} ms`;
+                const hasActivity = Number(payload.requestsLast30Days || 0) > 0;
                 document.getElementById('requestsToday').textContent = numberFormat.format(payload.requestsToday || 0);
                 document.getElementById('requestsLast7Days').textContent = numberFormat.format(payload.requestsLast7Days || 0);
                 document.getElementById('requestsLast30Days').textContent = numberFormat.format(payload.requestsLast30Days || 0);
                 document.getElementById('planSplit').textContent = `${numberFormat.format(payload.trialRequests || 0)} / ${numberFormat.format(payload.authenticatedRequests || 0)}`;
                 document.getElementById('successRate').textContent = `${Number(payload.successRate || 0).toFixed(1)}%`;
-                document.getElementById('renderTime').textContent = `${Math.round(payload.averageRenderMs || 0)} / ${Math.round(payload.p95RenderMs || 0)}`;
-                document.getElementById('averagePdfSize').textContent = formatBytes(payload.averagePdfBytes || 0);
+                document.getElementById('p95RenderMs').textContent = `${Math.round(payload.p95RenderMs || 0)} ms`;
                 document.getElementById('errorsTimeouts').textContent = `${numberFormat.format(payload.errors || 0)} / ${numberFormat.format(payload.timeouts || 0)}`;
                 document.getElementById('trialConversion').textContent = `${Number(payload.trialToSignupRate || 0).toFixed(1)}%`;
+                if (hasActivity) {
+                    document.querySelectorAll('[data-metric]').forEach((metric) => { metric.dataset.state = 'ready'; });
+                } else {
+                    setMetricState('empty', 'No requests yet');
+                }
                 renderDailyUsage(payload.byDay);
                 renderRanks('topApiKeys', payload.topApiKeys, 'No API key usage yet');
                 renderRanks('topCustomers', payload.topCustomers, 'No authenticated usage yet');
@@ -373,8 +421,10 @@
                 apiBadge.dataset.state = 'error';
                 refreshStatus.textContent = 'Could not read analytics';
                 refreshStatus.dataset.state = 'error';
-                apiVersion.textContent = '—';
-                responseTime.textContent = '—';
+                apiVersion.textContent = 'Unavailable';
+                responseTime.textContent = 'Not measured';
+                setMetricState('failed', 'Unable to load');
+                setBreakdownState('failed', 'Analytics could not be loaded.');
                 accessMessage.textContent = `The analytics service could not be read. ${error.message}`;
                 accessMessage.hidden = false;
             } finally {
