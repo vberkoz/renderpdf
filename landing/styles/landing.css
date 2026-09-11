@@ -114,8 +114,9 @@ textarea:focus, .dashboard-field input:focus, .custom-select-trigger:focus-visib
 .pricing-header h2 { max-width: 22ch; line-height: .94; text-wrap: balance; }
 .pricing-header > p { max-width: 58ch; justify-self: start; margin: 0; }
 .pricing-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
-.pricing-card { display: grid; align-content: start; gap: 12px; position: relative; }
+.pricing-card { display: flex; flex-direction: column; gap: 12px; position: relative; }
 .pricing-card p { margin: 0; }
+.pricing-card .button { margin-top: auto; }
 .pricing-price strong { color: var(--text); font-size: 2rem; letter-spacing: -.05em; }
 .pricing-card-featured { border-color: var(--line-strong); background: linear-gradient(180deg, #fff, #f8fafc); }
 .pricing-badge { color: var(--text) !important; font-family: var(--font-mono); font-size: .65rem !important; font-weight: 700; text-transform: uppercase; }
