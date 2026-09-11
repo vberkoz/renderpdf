@@ -14,6 +14,14 @@
 - `/Users/basilsergius/projects/renderpdf/dashboard/app.js`
 - `/Users/basilsergius/projects/renderpdf/dashboard/stats/index.html`
 
+## Dashboard Views
+
+- `index.html` is a single authenticated workspace. Its view router accepts
+  `?view=overview`, `create-render`, `sources`, `files`, `batches`, `logs`,
+  `keys`, and `billing`.
+- The desktop sidebar and mobile "Navigate dashboard" control expose the same
+  view set. `logs` is labeled **Activity** in the UI.
+
 ## Safe To Edit
 
 - HTML, CSS, and JS files in this folder.
@@ -33,9 +41,16 @@
 
 - Static review:
   - Read the HTML and JS together to confirm paths still match.
+- Unit test:
+
+```bash
+cd /Users/basilsergius/projects/renderpdf && node --test dashboard/template-client.test.js
+```
+
 - Deployment-backed verification:
   - Deploy via `/Users/basilsergius/projects/renderpdf/scripts/deploy.sh` when dashboard assets change.
 - Manual checks:
+  - each navigation item opens its matching `?view=` workspace panel on desktop and mobile
   - login redirect path
   - callback token storage
   - API key list/create/delete flow

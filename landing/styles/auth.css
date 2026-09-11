@@ -1,0 +1,37 @@
+/* Authentication surfaces share the ExtractKit two-column panel construct. */
+.auth-shell { min-height: 100vh; padding: 24px 0 30px; display: grid; grid-template-rows: auto 1fr auto; }
+.auth-main { display: grid; grid-template-columns: minmax(0, 1fr) minmax(380px, .72fr); gap: 56px; align-items: center; padding: 64px 0; }
+.auth-intro { display: grid; gap: 18px; }
+.auth-intro h1 { max-width: 10ch; }
+.auth-lead { max-width: 54ch; margin: 0; }
+.auth-points { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.auth-points li, .auth-points > span { padding: 6px 9px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); font-size: .72rem; }
+.auth-card { display: grid; gap: 20px; }
+.auth-card-heading { display: grid; gap: 8px; }
+.auth-card-heading h2 { font-size: 1.5rem; }
+.google-button { width: 100%; justify-content: flex-start; gap: 12px; }
+.google-button svg { width: 20px; height: 20px; padding: 2px; border-radius: 4px; background: #fff; }
+.auth-divider { display: flex; align-items: center; gap: 12px; color: var(--muted); font-family: var(--font-mono); font-size: .62rem; letter-spacing: .08em; text-transform: uppercase; }
+.auth-divider::before, .auth-divider::after { height: 1px; flex: 1; background: var(--line); content: ""; }
+.auth-steps { display: grid; margin: 0; padding: 0; list-style: none; }
+.auth-steps li { display: grid; grid-template-columns: 28px 1fr; gap: 10px; padding: 11px 0; border-bottom: 1px solid var(--line); }
+.auth-steps span { color: var(--muted); font-family: var(--font-mono); font-size: .64rem; }
+.auth-steps p, .auth-fineprint { margin: 0; color: var(--muted); font-size: .76rem; line-height: 1.5; }
+.callback-main { grid-template-columns: minmax(0, 1fr) minmax(340px, .7fr); }
+.callback-card { align-content: start; }
+.callback-indicator span { display: block; width: 11px; height: 11px; border-radius: 50%; background: #6aa9ff; box-shadow: 0 0 0 5px rgb(106 169 255 / 16%); }
+.callback-progress { height: 4px; overflow: hidden; border-radius: 999px; background: #e5ebf1; }
+.callback-progress span { display: block; width: 50%; height: 100%; border-radius: inherit; background: var(--accent); }
+.callback-card[data-state="success"] .callback-indicator span { background: var(--success); box-shadow: 0 0 0 5px rgb(23 107 58 / 12%); }
+.callback-card[data-state="error"] .callback-indicator span { background: var(--error); box-shadow: 0 0 0 5px rgb(159 46 46 / 12%); }
+
+@media (max-width: 980px) { .auth-main, .callback-main { grid-template-columns: 1fr; } }
+@media (max-width: 760px) {
+  .auth-shell { width: min(100% - 24px, 1180px); padding-top: 10px; }
+  .auth-topbar { align-items: start; flex-direction: column; }
+  .auth-nav { gap: 12px; }
+  .auth-main { gap: 32px; padding: 42px 0; }
+  .auth-card { grid-row: 1; padding: 16px; }
+  .auth-intro { grid-row: 2; }
+  .auth-intro h1 { max-width: none; }
+}
