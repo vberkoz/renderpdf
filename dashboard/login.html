@@ -30,25 +30,14 @@
         <main id="main-content" class="auth-main" tabindex="-1">
             <section class="auth-intro" aria-labelledby="auth-title">
                 <p class="auth-eyebrow">Developer dashboard</p>
-                <h1 id="auth-title">Your PDF workflow starts here.</h1>
-                <p class="auth-lead">Sign in to create API keys, inspect usage, and test authenticated PDF generation from one workspace.</p>
-
-                <pre><code>curl -X POST https://renderpdf.vberkoz.com/api/v1/render \
-  -H "Authorization: Bearer YOUR_API_KEY" \
-  -H "Content-Type: application/json"</code></pre>
-
-                <ul class="auth-points" aria-label="Dashboard capabilities">
-                    <li>API key management</li>
-                    <li>Live endpoint testing</li>
-                    <li>Secure Google sign-in</li>
-                </ul>
+                <h1 id="auth-title">Manage your PDF workflow.</h1>
+                <p class="auth-lead">Create API keys, test authenticated requests, and review usage from one workspace.</p>
             </section>
 
             <section class="auth-card" aria-labelledby="sign-in-title">
                 <div class="auth-card-heading">
                     <p class="auth-eyebrow">Account access</p>
-                    <h2 id="sign-in-title">Sign in to RenderPDF</h2>
-                    <p>Continue with Google to open your developer dashboard.</p>
+                    <h2 id="sign-in-title">Sign in with Google</h2>
                 </div>
 
                 <button id="loginBtn" class="google-button" type="button">
@@ -62,15 +51,7 @@
 
                 </button>
 
-                <div class="auth-divider"><span>What happens next</span></div>
-
-                <ol class="auth-steps">
-                    <li><span>01</span><p>Authenticate securely with Google through AWS Cognito.</p></li>
-                    <li><span>02</span><p>Return to RenderPDF at the clean <code>/app/callback</code> route.</p></li>
-                    <li><span>03</span><p>Create an API key and start generating PDFs.</p></li>
-                </ol>
-
-                <p class="auth-fineprint">RenderPDF receives your basic profile and email for account access. Your Google password is never shared with RenderPDF.</p>
+                <p class="auth-fineprint">RenderPDF uses your basic Google profile and email for account access. Your password is never shared with us.</p>
             </section>
         </main>
 
