@@ -1,4 +1,4 @@
-.hero { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(300px, .9fr); gap: 14px; align-items: stretch; }
+.hero { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; align-items: stretch; }
 .hero-copy, .hero-aside, .playground, .capabilities, .pricing, .docs-hero, .doc-section,
 .workspace-panel, .auth-card, .session-card, .dashboard-page-intro, .stats-panel {
   border: 1px solid var(--line); border-radius: 16px; background: var(--panel); box-shadow: var(--shadow);
