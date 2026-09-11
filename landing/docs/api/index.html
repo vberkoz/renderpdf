@@ -33,15 +33,23 @@
 
         <main id="main-content" tabindex="-1">
             <section class="docs-hero">
-                <div>
+                <div class="docs-hero-copy">
                     <p class="eyebrow">Developer reference / v1</p>
                     <h1>RenderPDF API</h1>
-                    <p class="lead">Convert HTML into a downloadable PDF with one synchronous request. Start without a key using the trial endpoint, then move to authenticated generation when you are ready.</p>
+                    <p class="lead">Turn HTML into downloadable PDFs with one request. Start with the no-key trial endpoint, then move to authenticated generation when you’re ready.</p>
+                    <div class="docs-hero-meta" aria-label="API characteristics">
+                        <span>REST</span><span>JSON</span><span>Private PDF delivery</span>
+                    </div>
                 </div>
-                <div class="base-url-card">
-                    <span>Base URL</span>
-                    <pre><code>https://renderpdf.vberkoz.com/api/v1</code></pre>
-                    <a href="https://renderpdf.vberkoz.com/api/v1/">Check API status</a>
+                <div class="base-url-card" aria-label="API connection details">
+                    <div class="base-url-heading"><span>Base URL</span><a href="https://renderpdf.vberkoz.com/api/v1/">API status <span aria-hidden="true">↗</span></a></div>
+                    <code>https://renderpdf.vberkoz.com/api/v1</code>
+                    <div class="quickstart-call">
+                        <span class="method-badge">POST</span>
+                        <code>/trial/render</code>
+                        <span class="trial-badge">No key needed</span>
+                    </div>
+                    <p>Render your first PDF before creating an account.</p>
                 </div>
             </section>
 
@@ -49,43 +57,43 @@
                 <aside class="sidebar">
                     <p class="sidebar-title">On this page</p>
                     <nav aria-label="Documentation sections">
-                        <div class="sidebar-group">
-                            <p>Get started</p>
+                        <details class="sidebar-group" open>
+                            <summary>Get started</summary>
                             <a href="#quick-start">Quick start</a>
                             <a href="#trial">Anonymous trial</a>
                             <a href="#request-basics">Request basics</a>
                             <a href="#authentication">Authentication</a>
-                        </div>
-                        <div class="sidebar-group">
-                            <p>Render inputs</p>
+                        </details>
+                        <details class="sidebar-group">
+                            <summary>Render inputs</summary>
                             <a href="#render">Render HTML</a>
                             <a href="#render-document">Document JSON</a>
                             <a href="#markdown">Markdown</a>
                             <a href="#render-url">Public URL</a>
                             <a href="#render-upload">Local package</a>
-                        </div>
-                        <div class="sidebar-group">
-                            <p>Reusable assets and batch work</p>
+                        </details>
+                        <details class="sidebar-group">
+                            <summary>Templates &amp; batches</summary>
                             <a href="#templates">Templates</a>
                             <a href="#render-template">Render a template</a>
                             <a href="#sources">Saved sources</a>
                             <a href="#files">Files &amp; downloads</a>
                             <a href="#batches">Batch rendering</a>
-                        </div>
-                        <div class="sidebar-group">
-                            <p>Delivery and errors</p>
+                        </details>
+                        <details class="sidebar-group">
+                            <summary>Delivery &amp; errors</summary>
                             <a href="#webhooks">Webhooks</a>
                             <a href="#response">Response</a>
                             <a href="#errors">Errors</a>
-                        </div>
-                        <div class="sidebar-group">
-                            <p>API key management</p>
+                        </details>
+                        <details class="sidebar-group">
+                            <summary>API keys</summary>
                             <a href="#api-keys">Manage API keys</a>
-                        </div>
-                        <div class="sidebar-group">
-                            <p>Language examples</p>
+                        </details>
+                        <details class="sidebar-group">
+                            <summary>Code examples</summary>
                             <a href="#examples">Examples</a>
-                        </div>
+                        </details>
                     </nav>
                     <div class="sidebar-note">
                         <strong>Need an API key?</strong>
@@ -789,6 +797,22 @@ public class RenderPdf {
         document.querySelectorAll('.copy-button').forEach((button) => {
             button.addEventListener('click', () => copyCode(button));
         });
+
+        const sidebarGroups = [...document.querySelectorAll('.sidebar-group')];
+        function revealCurrentSidebarGroup() {
+            const currentLink = document.querySelector(`.sidebar a[href="${window.location.hash}"]`);
+            if (!currentLink) return;
+            const activeGroup = currentLink.closest('.sidebar-group');
+            sidebarGroups.forEach((group) => { group.open = group === activeGroup; });
+        }
+        sidebarGroups.forEach((group) => {
+            group.addEventListener('toggle', () => {
+                if (!group.open) return;
+                sidebarGroups.forEach((otherGroup) => { if (otherGroup !== group) otherGroup.open = false; });
+            });
+        });
+        window.addEventListener('hashchange', revealCurrentSidebarGroup);
+        revealCurrentSidebarGroup();
     </script>
 </body>
 </html>

@@ -37,12 +37,34 @@
             <section class="hero" aria-labelledby="hero-title">
                 <div class="hero-copy">
                     <p class="eyebrow">HTML-to-PDF API for product teams</p>
-                    <h1 id="hero-title">Turn your HTML into PDFs your customers can use.</h1>
-                    <p class="lead">Render invoices, agreements, reports, and certificates without operating Chrome or PDF infrastructure. One API handles print CSS, secure storage, and delivery.</p>
+                    <h1 id="hero-title">PDFs that feel like a native part of your product.</h1>
+                    <p class="lead">Turn the HTML you already ship into invoices, agreements, reports, and certificates—without running Chrome or maintaining PDF infrastructure.</p>
 
                     <div class="hero-actions" role="group" aria-label="Get started">
                         <a class="button button-primary" href="#playground">Try the playground</a>
                         <a class="button button-secondary" href="/docs/api/">Read the docs</a>
+                    </div>
+                    <p class="hero-note"><span aria-hidden="true"></span>3 free renders today. No account or API key required.</p>
+                </div>
+                <div class="hero-aside" aria-label="HTML to PDF workflow example">
+                    <div class="hero-aside-heading">
+                        <span class="hero-window-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+                        <span>render request</span>
+                        <span class="hero-status">200 OK</span>
+                    </div>
+                    <pre aria-label="Example render request"><code><span class="code-key">POST</span> /api/v1/render
+
+<span class="code-muted">{</span>
+  <span class="code-property">"source"</span>: <span class="code-muted">{</span>
+    <span class="code-property">"type"</span>: <span class="code-string">"html"</span>,
+    <span class="code-property">"content"</span>: <span class="code-string">"&lt;Invoice /&gt;"</span>
+  <span class="code-muted">}</span>,
+  <span class="code-property">"options"</span>: <span class="code-muted">{</span> <span class="code-property">"format"</span>: <span class="code-string">"A4"</span> <span class="code-muted">}</span>
+<span class="code-muted">}</span></code></pre>
+                    <div class="hero-result">
+                        <div class="hero-result-icon" aria-hidden="true">PDF</div>
+                        <div><strong>invoice-2048.pdf</strong><span>Ready to download · 124 KB</span></div>
+                        <span class="hero-result-arrow" aria-hidden="true">↗</span>
                     </div>
                 </div>
             </section>

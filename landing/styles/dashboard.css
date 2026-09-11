@@ -590,17 +590,19 @@ html[data-dashboard-current-view] .dashboard-page-intro h1 {
 .dashboard-page .dashboard-next-action + .dashboard-next-action {
   align-content: center;
   padding: 12px 0 12px 22px;
-  border-left: 1px solid var(--line);
+  border-left: 0;
 }
 .dashboard-page .dashboard-next-action.dashboard-next-action-primary {
   align-content: center;
   min-height: 86px;
   padding: 16px 18px;
+  border: 1px solid #c9ddf5;
   border-radius: 10px;
-  background: var(--accent);
-  color: #fff;
+  background: #e9f2ff;
+  color: #195a9d;
 }
-.dashboard-page .dashboard-next-action-primary span { color: rgb(255 255 255 / 72%); }
+.dashboard-page .dashboard-next-action-primary span { color: #4e6f91; }
+.dashboard-page .dashboard-next-action-primary:hover, .dashboard-page .dashboard-next-action-primary:focus-visible { background: #dcecff; color: #134e87; }
 .dashboard-page .overview-recent-activity .panel-header { padding-bottom: 4px; }
 
 .dashboard-page .workflow-stage {
