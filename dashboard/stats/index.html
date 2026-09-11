@@ -12,7 +12,33 @@
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <link href="/styles/base.css" rel="stylesheet">
     <link href="/styles/stats.css" rel="stylesheet">
-
+    <style>
+        .stats-controls {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px 20px;
+            padding: 14px 0;
+            border-top: 1px solid var(--line);
+            border-bottom: 1px solid var(--line);
+        }
+        .stats-control-details {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px 20px;
+            color: var(--muted);
+            font-size: .8rem;
+        }
+        .stats-control-details p { margin: 0; }
+        .stats-control-details strong { color: var(--text); }
+        .stats-controls .button { flex: 0 0 auto; }
+        @media (max-width: 560px) {
+            .stats-controls { align-items: stretch; }
+            .stats-control-details { display: grid; gap: 5px; }
+            .stats-controls .button { width: 100%; }
+        }
+    </style>
 </head>
 <body class="stats-page">
     <a class="skip-link" href="#main-content">Skip to main content</a>
@@ -35,7 +61,15 @@
         <section id="stats-content" aria-labelledby="stats-title" tabindex="-1">
             <p>Service telemetry</p>
             <h1 id="stats-title">RenderPDF statistics</h1>
-            <p>Live PDF request volume, renderer performance, and API availability.</p>
+            <p>Recent PDF request volume, renderer performance, and analytics endpoint status.</p>
+        </section>
+
+        <section class="stats-controls" aria-label="Reporting controls">
+            <div class="stats-control-details">
+                <p>Reporting window: <strong id="reportingWindow">Last 30 days</strong></p>
+                <p>Last updated: <time id="checkedAt" aria-live="polite">Not updated yet</time></p>
+            </div>
+            <button id="refreshBtn" class="button button-secondary" type="button">Refresh</button>
         </section>
 
         <section class="stats-overview" aria-labelledby="overview-title">
@@ -112,13 +146,14 @@
 
             <article>
                 <p>Reliability</p>
-                <h2>API heartbeat</h2>
+                <h2>Analytics endpoint status</h2>
                 <p id="apiBadge" data-state="pending" aria-live="polite">Loading analytics</p>
                 <dl>
-                    <div><dt>Endpoint</dt><dd><pre><code>/api/v1/</code></pre></dd></div>
-                    <div><dt>Version</dt><dd id="apiVersion">Checking...</dd></div>
+                    <div><dt>Endpoint</dt><dd><pre><code id="analyticsEndpoint">/api/v1/analytics?days=30</code></pre></dd></div>
+                    <div><dt>Signal</dt><dd id="apiVersion">Checking...</dd></div>
                     <div><dt>Response time</dt><dd id="responseTime">Checking...</dd></div>
                 </dl>
+                <p>This checks the analytics endpoint only; it does not verify renderer availability.</p>
                 <p id="accessMessage" hidden></p>
             </article>
 
@@ -139,10 +174,7 @@
             </div>
         </section>
 
-        <footer>
-            <span>Last checked <time id="checkedAt">Not checked yet</time></span>
-            <span>RenderPDF / service stats</span>
-        </footer>
+        <footer><span>RenderPDF / service stats</span></footer>
     </main>
 
 
@@ -153,8 +185,12 @@
         const apiVersion = document.getElementById('apiVersion');
         const responseTime = document.getElementById('responseTime');
         const checkedAt = document.getElementById('checkedAt');
+        const refreshBtn = document.getElementById('refreshBtn');
+        const reportingWindow = document.getElementById('reportingWindow');
+        const analyticsEndpoint = document.getElementById('analyticsEndpoint');
         const accessMessage = document.getElementById('accessMessage');
         const numberFormat = new Intl.NumberFormat();
+        const REPORTING_WINDOW_DAYS = 30;
         const COGNITO_DOMAIN = 'https://renderpdf-auth-653268860643.auth.us-east-1.amazoncognito.com';
         const COGNITO_CLIENT_ID = '78pkhoj4ml959gb80coslgm42t';
         const COGNITO_REDIRECT_URI = 'https://renderpdf.vberkoz.com/app/callback';
@@ -345,17 +381,30 @@
             container.appendChild(svg);
         }
 
+        function setLastUpdated(timestamp) {
+            checkedAt.dateTime = timestamp.toISOString();
+            checkedAt.textContent = new Intl.DateTimeFormat(undefined, {
+                dateStyle: 'medium',
+                timeStyle: 'short'
+            }).format(timestamp);
+        }
+
         async function loadAnalytics() {
             const token = sessionToken();
             if (!token) {
                 startSignIn();
                 return;
             }
+            refreshBtn.disabled = true;
+            refreshBtn.setAttribute('aria-busy', 'true');
+            refreshStatus.textContent = 'Refreshing analytics…';
+            refreshStatus.dataset.state = 'pending';
+            accessMessage.hidden = true;
             setMetricState('loading', 'Loading…');
             setBreakdownState('loading', 'Loading analytics…');
             const startedAt = performance.now();
             try {
-                const response = await fetch('/api/v1/analytics?days=30', {
+                const response = await fetch(`/api/v1/analytics?days=${REPORTING_WINDOW_DAYS}`, {
                     cache: 'no-store',
                     headers: {
                         Authorization: `Bearer ${token}`,
@@ -392,12 +441,17 @@
                 }
                 if (!response.ok) throw new Error(payload.error || payload.message || `HTTP ${response.status}`);
 
-                apiBadge.textContent = 'Operational';
+                apiBadge.textContent = 'Available';
                 apiBadge.dataset.state = 'success';
-                refreshStatus.textContent = 'Live just now';
+                refreshStatus.textContent = 'Analytics updated';
                 refreshStatus.dataset.state = 'success';
-                apiVersion.textContent = 'v1 analytics';
+                apiVersion.textContent = 'Analytics response received';
                 responseTime.textContent = `${duration} ms`;
+                const windowDays = Number(payload.windowDays) || REPORTING_WINDOW_DAYS;
+                reportingWindow.textContent = `Last ${windowDays} days`;
+                document.getElementById('windowLabel').textContent = `Last ${windowDays} days`;
+                analyticsEndpoint.textContent = `/api/v1/analytics?days=${windowDays}`;
+                setLastUpdated(new Date());
                 const hasActivity = Number(payload.requestsLast30Days || 0) > 0;
                 document.getElementById('requestsToday').textContent = numberFormat.format(payload.requestsToday || 0);
                 document.getElementById('requestsLast7Days').textContent = numberFormat.format(payload.requestsLast7Days || 0);
@@ -428,13 +482,12 @@
                 accessMessage.textContent = `The analytics service could not be read. ${error.message}`;
                 accessMessage.hidden = false;
             } finally {
-                checkedAt.textContent = new Intl.DateTimeFormat(undefined, {
-                    dateStyle: 'medium',
-                    timeStyle: 'short'
-                }).format(new Date());
+                refreshBtn.disabled = false;
+                refreshBtn.removeAttribute('aria-busy');
             }
         }
 
+        refreshBtn.addEventListener('click', loadAnalytics);
         loadAnalytics();
     </script>
 </body>
