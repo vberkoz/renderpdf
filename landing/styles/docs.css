@@ -7,8 +7,10 @@
 .docs-layout { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 24px; align-items: start; }
 .sidebar { position: sticky; top: 18px; padding: 16px; border: 1px solid var(--line); border-radius: 16px; background: var(--panel); }
 .sidebar-title { margin: 0 0 8px; color: var(--muted); font-family: var(--font-mono); font-size: .68rem; text-transform: uppercase; letter-spacing: .1em; }
-.sidebar nav { display: grid; gap: 2px; }
-.sidebar nav a { padding: 6px 0; color: var(--muted); font-size: .78rem; text-decoration: none; }
+.sidebar nav { display: grid; gap: 12px; }
+.sidebar-group { display: grid; gap: 2px; }
+.sidebar-group > p { margin: 0 0 2px; color: var(--text); font-family: var(--font-mono); font-size: .62rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.sidebar nav a { padding: 3px 0; color: var(--muted); font-size: .76rem; text-decoration: none; }
 .sidebar nav a:hover, .sidebar nav a:focus-visible { color: var(--text); outline: none; }
 .sidebar-note { display: grid; gap: 7px; margin-top: 14px; padding: 12px; font-size: .74rem; }
 .sidebar-note p { margin: 0; color: var(--muted); }
