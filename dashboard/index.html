@@ -75,7 +75,7 @@
             <main id="main-content" class="dashboard-main" tabindex="-1">
                 <div id="dashboard-content" class="dashboard-content" tabindex="-1">
                 <header class="dashboard-page-intro">
-                    <p id="dashboardPageKicker" class="panel-kicker">Developer dashboard</p>
+                    <p id="dashboardPageKicker" class="visually-hidden">Developer dashboard</p>
                     <h1 id="dashboardPageTitle">Home</h1>
                     <p id="dashboardPageDescription">Your PDF activity, capacity, and next steps.</p>
                 </header>
@@ -119,14 +119,13 @@
                 <article class="workspace-panel quiet-section billing-panel" data-dashboard-view="billing">
                     <header class="panel-header panel-header-compact">
                         <div>
-                            <p class="panel-kicker">Plan &amp; billing</p>
                             <h2 id="billingPlan">Free</h2>
                             <p id="billingDetail">Free includes 25 PDFs each month. Upgrade for more capacity.</p>
                             <p id="billingUsageDetail" class="billing-usage-detail">Current usage: —</p>
                         </div>
                         <div class="billing-actions">
-                            <button id="upgradePlanBtn" class="dashboard-button dashboard-button-secondary" type="button">Upgrade plan</button>
-                            <button id="manageBillingBtn" class="dashboard-button dashboard-button-secondary" type="button" hidden>Manage billing</button>
+                            <button id="upgradePlanBtn" class="dashboard-button dashboard-button-primary" type="button">Upgrade plan</button>
+                            <button id="manageBillingBtn" class="dashboard-button dashboard-button-primary" type="button" hidden>Manage billing</button>
                         </div>
                     </header>
                     <div id="billingStatus" class="dashboard-notice" role="status" aria-live="polite" hidden></div>
@@ -135,8 +134,6 @@
                 <article id="api-keys" class="workspace-panel quiet-section keys-panel" data-dashboard-view="keys">
                     <header class="panel-header">
                         <div>
-                            <p class="panel-kicker">Account security</p>
-                            <h2 id="api-keys-title">API Keys</h2>
                             <p>Use keys only from a trusted server or backend. Store them in a secret manager or environment variable—never in browser code.</p>
                         </div>
                         <button id="generateKeyBtn" class="dashboard-button dashboard-button-primary" type="button">
@@ -148,7 +145,6 @@
 
                     <section id="newKeyCard" class="new-key-card" aria-labelledby="new-key-title" hidden>
                         <div>
-                            <p class="panel-kicker">New credential</p>
                             <h3 id="new-key-title">Copy this key now</h3>
                             <p>For security, the complete value is shown only once.</p>
                         </div>
@@ -169,9 +165,6 @@
                 <article class="workspace-panel templates-panel create-render-panel" data-dashboard-view="create-render">
                     <header class="panel-header">
                         <div>
-                            <p class="panel-kicker">Create &amp; render</p>
-                            <h2 id="createRenderTitle">Create a PDF</h2>
-                            <p id="createRenderDescription">Choose a source, edit only its relevant fields, then preview and render your PDF.</p>
                         </div>
                     </header>
 
@@ -285,7 +278,7 @@
                 </article>
 
                 <article class="workspace-panel quiet-section reusable-assets-panel" data-dashboard-view="sources">
-                    <header class="panel-header panel-header-compact"><div><p class="panel-kicker">Reusable content</p><h2>Saved sources</h2><p>Manage layouts and document definitions for repeat PDF work.</p></div><button id="refreshSourcesBtn" class="dashboard-button dashboard-button-secondary" type="button">Refresh</button></header>
+                    <header class="panel-header panel-header-compact"><button id="refreshSourcesBtn" class="dashboard-button dashboard-button-secondary" type="button">Refresh</button></header>
                     <div id="sourcesStatus" class="dashboard-notice" role="status" aria-live="polite" hidden></div>
                     <section class="reusable-assets-group" aria-labelledby="saved-templates-title"><header><div><h3 id="saved-templates-title">Templates</h3><p>Layouts with variable data.</p></div></header><div id="templatesManager" aria-live="polite"></div></section>
                     <section class="reusable-assets-group" aria-labelledby="saved-document-sources-title"><header><div><h3 id="saved-document-sources-title">Document sources</h3><p>HTML and Markdown inputs for repeat renders and batches.</p></div></header><div id="sourcesManager" aria-live="polite"></div></section>

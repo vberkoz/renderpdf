@@ -63,7 +63,7 @@
                         </div>
                         <span class="endpoint-route"><span>JWT</span><code>id_token</code></span>
                     </header>
-                    <pre><code>No ID token found.</code></pre>
+                    <pre><code id="payloadOutput">No ID token found.</code></pre>
                 </article>
 
                 <article class="workspace-panel debug-api-panel">
@@ -166,7 +166,7 @@
                 ];
 
                 checks.forEach(renderCheck);
-                payloadOutput.value = JSON.stringify(payload, null, 2);
+                payloadOutput.textContent = JSON.stringify(payload, null, 2);
 
                 const allPassed = checks.every((check) => check.pass);
                 debugSummary.dataset.state = allPassed ? 'success' : 'error';

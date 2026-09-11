@@ -340,8 +340,22 @@ textarea:focus, .dashboard-field input:focus, .custom-select-trigger:focus-visib
 .dashboard-app-nav a.is-active:not(.dashboard-create-link) { background: #e9f2ff; color: #195a9d; }
 .dashboard-app-nav .dashboard-create-link { justify-content: center; margin: 8px 0 10px; border: 1px solid var(--accent); background: var(--accent); color: #fff; box-shadow: 0 5px 12px rgb(45 106 167 / 18%); }
 .dashboard-app-nav .dashboard-create-link:hover, .dashboard-app-nav .dashboard-create-link:focus-visible { background: #245d94; color: #fff; }
-.dashboard-nav-group { display: grid; gap: 2px; margin-top: 12px; }
-.dashboard-nav-group p { margin: 0 0 3px; padding: 0 11px; color: #64748b; font-family: var(--font-mono); font-size: .64rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+.dashboard-nav-group { display: grid; gap: 0; margin-top: 18px; }
+.dashboard-nav-group p {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 5px;
+  padding: 0 11px;
+  color: #8a97a8;
+  font-family: var(--font-mono);
+  font-size: .58rem;
+  font-weight: 600;
+  letter-spacing: .16em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+.dashboard-nav-group p::after { height: 1px; flex: 1; background: #d7dde4; content: ""; }
 .dashboard-mobile-navigation { display: none; }
 .dashboard-app-layout .dashboard-main { width: auto; min-width: 0; margin: 0; padding: 42px 0 34px; }
 .dashboard-content, .dashboard-workspace, .debug-grid { display: grid; min-width: 0; gap: 14px; }
@@ -896,4 +910,242 @@ body:has(#stats-content) > main > section:nth-of-type(3) { display: grid; grid-t
   .dashboard-mobile-navigation .dashboard-app-nav { padding: 0 8px 10px; border-top: 1px solid var(--line); }
   .dashboard-mobile-navigation .dashboard-create-link { margin: 8px 0; }
   .dashboard-app-layout .dashboard-main { width: auto; padding-top: 16px; }
+}
+
+/* Dashboard simplification: keep structure in the layout, not in a stack of
+   decorative cards. Results, alerts, and destructive controls retain the
+   stronger treatments that need attention. */
+.visually-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0 0 0 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+.dashboard-page .dashboard-page-intro {
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.dashboard-page .dashboard-page-intro #dashboardPageKicker { display: none; }
+.dashboard-page .dashboard-page-intro h1,
+.dashboard-page[data-dashboard-current-view] .dashboard-page-intro h1,
+html[data-dashboard-current-view] .dashboard-page-intro h1 {
+  font-size: clamp(1.75rem, 3vw, 2.35rem);
+  letter-spacing: -.04em;
+}
+.dashboard-page .dashboard-workspace { gap: 32px; }
+.dashboard-page .workspace-panel {
+  gap: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.dashboard-page .panel-header > div > p { max-width: 66ch; margin: 0; }
+.dashboard-page .panel-header h2 { font-size: 1.15rem; }
+
+.dashboard-page .overview-home {
+  width: min(100%, 920px);
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.dashboard-page .overview-section { gap: 12px; padding: 0; }
+.dashboard-page .overview-section + .overview-section { margin-top: 32px; padding-top: 0; border-top: 0; }
+.dashboard-page .overview-next-actions { background: transparent; }
+.dashboard-page .dashboard-metrics { gap: 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.dashboard-page .usage-summary,
+.dashboard-page .daily-activity {
+  padding: 14px 0;
+  border: 0;
+  border-radius: 0;
+}
+.dashboard-page .daily-activity { padding-left: 24px; border-left: 1px solid var(--line); }
+.dashboard-page .dashboard-next-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0; }
+.dashboard-page .dashboard-next-action,
+.dashboard-page .dashboard-next-action:first-child {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+}
+.dashboard-page .dashboard-next-action + .dashboard-next-action {
+  align-content: center;
+  padding: 12px 0 12px 22px;
+  border-left: 1px solid var(--line);
+}
+.dashboard-page .dashboard-next-action.dashboard-next-action-primary {
+  align-content: center;
+  min-height: 86px;
+  padding: 16px 18px;
+  border-radius: 10px;
+  background: var(--accent);
+  color: #fff;
+}
+.dashboard-page .dashboard-next-action-primary span { color: rgb(255 255 255 / 72%); }
+.dashboard-page .overview-recent-activity .panel-header { padding-bottom: 4px; }
+
+.dashboard-page .workflow-stage {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.dashboard-page .workflow-source-stage { gap: 12px; padding-bottom: 22px; border-bottom: 1px solid var(--line); }
+.dashboard-page .workflow-stage-grid { gap: 32px; }
+.dashboard-page .workflow-editor-stage,
+.dashboard-page .workflow-preview-workflow { gap: 14px; }
+.dashboard-page .workflow-editor-stage.document-json-editor { padding: 0; border: 0; border-radius: 0; background: transparent; }
+.dashboard-page .workflow-step-number {
+  width: 20px;
+  height: 20px;
+  background: #e9f2ff;
+  color: #195a9d;
+  font-size: .64rem;
+}
+.dashboard-page .source-choice { gap: 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.dashboard-page .source-choice-option {
+  padding: 12px 14px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.dashboard-page .source-choice-option + .source-choice-option { border-left: 1px solid var(--line); }
+.dashboard-page .source-choice-option.is-selected { background: #f5f9ff; box-shadow: inset 0 -2px 0 #195a9d; }
+.dashboard-page .workflow-preview-details > .paged-preview { margin-top: 8px; }
+.dashboard-page .workflow-primary-actions { padding-top: 6px; }
+.dashboard-page .workflow-primary-actions .dashboard-button-primary { order: -1; }
+
+/* Tables use their header and row separators for structure; avoid framing each
+   one with extra top and bottom rails. */
+.dashboard-page .dashboard-table-wrap { border-top: 0; border-bottom: 0; }
+.dashboard-page .dashboard-table th { padding-top: 9px; padding-bottom: 9px; }
+.dashboard-page .dashboard-table td { padding-top: 12px; padding-bottom: 12px; }
+.dashboard-page .reusable-assets-group { gap: 8px; padding-top: 22px; }
+/* Saved sources is a management view, not a wide data dashboard. Keep its
+   utility control close to the records it refreshes and limit the reading
+   measure of both the page heading and its tables. */
+.dashboard-page[data-dashboard-current-view="sources"] .dashboard-page-intro,
+.dashboard-page[data-dashboard-current-view="sources"] .dashboard-workspace,
+html[data-dashboard-current-view="sources"] .dashboard-page-intro,
+html[data-dashboard-current-view="sources"] .dashboard-workspace {
+  width: min(100%, 1000px);
+}
+.dashboard-page[data-dashboard-current-view="sources"] .reusable-assets-panel,
+html[data-dashboard-current-view="sources"] .reusable-assets-panel { gap: 28px; }
+.dashboard-page .reusable-assets-panel > .panel-header { justify-content: flex-start; }
+.dashboard-page[data-dashboard-current-view="files"] .dashboard-page-intro,
+.dashboard-page[data-dashboard-current-view="files"] .dashboard-workspace,
+html[data-dashboard-current-view="files"] .dashboard-page-intro,
+html[data-dashboard-current-view="files"] .dashboard-workspace {
+  width: min(100%, 1000px);
+}
+.dashboard-page .file-record-details { display: grid; gap: 3px; min-width: 0; }
+.dashboard-page .file-record-details strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .88rem; }
+.dashboard-page .file-record-details span { color: var(--muted); font-size: .74rem; }
+.dashboard-page .reusable-empty-state,
+.dashboard-page .empty-state {
+  padding: 14px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  text-align: left;
+}
+.dashboard-page .reusable-empty-state { justify-items: start; }
+
+.dashboard-page .dashboard-notice { padding: 10px 12px; border: 0; border-left: 3px solid var(--line-strong); border-radius: 0; background: transparent; }
+.dashboard-page .dashboard-notice[data-state="success"],
+.dashboard-page .dashboard-result[data-state="success"] { border-color: #b9dfc8; background: #edf8f1; color: var(--success); }
+.dashboard-page .dashboard-notice[data-state="error"],
+.dashboard-page .dashboard-result[data-state="error"] { border-color: #e7bcbc; background: #fff1f1; color: var(--error); }
+.dashboard-page .dashboard-notice[data-state="pending"],
+.dashboard-page .dashboard-result[data-state="pending"] { border-color: #b9d6ff; background: #f5f9ff; color: var(--text); }
+.dashboard-page .dashboard-result { gap: 10px; padding: 14px; border: 1px solid #b9dfc8; border-radius: 12px; background: #edf8f1; color: var(--success); }
+.dashboard-page .new-key-card { padding: 14px; border-color: #b9d6ff; background: #f5f9ff; }
+.dashboard-page .table-action.danger,
+.dashboard-page .dashboard-button-danger { border-color: #d99d9d; background: #fff1f1; color: var(--error); }
+
+.dashboard-page :is(a, button, summary, input, textarea, [role="button"]):focus-visible {
+  outline: 3px solid rgb(37 99 235 / 48%);
+  outline-offset: 2px;
+}
+/* View changes move focus to the main landmark for assistive technology.
+   The landmark itself is not an interactive control, so it should not draw a
+   page-sized browser focus ring. */
+.dashboard-page #main-content:focus { outline: none; }
+
+/* Keep the diagnostics and stats routes quiet too; their live/error states
+   remain visually distinct without making every data point a card. */
+.debug-page .dashboard-hero > div:first-child,
+.debug-page .session-card,
+.debug-page .workspace-panel,
+body:has(#stats-content) > main > section:nth-of-type(2) article,
+body:has(#stats-content) > main > section:nth-of-type(3) article {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.debug-page .debug-grid { gap: 32px; }
+body:has(#stats-content) > main > section:nth-of-type(2) { gap: 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+body:has(#stats-content) > main > section:nth-of-type(2) article { padding: 14px 16px; }
+body:has(#stats-content) > main > section:nth-of-type(2) article + article { border-left: 1px solid var(--line); }
+body:has(#stats-content) > main > section:nth-of-type(3) { gap: 32px; }
+
+@media (max-width: 760px) {
+  .dashboard-page .dashboard-workspace { gap: 26px; }
+  .dashboard-page .panel-header,
+  .dashboard-page .billing-actions { align-items: stretch; }
+  .dashboard-page .panel-header > .dashboard-button,
+  .dashboard-page .panel-header .billing-actions .dashboard-button { width: 100%; }
+  .dashboard-page .dashboard-metrics { grid-template-columns: 1fr; }
+  .dashboard-page .daily-activity { padding-left: 0; border-top: 1px solid var(--line); border-left: 0; }
+  .dashboard-page .dashboard-next-actions { display: grid; gap: 0; }
+  .dashboard-page .dashboard-next-action-primary { min-width: 0; margin-bottom: 12px; }
+  .dashboard-page .dashboard-next-action + .dashboard-next-action { padding: 12px 0 0; border-top: 1px solid var(--line); border-left: 0; }
+  .dashboard-page .workflow-stage-grid { gap: 26px; }
+  .dashboard-page .source-choice { grid-template-columns: 1fr; }
+  .dashboard-page .source-choice-option + .source-choice-option { border-top: 1px solid var(--line); border-left: 0; }
+  .dashboard-page .workflow-primary-actions { display: grid; grid-template-columns: 1fr; }
+  .dashboard-page .workflow-primary-actions > :is(button, details) { width: 100%; }
+  .dashboard-page .workflow-secondary-actions > summary { width: 100%; }
+  .dashboard-page .dashboard-table { min-width: 0; }
+  .dashboard-page .dashboard-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .dashboard-page .dashboard-table,
+  .dashboard-page .dashboard-table tbody,
+  .dashboard-page .dashboard-table tr,
+  .dashboard-page .dashboard-table td { display: block; width: 100%; }
+  .dashboard-page .dashboard-table tr { padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .dashboard-page .dashboard-table tbody tr:last-child { border-bottom: 0; }
+  .dashboard-page .dashboard-table td {
+    display: grid;
+    grid-template-columns: minmax(88px, .5fr) minmax(0, 1fr);
+    gap: 10px;
+    padding: 7px 0;
+    border: 0;
+    text-align: left;
+  }
+  .dashboard-page .dashboard-table td::before {
+    content: attr(data-label);
+    color: var(--muted);
+    font-family: var(--font-mono);
+    font-size: .63rem;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+  .dashboard-page .dashboard-table-actions { justify-content: flex-start; }
+  .dashboard-page .dashboard-table .dashboard-table-actions-cell { text-align: left; }
+  .dashboard-page .reusable-asset-actions { flex-wrap: wrap; }
+  body:has(#stats-content) > main > section:nth-of-type(2) { grid-template-columns: 1fr; }
+  body:has(#stats-content) > main > section:nth-of-type(2) article { padding: 14px 0; }
+  body:has(#stats-content) > main > section:nth-of-type(2) article + article { border-top: 1px solid var(--line); border-left: 0; }
+  body:has(#stats-content) > main > section:nth-of-type(3) { gap: 26px; }
 }

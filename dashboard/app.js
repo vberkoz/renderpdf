@@ -853,6 +853,7 @@ function renderTable(container, { columns = [], rows = [], empty, loading, capti
             const cell = document.createElement('td');
             cell.classList.add(`dashboard-table-cell-${index + 1}`);
             if (columns[index]?.className) cell.classList.add(columns[index].className);
+            if (columns[index]?.label) cell.dataset.label = columns[index].label;
             if (content instanceof Node) cell.append(content);
             else cell.textContent = content ?? '';
             tableRow.append(cell);
@@ -1698,7 +1699,7 @@ if (checkAuth()) {
             }
             return { cells: [details, status, actions], sortValues: [job.jobId, job.status, job.createdAt || ''] };
         });
-        renderTable(batchesManager, { caption: 'Batch jobs', columns: [{ label: 'Batch' }, { label: 'Status' }, { label: 'Actions' }], rows });
+        renderTable(batchesManager, { caption: 'Batch jobs', columns: [{ label: 'Batch' }, { label: 'Status' }, { label: 'Actions', className: 'dashboard-table-actions-cell' }], rows });
     }
 
     async function refreshManagers() {
@@ -1782,11 +1783,11 @@ if (checkAuth()) {
             }
             const fileRows = files.map((file) => {
                 const displayName = file.displayName || file.kind.replace(/_/g, ' ');
-                const details = document.createElement('div'); const name = document.createElement('strong'); const meta = document.createElement('span'); name.textContent = displayName; details.append(name, meta);
+                const details = document.createElement('div'); details.className = 'file-record-details'; const name = document.createElement('strong'); const meta = document.createElement('span'); name.textContent = displayName; details.append(name, meta);
                 const createdAt = file.createdAt ? new Date(file.createdAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Date unavailable';
                 meta.textContent = `${(file.sizeBytes / 1024).toFixed(1)} KB · ${createdAt}`;
                 const kind = document.createElement('span'); kind.textContent = file.kind.replace(/_/g, ' ');
-                const actions = document.createElement('div'); const download = document.createElement('button'); const remove = document.createElement('button');
+                const actions = document.createElement('div'); actions.className = 'dashboard-table-actions'; const download = document.createElement('button'); const remove = document.createElement('button');
                 download.className = 'table-action'; download.type = 'button'; download.textContent = 'Download'; remove.className = 'table-action danger'; remove.type = 'button'; remove.textContent = 'Delete'; actions.append(download, remove);
                 download.setAttribute('aria-label', `Download file ${displayName}`);
                 remove.setAttribute('aria-label', `Delete file ${displayName}`);
@@ -1808,7 +1809,7 @@ if (checkAuth()) {
                 };
                 return { cells: [details, kind, actions], sortValues: [displayName, file.kind, file.createdAt || ''] };
             });
-            if (fileRows.length) renderTable(filesManager, { caption: 'Private files', columns: [{ label: 'File' }, { label: 'Kind' }, { label: 'Actions' }], rows: fileRows });
+            if (fileRows.length) renderTable(filesManager, { caption: 'Private files', columns: [{ label: 'File' }, { label: 'Kind' }, { label: 'Actions', className: 'dashboard-table-actions-cell' }], rows: fileRows });
             renderBatchJobs(batchResult.jobs || []);
             managersLoaded = true;
         } catch (error) {
