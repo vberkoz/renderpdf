@@ -73,6 +73,18 @@ cd /Users/basilsergius/projects/renderpdf && ./scripts/verify-shell.sh
 
 Runs syntax checks for the deploy, test, and verification wrappers.
 
+### Static UI Structure
+
+```bash
+cd /Users/basilsergius/projects/renderpdf && node scripts/verify-static-ui.js
+```
+
+Checks every HTML page under `landing/` and `dashboard/` without deployment,
+network access, or AWS credentials. It catches duplicate IDs, broken in-page
+anchors, dashboard navigation views with no target element, skipped heading
+levels, duplicate numbered documentation headings, and missing local stylesheet
+references. External stylesheets are intentionally not fetched.
+
 ### Deployed API Smoke Test
 
 ```bash
@@ -179,7 +191,12 @@ cd /Users/basilsergius/projects/renderpdf/webhooks && node --check index.js
 
 ### How To Test `dashboard/`
 
-- No automated dashboard build or test script exists in the repo today.
+- Run the local structural check first:
+
+```bash
+cd /Users/basilsergius/projects/renderpdf && node scripts/verify-static-ui.js
+```
+
 - Manual verification checklist:
   - review `/Users/basilsergius/projects/renderpdf/dashboard/login.html`
   - review `/Users/basilsergius/projects/renderpdf/dashboard/callback.html`
@@ -204,7 +221,12 @@ cd /Users/basilsergius/projects/renderpdf && ./scripts/deploy.sh
 
 ### How To Test `landing/`
 
-- No automated landing test script exists in the repo today.
+- Run the local structural check first:
+
+```bash
+cd /Users/basilsergius/projects/renderpdf && node scripts/verify-static-ui.js
+```
+
 - Manual verification checklist:
   - review `/Users/basilsergius/projects/renderpdf/landing/index.html`
   - if deployment-backed verification is intended, use:
@@ -242,7 +264,7 @@ cd /Users/basilsergius/projects/renderpdf && ./scripts/verify-shell.sh
 - `dashboard/`
   - no automated UI or auth-flow test script
 - `landing/`
-  - no automated page-level verification script
+  - no browser-based page-level verification script
 - `auth/`
   - no committed end-to-end auth verification script such as `test-auth.sh`
 - full system
@@ -254,4 +276,5 @@ cd /Users/basilsergius/projects/renderpdf && ./scripts/verify-shell.sh
 - `/Users/basilsergius/projects/renderpdf/scripts/verify-auth.sh`
 - `/Users/basilsergius/projects/renderpdf/scripts/verify-infra.sh`
 - `/Users/basilsergius/projects/renderpdf/scripts/verify-shell.sh`
+- `/Users/basilsergius/projects/renderpdf/scripts/verify-static-ui.js`
 - `/Users/basilsergius/projects/renderpdf/scripts/verify-deployed-api.sh`

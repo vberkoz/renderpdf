@@ -10,6 +10,7 @@
 - `/Users/basilsergius/projects/renderpdf/scripts/verify-auth.sh`
 - `/Users/basilsergius/projects/renderpdf/scripts/verify-infra.sh`
 - `/Users/basilsergius/projects/renderpdf/scripts/verify-shell.sh`
+- `/Users/basilsergius/projects/renderpdf/scripts/verify-static-ui.js`
 - `/Users/basilsergius/projects/renderpdf/scripts/verify-deployed-api.sh`
 - `/Users/basilsergius/projects/renderpdf/scripts/deploy.sh`
 - `/Users/basilsergius/projects/renderpdf/scripts/deploy-landing.sh`
@@ -20,6 +21,8 @@
 
 - Root `deploy.sh`, `deploy-landing.sh`, and `test-api.sh` remain thin compatibility wrappers.
 - Verification entrypoints live in `scripts/verify-*.sh`.
+- `node scripts/verify-static-ui.js` validates local static HTML structure
+  without deployment, network access, or AWS credentials.
 - Set `RENDERPDF_API_KEY` when running `test-api.sh` to exercise the deployed
   template create, render, update, and delete lifecycle in addition to the
   public render checks.
