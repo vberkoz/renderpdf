@@ -6,63 +6,32 @@
     <meta name="description" content="Completing your secure RenderPDF sign-in.">
     <title>RenderPDF | Completing sign-in</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-    <link href="/styles/base.css" rel="stylesheet">
-    <link href="/styles/auth.css" rel="stylesheet">
-
+    <style>
+        :root { color-scheme: light; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #17212b; background: #f7f9fb; }
+        * { box-sizing: border-box; }
+        body { min-width: 320px; min-height: 100vh; margin: 0; display: grid; place-items: center; padding: 24px; }
+        .handoff-card { width: min(100%, 420px); padding: 32px; border: 1px solid #dce3ea; border-radius: 16px; background: #fff; box-shadow: 0 12px 32px rgb(23 33 43 / 8%); text-align: center; }
+        h1 { margin: 0; font-size: 1.5rem; letter-spacing: -.02em; }
+        p { margin: 12px 0 0; color: #53616f; line-height: 1.5; }
+        .progress { width: 100%; height: 4px; margin: 28px 0 0; overflow: hidden; border-radius: 999px; background: #e2e8ef; }
+        .progress::before { content: ""; display: block; width: 40%; height: 100%; border-radius: inherit; background: #2563eb; animation: progress 1.1s ease-in-out infinite; }
+        .handoff-card[data-state="error"] .progress::before, .handoff-card[data-state="delayed"] .progress::before { display: none; }
+        .handoff-card[data-state="error"] .progress, .handoff-card[data-state="delayed"] .progress { background: #f1caca; }
+        .recovery-action { display: inline-block; margin-top: 24px; padding: 10px 16px; border-radius: 8px; background: #17212b; color: #fff; font-weight: 600; text-decoration: none; }
+        .recovery-action:hover, .recovery-action:focus-visible { background: #2d3b48; }
+        @keyframes progress { 0% { transform: translateX(-100%); } 100% { transform: translateX(250%); } }
+        @media (prefers-reduced-motion: reduce) { .progress::before { animation: none; transform: translateX(75%); } }
+    </style>
 </head>
-<body class="auth-page callback-page">
-    <a class="skip-link" href="#main-content">Skip to main content</a>
-    <div class="auth-shell">
-        <div><header class="auth-topbar">
-            <a class="auth-brand" href="/" aria-label="RenderPDF home">
-                <span class="auth-brand-mark" aria-hidden="true"></span>
-                RenderPDF
-            </a>
-            <nav id="callback-primary-navigation" class="auth-nav" data-carbon-header-nav aria-label="Primary navigation">
-                <a href="/">Home</a>
-                <a href="/docs/api/">API docs</a>
-            </nav>
-        </header></div>
-
-        <main id="main-content" class="auth-main callback-main" tabindex="-1">
-            <section class="auth-intro" aria-labelledby="callback-title">
-                <p class="auth-eyebrow">Secure account handoff</p>
-                <h1 id="callback-title">Completing sign-in.</h1>
-                <p class="auth-lead">RenderPDF is validating the Cognito response and preparing your developer workspace.</p>
-                <ul class="auth-points" aria-label="Authentication steps">
-                    <li>Validate session</li>
-                    <li>Store tokens locally</li>
-                    <li>Open dashboard</li>
-                </ul>
-            </section>
-
-            <section id="callbackCard" class="auth-card callback-card" data-state="pending" aria-live="polite">
-                <div class="callback-indicator" aria-hidden="true"><span></span></div>
-                <div class="auth-card-heading">
-                    <p class="auth-eyebrow">OAuth / Cognito</p>
-                    <h2 id="statusTitle">Authenticating</h2>
-                    <p id="statusMessage">Please wait while we verify your account response.</p>
-                </div>
-                <div class="callback-progress" aria-hidden="true"><span></span></div>
-                <a id="retryLink" class="callback-action" href="/app/login" hidden>
-                    Return to sign in
-                </a>
-                <p class="auth-fineprint">Authentication tokens stay in this browser and are used only to access your RenderPDF workspace.</p>
-            </section>
-        </main>
-
-        <footer class="auth-footer">
-            <p>RenderPDF / Secure account access</p>
-            <nav aria-label="Footer navigation">
-                <a href="/docs/api/">Documentation</a>
-                <a href="/">Free playground</a>
-                <a href="https://vberkoz.com/">vberkoz.com</a>
-            </nav>
-        </footer>
-    </div>
+<body>
+    <main>
+        <section id="callbackCard" class="handoff-card" data-state="pending" aria-labelledby="statusTitle" aria-describedby="statusMessage" aria-live="polite">
+            <h1 id="statusTitle">Completing sign-in</h1>
+            <p id="statusMessage">Please wait while we verify your account response.</p>
+            <div class="progress" role="progressbar" aria-label="Sign-in progress" aria-valuetext="Completing sign-in" aria-busy="true"></div>
+            <a id="retryLink" class="recovery-action" href="/app/login" hidden>Return to sign in</a>
+        </section>
+    </main>
 
     <script>
         const hash = window.location.hash.substring(1);
@@ -75,14 +44,27 @@
         const callbackCard = document.getElementById('callbackCard');
         const statusTitle = document.getElementById('statusTitle');
         const statusMessage = document.getElementById('statusMessage');
+        const progress = document.querySelector('.progress');
         const retryLink = document.getElementById('retryLink');
 
         const showFailure = (title, message) => {
             callbackCard.dataset.state = 'error';
             statusTitle.textContent = title;
             statusMessage.textContent = message;
+            progress.setAttribute('aria-busy', 'false');
+            progress.setAttribute('aria-valuetext', 'Sign-in could not be completed');
             retryLink.hidden = false;
             document.title = 'RenderPDF | Sign-in error';
+        };
+
+        const showDelayedRecovery = () => {
+            if (!retryLink.hidden) return;
+            callbackCard.dataset.state = 'delayed';
+            statusTitle.textContent = 'Sign-in is taking longer than expected';
+            statusMessage.textContent = 'You can return to sign in and try again.';
+            progress.setAttribute('aria-busy', 'false');
+            progress.setAttribute('aria-valuetext', 'Sign-in is taking longer than expected');
+            retryLink.hidden = false;
         };
 
         if (window.location.hash) {
@@ -103,6 +85,8 @@
         } else {
             showFailure('Invalid authentication response', 'The sign-in response did not include the required account tokens. Please start again.');
         }
+
+        window.setTimeout(showDelayedRecovery, 10000);
     </script>
 </body>
 </html>
