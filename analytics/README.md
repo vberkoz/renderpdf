@@ -38,7 +38,10 @@
     change to avoid conflicting customer actions.
 - `POST /api/v1/billing/webhook`
   - Public Paddle webhook receiver. It validates `Paddle-Signature` with
-    `PADDLE_WEBHOOK_SECRET` before storing subscription state.
+    `PADDLE_WEBHOOK_SECRET` before storing subscription state. Only supported
+    subscription lifecycle events are processed. The receiver persists Paddle's
+    event ID and occurrence time and conditionally applies only strictly newer
+    events, making retries, duplicates, and out-of-order deliveries no-ops.
 
 ## Single-table records
 

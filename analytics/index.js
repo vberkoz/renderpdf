@@ -4,8 +4,8 @@ const crypto = require('node:crypto');
 const {
   DynamoDBClient,
   GetItemCommand,
-  PutItemCommand,
   QueryCommand,
+  UpdateItemCommand,
 } = require('@aws-sdk/client-dynamodb');
 
 const ANALYTICS_INDEX = 'AnalyticsDateIndex';
@@ -25,6 +25,16 @@ const PADDLE_PRICES = {
 };
 const PADDLE_WEBHOOK_SECRET = process.env.PADDLE_WEBHOOK_SECRET || '';
 const PADDLE_CHECKOUT_URL = process.env.PADDLE_CHECKOUT_URL || '';
+const PADDLE_SUBSCRIPTION_EVENTS = new Set([
+  'subscription.created',
+  'subscription.updated',
+  'subscription.activated',
+  'subscription.trialing',
+  'subscription.canceled',
+  'subscription.past_due',
+  'subscription.paused',
+  'subscription.resumed',
+]);
 const FREE_MONTHLY_QUOTA = positiveInteger(process.env.FREE_MONTHLY_QUOTA, 25);
 const PLAN_QUOTAS = {
   starter: positiveInteger(process.env.STARTER_MONTHLY_QUOTA, 5000),
@@ -238,23 +248,35 @@ async function receivePaddleWebhook(request) {
   }
   let payload;
   try { payload = JSON.parse(rawBody); } catch { return response(400, { error: 'Invalid JSON body' }); }
+  const eventType = String(payload?.event_type || '').trim();
+  if (!PADDLE_SUBSCRIPTION_EVENTS.has(eventType)) {
+    console.log(`Paddle webhook ignored: unsupported event type ${eventType || 'unknown'}`);
+    return response(200, { received: true, ignored: true });
+  }
+  const eventId = String(payload?.event_id || '').trim();
+  const occurredAt = paddleEventTime(payload?.occurred_at);
+  if (!eventId || !occurredAt) {
+    console.warn(`Paddle webhook ignored: ${eventType} is missing a valid event ID or occurred_at timestamp`);
+    return response(200, { received: true, ignored: true });
+  }
   const attributes = payload?.data || {};
   const userId = String(attributes?.custom_data?.user_id || '').trim();
   const subscriptionId = String(attributes?.id || '').trim();
   if (!userId || !subscriptionId) {
-    console.log(`Paddle webhook ignored: ${payload?.event_type || 'unknown'} does not contain RenderPDF subscription custom data`);
-    return response(200, { received: true });
+    console.log(`Paddle webhook ignored: ${eventType} does not contain RenderPDF subscription custom data`);
+    return response(200, { received: true, ignored: true });
   }
   try {
-    await ddb.send(new PutItemCommand({
-      TableName: TABLE_NAME,
-      Item: billingItem(userId, subscriptionId, attributes),
-    }));
+    await saveBillingWebhook(userId, subscriptionId, attributes, eventId, occurredAt);
   } catch (err) {
+    if (err?.name === 'ConditionalCheckFailedException') {
+      console.log(`Paddle webhook ignored: duplicate or out-of-order ${eventType} (${eventId})`);
+      return response(200, { received: true, ignored: true });
+    }
     console.error('Could not save billing webhook', err);
     return response(500, { error: 'Could not save billing state' });
   }
-  console.log(`Paddle subscription synced: ${payload?.event_type || 'unknown'} (${attributes.status || 'unknown'})`);
+  console.log(`Paddle subscription synced: ${eventType} (${attributes.status || 'unknown'})`);
   return response(200, { received: true });
 }
 
@@ -482,7 +504,35 @@ async function getQuotaUsage(userId, monthStart) {
   return numberValue(result.Item, 'used');
 }
 
-function billingItem(userId, subscriptionId, attributes) {
+async function saveBillingWebhook(userId, subscriptionId, attributes, eventId, occurredAt) {
+  const fields = billingFields(userId, subscriptionId, attributes, eventId, occurredAt);
+  const names = {};
+  const values = {};
+  const updates = [];
+  for (const [name, value] of Object.entries(fields)) {
+    const token = `#${name}`;
+    const valueToken = `:${name}`;
+    names[token] = name;
+    values[valueToken] = value;
+    updates.push(`${token} = ${valueToken}`);
+  }
+  names['#eventTime'] = 'paddleEventOccurredAtMs';
+  names['#eventId'] = 'paddleEventId';
+  values[':eventTime'] = fields.paddleEventOccurredAtMs;
+  values[':eventId'] = fields.paddleEventId;
+  await ddb.send(new UpdateItemCommand({
+    TableName: TABLE_NAME,
+    Key: { requestId: { S: `BILLING#${userId}` }, timestamp: { N: '0' } },
+    UpdateExpression: `SET ${updates.join(', ')}`,
+    // A webhook can be retried or arrive after a newer state transition. Only
+    // strictly newer Paddle events may replace the entitlement record.
+    ConditionExpression: '(attribute_not_exists(#eventTime) OR #eventTime < :eventTime) AND (attribute_not_exists(#eventId) OR #eventId <> :eventId)',
+    ExpressionAttributeNames: names,
+    ExpressionAttributeValues: values,
+  }));
+}
+
+function billingFields(userId, subscriptionId, attributes, eventId, occurredAt) {
   const value = (input) => ({ S: String(input || '') });
   const billingPeriod = attributes.current_billing_period || {};
   const firstItem = Array.isArray(attributes.items) ? attributes.items[0] : null;
@@ -505,8 +555,20 @@ function billingItem(userId, subscriptionId, attributes) {
     endsAt: value(attributes.canceled_at),
     scheduledAction: value(scheduledChange.action),
     scheduledAt: value(scheduledChange.effective_at),
+    paddleEventId: value(eventId),
+    paddleEventOccurredAt: value(occurredAt.toISOString()),
+    paddleEventOccurredAtMs: { N: String(occurredAt.getTime()) },
     updatedAt: { N: String(Math.floor(Date.now() / 1000)) },
   };
+}
+
+function paddleEventTime(value) {
+  const text = String(value || '').trim();
+  // Paddle emits RFC 3339 UTC timestamps. Requiring the explicit UTC suffix
+  // avoids accepting ambiguous local-time values in the ordering predicate.
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/.test(text)) return null;
+  const time = new Date(text);
+  return Number.isFinite(time.getTime()) ? time : null;
 }
 
 function publicBilling(billing) {

@@ -97,7 +97,9 @@
   the Cognito user ID as transaction custom data.
 - Paddle sends signed subscription webhooks to
   `/api/v1/billing/webhook`; the analytics Lambda verifies the signature and
-  stores the account's subscription status.
+  stores the account's subscription status. It accepts only subscription
+  lifecycle events and conditionally applies state using Paddle's event ID and
+  occurrence time, so duplicate or stale deliveries cannot restore access.
 
 ## Source Of Truth
 
