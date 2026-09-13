@@ -12,6 +12,18 @@
     "ParameterValue": "vberkoz@gmail.com"
   },
   {
+    "ParameterKey": "OperationsAlertEmail",
+    "ParameterValue": "ops@example.com"
+  },
+  {
+    "ParameterKey": "MonthlyOperatingBudgetLimit",
+    "ParameterValue": "15"
+  },
+  {
+    "ParameterKey": "MonthlyEmergencyBudgetLimit",
+    "ParameterValue": "30"
+  },
+  {
     "ParameterKey": "PaddleApiKey",
     "ParameterValue": "YOUR_PADDLE_API_KEY"
   },

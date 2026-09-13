@@ -41,3 +41,5 @@
 - `docs/ARCHITECTURE.md`
 - `docs/VERIFICATION.md`
 - `docs/AGENT-RULES.md`
+- `docs/operations.md`
+  - Budget-alert and external-uptime operating runbook.

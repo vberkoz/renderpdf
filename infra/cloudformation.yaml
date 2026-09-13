@@ -26,6 +26,20 @@ Parameters:
     Type: String
     Default: vberkoz@gmail.com
     Description: Cognito email address permitted to view private statistics
+  OperationsAlertEmail:
+    Type: String
+    Default: vberkoz@gmail.com
+    Description: Confirmed email address for operational and budget alerts
+  MonthlyOperatingBudgetLimit:
+    Type: Number
+    Default: 15
+    MinValue: 1
+    Description: Monthly AWS-account spend expected during normal RenderPDF operation, in USD
+  MonthlyEmergencyBudgetLimit:
+    Type: Number
+    Default: 30
+    MinValue: 1
+    Description: Monthly AWS-account spend that should trigger an immediate investigation, in USD
   PaddleApiKey:
     Type: String
     NoEcho: true
@@ -86,6 +100,112 @@ Parameters:
     Description: Monthly successful-PDF allowance for Business accounts
 
 Resources:
+  OperationsAlertsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: RenderPDF operational alerts
+      TopicName: !Sub '${AppName}-operations-alerts'
+
+  OperationsAlertsEmailSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Protocol: email
+      Endpoint: !Ref OperationsAlertEmail
+      TopicArn: !Ref OperationsAlertsTopic
+
+  OperationsAlertsTopicPolicy:
+    Type: AWS::SNS::TopicPolicy
+    Properties:
+      Topics:
+        - !Ref OperationsAlertsTopic
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowBudgetsToPublishAlerts
+            Effect: Allow
+            Principal:
+              Service: budgets.amazonaws.com
+            Action: sns:Publish
+            Resource: !Ref OperationsAlertsTopic
+
+  MonthlyOperatingCostBudget:
+    Type: AWS::Budgets::Budget
+    Properties:
+      Budget:
+        BudgetName: !Sub '${AppName}-monthly-operating-cost'
+        BudgetLimit:
+          Amount: !Ref MonthlyOperatingBudgetLimit
+          Unit: USD
+        BudgetType: COST
+        TimeUnit: MONTHLY
+        CostTypes:
+          IncludeCredit: true
+          IncludeDiscount: true
+          IncludeOtherSubscription: true
+          IncludeRecurring: true
+          IncludeRefund: true
+          IncludeSubscription: true
+          IncludeSupport: true
+          IncludeTax: true
+          IncludeUpfront: true
+          UseBlended: false
+      NotificationsWithSubscribers:
+        - Notification:
+            ComparisonOperator: GREATER_THAN
+            NotificationType: ACTUAL
+            Threshold: 80
+            ThresholdType: PERCENTAGE
+          Subscribers:
+            - Address: !Ref OperationsAlertsTopic
+              SubscriptionType: SNS
+        - Notification:
+            ComparisonOperator: GREATER_THAN
+            NotificationType: FORECASTED
+            Threshold: 80
+            ThresholdType: PERCENTAGE
+          Subscribers:
+            - Address: !Ref OperationsAlertsTopic
+              SubscriptionType: SNS
+
+  MonthlyEmergencyCostBudget:
+    Type: AWS::Budgets::Budget
+    Properties:
+      Budget:
+        BudgetName: !Sub '${AppName}-monthly-emergency-cost'
+        BudgetLimit:
+          Amount: !Ref MonthlyEmergencyBudgetLimit
+          Unit: USD
+        BudgetType: COST
+        TimeUnit: MONTHLY
+        CostTypes:
+          IncludeCredit: true
+          IncludeDiscount: true
+          IncludeOtherSubscription: true
+          IncludeRecurring: true
+          IncludeRefund: true
+          IncludeSubscription: true
+          IncludeSupport: true
+          IncludeTax: true
+          IncludeUpfront: true
+          UseBlended: false
+      NotificationsWithSubscribers:
+        - Notification:
+            ComparisonOperator: GREATER_THAN
+            NotificationType: ACTUAL
+            Threshold: 100
+            ThresholdType: PERCENTAGE
+          Subscribers:
+            - Address: !Ref OperationsAlertsTopic
+              SubscriptionType: SNS
+        - Notification:
+            ComparisonOperator: GREATER_THAN
+            NotificationType: FORECASTED
+            Threshold: 100
+            ThresholdType: PERCENTAGE
+          Subscribers:
+            - Address: !Ref OperationsAlertsTopic
+              SubscriptionType: SNS
+
   WebsiteBucket:
     Type: AWS::S3::Bucket
     Properties:
@@ -1897,6 +2017,8 @@ Outputs:
     Value: !Ref PdfBucket
   WebhookDeadLetterQueueURL:
     Value: !Ref WebhookDeadLetterQueue
+  OperationsAlertsTopicArn:
+    Value: !Ref OperationsAlertsTopic
   UserPoolId:
     Value: !Ref UserPoolV2
   UserPoolClientId:

@@ -68,7 +68,7 @@ h1, h2, h3, h4, p { margin-top: 0; }
   box-shadow: 0 0 0 4px rgb(106 169 255 / 16%);
 }
 .stats-brand::before { content: ""; }
-.topnav, .auth-nav, .dashboard-nav, .stats-nav, .footer nav, .auth-footer nav, .auth-footer > div, .dashboard-footer > div {
+.topnav, .auth-nav, .dashboard-nav, .stats-nav, .footer nav, .auth-footer nav, .auth-footer > div, .dashboard-footer nav, .dashboard-footer > div {
   display: flex; flex-wrap: wrap; gap: 20px; align-items: center;
 }
 .topnav, .auth-nav, .dashboard-nav, .stats-nav { color: var(--muted); font-size: .82rem; font-weight: 600; }
@@ -86,7 +86,7 @@ h1, h2, h3, h4, p { margin-top: 0; }
   padding: 16px 0 0; border-top: 1px solid var(--line); color: var(--muted); font-size: .72rem;
 }
 .footer p, .auth-footer p, .dashboard-footer p { margin: 0; }
-.footer nav, .auth-footer nav, .auth-footer > div, .dashboard-footer > div { gap: 14px; }
+.footer nav, .auth-footer nav, .auth-footer > div, .dashboard-footer nav, .dashboard-footer > div { gap: 14px; }
 .dashboard-footer { padding-bottom: 24px; }
 
 .eyebrow, .panel-kicker, .auth-eyebrow, .template-card-kicker, .stats-topbar p,

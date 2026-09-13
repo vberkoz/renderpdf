@@ -38,6 +38,7 @@ Supporting docs:
 - `/Users/basilsergius/projects/renderpdf/docs/VERIFICATION.md`
 - `/Users/basilsergius/projects/renderpdf/docs/ARCHITECTURE.md`
 - `/Users/basilsergius/projects/renderpdf/docs/CONTRIBUTING.md`
+- `/Users/basilsergius/projects/renderpdf/docs/operations.md`
 - `/Users/basilsergius/projects/renderpdf/docs/AGENT-RULES.md`
 
 ## Usage
