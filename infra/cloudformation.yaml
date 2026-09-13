@@ -1010,6 +1010,13 @@ Resources:
       ParentId: !Ref BillingResource
       PathPart: portal
 
+  BillingChangePlanResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestApi
+      ParentId: !Ref BillingResource
+      PathPart: change-plan
+
   BillingWebhookResource:
     Type: AWS::ApiGateway::Resource
     Properties:
@@ -1719,6 +1726,19 @@ Resources:
         IntegrationHttpMethod: POST
         Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AnalyticsFunction.Arn}/invocations'
 
+  BillingChangePlanPostMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref BillingChangePlanResource
+      HttpMethod: POST
+      AuthorizationType: COGNITO_USER_POOLS
+      AuthorizerId: !Ref CognitoAuthorizer
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AnalyticsFunction.Arn}/invocations'
+
   BillingWebhookPostMethod:
     Type: AWS::ApiGateway::Method
     Properties:
@@ -1733,7 +1753,7 @@ Resources:
 
   # API Gateway deployments are immutable snapshots. Bump this logical ID when
   # routes or methods change so CloudFormation publishes them to the prod stage.
-  ApiDeploymentV32:
+  ApiDeploymentV33:
     Type: AWS::ApiGateway::Deployment
     DependsOn:
       - ApiRootGetMethod
@@ -1804,6 +1824,7 @@ Resources:
       - DashboardDocumentRenderPostMethod
       - BillingCheckoutPostMethod
       - BillingPortalPostMethod
+      - BillingChangePlanPostMethod
       - BillingWebhookPostMethod
     Properties:
       RestApiId: !Ref RestApi

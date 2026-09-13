@@ -17,7 +17,7 @@
         .progress::before { content: ""; display: block; width: 40%; height: 100%; border-radius: inherit; background: #2563eb; animation: progress 1.1s ease-in-out infinite; }
         .handoff-card[data-state="error"] .progress::before, .handoff-card[data-state="delayed"] .progress::before { display: none; }
         .handoff-card[data-state="error"] .progress, .handoff-card[data-state="delayed"] .progress { background: #f1caca; }
-        .recovery-action { display: inline-block; margin-top: 24px; padding: 10px 16px; border-radius: 8px; background: #17212b; color: #fff; font-weight: 600; text-decoration: none; }
+        .recovery-action { display: inline-block; margin-top: 24px; padding: 10px 16px; border-radius: 999px; background: #17212b; color: #fff; font-weight: 600; text-decoration: none; }
         .recovery-action:hover, .recovery-action:focus-visible { background: #2d3b48; }
         @keyframes progress { 0% { transform: translateX(-100%); } 100% { transform: translateX(250%); } }
         @media (prefers-reduced-motion: reduce) { .progress::before { animation: none; transform: translateX(75%); } }

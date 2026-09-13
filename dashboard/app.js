@@ -197,7 +197,14 @@ function openBillingPortal() {
     return apiRequest('/billing/portal', { method: 'POST', headers: authHeaders() });
 }
 
+function changePlan(plan) {
+    return apiRequest('/billing/change-plan', {
+        method: 'POST', headers: authHeaders(), body: JSON.stringify({ plan })
+    });
+}
+
 let paddleInitialized = false;
+let currentBilling = { status: 'free', tier: 'free' };
 
 function loadPaddleScript() {
     if (window.Paddle) return Promise.resolve(window.Paddle);
@@ -902,10 +909,11 @@ function renderKeys(keys) {
 
         if (key.isActive) {
             const revokeButton = document.createElement('button');
-            revokeButton.className = 'table-action danger';
+            revokeButton.className = 'table-action danger revoke-key-action';
             revokeButton.type = 'button';
             revokeButton.textContent = 'Revoke';
             revokeButton.dataset.keyId = key.keyId;
+            revokeButton.setAttribute('aria-label', `Revoke API key ${key.keyId}`);
             actions.appendChild(revokeButton);
         }
 
@@ -1138,18 +1146,27 @@ initializeLogExplorer();
 function renderDashboard(data) {
     const usage = data.usage || {};
     const billing = data.billing || { status: 'free', plan: 'Free' };
+    currentBilling = billing;
     document.getElementById('pdfsToday').textContent = String(usage.pdfsToday ?? 0);
     document.getElementById('monthlyUsage').textContent = `${usage.usedThisMonth ?? 0} of ${usage.quota ?? 0}`;
     document.getElementById('quotaDetail').textContent = `${usage.remaining ?? 0} PDFs remaining this month`;
     document.getElementById('dailyActivityDetail').textContent = usage.failedToday ? `${usage.failedToday} failed` : 'No failed renders';
     document.getElementById('billingPlan').textContent = billing.plan || 'Free';
+    const scheduledChange = billing.scheduledChange;
+    const scheduledLabel = scheduledChange?.effectiveAt
+        ? ` · ${scheduledChange.action === 'cancel' ? 'cancels' : `${scheduledChange.action}s`} ${new Date(scheduledChange.effectiveAt).toLocaleDateString()}`
+        : '';
     document.getElementById('billingDetail').textContent = billing.status === 'free'
         ? 'Upgrade for more monthly PDF capacity.'
-        : `${billing.status.replace(/_/g, ' ')}${billing.renewsAt ? ` · renews ${new Date(billing.renewsAt).toLocaleDateString()}` : ''}`;
+        : `${billing.status.replace(/_/g, ' ')}${scheduledLabel || (billing.renewsAt ? ` · renews ${new Date(billing.renewsAt).toLocaleDateString()}` : '')}`;
     document.getElementById('billingUsageDetail').textContent = `Current usage: ${usage.usedThisMonth ?? 0} of ${usage.quota ?? 0} PDFs this month`;
     const subscribed = ['active', 'trialing', 'past_due'].includes(billing.status);
-    document.querySelectorAll('[data-plan]').forEach((button) => { button.hidden = subscribed; });
-    document.getElementById('upgradePlanBtn').hidden = subscribed;
+    const canChangePlan = subscribed && !billing.scheduledChange && ['active', 'trialing'].includes(billing.status);
+    document.querySelectorAll('[data-plan]').forEach((button) => {
+        button.hidden = subscribed && button.dataset.plan === billing.tier;
+    });
+    document.getElementById('upgradePlanBtn').textContent = subscribed ? 'Change plan' : 'Upgrade plan';
+    document.getElementById('upgradePlanBtn').hidden = subscribed && !canChangePlan;
     document.getElementById('manageBillingBtn').hidden = !subscribed;
     const overviewPlanAction = document.getElementById('overviewPlanAction');
     if (overviewPlanAction) {
@@ -1320,32 +1337,51 @@ if (checkAuth()) {
         document.querySelectorAll('.workflow-preview-details').forEach((details) => { details.open = false; });
     }
 
-    document.getElementById('upgradePlanBtn').addEventListener('click', () => document.getElementById('billingPlanDialog').showModal());
+    document.getElementById('upgradePlanBtn').addEventListener('click', () => {
+        document.getElementById('billingPlanDialogTitle').textContent = currentBilling.status === 'free' ? 'Choose the capacity you need' : 'Choose a new plan';
+        document.getElementById('billingPlanDialog').showModal();
+    });
     document.getElementById('billingPlanDialogClose').addEventListener('click', () => document.getElementById('billingPlanDialog').close());
     document.querySelectorAll('[data-plan]').forEach((button) => button.addEventListener('click', async () => {
         const billingStatus = document.getElementById('billingStatus');
-        setButtonPending(button, true, 'Opening checkout...');
+        const changingPlan = ['active', 'trialing'].includes(currentBilling.status);
+        setButtonPending(button, true, changingPlan ? 'Changing plan...' : 'Opening checkout...');
         try {
-            const data = await startCheckout(button.dataset.plan);
-            document.getElementById('billingPlanDialog').close();
-            await openPaddleCheckout(data);
-            setButtonPending(button, false);
+            if (changingPlan) {
+                await changePlan(button.dataset.plan);
+                document.getElementById('billingPlanDialog').close();
+                setNotice(billingStatus, 'Plan change requested. Your capacity will update when Paddle confirms it.');
+                setButtonPending(button, false);
+                window.setTimeout(refreshDashboard, 1500);
+                window.setTimeout(refreshDashboard, 5000);
+            } else {
+                const data = await startCheckout(button.dataset.plan);
+                document.getElementById('billingPlanDialog').close();
+                await openPaddleCheckout(data);
+                setButtonPending(button, false);
+            }
         } catch (error) {
-            setNotice(billingStatus, `Could not start checkout. ${error.message}`, 'error');
+            setNotice(billingStatus, `Could not ${changingPlan ? 'change the plan' : 'start checkout'}. ${error.message}`, 'error');
             setButtonPending(button, false);
         }
     }));
 
     document.getElementById('manageBillingBtn').addEventListener('click', async () => {
-        const button = document.getElementById('manageBillingBtn');
         const billingStatus = document.getElementById('billingStatus');
-        setButtonPending(button, true, 'Opening billing...');
+        // Reserve the tab during the user gesture so browsers do not block the
+        // portal after the asynchronous session request completes.
+        const portalTab = window.open('about:blank', '_blank');
+        if (portalTab) portalTab.opener = null;
         try {
             const data = await openBillingPortal();
-            window.location.assign(data.url);
+            if (portalTab) {
+                portalTab.location.replace(data.url);
+            } else {
+                window.open(data.url, '_blank', 'noopener,noreferrer');
+            }
         } catch (error) {
+            portalTab?.close();
             setNotice(billingStatus, `Could not open billing. ${error.message}`, 'error');
-            setButtonPending(button, false);
         }
     });
 
@@ -1611,6 +1647,7 @@ if (checkAuth()) {
     });
 
     const managedRequest = (path, options = {}) => dashboardTemplateRequest(path, options);
+    let batchDataUploadError = '';
 
     function batchSubmission() {
         const sourceID = document.getElementById('batchSourceSelect').value;
@@ -1627,18 +1664,56 @@ if (checkAuth()) {
 
     function updateBatchReview() {
         const review = document.getElementById('batchReview');
-        try {
-            const { sourceID, items } = batchSubmission();
-            const sourceName = [...document.querySelectorAll('#batchSourceSelect-menu [data-custom-select-option]')]
-                .find((option) => option.dataset.value === sourceID)?.textContent || 'selected source';
-            review.textContent = `Ready to render ${items.length} PDF${items.length === 1 ? '' : 's'} from ${sourceName.trim()}.`;
-            review.dataset.state = 'success';
-            return { sourceID, items };
-        } catch (error) {
-            review.textContent = error.message;
-            review.dataset.state = 'error';
-            return null;
+        const sourceID = document.getElementById('batchSourceSelect').value;
+        const sourceName = [...document.querySelectorAll('#batchSourceSelect-menu [data-custom-select-option]')]
+            .find((option) => option.dataset.value === sourceID)?.textContent?.trim();
+        const input = document.getElementById('batchItemsInput').value;
+        const steps = {
+            source: Boolean(sourceID),
+            data: false,
+            review: false,
+            submit: false
+        };
+        let items;
+        let message = 'Choose a saved source and add item data to review this batch.';
+        let state = 'pending';
+
+        if (sourceID) {
+            message = 'Add a JSON array with 1–99 items to continue.';
+            try {
+                if (batchDataUploadError) throw new Error(batchDataUploadError);
+                items = JSON.parse(input);
+                if (!Array.isArray(items)) {
+                    message = 'Item data must be a JSON array.';
+                    state = 'error';
+                } else if (items.length < 1 || items.length > 99) {
+                    message = 'Provide a JSON array with 1–99 items.';
+                    state = 'error';
+                } else {
+                    steps.data = true;
+                    steps.review = true;
+                    steps.submit = true;
+                    message = `Ready to render ${items.length} PDF${items.length === 1 ? '' : 's'} from ${sourceName || 'the selected source'}.`;
+                    state = 'success';
+                }
+            } catch (error) {
+                if (batchDataUploadError) {
+                    message = batchDataUploadError;
+                    state = 'error';
+                } else if (input.trim()) {
+                    message = 'Item data must be valid JSON.';
+                    state = 'error';
+                }
+            }
         }
+
+        review.textContent = message;
+        review.dataset.state = state;
+        document.getElementById('submitBatchBtn').disabled = !steps.submit;
+        Object.entries(steps).forEach(([step, complete]) => {
+            document.querySelector(`[data-batch-step="${step}"]`)?.classList.toggle('is-ready', complete || (step === 'source' && !steps.source));
+        });
+        return steps.submit ? { sourceID, items } : null;
     }
 
     function renderManagerEmpty(container, title, description, action) {
@@ -1837,7 +1912,10 @@ if (checkAuth()) {
         }
     };
     document.getElementById('batchSourceSelect').addEventListener('change', updateBatchReview);
-    document.getElementById('batchItemsInput').addEventListener('input', updateBatchReview);
+    document.getElementById('batchItemsInput').addEventListener('input', () => {
+        batchDataUploadError = '';
+        updateBatchReview();
+    });
     document.getElementById('batchDataUpload').addEventListener('change', async (event) => {
         const file = event.target.files[0];
         if (!file) return;
@@ -1845,11 +1923,10 @@ if (checkAuth()) {
             const data = await file.text();
             const parsed = JSON.parse(data);
             if (!Array.isArray(parsed)) throw new Error('Upload a JSON array of batch items.');
+            batchDataUploadError = '';
             document.getElementById('batchItemsInput').value = JSON.stringify(parsed, null, 2);
         } catch (error) {
-            const review = document.getElementById('batchReview');
-            review.textContent = error.message || 'Could not read that JSON file.';
-            review.dataset.state = 'error';
+            batchDataUploadError = error.message || 'Could not read that JSON file.';
         } finally {
             event.target.value = '';
             updateBatchReview();
@@ -1865,6 +1942,7 @@ if (checkAuth()) {
             await refreshManagers();
             document.getElementById('batchReview').textContent = `Batch ${job.jobId} submitted. You can track it below.`;
             document.getElementById('batchReview').dataset.state = 'success';
+            document.getElementById('submitBatchBtn').disabled = true;
         } catch (error) {
             document.getElementById('batchReview').textContent = `Could not submit batch. ${error.message}`;
             document.getElementById('batchReview').dataset.state = 'error';

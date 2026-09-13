@@ -51,7 +51,7 @@
 .code-block .hljs-title, .code-block .hljs-function .hljs-title, .code-block .hljs-section, .hero-aside .hljs-title, .hero-aside .hljs-function .hljs-title, .hero-aside .hljs-section { color: #6842a6; }
 .code-block .hljs-built_in, .code-block .hljs-symbol, .code-block .hljs-variable, .hero-aside .hljs-built_in, .hero-aside .hljs-symbol, .hero-aside .hljs-variable { color: #a2412a; }
 .code-header { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: .68rem; }
-.copy-button { display: inline-flex; align-items: center; justify-content: center; min-height: 30px; padding: 4px 8px; border: 0; border-radius: 7px; background: transparent; color: var(--text); cursor: pointer; font-size: inherit; font-weight: 700; transition: background-color .16s ease, color .16s ease, transform .16s ease; }
+.copy-button { display: inline-flex; align-items: center; justify-content: center; min-height: 30px; padding: 4px 10px; border: 0; border-radius: var(--button-radius); background: transparent; color: var(--text); cursor: pointer; font-size: inherit; font-weight: 700; transition: background-color .16s ease, color .16s ease, transform .16s ease; }
 .copy-button:hover, .copy-button:focus-visible { background: #edf2f7; outline: none; }
 .copy-button:active { transform: scale(.94); }
 .copy-button.is-copied { background: #edf8f1; color: var(--success); animation: copy-confirm .24s ease-out; }

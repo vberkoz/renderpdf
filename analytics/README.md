@@ -31,6 +31,11 @@
 - `POST /api/v1/billing/portal`
   - Requires the Cognito authorizer.
   - Creates a fresh, authenticated Paddle customer-portal session.
+- `POST /api/v1/billing/change-plan`
+  - Requires the Cognito authorizer.
+  - Changes an active or trialing subscription to one of the configured plan
+    prices with immediate proration. It rejects subscriptions with a scheduled
+    change to avoid conflicting customer actions.
 - `POST /api/v1/billing/webhook`
   - Public Paddle webhook receiver. It validates `Paddle-Signature` with
     `PADDLE_WEBHOOK_SECRET` before storing subscription state.
@@ -64,7 +69,12 @@ In Paddle, create a notification destination at
 `https://renderpdf.vberkoz.com/api/v1/billing/webhook` and use its endpoint
 secret as `PaddleWebhookSecret`. Subscribe at least to `subscription.created`,
 `subscription.updated`, `subscription.activated`, `subscription.trialing`, and
-`subscription.canceled`.
+`subscription.canceled`, `subscription.past_due`, `subscription.paused`, and
+`subscription.resumed`.
+
+The server API key also needs Paddle **Subscription write** permission for
+self-service upgrades and downgrades, in addition to the transaction and
+customer-portal permissions used by checkout and portal sessions.
 
 ## Runtime
 

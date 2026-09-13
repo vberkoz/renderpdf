@@ -52,6 +52,7 @@ async function handler(event) {
   const path = event.resource || event.path || '';
   if (path.endsWith('/billing/webhook')) return receivePaddleWebhook(event);
   if (path.endsWith('/billing/checkout')) return createCheckout(event);
+  if (path.endsWith('/billing/change-plan')) return changePlan(event);
   if (path.endsWith('/billing/portal')) return openBillingPortal(event);
   if (path.endsWith('/dashboard')) return readCustomerDashboard(event);
   switch (event.httpMethod) {
@@ -178,6 +179,44 @@ async function openBillingPortal(request) {
   } catch (err) {
     console.error('Could not load Paddle customer portal', err);
     return customerResponse(502, { error: 'Could not open the billing portal' });
+  }
+}
+
+async function changePlan(request) {
+  const userId = customerId(request);
+  if (!userId) return customerResponse(401, { error: 'Sign in is required' });
+  let input;
+  try { input = JSON.parse(request.body || '{}'); } catch { return customerResponse(400, { error: 'Invalid plan change request' }); }
+  const tier = String(input.plan || '').toLowerCase();
+  const priceID = PADDLE_PRICES[tier];
+  if (!priceID) return customerResponse(422, { error: 'Choose a valid plan' });
+  if (!PADDLE_API_KEY) return customerResponse(503, { error: 'Billing is not configured yet' });
+
+  const billing = await getBilling(userId);
+  if (!billing?.subscriptionId || !['active', 'trialing'].includes(billing.status)) {
+    return customerResponse(409, { error: 'No active subscription is available to change' });
+  }
+  if (billing.scheduledAction) {
+    return customerResponse(409, { error: 'This subscription has a scheduled change. Manage it in the billing portal before changing plans.' });
+  }
+  if (billing.tier === tier) return customerResponse(409, { error: 'You are already on this plan' });
+
+  try {
+    await paddleRequest(`/subscriptions/${encodeURIComponent(billing.subscriptionId)}`, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        items: [{ price_id: priceID, quantity: 1 }],
+        custom_data: { user_id: userId, plan: tier },
+        proration_billing_mode: 'prorated_immediately',
+      }),
+    });
+    return customerResponse(202, { requested: true, plan: tier });
+  } catch (err) {
+    console.error('Could not change Paddle subscription plan', err);
+    if (err?.status === 403) {
+      return customerResponse(503, { error: 'Paddle billing key needs Subscription write permission to change plans' });
+    }
+    return customerResponse(502, { error: 'Could not change the subscription plan' });
   }
 }
 
@@ -424,6 +463,8 @@ async function getBilling(userId) {
       plan: stringValue(result.Item, 'plan'),
       renewsAt: stringValue(result.Item, 'renewsAt'),
       endsAt: stringValue(result.Item, 'endsAt'),
+      scheduledAction: stringValue(result.Item, 'scheduledAction'),
+      scheduledAt: stringValue(result.Item, 'scheduledAt'),
       updatePaymentMethod: stringValue(result.Item, 'updatePaymentMethod'),
     };
   } catch (err) {
@@ -445,6 +486,8 @@ function billingItem(userId, subscriptionId, attributes) {
   const value = (input) => ({ S: String(input || '') });
   const billingPeriod = attributes.current_billing_period || {};
   const firstItem = Array.isArray(attributes.items) ? attributes.items[0] : null;
+  const tier = String(attributes.custom_data?.plan || 'pro').toLowerCase();
+  const scheduledChange = attributes.scheduled_change || {};
   return {
     requestId: value(`BILLING#${userId}`),
     timestamp: { N: '0' },
@@ -452,11 +495,16 @@ function billingItem(userId, subscriptionId, attributes) {
     customerId: value(userId),
     subscriptionId: value(subscriptionId),
     paddleCustomerId: value(attributes.customer_id),
-    tier: value(attributes.custom_data?.plan || 'pro'),
+    tier: value(tier),
     status: value(attributes.status || 'unknown'),
-    plan: value(firstItem?.price?.product?.name || 'RenderPDF Pro'),
+    // Webhook prices contain product_id, not a nested product name. The tier
+    // originates from our trusted transaction custom data, so use it as the
+    // deterministic display fallback rather than mislabeling Starter as Pro.
+    plan: value(firstItem?.price?.product?.name || planNameForTier(tier)),
     renewsAt: value(attributes.next_billed_at || billingPeriod.ends_at),
     endsAt: value(attributes.canceled_at),
+    scheduledAction: value(scheduledChange.action),
+    scheduledAt: value(scheduledChange.effective_at),
     updatedAt: { N: String(Math.floor(Date.now() / 1000)) },
   };
 }
@@ -468,7 +516,15 @@ function publicBilling(billing) {
     tier: billing.tier || 'pro',
     renewsAt: billing.renewsAt || null,
     endsAt: billing.endsAt || null,
+    scheduledChange: billing.scheduledAction && billing.scheduledAt
+      ? { action: billing.scheduledAction, effectiveAt: billing.scheduledAt }
+      : null,
   };
+}
+
+function planNameForTier(tier) {
+  const names = { starter: 'RenderPDF Starter', pro: 'RenderPDF Professional', business: 'RenderPDF Business' };
+  return names[tier] || 'RenderPDF Professional';
 }
 
 async function paddleRequest(path, options = {}) {
@@ -481,8 +537,15 @@ async function paddleRequest(path, options = {}) {
       ...(options.headers || {}),
     },
   });
-  if (!response.ok) throw new Error(`Paddle API returned ${response.status}`);
-  return response.json();
+  let payload;
+  try { payload = await response.json(); } catch { payload = null; }
+  if (!response.ok) {
+    const error = new Error(payload?.error?.detail || `Paddle API returned ${response.status}`);
+    error.status = response.status;
+    error.code = payload?.error?.code || '';
+    throw error;
+  }
+  return payload;
 }
 
 function header(headers, name) {
