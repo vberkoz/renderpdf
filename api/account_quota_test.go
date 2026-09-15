@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -32,6 +33,9 @@ func TestAccountQuotaReservationAndRefund(t *testing.T) {
 	}
 	if len(fake.updateInputs) != 1 || aws.StringValue(fake.updateInputs[0].ExpressionAttributeValues[":limit"].N) != "25" {
 		t.Fatalf("reservation input = %#v", fake.updateInputs)
+	}
+	if got := aws.StringValue(fake.updateInputs[0].UpdateExpression); !strings.Contains(got, "#limit = if_not_exists(#limit, :limit)") {
+		t.Fatalf("reservation must preserve an existing overage-adjusted limit: %s", got)
 	}
 
 	refundAccountQuota(quota)

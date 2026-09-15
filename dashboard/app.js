@@ -1167,6 +1167,7 @@ function renderDashboard(data) {
     });
     document.getElementById('upgradePlanBtn').textContent = subscribed ? 'Change plan' : 'Upgrade plan';
     document.getElementById('upgradePlanBtn').hidden = subscribed && !canChangePlan;
+    document.getElementById('buyOverageBtn').hidden = (usage.remaining ?? 0) > 0;
     document.getElementById('manageBillingBtn').hidden = !subscribed;
     const overviewPlanAction = document.getElementById('overviewPlanAction');
     if (overviewPlanAction) {
@@ -1382,6 +1383,21 @@ if (checkAuth()) {
         } catch (error) {
             portalTab?.close();
             setNotice(billingStatus, `Could not open billing. ${error.message}`, 'error');
+        }
+    });
+
+    document.getElementById('buyOverageBtn').addEventListener('click', async () => {
+        const billingStatus = document.getElementById('billingStatus');
+        const button = document.getElementById('buyOverageBtn');
+        setButtonPending(button, true, 'Opening checkout...');
+        try {
+            const data = await startCheckout('overage');
+            await openPaddleCheckout(data);
+            setNotice(billingStatus, 'Complete payment to add 1,000 PDFs to this month’s allowance.');
+        } catch (error) {
+            setNotice(billingStatus, `Could not start overage checkout. ${error.message}`, 'error');
+        } finally {
+            setButtonPending(button, false);
         }
     });
 

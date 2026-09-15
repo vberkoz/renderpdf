@@ -5,6 +5,7 @@ const {
   DynamoDBClient,
   GetItemCommand,
   QueryCommand,
+  TransactWriteItemsCommand,
   UpdateItemCommand,
 } = require('@aws-sdk/client-dynamodb');
 
@@ -21,8 +22,9 @@ const PADDLE_ENVIRONMENT = process.env.PADDLE_ENVIRONMENT || 'production';
 const PADDLE_PRICES = {
   starter: process.env.PADDLE_STARTER_PRICE_ID || '',
   pro: process.env.PADDLE_PRO_PRICE_ID || '',
-  business: process.env.PADDLE_BUSINESS_PRICE_ID || '',
 };
+const PADDLE_OVERAGE_PRICE_ID = process.env.PADDLE_OVERAGE_PRICE_ID || '';
+const OVERAGE_RENDER_CREDITS = positiveInteger(process.env.OVERAGE_RENDER_CREDITS, 1000);
 const PADDLE_WEBHOOK_SECRET = process.env.PADDLE_WEBHOOK_SECRET || '';
 const PADDLE_CHECKOUT_URL = process.env.PADDLE_CHECKOUT_URL || '';
 const PADDLE_SUBSCRIPTION_EVENTS = new Set([
@@ -39,7 +41,6 @@ const FREE_MONTHLY_QUOTA = positiveInteger(process.env.FREE_MONTHLY_QUOTA, 25);
 const PLAN_QUOTAS = {
   starter: positiveInteger(process.env.STARTER_MONTHLY_QUOTA, 5000),
   pro: positiveInteger(process.env.PRO_MONTHLY_QUOTA, 20000),
-  business: positiveInteger(process.env.BUSINESS_MONTHLY_QUOTA, 100000),
 };
 const ddb = new DynamoDBClient({});
 const EVENT_NAME = /^[a-zA-Z0-9._:-]{1,64}$/;
@@ -121,13 +122,14 @@ async function readCustomerDashboard(request) {
     return customerResponse(500, { error: 'Could not read usage' });
   }
 
-  const activeSubscription = billing && ['active', 'trialing', 'past_due'].includes(billing.status);
-  const quota = activeSubscription ? (PLAN_QUOTAS[billing.tier] || PLAN_QUOTAS.pro) : FREE_MONTHLY_QUOTA;
-  let usedThisMonth = 0;
-  try { usedThisMonth = await getQuotaUsage(userId, monthStart); } catch (err) {
+  const baseQuota = monthlyQuotaForBilling(billing);
+  let quotaRecord;
+  try { quotaRecord = await getQuotaRecord(userId, monthStart); } catch (err) {
     console.error('Could not read customer quota', err);
     return customerResponse(500, { error: 'Could not read quota' });
   }
+  const usedThisMonth = quotaRecord.used;
+  const quota = quotaRecord.limit || baseQuota;
   usage.logs.sort((a, b) => b.timestamp - a.timestamp);
   return customerResponse(200, {
     usage: {
@@ -149,9 +151,17 @@ async function createCheckout(request) {
   let checkout;
   try { checkout = JSON.parse(request.body || '{}'); } catch { return customerResponse(400, { error: 'Invalid checkout request' }); }
   const tier = String(checkout.plan || 'pro').toLowerCase();
-  const priceID = PADDLE_PRICES[tier];
+  const isOverage = tier === 'overage';
+  if (!isOverage && !Object.hasOwn(PADDLE_PRICES, tier)) return customerResponse(422, { error: 'Choose a valid plan' });
+  const priceID = isOverage ? PADDLE_OVERAGE_PRICE_ID : PADDLE_PRICES[tier];
   if (!PADDLE_API_KEY || !PADDLE_CLIENT_TOKEN || !priceID || !PADDLE_CHECKOUT_URL) {
     return customerResponse(503, { error: 'Billing is not configured yet' });
+  }
+  if (isOverage) {
+    const billing = await getBilling(userId);
+    const quotaRecord = await getQuotaRecord(userId, new Date());
+    const quota = quotaRecord.limit || monthlyQuotaForBilling(billing);
+    if (quotaRecord.used < quota) return customerResponse(409, { error: 'Use your included monthly PDFs before buying overage renders' });
   }
   try {
     const result = await paddleRequest('/transactions', {
@@ -159,7 +169,9 @@ async function createCheckout(request) {
       body: JSON.stringify({
         items: [{ price_id: priceID, quantity: 1 }],
         collection_mode: 'automatic',
-        custom_data: { user_id: userId, plan: tier },
+        custom_data: isOverage
+          ? { user_id: userId, entitlement: 'overage' }
+          : { user_id: userId, plan: tier },
         checkout: { url: PADDLE_CHECKOUT_URL },
       }),
     });
@@ -249,6 +261,9 @@ async function receivePaddleWebhook(request) {
   let payload;
   try { payload = JSON.parse(rawBody); } catch { return response(400, { error: 'Invalid JSON body' }); }
   const eventType = String(payload?.event_type || '').trim();
+  if (eventType === 'transaction.completed') {
+    return receiveOverageWebhook(payload);
+  }
   if (!PADDLE_SUBSCRIPTION_EVENTS.has(eventType)) {
     console.log(`Paddle webhook ignored: unsupported event type ${eventType || 'unknown'}`);
     return response(200, { received: true, ignored: true });
@@ -277,6 +292,34 @@ async function receivePaddleWebhook(request) {
     return response(500, { error: 'Could not save billing state' });
   }
   console.log(`Paddle subscription synced: ${eventType} (${attributes.status || 'unknown'})`);
+  return response(200, { received: true });
+}
+
+async function receiveOverageWebhook(payload) {
+  const eventId = String(payload?.event_id || '').trim();
+  const occurredAt = paddleEventTime(payload?.occurred_at);
+  const transaction = payload?.data || {};
+  const userId = String(transaction?.custom_data?.user_id || '').trim();
+  const transactionId = String(transaction?.id || '').trim();
+  const isOverage = transaction?.custom_data?.entitlement === 'overage' &&
+    Array.isArray(transaction.items) && transaction.items.length === 1 &&
+    String(transaction.items[0]?.price?.id || '') === PADDLE_OVERAGE_PRICE_ID &&
+    Number(transaction.items[0]?.quantity) === 1;
+  if (!eventId || !occurredAt || !userId || !transactionId || !isOverage) {
+    console.log('Paddle transaction.completed ignored: not a valid RenderPDF overage purchase');
+    return response(200, { received: true, ignored: true });
+  }
+  try {
+    await creditOverage(userId, transactionId, eventId, occurredAt);
+  } catch (err) {
+    if (err?.name === 'TransactionCanceledException' || err?.name === 'ConditionalCheckFailedException') {
+      console.log(`Paddle overage webhook ignored: duplicate transaction ${transactionId}`);
+      return response(200, { received: true, ignored: true });
+    }
+    console.error('Could not apply overage credit', err);
+    return response(500, { error: 'Could not apply overage credit' });
+  }
+  console.log(`Paddle overage credit applied: ${transactionId} (+${OVERAGE_RENDER_CREDITS})`);
   return response(200, { received: true });
 }
 
@@ -495,13 +538,61 @@ async function getBilling(userId) {
   }
 }
 
-async function getQuotaUsage(userId, monthStart) {
+async function getQuotaRecord(userId, monthStart) {
   const result = await ddb.send(new GetItemCommand({
     TableName: TABLE_NAME,
     Key: { requestId: { S: `USER_QUOTA#${userId}#${dateKey(monthStart).slice(0, 7)}` }, timestamp: { N: '0' } },
     ConsistentRead: true,
   }));
-  return numberValue(result.Item, 'used');
+  return { used: numberValue(result.Item, 'used'), limit: numberValue(result.Item, 'limit') };
+}
+
+function monthlyQuotaForBilling(billing) {
+  return billing && ['active', 'trialing', 'past_due'].includes(billing.status)
+    ? (PLAN_QUOTAS[billing.tier] || PLAN_QUOTAS.pro)
+    : FREE_MONTHLY_QUOTA;
+}
+
+async function creditOverage(userId, transactionId, eventId, occurredAt) {
+  const month = dateKey(occurredAt).slice(0, 7);
+  const quotaKey = `USER_QUOTA#${userId}#${month}`;
+  const billing = await getBilling(userId);
+  const baseQuota = monthlyQuotaForBilling(billing);
+  const expiresAt = Math.floor(new Date(Date.UTC(occurredAt.getUTCFullYear(), occurredAt.getUTCMonth() + 2, 1)).getTime() / 1000);
+  await ddb.send(new TransactWriteItemsCommand({
+    TransactItems: [
+      {
+        Put: {
+          TableName: TABLE_NAME,
+          Item: {
+            requestId: { S: `OVERAGE#${transactionId}` },
+            timestamp: { N: '0' },
+            entityType: { S: 'OVERAGE_PURCHASE' },
+            customerId: { S: userId },
+            paddleTransactionId: { S: transactionId },
+            paddleEventId: { S: eventId },
+            credits: { N: String(OVERAGE_RENDER_CREDITS) },
+            expiresAt: { N: String(expiresAt) },
+          },
+          ConditionExpression: 'attribute_not_exists(requestId)',
+        },
+      },
+      {
+        Update: {
+          TableName: TABLE_NAME,
+          Key: { requestId: { S: quotaKey }, timestamp: { N: '0' } },
+          UpdateExpression: 'SET #limit = if_not_exists(#limit, :baseQuota) + :credits, entityType = :entity, expiresAt = :expiresAt',
+          ExpressionAttributeNames: { '#limit': 'limit' },
+          ExpressionAttributeValues: {
+            ':baseQuota': { N: String(baseQuota) },
+            ':credits': { N: String(OVERAGE_RENDER_CREDITS) },
+            ':entity': { S: 'USER_QUOTA' },
+            ':expiresAt': { N: String(expiresAt) },
+          },
+        },
+      },
+    ],
+  }));
 }
 
 async function saveBillingWebhook(userId, subscriptionId, attributes, eventId, occurredAt) {
@@ -585,7 +676,7 @@ function publicBilling(billing) {
 }
 
 function planNameForTier(tier) {
-  const names = { starter: 'RenderPDF Starter', pro: 'RenderPDF Professional', business: 'RenderPDF Business' };
+  const names = { starter: 'RenderPDF Starter', pro: 'RenderPDF Professional' };
   return names[tier] || 'RenderPDF Professional';
 }
 

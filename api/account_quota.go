@@ -38,8 +38,6 @@ func accountMonthlyQuota(customerID string) (int, error) {
 			switch tier {
 			case "starter":
 				return positiveEnvInt("STARTER_MONTHLY_QUOTA", 5000), nil
-			case "business":
-				return positiveEnvInt("BUSINESS_MONTHLY_QUOTA", 100000), nil
 			default:
 				return positiveEnvInt("PRO_MONTHLY_QUOTA", 20000), nil
 			}
@@ -63,10 +61,14 @@ func reserveAccountQuota(customerID string, now time.Time) (*accountQuota, error
 			"requestId": {S: aws.String(key)},
 			"timestamp": {N: aws.String("0")},
 		},
-		UpdateExpression:    aws.String("SET #used = if_not_exists(#used, :zero) + :one, entityType = :entity, expiresAt = :expires"),
-		ConditionExpression: aws.String("attribute_not_exists(#used) OR #used < :limit"),
+		// The limit is initialized on the first render of the month. Overage
+		// purchases increase this stored value, so it must not be overwritten on
+		// each render.
+		UpdateExpression:    aws.String("SET #used = if_not_exists(#used, :zero) + :one, #limit = if_not_exists(#limit, :limit), entityType = :entity, expiresAt = :expires"),
+		ConditionExpression: aws.String("attribute_not_exists(#used) OR attribute_not_exists(#limit) OR #used < #limit"),
 		ExpressionAttributeNames: map[string]*string{
-			"#used": aws.String("used"),
+			"#used":  aws.String("used"),
+			"#limit": aws.String("limit"),
 		},
 		ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{
 			":zero":    {N: aws.String("0")},

@@ -69,10 +69,10 @@ Parameters:
     Type: String
     Default: ''
     Description: Paddle recurring Pro price ID
-  PaddleBusinessPriceId:
+  PaddleOveragePriceId:
     Type: String
     Default: ''
-    Description: Paddle recurring Business price ID
+    Description: Paddle one-time price ID for 1,000 additional PDF renders
   PaddleCheckoutUrl:
     Type: String
     Default: 'https://renderpdf.vberkoz.com/app/'
@@ -94,10 +94,11 @@ Parameters:
     Type: Number
     Default: 20000
     Description: Monthly successful-PDF allowance for Pro accounts
-  BusinessMonthlyQuota:
+  OverageRenderCredits:
     Type: Number
-    Default: 100000
-    Description: Monthly successful-PDF allowance for Business accounts
+    Default: 1000
+    MinValue: 1
+    Description: PDF renders credited for each completed overage purchase
 
 Resources:
   OperationsAlertsTopic:
@@ -625,6 +626,7 @@ Resources:
                   - 'dynamodb:GetItem'
                   - 'dynamodb:PutItem'
                   - 'dynamodb:Query'
+                  - 'dynamodb:TransactWriteItems'
                   - 'dynamodb:UpdateItem'
                 Resource:
                   - !GetAtt UsageTable.Arn
@@ -648,13 +650,7 @@ Resources:
                 Action: 'dynamodb:ListStreams'
                 Resource: '*'
               - Effect: Allow
-                Action:
-                  - 'dynamodb:DeleteItem'
-                  - 'dynamodb:GetItem'
-                  - 'dynamodb:PutItem'
-                  - 'dynamodb:Query'
-                  - 'dynamodb:TransactWriteItems'
-                  - 'dynamodb:UpdateItem'
+                Action: ['dynamodb:DeleteItem', 'dynamodb:GetItem', 'dynamodb:PutItem', 'dynamodb:Query', 'dynamodb:UpdateItem']
                 Resource: !GetAtt TemplatesTable.Arn
               - Effect: Allow
                 Action: 'sqs:SendMessage'
@@ -717,7 +713,6 @@ Resources:
           FREE_MONTHLY_QUOTA: !Ref FreeMonthlyQuota
           STARTER_MONTHLY_QUOTA: !Ref StarterMonthlyQuota
           PRO_MONTHLY_QUOTA: !Ref ProMonthlyQuota
-          BUSINESS_MONTHLY_QUOTA: !Ref BusinessMonthlyQuota
           WEBHOOK_QUEUE_URL: !Ref WebhookQueue
           PACKAGE_BUCKET_NAME: !Ref PackageBucket
           TEMPLATE_TABLE_NAME: !Ref TemplatesTable
@@ -920,13 +915,13 @@ Resources:
           PADDLE_ENVIRONMENT: !Ref PaddleEnvironment
           PADDLE_STARTER_PRICE_ID: !Ref PaddleStarterPriceId
           PADDLE_PRO_PRICE_ID: !Ref PaddleProPriceId
-          PADDLE_BUSINESS_PRICE_ID: !Ref PaddleBusinessPriceId
+          PADDLE_OVERAGE_PRICE_ID: !Ref PaddleOveragePriceId
           PADDLE_CHECKOUT_URL: !Ref PaddleCheckoutUrl
           PADDLE_WEBHOOK_SECRET: !Ref PaddleWebhookSecret
           FREE_MONTHLY_QUOTA: !Ref FreeMonthlyQuota
           STARTER_MONTHLY_QUOTA: !Ref StarterMonthlyQuota
           PRO_MONTHLY_QUOTA: !Ref ProMonthlyQuota
-          BUSINESS_MONTHLY_QUOTA: !Ref BusinessMonthlyQuota
+          OVERAGE_RENDER_CREDITS: !Ref OverageRenderCredits
 
   RestApi:
     Type: AWS::ApiGateway::RestApi

@@ -26,8 +26,8 @@
     quota, billing status, and 25 most recent render attempts.
 - `POST /api/v1/billing/checkout`
   - Requires the Cognito authorizer.
-  - Creates a Paddle checkout transaction with the Cognito user ID in
-    transaction custom data.
+  - Creates a Paddle subscription checkout, or a one-time 1,000-PDF overage
+    checkout once the account has exhausted its current monthly allowance.
 - `POST /api/v1/billing/portal`
   - Requires the Cognito authorizer.
   - Creates a fresh, authenticated Paddle customer-portal session.
@@ -38,10 +38,9 @@
     change to avoid conflicting customer actions.
 - `POST /api/v1/billing/webhook`
   - Public Paddle webhook receiver. It validates `Paddle-Signature` with
-    `PADDLE_WEBHOOK_SECRET` before storing subscription state. Only supported
-    subscription lifecycle events are processed. The receiver persists Paddle's
-    event ID and occurrence time and conditionally applies only strictly newer
-    events, making retries, duplicates, and out-of-order deliveries no-ops.
+    `PADDLE_WEBHOOK_SECRET` before storing subscription state or crediting a
+    completed overage transaction. Overage credits are idempotent by Paddle
+    transaction ID, so retries cannot grant the same 1,000 PDFs twice.
 
 ## Single-table records
 
@@ -55,6 +54,8 @@ Analytics shares `renderpdf-usage` with PDF usage records:
 - Billing state uses `BILLING#<Cognito user ID>` with timestamp `0`.
 - Monthly successful-PDF counters use `USER_QUOTA#<Cognito user ID>#YYYY-MM`
   with timestamp `0` and expire after two months.
+- Completed overage purchases use `OVERAGE#<Paddle transaction ID>` records
+  and add 1,000 renders to the purchase month's quota.
 
 ## Billing Configuration
 
@@ -62,18 +63,18 @@ Set these CloudFormation parameters before enabling checkout:
 
 - `PaddleApiKey`
 - `PaddleClientToken` and `PaddleEnvironment` (`sandbox` while testing)
-- `PaddleStarterPriceId`, `PaddleProPriceId`, and `PaddleBusinessPriceId`
+- `PaddleStarterPriceId`, `PaddleProPriceId`, and `PaddleOveragePriceId`
 - `PaddleCheckoutUrl` (an approved RenderPDF URL; defaults to the dashboard)
 - `PaddleWebhookSecret`
-- optional quota limits: `FreeMonthlyQuota`, `StarterMonthlyQuota`,
-  `ProMonthlyQuota`, and `BusinessMonthlyQuota`
+- quota limits: `FreeMonthlyQuota`, `StarterMonthlyQuota`, and
+  `ProMonthlyQuota`; plus `OverageRenderCredits` (default `1000`)
 
 In Paddle, create a notification destination at
 `https://renderpdf.vberkoz.com/api/v1/billing/webhook` and use its endpoint
 secret as `PaddleWebhookSecret`. Subscribe at least to `subscription.created`,
 `subscription.updated`, `subscription.activated`, `subscription.trialing`, and
-`subscription.canceled`, `subscription.past_due`, `subscription.paused`, and
-`subscription.resumed`.
+`subscription.canceled`, `subscription.past_due`, `subscription.paused`,
+`subscription.resumed`, and `transaction.completed`.
 
 The server API key also needs Paddle **Subscription write** permission for
 self-service upgrades and downgrades, in addition to the transaction and

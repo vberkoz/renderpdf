@@ -48,8 +48,8 @@
     "ParameterValue": "YOUR_PADDLE_PRO_PRICE_ID"
   },
   {
-    "ParameterKey": "PaddleBusinessPriceId",
-    "ParameterValue": "YOUR_PADDLE_BUSINESS_PRICE_ID"
+    "ParameterKey": "PaddleOveragePriceId",
+    "ParameterValue": "pri_01m2fzxsmngvj4a5186zydh2ej"
   },
   {
     "ParameterKey": "PaddleCheckoutUrl",
@@ -72,7 +72,7 @@
     "ParameterValue": "20000"
   },
   {
-    "ParameterKey": "BusinessMonthlyQuota",
-    "ParameterValue": "100000"
+    "ParameterKey": "OverageRenderCredits",
+    "ParameterValue": "1000"
   }
 ]
