@@ -6,30 +6,14 @@
     <meta name="description" content="Completing your secure RenderPDF sign-in.">
     <title>RenderPDF | Completing sign-in</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-    <style>
-        :root { color-scheme: light; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #17212b; background: #f7f9fb; }
-        * { box-sizing: border-box; }
-        body { min-width: 320px; min-height: 100vh; margin: 0; display: grid; place-items: center; padding: 24px; }
-        .handoff-card { width: min(100%, 420px); padding: 32px; border: 1px solid #dce3ea; border-radius: 16px; background: #fff; box-shadow: 0 12px 32px rgb(23 33 43 / 8%); text-align: center; }
-        h1 { margin: 0; font-size: 1.5rem; letter-spacing: -.02em; }
-        p { margin: 12px 0 0; color: #53616f; line-height: 1.5; }
-        .progress { width: 100%; height: 4px; margin: 28px 0 0; overflow: hidden; border-radius: 999px; background: #e2e8ef; }
-        .progress::before { content: ""; display: block; width: 40%; height: 100%; border-radius: inherit; background: #2563eb; animation: progress 1.1s ease-in-out infinite; }
-        .handoff-card[data-state="error"] .progress::before, .handoff-card[data-state="delayed"] .progress::before { display: none; }
-        .handoff-card[data-state="error"] .progress, .handoff-card[data-state="delayed"] .progress { background: #f1caca; }
-        .recovery-action { display: inline-block; margin-top: 24px; padding: 10px 16px; border-radius: 999px; background: #17212b; color: #fff; font-weight: 600; text-decoration: none; }
-        .recovery-action:hover, .recovery-action:focus-visible { background: #2d3b48; }
-        @keyframes progress { 0% { transform: translateX(-100%); } 100% { transform: translateX(250%); } }
-        @media (prefers-reduced-motion: reduce) { .progress::before { animation: none; transform: translateX(75%); } }
-    </style>
 </head>
 <body>
     <main>
-        <section id="callbackCard" class="handoff-card" data-state="pending" aria-labelledby="statusTitle" aria-describedby="statusMessage" aria-live="polite">
+        <section id="callbackCard" data-state="pending" aria-labelledby="statusTitle" aria-describedby="statusMessage" aria-live="polite">
             <h1 id="statusTitle">Completing sign-in</h1>
             <p id="statusMessage">Please wait while we verify your account response.</p>
             <div class="progress" role="progressbar" aria-label="Sign-in progress" aria-valuetext="Completing sign-in" aria-busy="true"></div>
-            <a id="retryLink" class="recovery-action" href="/app/login" hidden>Return to sign in</a>
+            <p><a id="retryLink" href="/app/login" hidden>Return to sign in</a></p>
         </section>
     </main>
 

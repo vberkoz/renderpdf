@@ -6,37 +6,28 @@
     <meta http-equiv="refresh" content="0; url=/app/?view=create-render">
     <title>RenderPDF | Create &amp; render</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-    <link href="/styles/base.css" rel="stylesheet">
-    <link href="/styles/auth.css" rel="stylesheet">
-
     <script>window.location.replace(`/app/?view=create-render${window.location.hash}`);</script>
 </head>
-<body class="auth-page">
-    <a class="skip-link" href="#main-content">Skip to main content</a>
-    <div class="auth-shell">
-        <div><header class="auth-topbar">
-            <a class="auth-brand" href="/" aria-label="RenderPDF home">
-                <span class="auth-brand-mark" aria-hidden="true"></span>
-                RenderPDF
-            </a>
-            <nav id="create-render-primary-navigation" class="auth-nav" data-carbon-header-nav aria-label="Primary navigation">
-                <a href="/">Home</a>
-                <a href="/docs/api/">API docs</a>
-                <a href="/app/">Dashboard</a>
-            </nav>
-        </header></div>
-        <main class="auth-main" id="main-content" tabindex="-1">
-            <section class="auth-card" aria-labelledby="redirect-title">
-                <div class="auth-card-heading">
-                    <p class="auth-eyebrow">Developer workspace</p>
-                    <h1 id="redirect-title">Opening the renderer.</h1>
-                    <p>If you are not redirected automatically, continue to the render workspace.</p>
-                </div>
-                <a class="dashboard-button dashboard-button-primary" href="/app/?view=create-render">Open Create &amp; render</a>
-            </section>
-        </main>
-    </div>
+<body>
+    <a href="#main-content">Skip to main content</a>
 
+    <header>
+        <p><strong><a href="/" aria-label="RenderPDF home">RenderPDF</a></strong></p>
+        <nav id="create-render-primary-navigation" aria-label="Primary navigation">
+            <a href="/">Home</a> |
+            <a href="/docs/api/">API docs</a> |
+            <a href="/app/">Dashboard</a>
+        </nav>
+    </header>
+
+    <hr>
+
+    <main id="main-content" tabindex="-1">
+        <section aria-labelledby="redirect-title">
+            <h1 id="redirect-title">Opening the renderer</h1>
+            <p>If you are not redirected automatically, continue to the render workspace:</p>
+            <p><a href="/app/?view=create-render">Open Create &amp; render</a></p>
+        </section>
+    </main>
 </body>
 </html>

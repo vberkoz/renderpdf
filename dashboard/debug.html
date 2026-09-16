@@ -6,94 +6,79 @@
     <meta name="description" content="Inspect the active RenderPDF Cognito session and API access.">
     <title>RenderPDF | Session Diagnostics</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-    <link href="/styles/base.css" rel="stylesheet">
-    <link href="/styles/dashboard.css" rel="stylesheet">
-
 </head>
-<body class="dashboard-page debug-page">
-    <a class="skip-link" href="#main-content">Skip to main content</a>
-    <div>
-        <header class="dashboard-topbar">
-            <a class="dashboard-brand" href="/" aria-label="RenderPDF home">
-                <span class="dashboard-brand-mark" aria-hidden="true"></span>
-                RenderPDF
-            </a>
-            <nav id="debug-primary-navigation" class="dashboard-nav" data-carbon-header-nav aria-label="Primary navigation">
-                <a href="/app/">Dashboard</a>
-                <a href="/docs/api/">API docs</a>
-                <button id="clearSessionBtn" class="dashboard-logout" type="button">Clear session</button>
-            </nav>
-        </header>
+<body>
+    <a href="#main-content">Skip to main content</a>
 
-        <main id="main-content" tabindex="-1">
-            <section class="dashboard-hero debug-hero" aria-labelledby="debug-title">
-                <div>
-                    <p class="dashboard-eyebrow">Internal tool / Authentication</p>
-                    <h1 id="debug-title">Session diagnostics.</h1>
-                    <p class="dashboard-lead">Inspect Cognito claims and verify access to the authenticated API-key endpoint.</p>
-                </div>
-                <aside id="debugSummary" class="session-card debug-summary" data-state="pending" aria-live="polite">
-                    <div class="session-status"><span aria-hidden="true"></span><b id="summaryState">Checking session</b></div>
-                    <strong id="summaryIdentity">RenderPDF developer</strong>
-                    <p id="summaryCopy">Reading the ID token stored in this browser.</p>
-                </aside>
-            </section>
+    <header>
+        <p><strong><a href="/" aria-label="RenderPDF home">RenderPDF</a></strong></p>
+        <nav id="debug-primary-navigation" aria-label="Primary navigation">
+            <a href="/app/">Dashboard</a> |
+            <a href="/docs/api/">API docs</a> |
+            <button id="clearSessionBtn" type="button">Clear session</button>
+        </nav>
+    </header>
 
-            <section class="debug-grid" aria-label="Session diagnostics">
-                <article class="workspace-panel debug-checks-panel">
-                    <header class="panel-header panel-header-compact">
-                        <div>
-                            <p class="panel-kicker">01 / Validation</p>
-                            <h2>Token checks</h2>
-                            <p>These values must match the active RenderPDF Cognito configuration.</p>
-                        </div>
-                        <span id="checksBadge" class="debug-badge">Waiting</span>
-                    </header>
-                    <div id="checksList" class="debug-checks" aria-live="polite"></div>
-                </article>
+    <hr>
 
-                <article class="workspace-panel debug-payload-panel">
-                    <header class="panel-header panel-header-compact">
-                        <div>
-                            <p class="panel-kicker">02 / Claims</p>
-                            <h2>Decoded payload</h2>
-                            <p>Review locally stored token claims. Avoid sharing this output publicly.</p>
-                        </div>
-                        <span class="endpoint-route"><span>JWT</span><code>id_token</code></span>
-                    </header>
-                    <pre><code id="payloadOutput">No ID token found.</code></pre>
-                </article>
+    <main id="main-content" tabindex="-1">
+        <section aria-labelledby="debug-title">
+            <p><small>Internal tool / Authentication</small></p>
+            <h1 id="debug-title">Session diagnostics</h1>
+            <p>Inspect Cognito claims and verify access to the authenticated API-key endpoint.</p>
 
-                <article class="workspace-panel debug-api-panel">
-                    <header class="panel-header">
-                        <div>
-                            <p class="panel-kicker">03 / API probe</p>
-                            <h2>Test authenticated access</h2>
-                            <p>Send the current ID token to the API-key management endpoint.</p>
-                        </div>
-                        <button id="testApiBtn" class="dashboard-button dashboard-button-primary" type="button">
-                            Test API access <span aria-hidden="true">-&gt;</span>
-                        </button>
-                    </header>
-                    <div id="apiResult" class="dashboard-result debug-api-result" role="status" aria-live="polite" hidden></div>
-                </article>
-            </section>
-        </main>
+            <aside id="debugSummary" data-state="pending" aria-live="polite">
+                <p>Status: <strong id="summaryState">Checking session</strong></p>
+                <p>Identity: <strong id="summaryIdentity">RenderPDF developer</strong></p>
+                <p id="summaryCopy">Reading the ID token stored in this browser.</p>
+            </aside>
+        </section>
 
-        <footer class="dashboard-footer">
-            <p>RenderPDF / Session diagnostics</p>
-            <div>
-                <a href="/app/">Developer workspace</a>
-                <a href="/docs/api/">Documentation</a>
-                <a href="https://vberkoz.com/">vberkoz.com</a>
-            </div>
-        </footer>
-    </div>
+        <hr>
 
+        <section aria-label="Session diagnostics">
+            <article>
+                <header>
+                    <h2>01 / Token checks (<span id="checksBadge">Waiting</span>)</h2>
+                    <p>These values must match the active RenderPDF Cognito configuration.</p>
+                </header>
+                <div id="checksList" aria-live="polite"></div>
+            </article>
 
+            <hr>
+
+            <article>
+                <header>
+                    <h2>02 / Decoded payload (id_token)</h2>
+                    <p>Review locally stored token claims. Avoid sharing this output publicly.</p>
+                </header>
+                <pre><code id="payloadOutput">No ID token found.</code></pre>
+            </article>
+
+            <hr>
+
+            <article>
+                <header>
+                    <h2>03 / Test authenticated access</h2>
+                    <p>Send the current ID token to the API-key management endpoint.</p>
+                    <button id="testApiBtn" type="button">Test API access</button>
+                </header>
+                <br>
+                <div id="apiResult" role="status" aria-live="polite" hidden></div>
+            </article>
+        </section>
+    </main>
+
+    <hr>
+
+    <footer>
+        <p>RenderPDF / Session diagnostics</p>
+        <nav aria-label="Footer navigation">
+            <a href="/app/">Developer workspace</a> |
+            <a href="/docs/api/">Documentation</a> |
+            <a href="https://vberkoz.com/">vberkoz.com</a>
+        </nav>
+    </footer>
 
     <script>
         const EXPECTED_ISSUER = 'https://cognito-idp.us-east-1.amazonaws.com/us-east-1_S5G3bsO7s';
@@ -120,21 +105,17 @@
 
         const renderCheck = (check, index) => {
             const row = document.createElement('div');
-            row.className = check.pass ? 'debug-check is-success' : 'debug-check is-error';
-
             const number = document.createElement('span');
-            number.textContent = String(index + 1).padStart(2, '0');
+            number.textContent = `${String(index + 1).padStart(2, '0')}. `;
 
-            const detail = document.createElement('div');
             const name = document.createElement('strong');
-            name.textContent = check.name;
+            name.textContent = `${check.name}: `;
             const value = document.createElement('code');
             value.textContent = String(check.value ?? 'Missing');
-            detail.append(name, value);
 
-            const state = document.createElement('b');
-            state.textContent = check.pass ? 'Pass' : `Expected ${check.expected}`;
-            row.append(number, detail, state);
+            const state = document.createElement('span');
+            state.textContent = check.pass ? ' [Pass]' : ` [Expected ${check.expected}]`;
+            row.append(number, name, value, state);
             checksList.appendChild(row);
         };
 
@@ -147,9 +128,7 @@
             checksBadge.dataset.state = 'error';
             testApiBtn.disabled = true;
 
-            const notice = document.createElement('div');
-            notice.className = 'dashboard-notice';
-            notice.dataset.state = 'error';
+            const notice = document.createElement('p');
             notice.textContent = message;
             checksList.replaceChildren(notice);
         };
@@ -184,10 +163,8 @@
         }
 
         testApiBtn.addEventListener('click', async () => {
-            const originalButtonHTML = testApiBtn.innerHTML;
             testApiBtn.disabled = true;
             testApiBtn.setAttribute('aria-busy', 'true');
-            testApiBtn.classList.add('is-processing');
             testApiBtn.textContent = 'Testing access...';
             apiResult.hidden = false;
             apiResult.dataset.state = 'pending';
@@ -218,8 +195,7 @@
             } finally {
                 testApiBtn.disabled = !idToken;
                 testApiBtn.setAttribute('aria-busy', 'false');
-                testApiBtn.classList.remove('is-processing');
-                testApiBtn.innerHTML = originalButtonHTML;
+                testApiBtn.textContent = 'Test API access';
             }
         });
 
