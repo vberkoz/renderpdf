@@ -6,14 +6,6 @@
     <meta name="description" content="Create PDFs, review usage, and manage RenderPDF API keys.">
     <title>RenderPDF | Developer Dashboard</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-    <link href="/styles/base.css" rel="stylesheet">
-    <link href="/styles/dashboard.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css" rel="stylesheet">
-
-
     <script>
         const dashboardViews = ['overview', 'create-render', 'keys', 'billing', 'sources', 'files', 'batches', 'logs'];
         const dashboardView = new URLSearchParams(window.location.search).get('view') || 'overview';
@@ -21,376 +13,453 @@
     </script>
 </head>
 <body class="dashboard-page">
-    <a class="skip-link" href="#main-content">Skip to main content</a>
-    <div class="dashboard-app-frame">
-        <header class="dashboard-topbar" aria-label="RenderPDF application header">
-            <a class="dashboard-brand" href="/" aria-label="RenderPDF home">
-                <span class="dashboard-brand-mark" aria-hidden="true"></span>
-                <span>RenderPDF</span>
-            </a>
-            <nav class="dashboard-marketing-nav dashboard-nav" aria-label="Marketing and account links">
-                <a href="/docs/api/">API docs</a><a href="/#pricing">Pricing</a><a id="logoutBtn" href="/app/login">Sign out</a>
+    <a href="#main-content">Skip to main content</a>
+
+    <header>
+        <p><strong><a href="/" aria-label="RenderPDF home">RenderPDF</a></strong></p>
+        <nav aria-label="Marketing and account links">
+            <a href="/docs/api/">API docs</a> |
+            <a href="/#pricing">Pricing</a> |
+            <a id="logoutBtn" href="/app/login">Sign out</a>
+        </nav>
+    </header>
+
+    <hr>
+
+    <aside aria-label="Dashboard navigation">
+        <nav id="dashboard-primary-navigation" aria-label="Dashboard navigation">
+            <p><strong>Navigation:</strong></p>
+            <p>
+                <a href="/app/?view=overview" data-dashboard-nav="overview">Home</a> |
+                <a href="/app/?view=create-render" data-dashboard-nav="create-render">Create PDF</a> |
+                <a href="/app/?view=sources" data-dashboard-nav="sources">Saved sources</a> |
+                <a href="/app/?view=files" data-dashboard-nav="files">Files</a> |
+                <a href="/app/?view=batches" data-dashboard-nav="batches">Batches</a> |
+                <a href="/app/?view=logs" data-dashboard-nav="logs">Activity</a> |
+                <a href="/app/?view=keys" data-dashboard-nav="keys">API Keys</a> |
+                <a href="/app/?view=billing" data-dashboard-nav="billing">Billing</a>
+            </p>
+        </nav>
+
+        <details class="dashboard-mobile-navigation" hidden>
+            <summary>Navigate dashboard</summary>
+            <nav aria-label="Dashboard navigation">
+                <a href="/app/?view=overview" data-dashboard-nav="overview">Home</a>
+                <a href="/app/?view=create-render" data-dashboard-nav="create-render">Create PDF</a>
             </nav>
-        </header>
+        </details>
+    </aside>
 
-        <div class="dashboard-app-layout">
-            <aside class="dashboard-sidebar" aria-label="Dashboard navigation">
-                <nav id="dashboard-primary-navigation" class="dashboard-app-nav" aria-label="Dashboard navigation">
-                    <a href="/app/?view=overview" data-dashboard-nav="overview">Home</a>
-                    <a href="/app/?view=create-render" data-dashboard-nav="create-render">Create PDF</a>
-                    <div class="dashboard-nav-group">
-                        <p>Manage</p>
-                        <a href="/app/?view=sources" data-dashboard-nav="sources">Saved sources</a>
-                        <a href="/app/?view=files" data-dashboard-nav="files">Files</a>
-                        <a href="/app/?view=batches" data-dashboard-nav="batches">Batches</a>
-                        <a href="/app/?view=logs" data-dashboard-nav="logs">Activity</a>
-                    </div>
-                    <div class="dashboard-nav-group">
-                        <p>Account</p>
-                        <a href="/app/?view=keys" data-dashboard-nav="keys">API Keys</a>
-                        <a href="/app/?view=billing" data-dashboard-nav="billing">Billing</a>
-                    </div>
-                </nav>
-            </aside>
+    <hr>
 
-            <details class="dashboard-mobile-navigation">
-                <summary>Navigate dashboard</summary>
-                <nav class="dashboard-app-nav" aria-label="Dashboard navigation">
-                    <a href="/app/?view=overview" data-dashboard-nav="overview">Home</a>
-                    <a href="/app/?view=create-render" data-dashboard-nav="create-render">Create PDF</a>
-                    <div class="dashboard-nav-group">
-                        <p>Manage</p>
-                        <a href="/app/?view=sources" data-dashboard-nav="sources">Saved sources</a>
-                        <a href="/app/?view=files" data-dashboard-nav="files">Files</a>
-                        <a href="/app/?view=batches" data-dashboard-nav="batches">Batches</a>
-                        <a href="/app/?view=logs" data-dashboard-nav="logs">Activity</a>
-                    </div>
-                    <div class="dashboard-nav-group">
-                        <p>Account</p>
-                        <a href="/app/?view=keys" data-dashboard-nav="keys">API Keys</a>
-                        <a href="/app/?view=billing" data-dashboard-nav="billing">Billing</a>
-                    </div>
-                </nav>
-            </details>
+    <main id="main-content" tabindex="-1">
+        <div id="dashboard-content" tabindex="-1">
+            <header>
+                <p id="dashboardPageKicker" hidden>Developer dashboard</p>
+                <h1 id="dashboardPageTitle">Home</h1>
+                <p id="dashboardPageDescription">Your PDF activity, capacity, and next steps.</p>
+            </header>
 
-            <main id="main-content" class="dashboard-main" tabindex="-1">
-                <div id="dashboard-content" class="dashboard-content" tabindex="-1">
-                <header class="dashboard-page-intro">
-                    <p id="dashboardPageKicker" class="visually-hidden">Developer dashboard</p>
-                    <h1 id="dashboardPageTitle">Home</h1>
-                    <p id="dashboardPageDescription">Your PDF activity, capacity, and next steps.</p>
-                </header>
-                <section class="dashboard-workspace" aria-label="Dashboard content">
-                <section class="overview-home" data-dashboard-view="overview" aria-label="Dashboard overview">
-                    <section class="overview-section overview-usage" aria-labelledby="overview-usage-title">
-                        <header class="panel-header panel-header-compact">
-                            <h2 id="overview-usage-title">Usage</h2>
-                        </header>
-                        <div class="dashboard-metrics usage-metrics">
-                            <div class="usage-summary"><span>This month</span><strong id="monthlyUsage">—</strong><small id="quotaDetail"></small></div>
-                            <div class="daily-activity"><span>Today</span><strong id="pdfsToday">—</strong><small id="dailyActivityDetail"></small></div>
-                        </div>
+            <hr>
+
+            <section aria-label="Dashboard content">
+                <!-- Overview View -->
+                <section data-dashboard-view="overview" aria-label="Dashboard overview">
+                    <section aria-labelledby="overview-usage-title">
+                        <h2 id="overview-usage-title">Usage</h2>
+                        <p>This month: <strong id="monthlyUsage">—</strong> <small id="quotaDetail"></small></p>
+                        <p>Today: <strong id="pdfsToday">—</strong> <small id="dailyActivityDetail"></small></p>
                     </section>
 
-                    <section class="overview-section overview-next-actions" aria-labelledby="overview-actions-title">
-                        <header class="panel-header panel-header-compact">
-                            <h2 id="overview-actions-title">Next actions</h2>
-                        </header>
-                        <div class="dashboard-next-actions">
-                            <a class="dashboard-next-action dashboard-next-action-primary" href="/app/?view=create-render">
-                                <strong>Create PDF</strong>
-                                <span>Start from a template or document.</span>
-                            </a>
-                            <a id="overviewPlanAction" class="dashboard-next-action" href="/app/?view=billing">
-                                <strong>Upgrade plan</strong>
-                                <span>Increase your monthly PDF capacity.</span>
-                            </a>
-                        </div>
+                    <hr>
+
+                    <section aria-labelledby="overview-actions-title">
+                        <h2 id="overview-actions-title">Next actions</h2>
+                        <p>
+                            <a href="/app/?view=create-render"><strong>Create PDF</strong></a> — Start from a template or document.
+                        </p>
+                        <p>
+                            <a id="overviewPlanAction" href="/app/?view=billing"><strong>Upgrade plan</strong></a> — Increase your monthly PDF capacity.
+                        </p>
                     </section>
 
-                    <section class="overview-section overview-recent-activity" aria-labelledby="overview-activity-title">
-                        <header class="panel-header panel-header-compact">
-                            <h2 id="overview-activity-title">Recent activity</h2>
-                            <a class="dashboard-button dashboard-button-secondary" href="/app/?view=logs">View activity</a>
-                        </header>
-                        <div id="recentActivityList" class="logs-list" aria-live="polite"><p class="empty-state">Loading recent activity...</p></div>
+                    <hr>
+
+                    <section aria-labelledby="overview-activity-title">
+                        <h2 id="overview-activity-title">Recent activity</h2>
+                        <p><a href="/app/?view=logs">View all activity</a></p>
+                        <div id="recentActivityList" aria-live="polite"><p>Loading recent activity...</p></div>
                     </section>
                 </section>
 
-                <article class="workspace-panel quiet-section billing-panel" data-dashboard-view="billing">
-                    <header class="panel-header panel-header-compact">
-                        <div>
-                            <h2 id="billingPlan">Free</h2>
-                            <p id="billingDetail">Free includes 25 PDFs each month. Upgrade for more capacity.</p>
-                            <p id="billingUsageDetail" class="billing-usage-detail">Current usage: —</p>
-                        </div>
-                        <div class="billing-actions">
-                            <button id="upgradePlanBtn" class="dashboard-button dashboard-button-primary" type="button">Upgrade plan</button>
-                            <button id="buyOverageBtn" class="dashboard-button dashboard-button-primary" type="button" hidden>Buy 1,000 PDFs — $5</button>
-                            <button id="manageBillingBtn" class="dashboard-button dashboard-button-primary" type="button" hidden>Manage billing</button>
-                        </div>
+                <!-- Billing View -->
+                <article data-dashboard-view="billing">
+                    <header>
+                        <h2 id="billingPlan">Free</h2>
+                        <p id="billingDetail">Free includes 25 PDFs each month. Upgrade for more capacity.</p>
+                        <p id="billingUsageDetail">Current usage: —</p>
+                        <p>
+                            <button id="upgradePlanBtn" type="button">Upgrade plan</button>
+                            <button id="buyOverageBtn" type="button" hidden>Buy 1,000 PDFs — $5</button>
+                            <button id="manageBillingBtn" type="button" hidden>Manage billing</button>
+                        </p>
                     </header>
-                    <div id="billingStatus" class="dashboard-notice" role="status" aria-live="polite" hidden></div>
+                    <div id="billingStatus" role="status" aria-live="polite" hidden></div>
                 </article>
 
-                <article id="api-keys" class="workspace-panel quiet-section keys-panel" data-dashboard-view="keys">
-                    <header class="panel-header">
-                        <div>
-                            <p>Use keys only from a trusted server or backend. Store them in a secret manager or environment variable—never in browser code.</p>
-                        </div>
-                        <button id="generateKeyBtn" class="dashboard-button dashboard-button-primary" type="button">
-                            Create API key
-                        </button>
+                <!-- Keys View -->
+                <article id="api-keys" data-dashboard-view="keys">
+                    <header>
+                        <h2>API Keys</h2>
+                        <p>Use keys only from a trusted server or backend. Store them in a secret manager or environment variable—never in browser code.</p>
+                        <p><button id="generateKeyBtn" type="button">Create API key</button></p>
                     </header>
 
-                    <div id="keysStatus" class="dashboard-notice" role="status" aria-live="polite" hidden></div>
+                    <div id="keysStatus" role="status" aria-live="polite" hidden></div>
 
-                    <section id="newKeyCard" class="new-key-card" aria-labelledby="new-key-title" hidden>
-                        <div>
-                            <h3 id="new-key-title">Copy this key now</h3>
-                            <p>For security, the complete value is shown only once.</p>
-                        </div>
-                        <div class="key-display">
-                            <code id="newKeyValue"></code>
-                        </div>
+                    <section id="newKeyCard" aria-labelledby="new-key-title" hidden>
+                        <h3 id="new-key-title">Copy this key now</h3>
+                        <p>For security, the complete value is shown only once:</p>
+                        <p><code id="newKeyValue"></code></p>
                     </section>
 
-                    <section class="api-keys-list-section" aria-labelledby="existing-api-keys-title">
-                        <header class="api-keys-list-heading">
-                            <h3 id="existing-api-keys-title">Existing keys</h3>
-                            <p>Revoke keys you no longer use to stop requests immediately.</p>
-                        </header>
+                    <section aria-labelledby="existing-api-keys-title">
+                        <h3 id="existing-api-keys-title">Existing keys</h3>
+                        <p>Revoke keys you no longer use to stop requests immediately.</p>
                         <div id="keysList" aria-live="polite"></div>
                     </section>
                 </article>
 
-                <article class="workspace-panel templates-panel create-render-panel" data-dashboard-view="create-render">
-                    <header class="panel-header">
-                        <div>
-                        </div>
-                    </header>
+                <!-- Create Render View -->
+                <article data-dashboard-view="create-render">
+                    <div id="templatesStatus" role="status" aria-live="polite" hidden></div>
 
-                    <div id="templatesStatus" class="dashboard-notice" role="status" aria-live="polite" hidden></div>
-
-                    <section class="workflow-stage workflow-source-stage" aria-labelledby="source-choice-title">
-                        <div class="workflow-stage-heading">
-                            <span class="workflow-step-number" aria-hidden="true">1</span>
-                            <div><h3 id="source-choice-title">Choose a source</h3><p>Start with a reusable template or saved source, or create a new document.</p></div>
-                        </div>
+                    <section aria-labelledby="source-choice-title">
+                        <h2 id="source-choice-title">Choose a source</h2>
+                        <p>Start with a reusable template or saved source, or create a new document.</p>
                         <input id="createRenderModeInput" type="hidden" value="template">
-                        <div class="source-choice" role="group" aria-label="PDF source">
-                            <button class="source-choice-option is-selected" type="button" data-source-choice="template" aria-pressed="true"><strong>Template</strong><span>Use a starter or saved reusable layout.</span></button>
-                            <button class="source-choice-option" type="button" data-source-choice="stored" aria-pressed="false"><strong>Saved source</strong><span>Continue with a source prepared for repeat or batch PDFs.</span></button>
-                            <button class="source-choice-option" type="button" data-source-choice="html" aria-pressed="false"><strong>Inline HTML/CSS</strong><span>Paste a validated JSON document request.</span></button>
-                            <button class="source-choice-option" type="button" data-source-choice="markdown" aria-pressed="false"><strong>Markdown</strong><span>Write Markdown with data and print settings.</span></button>
-                        </div>
+                        <p>
+                            <button type="button" data-source-choice="template" aria-pressed="true">Template</button> |
+                            <button type="button" data-source-choice="stored" aria-pressed="false">Saved source</button> |
+                            <button type="button" data-source-choice="html" aria-pressed="false">Inline HTML/CSS</button> |
+                            <button type="button" data-source-choice="markdown" aria-pressed="false">Markdown</button>
+                        </p>
                     </section>
 
+                    <hr>
+
+                    <!-- Template Workspace -->
                     <div id="templateWorkspace">
-                    <div class="workflow-stage-grid">
-                        <section class="workflow-stage workflow-editor-stage" aria-labelledby="template-editor-title">
-                            <div class="workflow-stage-heading">
-                                <span class="workflow-step-number" aria-hidden="true">2</span>
-                                <div><h3 id="template-editor-title">Edit your template</h3><p>Set the layout and the values used for this test render.</p></div>
-                            </div>
-                            <form id="templateForm" class="template-form">
-                            <input id="templateId" type="hidden">
-                            <input id="templateTypeInput" type="hidden" value="custom">
-                            <div class="template-form-row">
-                                <div class="custom-select" data-custom-select><span class="custom-select-label">Template</span><input id="templatePickerInput" type="hidden" value="new"><button class="custom-select-trigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="templatePickerInput-menu"><span class="custom-select-value">Blank custom template</span></button><div id="templatePickerInput-menu" class="custom-select-menu" role="listbox" hidden><div class="custom-select-group-label">Custom templates</div><button class="custom-select-option is-active" type="button" role="option" aria-selected="true" data-custom-select-option data-value="new">Blank custom template</button><div class="custom-select-divider" role="separator"></div><div class="custom-select-group-label">Starter templates</div><button class="custom-select-option" type="button" role="option" aria-selected="false" data-custom-select-option data-value="starter:invoice">Invoice starter</button><button class="custom-select-option" type="button" role="option" aria-selected="false" data-custom-select-option data-value="starter:contract">Contract starter</button><button class="custom-select-option" type="button" role="option" aria-selected="false" data-custom-select-option data-value="starter:certificate">Certificate starter</button><button class="custom-select-option" type="button" role="option" aria-selected="false" data-custom-select-option data-value="starter:receipt">Receipt starter</button></div></div>
-                                <label class="dashboard-field" for="templateNameInput"><span>Name <em>Required</em></span><input id="templateNameInput" maxlength="120" placeholder="Monthly invoice" required></label>
-                            </div>
-                            <label class="dashboard-field" for="templateHtmlInput"><span>Template HTML <em>Required</em></span><textarea id="templateHtmlInput" rows="13" spellcheck="false" placeholder="Use {{customer.name}} for variable values." aria-describedby="template-html-help" required></textarea><small id="template-html-help" class="field-help">Use double curly braces, for example {{customer.name}}, for values supplied in the JSON data.</small></label>
-                            <details class="editor-secondary" open>
-                                <summary>Template data</summary>
-                                <section class="template-data-section" aria-label="Default template data">
-                                <label class="dashboard-field" for="templateVariablesInput"><span>Variable JSON</span><textarea id="templateVariablesInput" rows="9" spellcheck="false">{}</textarea></label>
-                                </section>
-                            </details>
+                        <section aria-labelledby="template-editor-title">
+                            <h2 id="template-editor-title">Edit your template</h2>
+                            <form id="templateForm">
+                                <input id="templateId" type="hidden">
+                                <input id="templateTypeInput" type="hidden" value="custom">
+                                <div>
+                                    <div class="custom-select" data-custom-select>
+                                        <span class="custom-select-label">Template:</span>
+                                        <input id="templatePickerInput" type="hidden" value="new">
+                                        <button class="custom-select-trigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="templatePickerInput-menu">
+                                            <span class="custom-select-value">Blank custom template</span>
+                                        </button>
+                                        <div id="templatePickerInput-menu" class="custom-select-menu" role="listbox" hidden>
+                                            <button class="custom-select-option" type="button" role="option" aria-selected="true" data-custom-select-option data-value="new">Blank custom template</button>
+                                            <button class="custom-select-option" type="button" role="option" aria-selected="false" data-custom-select-option data-value="starter:invoice">Invoice starter</button>
+                                            <button class="custom-select-option" type="button" role="option" aria-selected="false" data-custom-select-option data-value="starter:contract">Contract starter</button>
+                                            <button class="custom-select-option" type="button" role="option" aria-selected="false" data-custom-select-option data-value="starter:certificate">Certificate starter</button>
+                                            <button class="custom-select-option" type="button" role="option" aria-selected="false" data-custom-select-option data-value="starter:receipt">Receipt starter</button>
+                                        </div>
+                                    </div>
+                                    <br>
+                                    <label for="templateNameInput"><strong>Name (required):</strong></label><br>
+                                    <input id="templateNameInput" maxlength="120" placeholder="Monthly invoice" required>
+                                </div>
+                                <br>
+                                <div>
+                                    <label for="templateHtmlInput"><strong>Template HTML (required):</strong></label><br>
+                                    <textarea id="templateHtmlInput" rows="12" cols="80" spellcheck="false" placeholder="Use {{customer.name}} for variable values." aria-describedby="template-html-help" required></textarea><br>
+                                    <small id="template-html-help">Use double curly braces, for example {{customer.name}}, for values supplied in the JSON data.</small>
+                                </div>
+                                <br>
+                                <details class="editor-secondary" open>
+                                    <summary>Template data</summary>
+                                    <section aria-label="Default template data">
+                                        <label for="templateVariablesInput"><strong>Variable JSON:</strong></label><br>
+                                        <textarea id="templateVariablesInput" rows="6" cols="80" spellcheck="false">{}</textarea>
+                                    </section>
+                                </details>
                             </form>
                         </section>
 
-                        <section class="workflow-stage workflow-preview-workflow" aria-labelledby="template-preview-workflow-title">
-                            <div class="workflow-stage-heading">
-                                <span class="workflow-step-number" aria-hidden="true">3</span>
-                                <div><h3 id="template-preview-workflow-title">Preview &amp; render</h3><p>Review the paged output, then create a downloadable PDF.</p></div>
-                            </div>
+                        <br>
+
+                        <section aria-labelledby="template-preview-workflow-title">
+                            <h2 id="template-preview-workflow-title">Preview &amp; render</h2>
                             <details id="templatePreviewDetails" class="workflow-preview-details" open>
-                                <summary><strong>Preview</strong><span>Live test data · paged A4 preview</span></summary>
-                                <div class="template-preview-wrap paged-preview"><div class="template-preview-stage paged-preview-stage"><iframe id="templatePreview" class="template-preview paged-preview-frame" title="Template preview" sandbox="allow-scripts" scrolling="no"></iframe></div></div>
+                                <summary>Preview (paged A4 preview)</summary>
+                                <iframe id="templatePreview" width="100%" height="320" title="Template preview" sandbox="allow-scripts" scrolling="no"></iframe>
                             </details>
-                            <div class="workflow-primary-actions">
-                                <button id="previewTemplateBtn" class="dashboard-button dashboard-button-secondary" type="button">Preview</button>
-                                <button id="renderTemplateBtn" class="dashboard-button dashboard-button-primary" type="button">Render PDF</button>
-                                <button id="saveTemplateBtn" class="dashboard-button dashboard-button-secondary" type="submit" form="templateForm">Save template</button>
-                                <button id="deleteTemplateBtn" class="dashboard-button dashboard-button-secondary dashboard-button-danger" type="button" hidden>Delete template</button>
+                            <br>
+                            <div>
+                                <button id="previewTemplateBtn" type="button">Preview</button>
+                                <button id="renderTemplateBtn" type="button">Render PDF</button>
+                                <button id="saveTemplateBtn" type="submit" form="templateForm">Save template</button>
+                                <button id="deleteTemplateBtn" type="button" hidden>Delete template</button>
                             </div>
-                            <div id="templateRenderResult" class="dashboard-result" role="status" aria-live="polite" hidden></div>
+                            <div id="templateRenderResult" role="status" aria-live="polite" hidden></div>
                         </section>
                     </div>
-                    </div>
 
+                    <!-- Stored Source Workspace -->
                     <div id="storedSourceWorkspace" hidden>
-                        <section class="workflow-stage stored-source-stage" aria-labelledby="stored-source-title">
-                            <div class="workflow-stage-heading">
-                                <span class="workflow-step-number" aria-hidden="true">2</span>
-                                <div><h3 id="stored-source-title">Choose a saved source</h3><p>Saved sources keep their document definition private and are rendered through the batch workflow.</p></div>
+                        <section aria-labelledby="stored-source-title">
+                            <h2 id="stored-source-title">Choose a saved source</h2>
+                            <p>Saved sources keep their document definition private and are rendered through the batch workflow.</p>
+                            <div class="custom-select" data-custom-select>
+                                <span class="custom-select-label">Saved source:</span>
+                                <input id="storedSourcePickerInput" type="hidden" value="">
+                                <button class="custom-select-trigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="storedSourcePickerInput-menu">
+                                    <span class="custom-select-value">Loading saved sources</span>
+                                </button>
+                                <div id="storedSourcePickerInput-menu" class="custom-select-menu" role="listbox" hidden>
+                                    <button class="custom-select-option" type="button" role="option" aria-selected="true" data-custom-select-option data-value="">Loading saved sources</button>
+                                </div>
                             </div>
-                            <div class="stored-source-picker-row">
-                                <div class="custom-select" data-custom-select><span class="custom-select-label">Saved source</span><input id="storedSourcePickerInput" type="hidden" value=""><button class="custom-select-trigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="storedSourcePickerInput-menu"><span class="custom-select-value">Loading saved sources</span></button><div id="storedSourcePickerInput-menu" class="custom-select-menu" role="listbox" hidden><button class="custom-select-option is-active" type="button" role="option" aria-selected="true" data-custom-select-option data-value="">Loading saved sources</button></div></div>
-                                <button id="continueSavedSourceBtn" class="dashboard-button dashboard-button-primary" type="button">Continue to batch</button>
-                            </div>
-                            <div id="storedSourceStatus" class="dashboard-notice" role="status" aria-live="polite">Select a saved source to add data and create PDFs.</div>
+                            <br>
+                            <button id="continueSavedSourceBtn" type="button">Continue to batch</button>
+                            <div id="storedSourceStatus" role="status" aria-live="polite"><p>Select a saved source to add data and create PDFs.</p></div>
                         </section>
                     </div>
 
+                    <!-- Document Workspace -->
                     <div id="documentWorkspace" hidden>
-                    <div id="documentJsonStatus" class="dashboard-notice" role="status" aria-live="polite" hidden></div>
-                    <input id="documentSourceTypeInput" type="hidden" value="html">
-                    <div class="workflow-stage-grid">
-                        <section class="workflow-stage workflow-editor-stage document-json-editor" aria-labelledby="document-editor-title">
-                            <div class="workflow-stage-heading">
-                                <span class="workflow-step-number" aria-hidden="true">2</span>
-                                <div><h3 id="document-editor-title">Edit your source</h3><p id="documentEditorDescription">Provide the complete, versioned HTML/CSS JSON request.</p></div>
+                        <div id="documentJsonStatus" role="status" aria-live="polite" hidden></div>
+                        <input id="documentSourceTypeInput" type="hidden" value="html">
+
+                        <section aria-labelledby="document-editor-title">
+                            <h2 id="document-editor-title">Edit your source</h2>
+                            <p id="documentEditorDescription">Provide the complete, versioned HTML/CSS JSON request.</p>
+
+                            <div id="documentJsonField">
+                                <label for="documentJsonInput"><strong>JSON payload:</strong></label><br>
+                                <textarea id="documentJsonInput" rows="16" cols="80" spellcheck="false"></textarea>
                             </div>
-                            <label id="documentJsonField" class="dashboard-field" for="documentJsonInput"><span>JSON payload</span><textarea id="documentJsonInput" rows="20" spellcheck="false"></textarea></label>
-                            <div id="documentMarkdownFields" class="document-markdown-fields" hidden>
-                                <label class="dashboard-field" for="documentMarkdownInput"><span>Markdown source</span><textarea id="documentMarkdownInput" rows="12" spellcheck="false"></textarea></label>
-                                <details class="editor-secondary"><summary>Data, CSS, and print settings</summary><label class="dashboard-field" for="documentMarkdownSettingsInput"><span>Data, CSS, and options JSON</span><textarea id="documentMarkdownSettingsInput" rows="7" spellcheck="false"></textarea></label></details>
+
+                            <div id="documentMarkdownFields" hidden>
+                                <label for="documentMarkdownInput"><strong>Markdown source:</strong></label><br>
+                                <textarea id="documentMarkdownInput" rows="12" cols="80" spellcheck="false"></textarea>
+                                <br><br>
+                                <details class="editor-secondary">
+                                    <summary>Data, CSS, and print settings</summary>
+                                    <label for="documentMarkdownSettingsInput"><strong>Data, CSS, and options JSON:</strong></label><br>
+                                    <textarea id="documentMarkdownSettingsInput" rows="6" cols="80" spellcheck="false"></textarea>
+                                </details>
                             </div>
                         </section>
 
-                        <section class="workflow-stage workflow-preview-workflow" aria-labelledby="document-preview-workflow-title">
-                            <div class="workflow-stage-heading">
-                                <span class="workflow-step-number" aria-hidden="true">3</span>
-                                <div><h3 id="document-preview-workflow-title">Preview &amp; render</h3><p>Preview bound values locally before creating the PDF.</p></div>
-                            </div>
+                        <br>
+
+                        <section aria-labelledby="document-preview-workflow-title">
+                            <h2 id="document-preview-workflow-title">Document preview &amp; render</h2>
                             <details id="documentPreviewDetails" class="workflow-preview-details" open>
-                                <summary><strong>Preview</strong><span>Bound values · network disabled</span></summary>
-                                <div class="document-json-preview-wrap paged-preview"><div class="document-json-preview-stage paged-preview-stage"><iframe id="documentJsonPreview" class="document-json-preview paged-preview-frame" title="Document preview" sandbox="allow-scripts" scrolling="no"></iframe></div></div>
+                                <summary>Preview (bound values)</summary>
+                                <iframe id="documentJsonPreview" width="100%" height="320" title="Document preview" sandbox="allow-scripts" scrolling="no"></iframe>
                             </details>
-                            <div class="workflow-primary-actions">
-                                <button id="previewDocumentJsonBtn" class="dashboard-button dashboard-button-secondary" type="button">Preview</button>
-                                <button id="renderDocumentJsonBtn" class="dashboard-button dashboard-button-primary" type="button">Render PDF</button>
-                                <details class="workflow-secondary-actions"><summary>More actions</summary><div><button id="saveDocumentSourceBtn" class="dashboard-button dashboard-button-secondary" type="button">Save source</button><button id="resetDocumentJsonBtn" class="dashboard-button dashboard-button-secondary" type="button">Load sample</button></div></details>
+                            <br>
+                            <div>
+                                <button id="previewDocumentJsonBtn" type="button">Preview</button>
+                                <button id="renderDocumentJsonBtn" type="button">Render PDF</button>
+                                <button id="saveDocumentSourceBtn" type="button">Save source</button>
+                                <button id="resetDocumentJsonBtn" type="button">Load sample</button>
                             </div>
-                            <div id="documentJsonResult" class="dashboard-result" role="status" aria-live="polite" hidden></div>
+                            <div id="documentJsonResult" role="status" aria-live="polite" hidden></div>
                         </section>
                     </div>
-                    </div>
                 </article>
 
-                <article class="workspace-panel quiet-section reusable-assets-panel" data-dashboard-view="sources">
-                    <header class="panel-header panel-header-compact"><button id="refreshSourcesBtn" class="dashboard-button dashboard-button-secondary" type="button">Refresh</button></header>
-                    <div id="sourcesStatus" class="dashboard-notice" role="status" aria-live="polite" hidden></div>
-                    <section class="reusable-assets-group" aria-labelledby="saved-templates-title"><header><div><h3 id="saved-templates-title">Templates</h3><p>Layouts with variable data.</p></div></header><div id="templatesManager" aria-live="polite"></div></section>
-                    <section class="reusable-assets-group" aria-labelledby="saved-document-sources-title"><header><div><h3 id="saved-document-sources-title">Document sources</h3><p>HTML and Markdown inputs for repeat renders and batches.</p></div></header><div id="sourcesManager" aria-live="polite"></div></section>
+                <!-- Saved Sources View -->
+                <article data-dashboard-view="sources">
+                    <header>
+                        <h2>Saved Sources</h2>
+                        <button id="refreshSourcesBtn" type="button">Refresh</button>
+                    </header>
+                    <div id="sourcesStatus" role="status" aria-live="polite" hidden></div>
+
+                    <section aria-labelledby="saved-templates-title">
+                        <h3 id="saved-templates-title">Templates</h3>
+                        <p>Layouts with variable data.</p>
+                        <div id="templatesManager" aria-live="polite"></div>
+                    </section>
+
+                    <section aria-labelledby="saved-document-sources-title">
+                        <h3 id="saved-document-sources-title">Document sources</h3>
+                        <p>HTML and Markdown inputs for repeat renders and batches.</p>
+                        <div id="sourcesManager" aria-live="polite"></div>
+                    </section>
                 </article>
 
-                <article class="workspace-panel quiet-section files-panel" data-dashboard-view="files" aria-labelledby="dashboardPageTitle">
+                <!-- Files View -->
+                <article data-dashboard-view="files" aria-labelledby="dashboardPageTitle">
+                    <h2>Files &amp; downloads</h2>
                     <div id="filesManager" aria-live="polite"></div>
-                    <div id="filesStatus" class="dashboard-notice" role="status" aria-live="polite" hidden></div>
-                    <div class="files-actions">
+                    <div id="filesStatus" role="status" aria-live="polite" hidden></div>
+                    <div>
                         <input id="packageUploadInput" type="file" accept=".zip,application/zip" hidden>
-                        <button id="packageUploadButton" class="dashboard-button dashboard-button-primary" type="button">Upload ZIP</button>
+                        <button id="packageUploadButton" type="button">Upload ZIP</button>
                     </div>
                 </article>
 
-                <article class="workspace-panel quiet-section batches-panel" data-dashboard-view="batches" aria-labelledby="dashboardPageTitle">
-                    <section class="batch-jobs" aria-labelledby="batch-jobs-title">
-                        <header class="batch-jobs-header">
-                            <h2 id="batch-jobs-title">Existing jobs</h2>
-                            <button id="refreshBatchesBtn" class="dashboard-button dashboard-button-secondary" type="button">Refresh jobs</button>
-                        </header>
+                <!-- Batches View -->
+                <article data-dashboard-view="batches" aria-labelledby="dashboardPageTitle">
+                    <section aria-labelledby="batch-jobs-title">
+                        <h2 id="batch-jobs-title">Batch Jobs</h2>
+                        <button id="refreshBatchesBtn" type="button">Refresh jobs</button>
                         <div id="batchesManager" aria-live="polite"></div>
                     </section>
-                    <div id="batchesStatus" class="dashboard-notice" role="status" aria-live="polite" hidden></div>
-                    <details class="batch-composer" open>
-                        <summary><span>New batch</span><small>Choose a saved source, add data, then submit.</small></summary>
-                        <div class="batch-composer-content">
-                            <section class="batch-step batch-source-step" data-batch-step="source" aria-labelledby="batch-source-title"><div><p class="panel-kicker">Step 1</p><h3 id="batch-source-title">Select a saved source</h3><p>Its document definition stays private; this batch provides only the item data.</p></div><div class="custom-select batch-source-select" data-custom-select><span class="custom-select-label">Saved source</span><input id="batchSourceSelect" type="hidden" value=""><button class="custom-select-trigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="batchSourceSelect-menu"><span class="custom-select-value">No saved sources</span></button><div id="batchSourceSelect-menu" class="custom-select-menu" role="listbox" hidden><button class="custom-select-option is-active" type="button" role="option" aria-selected="true" data-custom-select-option data-value="">No saved sources</button></div></div></section>
-                            <section class="batch-step batch-data-step" data-batch-step="data" aria-labelledby="batch-data-title"><div><p class="panel-kicker">Step 2</p><h3 id="batch-data-title">Add item data</h3><p>Upload a JSON array or paste it below. Each item must match the selected source.</p></div><input id="batchDataUpload" type="file" accept="application/json,.json" hidden><label for="batchDataUpload" class="dashboard-button dashboard-button-secondary" role="button" tabindex="0">Upload JSON file</label><label class="dashboard-field batch-items-field" for="batchItemsInput"><span>Item data JSON array <em>Required</em></span><textarea id="batchItemsInput" rows="7" spellcheck="false" aria-describedby="batch-items-help">[{"data":{"customer":{"name":"Ada"}}}]</textarea><small id="batch-items-help" class="field-help">Provide 1–99 items. Uploading replaces the data currently shown.</small></label></section>
-                            <section class="batch-step batch-review" data-batch-step="review" aria-labelledby="batch-review-title"><div><p class="panel-kicker">Step 3</p><h3 id="batch-review-title">Review batch</h3><p>We’ll queue one PDF for each item.</p></div><p id="batchReview" class="dashboard-notice" role="status" aria-live="polite">Choose a saved source and add item data to review this batch.</p></section>
-                            <div class="batch-submit-bar"><div><p class="panel-kicker">Step 4</p><strong>Submit batch</strong><span>PDFs are rendered in the background and available as a ZIP when complete.</span></div><button id="submitBatchBtn" class="dashboard-button dashboard-button-primary" type="button" disabled>Submit batch</button></div>
+
+                    <div id="batchesStatus" role="status" aria-live="polite" hidden></div>
+
+                    <hr>
+
+                    <details open>
+                        <summary><strong>New batch:</strong> Choose a saved source, add data, then submit.</summary>
+                        <br>
+                        <section data-batch-step="source" aria-labelledby="batch-source-title">
+                            <h3 id="batch-source-title">Step 1: Select a saved source</h3>
+                            <p>Its document definition stays private; this batch provides only the item data.</p>
+                            <div class="custom-select" data-custom-select>
+                                <span class="custom-select-label">Saved source:</span>
+                                <input id="batchSourceSelect" type="hidden" value="">
+                                <button class="custom-select-trigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="batchSourceSelect-menu">
+                                    <span class="custom-select-value">No saved sources</span>
+                                </button>
+                                <div id="batchSourceSelect-menu" class="custom-select-menu" role="listbox" hidden>
+                                    <button class="custom-select-option" type="button" role="option" aria-selected="true" data-custom-select-option data-value="">No saved sources</button>
+                                </div>
+                            </div>
+                        </section>
+
+                        <br>
+
+                        <section data-batch-step="data" aria-labelledby="batch-data-title">
+                            <h3 id="batch-data-title">Step 2: Add item data</h3>
+                            <p>Upload a JSON array or paste it below. Each item must match the selected source.</p>
+                            <input id="batchDataUpload" type="file" accept="application/json,.json" hidden>
+                            <label for="batchDataUpload"><strong><button type="button" onclick="document.getElementById('batchDataUpload').click()">Upload JSON file</button></strong></label><br><br>
+                            <label for="batchItemsInput"><strong>Item data JSON array (required):</strong></label><br>
+                            <textarea id="batchItemsInput" rows="6" cols="80" spellcheck="false" aria-describedby="batch-items-help">[{"data":{"customer":{"name":"Ada"}}}]</textarea><br>
+                            <small id="batch-items-help">Provide 1–99 items. Uploading replaces the data currently shown.</small>
+                        </section>
+
+                        <br>
+
+                        <section data-batch-step="review" aria-labelledby="batch-review-title">
+                            <h3 id="batch-review-title">Step 3: Review batch</h3>
+                            <p id="batchReview" role="status" aria-live="polite">Choose a saved source and add item data to review this batch.</p>
+                        </section>
+
+                        <br>
+
+                        <div>
+                            <h3>Step 4: Submit batch</h3>
+                            <p>PDFs are rendered in the background and available as a ZIP when complete.</p>
+                            <button id="submitBatchBtn" type="button" disabled>Submit batch</button>
                         </div>
                     </details>
                 </article>
 
-                <article class="workspace-panel quiet-section logs-panel logs-panel-compact" data-dashboard-view="logs" aria-labelledby="dashboardPageTitle">
-                    <div class="logs-controls" aria-label="Request filters"><div class="custom-select" data-custom-select><span class="custom-select-label">Status</span><input id="logsStatusFilter" type="hidden" value="all"><button class="custom-select-trigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="logsStatusFilter-menu"><span class="custom-select-value">All requests</span></button><div id="logsStatusFilter-menu" class="custom-select-menu" role="listbox" hidden><button class="custom-select-option is-active" type="button" role="option" aria-selected="true" data-custom-select-option data-value="all">All requests</button><button class="custom-select-option" type="button" role="option" aria-selected="false" data-custom-select-option data-value="success">Successful</button><button class="custom-select-option" type="button" role="option" aria-selected="false" data-custom-select-option data-value="error">Failed</button></div></div><div class="custom-select" data-custom-select><span class="custom-select-label">Sort</span><input id="logsSort" type="hidden" value="newest"><button class="custom-select-trigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="logsSort-menu"><span class="custom-select-value">Newest first</span></button><div id="logsSort-menu" class="custom-select-menu" role="listbox" hidden><button class="custom-select-option is-active" type="button" role="option" aria-selected="true" data-custom-select-option data-value="newest">Newest first</button><button class="custom-select-option" type="button" role="option" aria-selected="false" data-custom-select-option data-value="oldest">Oldest first</button></div></div></div>
-                    <div id="logsList" class="logs-list logs-list-request" aria-live="polite"><p class="empty-state">Loading recent requests...</p></div>
-                    <nav id="logsPagination" class="logs-pagination" aria-label="Request log pages" hidden><button id="logsPreviousPage" class="dashboard-button dashboard-button-secondary" type="button">Previous</button><span id="logsPageStatus" aria-live="polite"></span><button id="logsNextPage" class="dashboard-button dashboard-button-secondary" type="button">Next</button></nav>
+                <!-- Logs View -->
+                <article data-dashboard-view="logs" aria-labelledby="dashboardPageTitle">
+                    <h2>Activity logs</h2>
+                    <div aria-label="Request filters">
+                        <div class="custom-select" data-custom-select>
+                            <span class="custom-select-label">Status:</span>
+                            <input id="logsStatusFilter" type="hidden" value="all">
+                            <button class="custom-select-trigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="logsStatusFilter-menu">
+                                <span class="custom-select-value">All requests</span>
+                            </button>
+                            <div id="logsStatusFilter-menu" class="custom-select-menu" role="listbox" hidden>
+                                <button class="custom-select-option" type="button" role="option" aria-selected="true" data-custom-select-option data-value="all">All requests</button>
+                                <button class="custom-select-option" type="button" role="option" aria-selected="false" data-custom-select-option data-value="success">Successful</button>
+                                <button class="custom-select-option" type="button" role="option" aria-selected="false" data-custom-select-option data-value="error">Failed</button>
+                            </div>
+                        </div>
+                        <br>
+                        <div class="custom-select" data-custom-select>
+                            <span class="custom-select-label">Sort:</span>
+                            <input id="logsSort" type="hidden" value="newest">
+                            <button class="custom-select-trigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="logsSort-menu">
+                                <span class="custom-select-value">Newest first</span>
+                            </button>
+                            <div id="logsSort-menu" class="custom-select-menu" role="listbox" hidden>
+                                <button class="custom-select-option" type="button" role="option" aria-selected="true" data-custom-select-option data-value="newest">Newest first</button>
+                                <button class="custom-select-option" type="button" role="option" aria-selected="false" data-custom-select-option data-value="oldest">Oldest first</button>
+                            </div>
+                        </div>
+                    </div>
+                    <br>
+                    <div id="logsList" aria-live="polite"><p>Loading recent requests...</p></div>
+                    <nav id="logsPagination" aria-label="Request log pages" hidden>
+                        <button id="logsPreviousPage" type="button">Previous</button>
+                        <span id="logsPageStatus" aria-live="polite"></span>
+                        <button id="logsNextPage" type="button">Next</button>
+                    </nav>
                 </article>
-
-                </section>
-                </div>
-            </main>
+            </section>
         </div>
+    </main>
 
-        <footer class="dashboard-footer">
-            <p>RenderPDF / Developer workspace</p>
-            <nav aria-label="Footer navigation">
-                <a href="/docs/api/">Documentation</a>
-                <a href="https://github.com/vberkoz/renderpdf">GitHub</a>
-                <a href="https://stats.uptimerobot.com/UNP4h7ipig" target="_blank" rel="noopener noreferrer">System status</a>
-                <a href="https://vberkoz.com/">vberkoz.com</a>
-            </nav>
-        </footer>
-    </div>
+    <hr>
 
-    <dialog id="dashboardTextDialog" class="dashboard-dialog" aria-labelledby="dashboardDialogTitle">
-        <form id="dashboardTextDialogForm" class="dashboard-dialog-card" novalidate>
-            <div class="dashboard-dialog-heading">
-                <p class="panel-kicker">Saved source</p>
-                <h2 id="dashboardDialogTitle">Name this source</h2>
-                <p id="dashboardDialogDescription">Choose a name you will recognize when selecting it for a batch.</p>
-            </div>
-            <label id="dashboardDialogField" class="dashboard-field" for="dashboardDialogInput">
-                <span id="dashboardDialogLabel">Source name</span>
+    <footer>
+        <p>RenderPDF / Developer workspace</p>
+        <nav aria-label="Footer navigation">
+            <a href="/docs/api/">Documentation</a> |
+            <a href="https://github.com/vberkoz/renderpdf">GitHub</a> |
+            <a href="https://stats.uptimerobot.com/UNP4h7ipig" target="_blank" rel="noopener noreferrer">System status</a> |
+            <a href="https://vberkoz.com/">vberkoz.com</a>
+        </nav>
+    </footer>
+
+    <!-- Modals -->
+    <dialog id="dashboardTextDialog" aria-labelledby="dashboardDialogTitle">
+        <form id="dashboardTextDialogForm" novalidate>
+            <h2 id="dashboardDialogTitle">Name this source</h2>
+            <p id="dashboardDialogDescription">Choose a name you will recognize when selecting it for a batch.</p>
+            <div id="dashboardDialogField">
+                <label for="dashboardDialogInput"><strong id="dashboardDialogLabel">Source name</strong></label><br>
                 <input id="dashboardDialogInput" type="text" maxlength="120" autocomplete="off" required>
-            </label>
-            <div class="dashboard-dialog-actions">
-                <button id="dashboardDialogCancel" class="dashboard-button dashboard-button-secondary" type="button">Cancel</button>
-                <button id="dashboardDialogConfirm" class="dashboard-button dashboard-button-secondary" type="submit">Save source</button>
+            </div>
+            <br>
+            <div>
+                <button id="dashboardDialogCancel" type="button">Cancel</button>
+                <button id="dashboardDialogConfirm" type="submit">Save source</button>
             </div>
         </form>
     </dialog>
 
-    <dialog id="billingPlanDialog" class="dashboard-dialog" aria-labelledby="billingPlanDialogTitle">
-        <div class="dashboard-dialog-card billing-plan-dialog">
-            <div class="dashboard-dialog-heading">
-                <p class="panel-kicker">Upgrade plan</p>
-                <h2 id="billingPlanDialogTitle">Choose the capacity you need</h2>
-                <p>Changes are prorated today. All plans include private PDF storage and API-key access.</p>
+    <dialog id="billingPlanDialog" aria-labelledby="billingPlanDialogTitle">
+        <div>
+            <h2 id="billingPlanDialogTitle">Choose the capacity you need</h2>
+            <p>Changes are prorated today. All plans include private PDF storage and API-key access.</p>
+            <div>
+                <p>
+                    <button type="button" data-plan="starter" aria-label="Choose Starter, 5,000 PDFs per month for $19 per month">
+                        <strong>Starter</strong> — 5,000 PDFs per month for $19 / month
+                    </button>
+                </p>
+                <p>
+                    <button type="button" data-plan="pro" aria-label="Choose Professional, 20,000 PDFs per month for $49 per month">
+                        <strong>Professional</strong> — 20,000 PDFs per month for $49 / month
+                    </button>
+                </p>
             </div>
-            <div class="plan-options">
-                <button class="plan-option" type="button" data-plan="starter" aria-label="Choose Starter, 5,000 PDFs per month for $19 per month">
-                    <span class="plan-option-copy"><strong>Starter</strong><span>5,000 PDFs per month</span></span>
-                    <span class="plan-option-price"><strong>$19</strong><span>/ month</span></span>
-                </button>
-                <button class="plan-option" type="button" data-plan="pro" aria-label="Choose Professional, 20,000 PDFs per month for $49 per month">
-                    <span class="plan-option-copy"><strong>Professional</strong><span>20,000 PDFs per month</span></span>
-                    <span class="plan-option-price"><strong>$49</strong><span>/ month</span></span>
-                </button>
-            </div>
-            <div class="dashboard-dialog-actions"><button id="billingPlanDialogClose" class="dashboard-button dashboard-button-secondary" type="button">Close</button></div>
+            <p><button id="billingPlanDialogClose" type="button">Close</button></p>
         </div>
     </dialog>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/xml/xml.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/javascript/javascript.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/css/css.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/htmlmixed/htmlmixed.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/markdown/markdown.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
-
     <script src="template-client.js"></script>
-
-
-
-
-
     <script src="custom-select.js"></script>
     <script src="app.js"></script>
 </body>
