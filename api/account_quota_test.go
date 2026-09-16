@@ -84,3 +84,37 @@ func TestMarkdownDocumentQuotaFailureUsesStandardResponse(t *testing.T) {
 		t.Fatalf("quota response = %#v", body)
 	}
 }
+
+func TestAccountQuotaReservationUpgradesExhaustedPlan(t *testing.T) {
+	previousClient, previousTable := ddbClient, tableName
+	t.Cleanup(func() {
+		ddbClient, tableName = previousClient, previousTable
+	})
+	t.Setenv("FREE_MONTHLY_QUOTA", "25")
+	t.Setenv("STARTER_MONTHLY_QUOTA", "5000")
+
+	occupied := awserr.New(dynamodb.ErrCodeConditionalCheckFailedException, "free quota exhausted", nil)
+	fake := &fakeDynamoDB{
+		updateErrors: []error{occupied, nil},
+	}
+	ddbClient, tableName = fake, "renderpdf-usage"
+	now := time.Date(2026, time.August, 19, 10, 0, 0, 0, time.UTC)
+
+	quota, err := reserveAccountQuota("customer-123", now)
+	if err != nil {
+		t.Fatalf("reserve account quota should succeed after upgrade fallback: %v", err)
+	}
+	if quota == nil || quota.Key != "USER_QUOTA#customer-123#2026-08" {
+		t.Fatalf("quota = %#v", quota)
+	}
+	if len(fake.updateInputs) != 2 {
+		t.Fatalf("expected 2 update attempts, got %d", len(fake.updateInputs))
+	}
+	upgradeInput := fake.updateInputs[1]
+	if got := aws.StringValue(upgradeInput.UpdateExpression); !strings.Contains(got, "#limit = :limit") {
+		t.Fatalf("upgrade expression should set #limit = :limit, got %s", got)
+	}
+	if got := aws.StringValue(upgradeInput.ConditionExpression); !strings.Contains(got, "#limit < :limit AND #used < :limit") {
+		t.Fatalf("upgrade condition should check #limit < :limit AND #used < :limit, got %s", got)
+	}
+}

@@ -1161,7 +1161,7 @@ function renderDashboard(data) {
         : `${billing.status.replace(/_/g, ' ')}${scheduledLabel || (billing.renewsAt ? ` · renews ${new Date(billing.renewsAt).toLocaleDateString()}` : '')}`;
     document.getElementById('billingUsageDetail').textContent = `Current usage: ${usage.usedThisMonth ?? 0} of ${usage.quota ?? 0} PDFs this month`;
     const subscribed = ['active', 'trialing', 'past_due'].includes(billing.status);
-    const canChangePlan = subscribed && !billing.scheduledChange && ['active', 'trialing'].includes(billing.status);
+    const canChangePlan = subscribed && ['active', 'trialing'].includes(billing.status);
     document.querySelectorAll('[data-plan]').forEach((button) => {
         button.hidden = subscribed && button.dataset.plan === billing.tier;
     });
@@ -1180,11 +1180,11 @@ function renderDashboard(data) {
     renderRecentActivity(data.logs);
 }
 
-async function refreshDashboard() {
+async function refreshDashboard(preserveNotice = false) {
     const billingStatus = document.getElementById('billingStatus');
     try {
         renderDashboard(await loadDashboard());
-        setNotice(billingStatus);
+        if (!preserveNotice) setNotice(billingStatus);
     } catch (error) {
         setNotice(billingStatus, `Could not load dashboard data. ${error.message}`, 'error');
     }
@@ -1351,10 +1351,9 @@ if (checkAuth()) {
             if (changingPlan) {
                 await changePlan(button.dataset.plan);
                 document.getElementById('billingPlanDialog').close();
-                setNotice(billingStatus, 'Plan change requested. Your capacity will update when Paddle confirms it.');
+                setNotice(billingStatus, 'Plan changed successfully.');
                 setButtonPending(button, false);
-                window.setTimeout(refreshDashboard, 1500);
-                window.setTimeout(refreshDashboard, 5000);
+                await refreshDashboard(true);
             } else {
                 const data = await startCheckout(button.dataset.plan);
                 document.getElementById('billingPlanDialog').close();

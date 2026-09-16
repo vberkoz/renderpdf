@@ -80,7 +80,35 @@ func reserveAccountQuota(customerID string, now time.Time) (*accountQuota, error
 	})
 	if err != nil {
 		if awsErr, ok := err.(awserr.Error); ok && awsErr.Code() == dynamodb.ErrCodeConditionalCheckFailedException {
-			return nil, errAccountQuotaExceeded
+			// If quota was exceeded under the stored limit, check if the account's plan quota
+			// is greater than the stored limit (e.g. user recently upgraded).
+			// If #limit < :limit and #used < :limit, upgrade #limit and reserve one quota unit.
+			_, upgradeErr := ddbClient.UpdateItem(&dynamodb.UpdateItemInput{
+				TableName: aws.String(tableName),
+				Key: map[string]*dynamodb.AttributeValue{
+					"requestId": {S: aws.String(key)},
+					"timestamp": {N: aws.String("0")},
+				},
+				UpdateExpression:    aws.String("SET #used = #used + :one, #limit = :limit, entityType = :entity, expiresAt = :expires"),
+				ConditionExpression: aws.String("#limit < :limit AND #used < :limit"),
+				ExpressionAttributeNames: map[string]*string{
+					"#used":  aws.String("used"),
+					"#limit": aws.String("limit"),
+				},
+				ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{
+					":one":     {N: aws.String("1")},
+					":limit":   {N: aws.String(fmt.Sprintf("%d", limit))},
+					":entity":  {S: aws.String("USER_QUOTA")},
+					":expires": {N: aws.String(fmt.Sprintf("%d", now.UTC().AddDate(0, 2, 0).Unix()))},
+				},
+			})
+			if upgradeErr == nil {
+				return &accountQuota{Key: key}, nil
+			}
+			if upAwsErr, ok := upgradeErr.(awserr.Error); ok && upAwsErr.Code() == dynamodb.ErrCodeConditionalCheckFailedException {
+				return nil, errAccountQuotaExceeded
+			}
+			return nil, upgradeErr
 		}
 		return nil, err
 	}

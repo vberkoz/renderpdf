@@ -37,6 +37,11 @@ const PADDLE_SUBSCRIPTION_EVENTS = new Set([
   'subscription.paused',
   'subscription.resumed',
 ]);
+const QUOTA_UPGRADE_EVENTS = new Set([
+  'subscription.created',
+  'subscription.updated',
+  'subscription.activated',
+]);
 const FREE_MONTHLY_QUOTA = positiveInteger(process.env.FREE_MONTHLY_QUOTA, 25);
 const PLAN_QUOTAS = {
   starter: positiveInteger(process.env.STARTER_MONTHLY_QUOTA, 5000),
@@ -86,14 +91,138 @@ function customerResponse(statusCode, payload) {
   return response(statusCode, payload);
 }
 
+function tierFromAttributes(attributes) {
+  const proPrice = PADDLE_PRICES.pro || process.env.PADDLE_PRO_PRICE_ID || '';
+  const starterPrice = PADDLE_PRICES.starter || process.env.PADDLE_STARTER_PRICE_ID || '';
+
+  const extractItemDetails = (item) => {
+    if (!item) return { ids: [], name: '' };
+    const ids = [
+      item.price?.id,
+      item.price_id,
+      item.id,
+      item.price?.product_id,
+    ].filter(Boolean).map(String);
+    const name = [
+      item.price?.product?.name,
+      item.price?.name,
+      item.price?.description,
+      item.description,
+    ].filter(Boolean).join(' ').toLowerCase();
+    return { ids, name };
+  };
+
+  const collectItems = () => {
+    const items = [];
+    const add = (item) => {
+      if (item && typeof item === 'object') items.push(item);
+    };
+
+    if (Array.isArray(attributes?.items)) {
+      for (const item of attributes.items) add(item);
+    }
+    if (Array.isArray(attributes?.scheduled_change?.items)) {
+      for (const item of attributes.scheduled_change.items) add(item);
+    }
+    if (Array.isArray(attributes?.recurring_transaction_details?.line_items)) {
+      for (const item of attributes.recurring_transaction_details.line_items) {
+        add(item);
+        if (item.item) add(item.item);
+      }
+    }
+    if (Array.isArray(attributes?.next_transaction?.details?.line_items)) {
+      for (const item of attributes.next_transaction.details.line_items) {
+        add(item);
+        if (item.item) add(item.item);
+      }
+    }
+    return items;
+  };
+
+  const allItems = collectItems();
+
+  // 1. Pro price ID match (active items, scheduled items, or transaction previews)
+  if (proPrice) {
+    for (const item of allItems) {
+      if (extractItemDetails(item).ids.includes(proPrice)) return 'pro';
+    }
+  }
+
+  // 2. Pro name match (e.g. "RenderPDF Pro", "RenderPDF Professional")
+  for (const item of allItems) {
+    const { name } = extractItemDetails(item);
+    if (name.includes('pro') || name.includes('professional')) return 'pro';
+  }
+
+  // 3. Starter price ID match
+  if (starterPrice) {
+    for (const item of allItems) {
+      if (extractItemDetails(item).ids.includes(starterPrice)) return 'starter';
+    }
+  }
+
+  // 4. Starter name match
+  for (const item of allItems) {
+    const { name } = extractItemDetails(item);
+    if (name.includes('starter')) return 'starter';
+  }
+
+  // 5. Fallback to custom_data.plan
+  const customPlan = String(attributes?.custom_data?.plan || '').trim().toLowerCase();
+  if (customPlan === 'starter' || customPlan === 'pro') return customPlan;
+
+  return 'pro';
+}
+
+async function syncSubscriptionWithPaddle(userId, billing) {
+  if (!billing?.subscriptionId || !PADDLE_API_KEY) return billing;
+  try {
+    const result = await paddleRequest(
+      `/subscriptions/${encodeURIComponent(billing.subscriptionId)}?include=next_transaction,recurring_transaction_details`
+    );
+    const sub = result?.data;
+    if (!sub) return billing;
+    const tier = tierFromAttributes(sub);
+    const status = String(sub.status || billing.status || 'active').toLowerCase();
+    if (
+      tier !== billing.tier ||
+      status !== billing.status ||
+      (billing.plan && !billing.plan.toLowerCase().includes(tier))
+    ) {
+      const occurredAt = new Date();
+      const eventId = `sync-${Date.now()}`;
+      await saveBillingWebhook(
+        userId,
+        billing.subscriptionId,
+        {
+          ...sub,
+          status,
+          custom_data: { user_id: userId, plan: tier, ...(sub.custom_data || {}) },
+        },
+        eventId,
+        occurredAt,
+        'subscription.updated'
+      );
+      return await getBilling(userId);
+    }
+  } catch (err) {
+    console.warn('Could not sync subscription with Paddle', err);
+  }
+  return billing;
+}
+
 async function readCustomerDashboard(request) {
   const userId = customerId(request);
   if (!userId) return customerResponse(401, { error: 'Sign in is required' });
 
+  let billing = await getBilling(userId);
+  if (billing?.subscriptionId) {
+    billing = await syncSubscriptionWithPaddle(userId, billing);
+  }
+
   const now = new Date();
   const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
   const today = dateKey(now);
-  const billing = await getBilling(userId);
   const usage = { today: 0, failedToday: 0, logs: [] };
 
   try {
@@ -129,7 +258,21 @@ async function readCustomerDashboard(request) {
     return customerResponse(500, { error: 'Could not read quota' });
   }
   const usedThisMonth = quotaRecord.used;
-  const quota = quotaRecord.limit || baseQuota;
+  const quota = Math.max(quotaRecord.limit || 0, baseQuota);
+
+  if (quotaRecord.limit < baseQuota && ['active', 'trialing', 'past_due'].includes(billing?.status)) {
+    try {
+      const prevTier = quotaRecord.limit >= PLAN_QUOTAS.starter ? 'starter' : 'free';
+      await updateQuotaOnSubscriptionChange(userId, now, {
+        custom_data: { plan: billing?.tier },
+        status: billing?.status,
+        items: [{ price: { id: PADDLE_PRICES[billing?.tier] } }],
+      }, { tier: prevTier, status: 'active' });
+    } catch (healErr) {
+      console.warn('Could not self-heal quota record in readCustomerDashboard', healErr);
+    }
+  }
+
   usage.logs.sort((a, b) => b.timestamp - a.timestamp);
   return customerResponse(200, {
     usage: {
@@ -210,29 +353,46 @@ async function changePlan(request) {
   let input;
   try { input = JSON.parse(request.body || '{}'); } catch { return customerResponse(400, { error: 'Invalid plan change request' }); }
   const tier = String(input.plan || '').toLowerCase();
-  const priceID = PADDLE_PRICES[tier];
+  const priceID = PADDLE_PRICES[tier] || process.env[tier === 'starter' ? 'PADDLE_STARTER_PRICE_ID' : 'PADDLE_PRO_PRICE_ID'] || '';
   if (!priceID) return customerResponse(422, { error: 'Choose a valid plan' });
-  if (!PADDLE_API_KEY) return customerResponse(503, { error: 'Billing is not configured yet' });
+  if (!PADDLE_API_KEY && !process.env.PADDLE_API_KEY) return customerResponse(503, { error: 'Billing is not configured yet' });
 
   const billing = await getBilling(userId);
   if (!billing?.subscriptionId || !['active', 'trialing'].includes(billing.status)) {
     return customerResponse(409, { error: 'No active subscription is available to change' });
   }
-  if (billing.scheduledAction) {
-    return customerResponse(409, { error: 'This subscription has a scheduled change. Manage it in the billing portal before changing plans.' });
-  }
   if (billing.tier === tier) return customerResponse(409, { error: 'You are already on this plan' });
 
   try {
-    await paddleRequest(`/subscriptions/${encodeURIComponent(billing.subscriptionId)}`, {
+    const patchBody = {
+      items: [{ price_id: priceID, quantity: 1 }],
+      custom_data: { user_id: userId, plan: tier },
+      proration_billing_mode: 'prorated_immediately',
+    };
+    if (billing.scheduledAction) {
+      patchBody.scheduled_change = null;
+    }
+    const result = await paddleRequest(`/subscriptions/${encodeURIComponent(billing.subscriptionId)}`, {
       method: 'PATCH',
-      body: JSON.stringify({
-        items: [{ price_id: priceID, quantity: 1 }],
-        custom_data: { user_id: userId, plan: tier },
-        proration_billing_mode: 'prorated_immediately',
-      }),
+      body: JSON.stringify(patchBody),
     });
-    return customerResponse(202, { requested: true, plan: tier });
+
+    const updatedSub = result?.data || {};
+    const occurredAt = new Date();
+    const eventId = `plan-change-${Date.now()}`;
+    const subAttributes = {
+      ...updatedSub,
+      status: updatedSub.status || 'active',
+      custom_data: { user_id: userId, plan: tier, ...(updatedSub.custom_data || {}) },
+      items: [{ price: { id: priceID } }, ...(Array.isArray(updatedSub.items) ? updatedSub.items.slice(1) : [])],
+    };
+    try {
+      await saveBillingWebhook(userId, billing.subscriptionId, subAttributes, eventId, occurredAt, 'subscription.updated');
+    } catch (saveErr) {
+      console.warn('Could not immediately sync billing after changePlan', saveErr);
+    }
+
+    return customerResponse(200, { requested: true, plan: tier, changed: true });
   } catch (err) {
     console.error('Could not change Paddle subscription plan', err);
     if (err?.status === 403) {
@@ -282,7 +442,7 @@ async function receivePaddleWebhook(request) {
     return response(200, { received: true, ignored: true });
   }
   try {
-    await saveBillingWebhook(userId, subscriptionId, attributes, eventId, occurredAt);
+    await saveBillingWebhook(userId, subscriptionId, attributes, eventId, occurredAt, eventType);
   } catch (err) {
     if (err?.name === 'ConditionalCheckFailedException') {
       console.log(`Paddle webhook ignored: duplicate or out-of-order ${eventType} (${eventId})`);
@@ -595,7 +755,8 @@ async function creditOverage(userId, transactionId, eventId, occurredAt) {
   }));
 }
 
-async function saveBillingWebhook(userId, subscriptionId, attributes, eventId, occurredAt) {
+async function saveBillingWebhook(userId, subscriptionId, attributes, eventId, occurredAt, eventType = '') {
+  const previousBilling = await getBilling(userId);
   const fields = billingFields(userId, subscriptionId, attributes, eventId, occurredAt);
   const names = {};
   const values = {};
@@ -611,23 +772,57 @@ async function saveBillingWebhook(userId, subscriptionId, attributes, eventId, o
   names['#eventId'] = 'paddleEventId';
   values[':eventTime'] = fields.paddleEventOccurredAtMs;
   values[':eventId'] = fields.paddleEventId;
-  await ddb.send(new UpdateItemCommand({
+  const isDirectAction = eventId.startsWith('sync-') || eventId.startsWith('plan-change-');
+  const updateInput = {
     TableName: TABLE_NAME,
     Key: { requestId: { S: `BILLING#${userId}` }, timestamp: { N: '0' } },
     UpdateExpression: `SET ${updates.join(', ')}`,
-    // A webhook can be retried or arrive after a newer state transition. Only
-    // strictly newer Paddle events may replace the entitlement record.
-    ConditionExpression: '(attribute_not_exists(#eventTime) OR #eventTime < :eventTime) AND (attribute_not_exists(#eventId) OR #eventId <> :eventId)',
     ExpressionAttributeNames: names,
     ExpressionAttributeValues: values,
+  };
+  if (!isDirectAction) {
+    // A webhook can be retried or arrive after a newer state transition. Only
+    // strictly newer Paddle events may replace the entitlement record.
+    updateInput.ConditionExpression = '(attribute_not_exists(#eventTime) OR #eventTime < :eventTime) AND (attribute_not_exists(#eventId) OR #eventId <> :eventId)';
+  }
+  await ddb.send(new UpdateItemCommand(updateInput));
+  if (!eventType || QUOTA_UPGRADE_EVENTS.has(eventType)) {
+    await updateQuotaOnSubscriptionChange(userId, occurredAt, attributes, previousBilling);
+  }
+}
+
+async function updateQuotaOnSubscriptionChange(userId, occurredAt, attributes, previousBilling) {
+  const tier = tierFromAttributes(attributes);
+  const status = String(attributes?.status || 'unknown').toLowerCase();
+  const newBaseQuota = monthlyQuotaForBilling({ tier, status });
+  if (newBaseQuota <= FREE_MONTHLY_QUOTA) return;
+
+  const month = dateKey(occurredAt).slice(0, 7);
+  const quotaKey = `USER_QUOTA#${userId}#${month}`;
+  const previousBaseQuota = monthlyQuotaForBilling(previousBilling);
+  const quotaRecord = await getQuotaRecord(userId, occurredAt);
+  const overageCredits = quotaRecord.limit > 0 ? Math.max(0, quotaRecord.limit - previousBaseQuota) : 0;
+  const newLimit = newBaseQuota + overageCredits;
+  const expiresAt = Math.floor(new Date(Date.UTC(occurredAt.getUTCFullYear(), occurredAt.getUTCMonth() + 2, 1)).getTime() / 1000);
+
+  await ddb.send(new UpdateItemCommand({
+    TableName: TABLE_NAME,
+    Key: { requestId: { S: quotaKey }, timestamp: { N: '0' } },
+    UpdateExpression: 'SET #limit = :limit, entityType = :entity, expiresAt = :expiresAt, #used = if_not_exists(#used, :zero)',
+    ExpressionAttributeNames: { '#limit': 'limit', '#used': 'used' },
+    ExpressionAttributeValues: {
+      ':limit': { N: String(newLimit) },
+      ':entity': { S: 'USER_QUOTA' },
+      ':expiresAt': { N: String(expiresAt) },
+      ':zero': { N: '0' },
+    },
   }));
 }
 
 function billingFields(userId, subscriptionId, attributes, eventId, occurredAt) {
   const value = (input) => ({ S: String(input || '') });
   const billingPeriod = attributes.current_billing_period || {};
-  const firstItem = Array.isArray(attributes.items) ? attributes.items[0] : null;
-  const tier = String(attributes.custom_data?.plan || 'pro').toLowerCase();
+  const tier = tierFromAttributes(attributes);
   const scheduledChange = attributes.scheduled_change || {};
   return {
     requestId: value(`BILLING#${userId}`),
@@ -638,10 +833,7 @@ function billingFields(userId, subscriptionId, attributes, eventId, occurredAt) 
     paddleCustomerId: value(attributes.customer_id),
     tier: value(tier),
     status: value(attributes.status || 'unknown'),
-    // Webhook prices contain product_id, not a nested product name. The tier
-    // originates from our trusted transaction custom data, so use it as the
-    // deterministic display fallback rather than mislabeling Starter as Pro.
-    plan: value(firstItem?.price?.product?.name || planNameForTier(tier)),
+    plan: value(planNameForTier(tier)),
     renewsAt: value(attributes.next_billed_at || billingPeriod.ends_at),
     endsAt: value(attributes.canceled_at),
     scheduledAction: value(scheduledChange.action),
@@ -686,7 +878,8 @@ async function paddleRequest(path, options = {}) {
     headers: {
       Accept: 'application/json',
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${PADDLE_API_KEY}`,
+      'Paddle-Version': '1',
+      Authorization: `Bearer ${process.env.PADDLE_API_KEY || PADDLE_API_KEY}`,
       ...(options.headers || {}),
     },
   });
@@ -773,3 +966,11 @@ function roundFloat(value) {
 }
 
 exports.handler = handler;
+exports.saveBillingWebhook = saveBillingWebhook;
+exports.updateQuotaOnSubscriptionChange = updateQuotaOnSubscriptionChange;
+exports.monthlyQuotaForBilling = monthlyQuotaForBilling;
+exports.tierFromAttributes = tierFromAttributes;
+exports.syncSubscriptionWithPaddle = syncSubscriptionWithPaddle;
+exports.changePlan = changePlan;
+exports.ddb = ddb;
+exports.PADDLE_PRICES = PADDLE_PRICES;
