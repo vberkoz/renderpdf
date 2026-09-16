@@ -6,485 +6,203 @@
     <meta name="description" content="Generate production-ready PDFs in seconds with reliable HTML to PDF conversion for SaaS applications.">
     <title>RenderPDF | Production-ready PDFs in seconds</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-    <link href="/styles/base.css" rel="stylesheet">
-    <link href="/styles/landing.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css" rel="stylesheet">
-
-
 </head>
 <body>
-    <a class="skip-link" href="#main-content">Skip to main content</a>
-    <div class="shell">
-        <div>
-        <header class="topbar">
-            <a class="brand" href="/" aria-label="RenderPDF home">
-                <span class="brand-mark" aria-hidden="true"></span>
-                <span>RenderPDF</span>
-            </a>
-            <nav id="landing-primary-navigation" class="topnav" data-carbon-header-nav aria-label="Primary navigation">
-                <a href="#pricing">Pricing</a>
-                <a href="/docs/api/">API docs</a>
-                <a href="/app/">Dashboard</a>
-                <a href="https://github.com/vberkoz/renderpdf">GitHub</a>
-            </nav>
-        </header>
-        </div>
+    <a href="#main-content">Skip to main content</a>
 
-        <main id="main-content" tabindex="-1">
-            <section class="hero" aria-labelledby="hero-title">
-                <div class="hero-copy">
-                    <p class="eyebrow">HTML-to-PDF API for product teams</p>
-                    <h1 id="hero-title">PDFs that feel like a native part of your product.</h1>
-                    <p class="lead">Turn the HTML you already ship into invoices, agreements, reports, and certificates—without running Chrome or maintaining PDF infrastructure.</p>
+    <header>
+        <p><strong><a href="/" aria-label="RenderPDF home">RenderPDF</a></strong></p>
+        <nav id="landing-primary-navigation" aria-label="Primary navigation">
+            <a href="#playground">Playground</a> |
+            <a href="#features">Capabilities</a> |
+            <a href="#pricing">Pricing</a> |
+            <a href="/docs/api/">API docs</a> |
+            <a href="/app/">Dashboard</a> |
+            <a href="https://github.com/vberkoz/renderpdf">GitHub</a>
+        </nav>
+    </header>
 
-                    <div class="hero-actions" role="group" aria-label="Get started">
-                        <a class="button button-primary" href="#playground">Try the playground</a>
-                        <a class="button button-secondary" href="/docs/api/">Read the docs</a>
-                    </div>
-                    <p class="hero-note"><span aria-hidden="true"></span>3 free renders today. No account or API key required.</p>
-                </div>
-                <div class="hero-aside" aria-label="HTML to PDF workflow example">
-                    <div class="hero-aside-heading">
-                        <span class="hero-window-dots" aria-hidden="true"><i></i><i></i><i></i></span>
-                        <span>render request</span>
-                        <span class="hero-status">200 OK</span>
-                    </div>
-                    <pre aria-label="Example render request"><code><span class="code-key">POST</span> /api/v1/render
+    <hr>
 
-<span class="code-muted">{</span>
-  <span class="code-property">"source"</span>: <span class="code-muted">{</span>
-    <span class="code-property">"type"</span>: <span class="code-string">"html"</span>,
-    <span class="code-property">"content"</span>: <span class="code-string">"&lt;Invoice /&gt;"</span>
-  <span class="code-muted">}</span>,
-  <span class="code-property">"options"</span>: <span class="code-muted">{</span> <span class="code-property">"format"</span>: <span class="code-string">"A4"</span> <span class="code-muted">}</span>
-<span class="code-muted">}</span></code></pre>
-                    <div class="hero-result">
-                        <div class="hero-result-icon" aria-hidden="true">PDF</div>
-                        <div><strong>invoice-2048.pdf</strong><span>Ready to download · 124 KB</span></div>
-                        <span class="hero-result-arrow" aria-hidden="true">↗</span>
-                    </div>
-                </div>
-            </section>
+    <main id="main-content" tabindex="-1">
+        <section aria-labelledby="hero-title">
+            <h1 id="hero-title">PDFs that feel like a native part of your product</h1>
+            <p>Turn the HTML you already ship into invoices, agreements, reports, and certificates—without running Chrome or maintaining PDF infrastructure.</p>
+            <p>
+                <a href="#playground">Try the playground</a> |
+                <a href="/docs/api/">Read the docs</a>
+            </p>
+            <p><small>3 free renders today. No account or API key required.</small></p>
+        </section>
 
-            <section class="playground" id="playground" aria-labelledby="playground-title">
-                    <header class="playground-header">
-                        <div>
-                            <p class="eyebrow">Live playground</p>
-                            <h2 id="playground-title">Edit the HTML. Preview it. Download the PDF.</h2>
-                        </div>
-                        <p id="quotaStatus" class="quota-status" aria-live="polite">
-                            <span id="quotaRemaining">3</span>
-                            <span id="quotaLabel">free PDFs left today</span>
-                        </p>
-                    </header>
+        <hr>
 
-                    <p class="playground-copy">The preview updates in your browser as you type and never uses your trial quota. When it looks right, render the same HTML as a PDF—no account or API key required.</p>
+        <section id="playground" aria-labelledby="playground-title">
+            <h2 id="playground-title">Live Playground</h2>
+            <p id="quotaStatus" aria-live="polite">
+                <span id="quotaRemaining">3</span>
+                <span id="quotaLabel">free PDFs left today</span>
+            </p>
+            <p>The preview updates in your browser as you type and never uses your trial quota. When ready, render the HTML as a PDF—no account or API key required.</p>
 
-                    <form id="pdfForm">
-                        <div class="playground-editor">
-                            <div class="playground-input-wrap">
-                                <label class="field-label" for="htmlInput">HTML input</label>
-                                <textarea id="htmlInput" placeholder="Enter HTML content..." rows="11" aria-describedby="htmlInputHelp"><!doctype html>
+            <form id="pdfForm">
+                <div>
+                    <label for="htmlInput"><strong>HTML input:</strong></label><br>
+                    <textarea id="htmlInput" rows="16" cols="80" placeholder="Enter HTML content..." aria-describedby="htmlInputHelp"><!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="renderpdf:no-header-footer" content="true">
-  <title>Design and Development Services Agreement</title>
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
-
-    @page { size: A4; margin: 9mm 11mm; }
-
-    :root {
-      --ink: #272a2f;
-      --muted: #696e74;
-      --line: #d6d9dc;
-      --accent: #5e6369;
-    }
-
-    * { box-sizing: border-box; }
-
-    body {
-      margin: 0;
-      color: var(--ink);
-      font-family: "IBM Plex Sans", Arial, sans-serif;
-      font-size: 9.5pt;
-      line-height: 1.3;
-    }
-
-    .document {
-      width: 180mm;
-      margin: 0 auto;
-    }
-
-    .topline,
-    .signature-row {
-      display: flex;
-      justify-content: space-between;
-    }
-
-    .topline {
-      margin-bottom: 5mm;
-      color: var(--muted);
-      font-family: "IBM Plex Mono", "Courier New", monospace;
-      font-size: 7pt;
-      letter-spacing: .01em;
-    }
-
-    .address,
-    .reference { width: 38%; }
-
-    .reference { text-align: right; }
-
-    .brand {
-      margin: 0 0 5mm;
-      font-size: 16pt;
-      font-weight: 700;
-      letter-spacing: -1.1px;
-    }
-
-    .document-kicker,
-    .label {
-      display: block;
-      color: var(--muted);
-      font-family: "IBM Plex Mono", "Courier New", monospace;
-      font-size: 7pt;
-      font-weight: 700;
-      letter-spacing: .1em;
-      text-transform: uppercase;
-    }
-
-    .document-kicker { margin: 0 0 1.5mm; }
-
-    h1 {
-      margin: 0 0 4mm;
-      font-size: 18pt;
-      letter-spacing: -.75px;
-      line-height: 1.08;
-    }
-
-    h2 {
-      margin: 0 0 1mm;
-      font-size: 10pt;
-      break-after: avoid;
-      page-break-after: avoid;
-    }
-
-    .parties {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 7mm;
-      margin: 0 0 4mm;
-      padding: 2.5mm 0;
-      border-top: 1px solid var(--line);
-      border-bottom: 1px solid var(--line);
-      break-inside: avoid;
-      page-break-inside: avoid;
-    }
-
-    .label { margin-bottom: 1mm; }
-
-    .party-name { font-size: 11pt; font-weight: 700; }
-
-    .meta {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 3mm;
-      margin-bottom: 4mm;
-      break-inside: avoid;
-      page-break-inside: avoid;
-    }
-
-    .meta-value { font-size: 10pt; font-weight: 600; }
-
-    .intro {
-      max-width: 122mm;
-      margin: 0 0 3mm;
-    }
-
-    .clauses {
-      margin: 0;
-      padding: 0;
-      list-style: none;
-      counter-reset: clause;
-    }
-
-    .clauses > li {
-      display: grid;
-      grid-template-columns: 14mm 1fr;
-      gap: 5mm;
-      padding: 2mm 0;
-      border-top: 1px solid var(--line);
-      counter-increment: clause;
-      break-inside: auto;
-      page-break-inside: auto;
-    }
-
-    .clauses > li::before {
-      padding-top: 1mm;
-      color: var(--accent);
-      content: "0" counter(clause);
-      font-family: "IBM Plex Mono", "Courier New", monospace;
-      font-size: 7.5pt;
-      font-weight: 700;
-      letter-spacing: .08em;
-    }
-
-    .clauses p { margin: 0; }
-
-    .scope {
-      margin-top: 1.5mm;
-      padding: 1.75mm 2.5mm;
-      border-left: 2px solid var(--accent);
-      background: #f1f2f2;
-      white-space: pre-line;
-      orphans: 3;
-      widows: 3;
-    }
-
-    .signatures {
-      margin-top: 4mm;
-      padding-top: 2.5mm;
-      border-top: 1px solid var(--ink);
-      break-inside: avoid;
-      page-break-inside: avoid;
-    }
-
-    .signature-row { gap: 9mm; }
-    .signature { width: 48%; }
-    .signature-line { height: 7mm; margin-bottom: 1mm; border-bottom: 1px solid var(--ink); }
-    .signature-name { font-size: 9pt; font-weight: 700; }
-
-    .signature-caption,
-    .footer-note {
-      color: var(--muted);
-      font-family: "IBM Plex Mono", "Courier New", monospace;
-      font-size: 7.5pt;
-    }
-
-    .footer-note {
-      margin: 3mm 0 0;
-      font-size: 7pt;
-      text-align: right;
-    }
-
-    @media screen {
-      body { padding: 12.5mm 0; background: #eef1f3; }
-      .document { width: 210mm; min-height: 297mm; padding: 9mm 11mm; background: #fff; box-shadow: 0 8px 24px rgba(23, 32, 42, .16); }
-    }
-
-    @media print {
-      .document {
-        display: flex;
-        flex-direction: column;
-        width: auto;
-        min-height: 279mm;
-        margin: 0;
-      }
-
-      .signatures { margin-top: auto; padding-top: 2.5mm; }
-      .signature-line { height: 7mm; margin-bottom: 1mm; }
-      .footer-note { margin-top: 3mm; }
-    }
-  </style>
+  <title>Invoice</title>
 </head>
 <body>
-  <main class="document a4-page pin-signatures">
-    <header class="topline">
-      <div class="address">RenderPDF<br>Document Services<br>Kyiv, Ukraine</div>
-      <div class="reference">Agreement date<br>August 9, 2026</div>
-    </header>
+  <h1>Invoice #1001</h1>
+  <p>Date: September 16, 2026</p>
 
-    <div class="brand">RenderPDF</div>
-    <p class="document-kicker">Service agreement</p>
-    <h1>Design and Development Services Agreement</h1>
+  <h2>Billed To</h2>
+  <p>Acme Corp<br>123 Business Rd<br>City, Country</p>
 
-    <section class="parties" aria-label="Agreement parties">
-      <div>
-        <span class="label">Service provider</span>
-        <div class="party-name">RenderPDF Studio LLC</div>
-      </div>
-      <div>
-        <span class="label">Client</span>
-        <div class="party-name">Northstar Ventures Ltd.</div>
-      </div>
-    </section>
+  <h2>Items</h2>
+  <table border="1" cellpadding="6" cellspacing="0">
+    <thead>
+      <tr>
+        <th>Description</th>
+        <th>Quantity</th>
+        <th>Price</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Web Development Services</td>
+        <td>1</td>
+        <td>$1,500.00</td>
+      </tr>
+      <tr>
+        <td>PDF Generation Integration</td>
+        <td>1</td>
+        <td>$500.00</td>
+      </tr>
+    </tbody>
+  </table>
 
-    <section class="meta" aria-label="Contract terms">
-      <div><span class="label">Effective from</span><div class="meta-value">August 15, 2026</div></div>
-      <div><span class="label">Term ends</span><div class="meta-value">November 15, 2026</div></div>
-      <div><span class="label">Payment terms</span><div class="meta-value">50% on commencement; 50% on final delivery, due within 14 days</div></div>
-    </section>
-
-    <p class="intro">This agreement sets out the terms under which RenderPDF Studio LLC will provide services to Northstar Ventures Ltd. The parties agree to collaborate in good faith throughout the term described below.</p>
-
-    <ol class="clauses">
-      <li><div><h2>Scope of services</h2><p>The provider will perform the following agreed scope of work:</p><div class="scope">Brand identity refinement
-Responsive marketing website design and development
-Content-management handover and launch support</div></div></li>
-      <li><div><h2>Term and delivery</h2><p>Services begin on August 15, 2026 and conclude on November 15, 2026, unless the parties agree in writing to change the schedule or scope.</p></div></li>
-      <li><div><h2>Fees and payment</h2><p>Northstar Ventures Ltd. will pay invoices in accordance with 50% on commencement; 50% on final delivery, due within 14 days. Any change to fees or deliverables requires written approval from both parties.</p></div></li>
-      <li><div><h2>Confidentiality</h2><p>Each party will protect the other party’s non-public information and use it solely to perform this agreement, except where disclosure is required by law.</p></div></li>
-      <li><div><h2>Acceptance</h2><p>By signing below, each party confirms it has authority to enter into this agreement and accepts the terms set out in this document.</p></div></li>
-    </ol>
-
-    <section class="signatures" aria-label="Signatures">
-      <span class="label">Accepted and agreed</span>
-      <div class="signature-row">
-        <div class="signature"><div class="signature-line"></div><div class="signature-name">RenderPDF Studio LLC</div><div class="signature-caption">Authorized representative / Date</div></div>
-        <div class="signature"><div class="signature-line"></div><div class="signature-name">Northstar Ventures Ltd.</div><div class="signature-caption">Authorized representative / Date</div></div>
-      </div>
-      <p class="footer-note">RenderPDF · Design and Development Services Agreement · August 9, 2026</p>
-    </section>
-  </main>
+  <p><strong>Total: $2,000.00</strong></p>
+  <p>Thank you for your business!</p>
 </body>
 </html></textarea>
-                                <small id="htmlInputHelp" class="field-help">The preview stays in your browser. Trial renders accept up to 1 MB of HTML.</small>
-                            </div>
-                            <div class="playground-preview-wrap">
-                                <header class="preview-heading"><span class="field-label">Document preview</span><span>Local only</span></header>
-                                <iframe id="htmlPreview" class="html-preview" title="Local HTML document preview" sandbox="allow-scripts"></iframe>
-                            </div>
-                        </div>
-                        <button type="submit" id="generateBtn" class="button button-primary generate-button">
-                            <span id="generateBtnLabel">Render PDF</span>
-                        </button>
-                    </form>
-
-                    <div id="result" class="notice notice-success hidden" role="status" aria-live="polite"></div>
-                    <div id="error" class="notice notice-error hidden" role="alert"></div>
-            </section>
-
-            <section class="capabilities" aria-label="Service capabilities">
-                <article>
-                    <span class="capability-index">01</span>
-                    <div>
-                        <h2>REST API</h2>
-                        <p>Send HTML, URLs, templates, or document packages through one endpoint.</p>
-                    </div>
-                </article>
-                <article>
-                    <span class="capability-index">02</span>
-                    <div>
-                        <h2>AWS-powered</h2>
-                        <p>Run reliable rendering without managing browser workers or scaling infrastructure.</p>
-                    </div>
-                </article>
-                <article>
-                    <span class="capability-index">03</span>
-                    <div>
-                        <h2>Secure delivery</h2>
-                        <p>Return private PDFs through expiring download links, ready for your product.</p>
-                    </div>
-                </article>
-                <article>
-                    <span class="capability-index">04</span>
-                    <div>
-                        <h2>Browser-grade rendering</h2>
-                        <p>Use modern HTML and CSS, rendered with Chromium to match your web output.</p>
-                    </div>
-                </article>
-            </section>
-
-            <section class="pricing" id="pricing" aria-labelledby="pricing-title">
-                <header class="pricing-header">
-                    <div>
-                        <p class="eyebrow">Simple, usage-based plans</p>
-                        <h2 id="pricing-title">Start free. Scale when your documents do.</h2>
-                    </div>
-                    <p>Every plan includes the same Chromium renderer, secure delivery, and API-key access. Create a free account first; upgrade in the dashboard after sign-in.</p>
-                </header>
-
-                <div class="pricing-grid">
-                    <article class="pricing-card">
-                        <p class="pricing-tier">Free</p>
-                        <p class="pricing-price"><strong>$0</strong><span>/ month</span></p>
-                        <p class="pricing-allowance">25 PDFs each month</p>
-                        <a class="button" href="/app/">Create free account</a>
-                    </article>
-                    <article class="pricing-card">
-                        <p class="pricing-tier">Starter</p>
-                        <p class="pricing-price"><strong>$19</strong><span>/ month</span></p>
-                        <p class="pricing-allowance">5,000 PDFs each month</p>
-                        <p class="pricing-status">Upgrade after sign-in</p>
-                        <a class="button" href="/app/">Create free account</a>
-                    </article>
-                    <article class="pricing-card pricing-card-featured">
-                        <p class="pricing-badge">Most popular</p>
-                        <p class="pricing-tier">Professional</p>
-                        <p class="pricing-price"><strong>$49</strong><span>/ month</span></p>
-                        <p class="pricing-allowance">20,000 PDFs each month</p>
-                        <p class="pricing-status">Upgrade after sign-in</p>
-                        <a class="button button-primary" href="/app/">Create free account</a>
-                    </article>
-                    <article class="pricing-card">
-                        <p class="pricing-tier">Business</p>
-                        <p class="pricing-price"><strong>Custom</strong><span> pricing</span></p>
-                        <p class="pricing-allowance">High-volume and tailored plans</p>
-                        <p class="pricing-status">Available by request</p>
-                    </article>
+                    <br>
+                    <small id="htmlInputHelp">The preview stays in your browser. Trial renders accept up to 1 MB of HTML.</small>
                 </div>
-            </section>
-        </main>
 
-        <footer class="footer">
-            <p>RenderPDF / Built for developers shipping documents.</p>
-            <nav aria-label="Footer navigation">
-                <a href="/docs/api/">Documentation</a>
-                <a href="/app/">API keys</a>
-                <a href="https://stats.uptimerobot.com/UNP4h7ipig" target="_blank" rel="noopener noreferrer">System status</a>
-                <a href="https://vberkoz.com/">vberkoz.com</a>
-            </nav>
-        </footer>
-    </div>
+                <br>
 
+                <div>
+                    <label for="htmlPreview"><strong>Document preview:</strong></label><br>
+                    <iframe id="htmlPreview" width="100%" height="320" title="Local HTML document preview" sandbox="allow-scripts"></iframe>
+                </div>
 
+                <br>
 
+                <button type="submit" id="generateBtn">
+                    <span id="generateBtnLabel">Render PDF</span>
+                </button>
+            </form>
 
-    <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.11.1/build/highlight.min.js"></script>
-    <script>if (window.hljs) window.hljs.highlightAll();</script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/xml/xml.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/javascript/javascript.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/css/css.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/htmlmixed/htmlmixed.min.js"></script>
+            <div id="result" role="status" aria-live="polite" hidden></div>
+            <div id="error" role="alert" hidden></div>
+        </section>
+
+        <hr>
+
+        <section id="features">
+            <h2>Capabilities</h2>
+            <ul>
+                <li>
+                    <strong>REST API:</strong> Send HTML, URLs, templates, or document packages through one endpoint.
+                </li>
+                <li>
+                    <strong>AWS-powered:</strong> Run reliable rendering without managing browser workers or scaling infrastructure.
+                </li>
+                <li>
+                    <strong>Secure delivery:</strong> Return private PDFs through expiring download links, ready for your product.
+                </li>
+                <li>
+                    <strong>Browser-grade rendering:</strong> Use modern HTML and CSS, rendered with Chromium to match your web output.
+                </li>
+            </ul>
+        </section>
+
+        <hr>
+
+        <section id="pricing" aria-labelledby="pricing-title">
+            <h2 id="pricing-title">Pricing</h2>
+            <p>Every plan includes the same Chromium renderer, secure delivery, and API-key access. Create a free account first; upgrade in the dashboard after sign-in.</p>
+            <table border="1" cellpadding="6" cellspacing="0">
+                <thead>
+                    <tr>
+                        <th>Plan</th>
+                        <th>Price</th>
+                        <th>Allowance</th>
+                        <th>Status / Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Free</strong></td>
+                        <td>$0 / month</td>
+                        <td>25 PDFs each month</td>
+                        <td><a href="/app/">Create free account</a></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Starter</strong></td>
+                        <td>$19 / month</td>
+                        <td>5,000 PDFs each month</td>
+                        <td><a href="/app/">Create free account</a></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Professional</strong> (Most popular)</td>
+                        <td>$49 / month</td>
+                        <td>20,000 PDFs each month</td>
+                        <td><a href="/app/">Create free account</a></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Business</strong></td>
+                        <td>Custom pricing</td>
+                        <td>High-volume and tailored plans</td>
+                        <td>Available by request</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+    </main>
+
+    <hr>
+
+    <footer>
+        <p>RenderPDF / Built for developers shipping documents.</p>
+        <nav aria-label="Footer navigation">
+            <a href="/docs/api/">Documentation</a> |
+            <a href="/app/">API keys</a> |
+            <a href="https://stats.uptimerobot.com/UNP4h7ipig" target="_blank" rel="noopener noreferrer">System status</a> |
+            <a href="https://vberkoz.com/">vberkoz.com</a>
+        </nav>
+    </footer>
+
     <script>
-        // A page opened directly from disk has no HTTP origin, so use the
-        // deployed API rather than resolving endpoints to file:///api/...
         const API_ORIGIN = window.location.protocol === 'file:'
             ? 'https://renderpdf.vberkoz.com'
             : window.location.origin;
         const TRIAL_RENDER_URL = new URL('/api/v1/trial/render', API_ORIGIN).toString();
+        const QUOTA_URL = new URL('/api/v1/trial/quota', API_ORIGIN).toString();
+
         const form = document.getElementById('pdfForm');
         const btn = document.getElementById('generateBtn');
         const btnLabel = document.getElementById('generateBtnLabel');
         const result = document.getElementById('result');
         const error = document.getElementById('error');
         const htmlInput = document.getElementById('htmlInput');
-        let htmlEditor = null;
-        if (window.CodeMirror) {
-            htmlEditor = window.CodeMirror.fromTextArea(htmlInput, {
-                mode: 'htmlmixed',
-                lineNumbers: true,
-                lineWrapping: false,
-                indentUnit: 2,
-                tabSize: 2
-            });
-            htmlEditor.on('change', () => {
-                htmlEditor.save();
-                htmlInput.dispatchEvent(new Event('input', { bubbles: true }));
-            });
-        }
-        const playgroundHTML = () => htmlEditor ? htmlEditor.getValue() : htmlInput.value;
         const htmlPreview = document.getElementById('htmlPreview');
         const quotaStatus = document.getElementById('quotaStatus');
         const quotaRemaining = document.getElementById('quotaRemaining');
         const quotaLabel = document.getElementById('quotaLabel');
-        const QUOTA_URL = new URL('/api/v1/trial/quota', API_ORIGIN).toString();
 
         const displayQuota = (remaining) => {
             const value = Math.max(0, Number.parseInt(remaining, 10) || 0);
@@ -492,7 +210,6 @@ Content-management handover and launch support</div></div></li>
             quotaLabel.textContent = value === 1
                 ? 'free PDF left today'
                 : 'free PDFs left today';
-            quotaStatus.classList.toggle('quota-empty', value === 0);
         };
 
         const loadQuota = async () => {
@@ -510,22 +227,7 @@ Content-management handover and launch support</div></div></li>
 
         const previewHead = `
             <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data: https:; style-src 'unsafe-inline' https:; font-src data: https:; script-src 'unsafe-inline'">
-            <style>html { overflow-x: hidden; overflow-y: auto; } body { margin: 0; transform-origin: top left; }</style>
-            <script>
-              function fitPreviewToWidth() {
-                document.body.style.zoom = '1';
-                const availableWidth = document.documentElement.clientWidth;
-                const documentWidth = Math.max(document.documentElement.scrollWidth, document.body.scrollWidth);
-                if (availableWidth && documentWidth > availableWidth) {
-                  document.body.style.zoom = String(Math.max(0.2, availableWidth / documentWidth));
-                }
-              }
-              window.addEventListener('load', () => {
-                fitPreviewToWidth();
-                window.setTimeout(fitPreviewToWidth, 120);
-              });
-              window.addEventListener('resize', fitPreviewToWidth);
-            <\/script>`;
+            <style>html { overflow-x: hidden; overflow-y: auto; } body { margin: 0; }</style>`;
 
         const previewHTML = (html) => {
             const fallback = '<main>Start typing HTML to preview your document.</main>';
@@ -546,26 +248,25 @@ Content-management handover and launch support</div></div></li>
         let previewFrame;
         const schedulePreview = () => {
             cancelAnimationFrame(previewFrame);
-            previewFrame = requestAnimationFrame(() => previewHTML(playgroundHTML()));
+            previewFrame = requestAnimationFrame(() => previewHTML(htmlInput.value));
         };
         htmlInput.addEventListener('input', schedulePreview);
-        previewHTML(playgroundHTML());
+        previewHTML(htmlInput.value);
 
         form.addEventListener('submit', async (event) => {
             event.preventDefault();
 
             btn.disabled = true;
             btn.setAttribute('aria-busy', 'true');
-            btn.classList.add('is-processing');
-            btnLabel.textContent = 'Rendering PDF';
-            result.classList.add('hidden');
-            error.classList.add('hidden');
+            btnLabel.textContent = 'Rendering PDF...';
+            result.hidden = true;
+            error.hidden = true;
 
             try {
                 const response = await fetch(TRIAL_RENDER_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ html: playgroundHTML() })
+                    body: JSON.stringify({ html: htmlInput.value })
                 });
 
                 const remaining = response.headers.get('X-Trial-Remaining');
@@ -580,20 +281,18 @@ Content-management handover and launch support</div></div></li>
 
                 const data = await response.json();
                 result.innerHTML = `
-                    <div>
-                        <strong>PDF ready</strong>
-                        <span>${(data.size / 1024).toFixed(1)} KB</span>
-                    </div>
-                    <a href="${data.url}" target="_blank" rel="noopener">Download PDF</a>
+                    <p>
+                        <strong>PDF ready</strong> (${(data.size / 1024).toFixed(1)} KB) —
+                        <a href="${data.url}" target="_blank" rel="noopener">Download PDF</a>
+                    </p>
                 `;
-                result.classList.remove('hidden');
+                result.hidden = false;
             } catch (err) {
-                error.innerHTML = `<strong>Could not generate PDF</strong><span>${err.message}</span>`;
-                error.classList.remove('hidden');
+                error.innerHTML = `<p><strong>Could not generate PDF:</strong> ${err.message}</p>`;
+                error.hidden = false;
             } finally {
                 btn.disabled = false;
                 btn.setAttribute('aria-busy', 'false');
-                btn.classList.remove('is-processing');
                 btnLabel.textContent = 'Render PDF';
             }
         });
