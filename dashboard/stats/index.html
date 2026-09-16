@@ -7,177 +7,166 @@
     <meta name="description" content="RenderPDF service analytics.">
     <title>RenderPDF | Stats</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-    <link href="/styles/base.css" rel="stylesheet">
-    <link href="/styles/stats.css" rel="stylesheet">
-    <style>
-        .stats-controls {
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            justify-content: space-between;
-            gap: 12px 20px;
-            padding: 14px 0;
-            border-top: 1px solid var(--line);
-            border-bottom: 1px solid var(--line);
-        }
-        .stats-control-details {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px 20px;
-            color: var(--muted);
-            font-size: .8rem;
-        }
-        .stats-control-details p { margin: 0; }
-        .stats-control-details strong { color: var(--text); }
-        .stats-controls .button { flex: 0 0 auto; }
-        @media (max-width: 560px) {
-            .stats-controls { align-items: stretch; }
-            .stats-control-details { display: grid; gap: 5px; }
-            .stats-controls .button { width: 100%; }
-        }
-    </style>
 </head>
-<body class="stats-page">
-    <a class="skip-link" href="#main-content">Skip to main content</a>
-    <div class="stats-shell"><header class="stats-topbar">
-            <a class="stats-brand" href="/" aria-label="RenderPDF home">RenderPDF</a>
-            <div class="stats-header-actions">
-                <p aria-live="polite">
-                    <span id="refreshStatus" data-state="pending">Checking access...</span>
-                </p>
-                <nav id="stats-primary-navigation" class="stats-nav" data-carbon-header-nav aria-label="Primary navigation">
-                    <a href="/">Home</a>
-                    <a href="/app/">Dashboard</a>
-                    <a href="/docs/api/">API docs</a>
-                    <button id="logoutBtn" type="button">Sign out</button>
-                </nav>
-            </div>
-    </header></div>
-    <main id="main-content" class="stats-main" tabindex="-1">
+<body>
+    <a href="#main-content">Skip to main content</a>
 
+    <header>
+        <p><strong><a href="/" aria-label="RenderPDF home">RenderPDF</a></strong></p>
+        <p aria-live="polite">
+            <span id="refreshStatus" data-state="pending">Checking access...</span>
+        </p>
+        <nav id="stats-primary-navigation" aria-label="Primary navigation">
+            <a href="/">Home</a> |
+            <a href="/app/">Dashboard</a> |
+            <a href="/docs/api/">API docs</a> |
+            <button id="logoutBtn" type="button">Sign out</button>
+        </nav>
+    </header>
+
+    <hr>
+
+    <main id="main-content" tabindex="-1">
         <section id="stats-content" aria-labelledby="stats-title" tabindex="-1">
-            <p>Service telemetry</p>
+            <p><small>Service telemetry</small></p>
             <h1 id="stats-title">RenderPDF statistics</h1>
             <p>Recent PDF request volume, renderer performance, and analytics endpoint status.</p>
         </section>
 
-        <section class="stats-controls" aria-label="Reporting controls">
-            <div class="stats-control-details">
-                <p>Reporting window: <strong id="reportingWindow">Last 30 days</strong></p>
-                <p>Last updated: <time id="checkedAt" aria-live="polite">Not updated yet</time></p>
-            </div>
-            <button id="refreshBtn" class="button button-secondary" type="button">Refresh</button>
+        <section aria-label="Reporting controls">
+            <p>Reporting window: <strong id="reportingWindow">Last 30 days</strong> | Last updated: <time id="checkedAt" aria-live="polite">Not updated yet</time></p>
+            <button id="refreshBtn" type="button">Refresh</button>
         </section>
 
-        <section class="stats-overview" aria-labelledby="overview-title">
-            <div class="stats-section-heading">
-                <p>At a glance</p>
-                <h2 id="overview-title">Key service signals</h2>
-            </div>
-            <div class="stats-metrics stats-metrics-primary" aria-label="Key RenderPDF statistics">
+        <hr>
+
+        <section aria-labelledby="overview-title">
+            <h2 id="overview-title">Key service signals</h2>
+            <div aria-label="Key RenderPDF statistics">
                 <article data-metric>
-                    <p class="metric-group">Volume</p>
+                    <p><small>Volume</small></p>
                     <h3>Requests today</h3>
                     <p id="requestsToday" class="metric-value" aria-live="polite">Loading…</p>
-                    <p>All request outcomes</p>
+                    <p><small>All request outcomes</small></p>
                 </article>
                 <article data-metric>
-                    <p class="metric-group">Reliability</p>
+                    <p><small>Reliability</small></p>
                     <h3>Success rate</h3>
                     <p id="successRate" class="metric-value" aria-live="polite">Loading…</p>
-                    <p>Successful PDF responses</p>
+                    <p><small>Successful PDF responses</small></p>
                 </article>
                 <article data-metric>
-                    <p class="metric-group">Reliability</p>
+                    <p><small>Reliability</small></p>
                     <h3>p95 render time</h3>
                     <p id="p95RenderMs" class="metric-value" aria-live="polite">Loading…</p>
-                    <p>Slowest 5% of renders</p>
+                    <p><small>Slowest 5% of renders</small></p>
                 </article>
                 <article data-metric>
-                    <p class="metric-group">Conversion</p>
+                    <p><small>Conversion</small></p>
                     <h3>Trial to signup</h3>
                     <p id="trialConversion" class="metric-value" aria-live="polite">Loading…</p>
-                    <p>API-key creation proxy</p>
+                    <p><small>API-key creation proxy</small></p>
                 </article>
             </div>
         </section>
 
-        <section class="stats-groups" aria-labelledby="metrics-title">
-            <div class="stats-section-heading">
-                <p>Metrics</p>
-                <h2 id="metrics-title">Volume, reliability, and conversion</h2>
-            </div>
-            <section class="metric-group-section" aria-labelledby="volume-title">
-                <div class="metric-group-heading"><p>Volume</p><h3 id="volume-title">Request demand</h3></div>
-                <div class="stats-metrics" aria-label="Volume metrics">
-                    <article data-metric><h4>Last 7 days</h4><p id="requestsLast7Days" class="metric-value" aria-live="polite">Loading…</p><p>PDF requests</p></article>
-                    <article data-metric><h4>Last 30 days</h4><p id="requestsLast30Days" class="metric-value" aria-live="polite">Loading…</p><p>PDF requests</p></article>
-                    <article data-metric><h4>Trial / authenticated</h4><p id="planSplit" class="metric-value" aria-live="polite">Loading…</p><p>Requests in the last 30 days</p></article>
+        <hr>
+
+        <section aria-labelledby="metrics-title">
+            <h2 id="metrics-title">Volume, reliability, and conversion</h2>
+
+            <section aria-labelledby="volume-title">
+                <h3 id="volume-title">Request demand</h3>
+                <div aria-label="Volume metrics">
+                    <article data-metric>
+                        <h4>Last 7 days</h4>
+                        <p id="requestsLast7Days" class="metric-value" aria-live="polite">Loading…</p>
+                        <p><small>PDF requests</small></p>
+                    </article>
+                    <article data-metric>
+                        <h4>Last 30 days</h4>
+                        <p id="requestsLast30Days" class="metric-value" aria-live="polite">Loading…</p>
+                        <p><small>PDF requests</small></p>
+                    </article>
+                    <article data-metric>
+                        <h4>Trial / authenticated</h4>
+                        <p id="planSplit" class="metric-value" aria-live="polite">Loading…</p>
+                        <p><small>Requests in the last 30 days</small></p>
+                    </article>
                 </div>
             </section>
-            <section class="metric-group-section" aria-labelledby="reliability-title">
-                <div class="metric-group-heading"><p>Reliability</p><h3 id="reliability-title">Renderer outcomes</h3></div>
-                <div class="stats-metrics" aria-label="Reliability metrics">
-                    <article data-metric><h4>Errors / timeouts</h4><p id="errorsTimeouts" class="metric-value" aria-live="polite">Loading…</p><p>Tracked renderer failures</p></article>
+
+            <section aria-labelledby="reliability-title">
+                <h3 id="reliability-title">Renderer outcomes</h3>
+                <div aria-label="Reliability metrics">
+                    <article data-metric>
+                        <h4>Errors / timeouts</h4>
+                        <p id="errorsTimeouts" class="metric-value" aria-live="polite">Loading…</p>
+                        <p><small>Tracked renderer failures</small></p>
+                    </article>
                 </div>
             </section>
-            <section class="metric-group-section" aria-labelledby="conversion-title">
-                <div class="metric-group-heading"><p>Conversion</p><h3 id="conversion-title">From trial to account</h3></div>
-                <p class="metric-group-copy">The highlighted trial-to-signup rate above is the current conversion signal, based on API-key creation.</p>
+
+            <section aria-labelledby="conversion-title">
+                <h3 id="conversion-title">From trial to account</h3>
+                <p>The highlighted trial-to-signup rate above is the current conversion signal, based on API-key creation.</p>
             </section>
         </section>
 
-        <section class="stats-breakdowns" aria-labelledby="breakdowns-title">
-            <div class="stats-section-heading">
-                <p>Breakdowns</p>
-                <h2 id="breakdowns-title">Where requests come from</h2>
-            </div>
-            <div class="stats-details" aria-label="Detailed statistics">
-            <article>
-                <p>Volume</p>
-                <h2>Daily usage</h2>
-                <p id="windowLabel">Last 30 days</p>
-                <div id="dailyChart" aria-label="Daily request chart"></div>
-                <p>Total, trial, and authenticated requests</p>
-            </article>
+        <hr>
+
+        <section aria-labelledby="breakdowns-title">
+            <h2 id="breakdowns-title">Where requests come from</h2>
 
             <article>
-                <p>Reliability</p>
-                <h2>Analytics endpoint status</h2>
+                <h3>Daily usage</h3>
+                <p id="windowLabel">Last 30 days</p>
+                <div id="dailyChart" aria-label="Daily request chart"></div>
+                <p><small>Total, trial, and authenticated requests</small></p>
+            </article>
+
+            <hr>
+
+            <article>
+                <h3>Analytics endpoint status</h3>
                 <p id="apiBadge" data-state="pending" aria-live="polite">Loading analytics</p>
                 <dl>
-                    <div><dt>Endpoint</dt><dd><pre><code id="analyticsEndpoint">/api/v1/analytics?days=30</code></pre></dd></div>
-                    <div><dt>Signal</dt><dd id="apiVersion">Checking...</dd></div>
-                    <div><dt>Response time</dt><dd id="responseTime">Checking...</dd></div>
+                    <div><dt>Endpoint:</dt><dd><pre><code id="analyticsEndpoint">/api/v1/analytics?days=30</code></pre></dd></div>
+                    <div><dt>Signal:</dt><dd id="apiVersion">Checking...</dd></div>
+                    <div><dt>Response time:</dt><dd id="responseTime">Checking...</dd></div>
                 </dl>
-                <p>This checks the analytics endpoint only; it does not verify renderer availability.</p>
+                <p><small>This checks the analytics endpoint only; it does not verify renderer availability.</small></p>
                 <p id="accessMessage" hidden></p>
             </article>
 
+            <hr>
+
             <article>
-                <h2>Top API keys</h2>
+                <h3>Top API keys</h3>
                 <div id="topApiKeys"><p>Private breakdown</p></div>
             </article>
 
+            <hr>
+
             <article>
-                <h2>Top customers</h2>
+                <h3>Top customers</h3>
                 <div id="topCustomers"><p>Private breakdown</p></div>
             </article>
 
+            <hr>
+
             <article>
-                <h2>User country</h2>
+                <h3>User country</h3>
                 <div id="countries"><p>Waiting for analytics...</p></div>
             </article>
-            </div>
         </section>
-
-        <footer><span>RenderPDF / service stats</span></footer>
     </main>
 
+    <hr>
 
+    <footer>
+        <p>RenderPDF / service stats</p>
+    </footer>
 
     <script>
         const refreshStatus = document.getElementById('refreshStatus');
@@ -227,8 +216,7 @@
             const button = document.getElementById('logoutBtn');
             button.disabled = true;
             button.setAttribute('aria-busy', 'true');
-            button.classList.add('is-processing');
-            button.lastChild.textContent = 'Signing out…';
+            button.textContent = 'Signing out…';
             localStorage.removeItem('id_token');
             localStorage.removeItem('access_token');
             localStorage.removeItem('post_login_redirect');
@@ -248,7 +236,6 @@
                 const container = document.getElementById(elementId);
                 container.replaceChildren();
                 const notice = document.createElement('p');
-                notice.className = `breakdown-state breakdown-state-${state}`;
                 notice.textContent = message;
                 container.appendChild(notice);
             });
@@ -291,8 +278,8 @@
 
             [0, .5, 1].forEach((ratio) => {
                 const y = chart.y + chart.height - chart.height * ratio;
-                svg.appendChild(svgElement('line', { x1: chart.x, y1: y, x2: chart.x + chart.width, y2: y, class: 'chart-grid' }));
-                const label = svgElement('text', { x: chart.x - 9, y: y + 4, class: 'chart-axis', 'text-anchor': 'end' });
+                svg.appendChild(svgElement('line', { x1: chart.x, y1: y, x2: chart.x + chart.width, y2: y, stroke: '#999' }));
+                const label = svgElement('text', { x: chart.x - 9, y: y + 4, 'text-anchor': 'end' });
                 label.textContent = numberFormat.format(Math.round(maxRequests * ratio));
                 svg.appendChild(label);
             });
@@ -308,32 +295,20 @@
                 const title = svgElement('title');
                 title.textContent = `${day.date}: ${numberFormat.format(total)} total, ${numberFormat.format(trial)} trial, ${numberFormat.format(authenticated)} authenticated`;
                 group.appendChild(title);
-                if (trialHeight) group.appendChild(svgElement('rect', { x, y: chart.y + chart.height - trialHeight, width: barWidth, height: trialHeight, class: 'chart-bar chart-bar-trial' }));
-                if (authenticatedHeight) group.appendChild(svgElement('rect', { x, y: chart.y + chart.height - trialHeight - authenticatedHeight, width: barWidth, height: authenticatedHeight, class: 'chart-bar chart-bar-authenticated' }));
+                if (trialHeight) group.appendChild(svgElement('rect', { x, y: chart.y + chart.height - trialHeight, width: barWidth, height: trialHeight, fill: '#888' }));
+                if (authenticatedHeight) group.appendChild(svgElement('rect', { x, y: chart.y + chart.height - trialHeight - authenticatedHeight, width: barWidth, height: authenticatedHeight, fill: '#333' }));
                 svg.appendChild(group);
 
                 if (index === 0 || index === values.length - 1 || index === Math.floor((values.length - 1) / 2)) {
-                    const label = svgElement('text', { x: x + barWidth / 2, y: 198, class: 'chart-axis', 'text-anchor': 'middle' });
+                    const label = svgElement('text', { x: x + barWidth / 2, y: 198, 'text-anchor': 'middle' });
                     label.textContent = day.date.slice(5);
                     svg.appendChild(label);
                 }
             });
 
             container.appendChild(svg);
-            const legend = document.createElement('div');
-            legend.className = 'chart-legend';
-            legend.setAttribute('aria-label', 'Chart legend');
-            [
-                ['chart-legend-trial', 'Trial'],
-                ['chart-legend-authenticated', 'Authenticated']
-            ].forEach(([className, label]) => {
-                const item = document.createElement('span');
-                const marker = document.createElement('i');
-                marker.className = className;
-                marker.setAttribute('aria-hidden', 'true');
-                item.append(marker, document.createTextNode(label));
-                legend.appendChild(item);
-            });
+            const legend = document.createElement('p');
+            legend.textContent = 'Legend: [Gray: Trial] [Black: Authenticated]';
             container.appendChild(legend);
         }
 
@@ -370,11 +345,11 @@
                 const y = index * rowHeight + 4;
                 const count = Math.max(0, Number(country.count) || 0);
                 const width = 218 * count / maxCount;
-                const label = svgElement('text', { x: 0, y: y + 14, class: 'country-label' });
+                const label = svgElement('text', { x: 0, y: y + 14 });
                 label.textContent = country.name;
-                const track = svgElement('rect', { x: 112, y, width: 218, height: 16, rx: 4, class: 'country-track' });
-                const bar = svgElement('rect', { x: 112, y, width, height: 16, rx: 4, class: 'country-bar' });
-                const amount = svgElement('text', { x: 344, y: y + 13, class: 'country-count' });
+                const track = svgElement('rect', { x: 112, y, width: 218, height: 16, fill: '#eee' });
+                const bar = svgElement('rect', { x: 112, y, width, height: 16, fill: '#666' });
+                const amount = svgElement('text', { x: 344, y: y + 13 });
                 amount.textContent = numberFormat.format(count);
                 svg.append(label, track, bar, amount);
             });
