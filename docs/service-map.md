@@ -96,6 +96,10 @@
 - Public paths:
   - `https://renderpdf.vberkoz.com/`
   - `https://renderpdf.vberkoz.com/docs/api`
+  - `https://renderpdf.vberkoz.com/terms`
+  - `https://renderpdf.vberkoz.com/privacy`
+  - `https://renderpdf.vberkoz.com/refund`
+  - `https://renderpdf.vberkoz.com/cancellation`
 - Verification:
   - Manual flow in `docs/VERIFICATION.md`
 

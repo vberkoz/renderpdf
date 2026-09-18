@@ -29,7 +29,7 @@
                 <span>RenderPDF</span>
             </a>
             <nav class="dashboard-marketing-nav dashboard-nav" aria-label="Marketing and account links">
-                <a href="/docs/api/">API docs</a><a href="/#pricing">Pricing</a><a id="logoutBtn" href="/app/login">Sign out</a>
+                <button id="topbarQuickstartBtn" class="dashboard-nav-link-btn" type="button">Quickstart</button><a href="/docs/api/">API docs</a><a href="/#pricing">Pricing</a><a id="logoutBtn" href="/app/login">Sign out</a>
             </nav>
         </header>
 
@@ -82,6 +82,23 @@
                 </header>
                 <section class="dashboard-workspace" aria-label="Dashboard content">
                 <section class="overview-home" data-dashboard-view="overview" aria-label="Dashboard overview">
+                    <section id="overviewDefaultKeyCard" class="overview-section overview-default-key new-key-card" aria-labelledby="overview-default-key-title" hidden>
+                        <div class="new-key-header">
+                            <div>
+                                <h2 id="overview-default-key-title">Default API Key</h2>
+                                <p>Your API key has been automatically generated. Copy this key now—for security, the complete value is shown only once.</p>
+                            </div>
+                            <div class="new-key-actions">
+                                <button id="copyOverviewDefaultKeyBtn" class="dashboard-button dashboard-button-primary" type="button">Copy Key</button>
+                                <button id="quickstartOverviewDefaultKeyBtn" class="dashboard-button dashboard-button-secondary" type="button">Quickstart Guide</button>
+                                <button id="dismissOverviewDefaultKeyBtn" class="dashboard-button dashboard-button-secondary" type="button" aria-label="Dismiss">Dismiss</button>
+                            </div>
+                        </div>
+                        <div class="key-display">
+                            <code id="overviewDefaultKeyValue"></code>
+                        </div>
+                    </section>
+
                     <section class="overview-section overview-usage" aria-labelledby="overview-usage-title">
                         <header class="panel-header panel-header-compact">
                             <h2 id="overview-usage-title">Usage</h2>
@@ -105,6 +122,10 @@
                                 <strong>Upgrade plan</strong>
                                 <span>Increase your monthly PDF capacity.</span>
                             </a>
+                            <button id="overviewQuickstartAction" class="dashboard-next-action dashboard-next-action-btn" type="button">
+                                <strong>Quickstart guide</strong>
+                                <span>Code snippets with your live API key.</span>
+                            </button>
                         </div>
                     </section>
 
@@ -126,11 +147,25 @@
                         </div>
                         <div class="billing-actions">
                             <button id="upgradePlanBtn" class="dashboard-button dashboard-button-primary" type="button">Upgrade plan</button>
-                            <button id="buyOverageBtn" class="dashboard-button dashboard-button-primary" type="button" hidden>Buy 1,000 PDFs — $5</button>
+                            <button id="buyOverageBtn" class="dashboard-button dashboard-button-primary" type="button" hidden>Buy 1,000 PDFs — $5 USD</button>
                             <button id="manageBillingBtn" class="dashboard-button dashboard-button-primary" type="button" hidden>Manage billing</button>
                         </div>
                     </header>
                     <div id="billingStatus" class="dashboard-notice" role="status" aria-live="polite" hidden></div>
+                    <div class="billing-info-grid">
+                        <div class="billing-info-card">
+                            <h3>Billing terms &amp; currency</h3>
+                            <p>All plans are priced and billed in <strong>$ USD</strong> on a recurring <strong>monthly</strong> basis. You can manage payment methods, download invoices, or cancel your subscription at any time via <strong>Manage billing</strong>.</p>
+                        </div>
+                        <div class="billing-info-card">
+                            <h3>Quota exhaustion policy</h3>
+                            <p>When you reach 100% of your monthly PDF quota, further render requests pause with an <code>HTTP 429 Too Many Requests</code> code to prevent unexpected costs. You can resume immediately by buying an on-demand overage pack (1,000 PDFs for $5 USD) or upgrading to Professional.</p>
+                        </div>
+                        <div class="billing-info-card">
+                            <h3>Cancellation &amp; refunds</h3>
+                            <p>Cancel self-serve anytime via the Paddle Customer Portal ("Manage billing"). Subscriptions stay active until the end of your billing cycle. We offer a 100% refund within 14 days if usage is under 10% of monthly quota (<a href="/refund/" target="_blank" rel="noopener noreferrer">Refund policy</a>).</p>
+                        </div>
+                    </div>
                 </article>
 
                 <article id="api-keys" class="workspace-panel quiet-section keys-panel" data-dashboard-view="keys">
@@ -146,9 +181,15 @@
                     <div id="keysStatus" class="dashboard-notice" role="status" aria-live="polite" hidden></div>
 
                     <section id="newKeyCard" class="new-key-card" aria-labelledby="new-key-title" hidden>
-                        <div>
-                            <h3 id="new-key-title">Copy this key now</h3>
-                            <p>For security, the complete value is shown only once.</p>
+                        <div class="new-key-header">
+                            <div>
+                                <h3 id="new-key-title">Copy this key now</h3>
+                                <p>For security, the complete value is shown only once.</p>
+                            </div>
+                            <div class="new-key-actions">
+                                <button id="copyNewKeyBtn" class="dashboard-button dashboard-button-secondary" type="button">Copy Key</button>
+                                <button id="quickstartNewKeyBtn" class="dashboard-button dashboard-button-secondary" type="button">Quickstart Code</button>
+                            </div>
                         </div>
                         <div class="key-display">
                             <code id="newKeyValue"></code>
@@ -328,13 +369,40 @@
         </div>
 
         <footer class="dashboard-footer">
-            <p>RenderPDF / Developer workspace</p>
-            <nav aria-label="Footer navigation">
-                <a href="/docs/api/">Documentation</a>
-                <a href="https://github.com/vberkoz/renderpdf">GitHub</a>
-                <a href="https://stats.uptimerobot.com/UNP4h7ipig" target="_blank" rel="noopener noreferrer">System status</a>
-                <a href="https://vberkoz.com/">vberkoz.com</a>
-            </nav>
+            <div class="footer-top">
+                <div class="footer-brand-section">
+                    <div class="footer-brand">
+                        <span class="brand-mark" aria-hidden="true"></span>
+                        <span>RenderPDF</span>
+                    </div>
+                    <p class="footer-entity">RenderPDF Studio LLC</p>
+                    <p class="footer-address">131 Continental Dr, Suite 305, Newark, DE 19713, USA</p>
+                    <p class="footer-contact">Support: <a href="mailto:support@renderpdf.vberkoz.com">support@renderpdf.vberkoz.com</a></p>
+                </div>
+                <div class="footer-links-grid">
+                    <div class="footer-col">
+                        <span class="footer-col-title">Developer</span>
+                        <nav aria-label="Developer navigation">
+                            <a href="/docs/api/">Documentation</a>
+                            <a href="/app/?view=overview">Dashboard</a>
+                            <a href="/app/?view=billing">Billing</a>
+                            <a href="https://stats.uptimerobot.com/UNP4h7ipig" target="_blank" rel="noopener noreferrer">System status</a>
+                        </nav>
+                    </div>
+                    <div class="footer-col">
+                        <span class="footer-col-title">Legal &amp; Compliance</span>
+                        <nav aria-label="Legal navigation">
+                            <a href="/terms/">Terms of Service</a>
+                            <a href="/privacy/">Privacy Policy</a>
+                            <a href="/refund/">Refund Policy</a>
+                            <a href="/cancellation/">Cancellation</a>
+                        </nav>
+                    </div>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2026 RenderPDF Studio LLC. All rights reserved. Payments and subscriptions are securely managed by Paddle, our Merchant of Record.</p>
+            </div>
         </footer>
     </div>
 
@@ -364,16 +432,81 @@
                 <p>Changes are prorated today. All plans include private PDF storage and API-key access.</p>
             </div>
             <div class="plan-options">
-                <button class="plan-option" type="button" data-plan="starter" aria-label="Choose Starter, 5,000 PDFs per month for $19 per month">
-                    <span class="plan-option-copy"><strong>Starter</strong><span>5,000 PDFs per month</span></span>
-                    <span class="plan-option-price"><strong>$19</strong><span>/ month</span></span>
+                <button class="plan-option" type="button" data-plan="starter" aria-label="Choose Starter, 5,000 PDFs per month for $19 USD per month">
+                    <span class="plan-option-copy"><strong>Starter</strong><span>5,000 PDFs per month · Billed monthly</span></span>
+                    <span class="plan-option-price"><strong>$19 USD</strong><span>/ month</span></span>
                 </button>
-                <button class="plan-option" type="button" data-plan="pro" aria-label="Choose Professional, 20,000 PDFs per month for $49 per month">
-                    <span class="plan-option-copy"><strong>Professional</strong><span>20,000 PDFs per month</span></span>
-                    <span class="plan-option-price"><strong>$49</strong><span>/ month</span></span>
+                <button class="plan-option" type="button" data-plan="pro" aria-label="Choose Professional, 20,000 PDFs per month for $49 USD per month">
+                    <span class="plan-option-copy"><strong>Professional</strong><span>20,000 PDFs per month · Billed monthly</span></span>
+                    <span class="plan-option-price"><strong>$49 USD</strong><span>/ month</span></span>
                 </button>
             </div>
+            <p class="field-help" style="margin: 10px 0 0; text-align: center;">Subscriptions renew monthly in $ USD and can be cancelled self-serve anytime. Covered by our <a href="/refund/" target="_blank" rel="noopener noreferrer">14-day refund policy</a>.</p>
             <div class="dashboard-dialog-actions"><button id="billingPlanDialogClose" class="dashboard-button dashboard-button-secondary" type="button">Close</button></div>
+        </div>
+    </dialog>
+
+    <dialog id="quickstartDialog" class="dashboard-dialog" aria-labelledby="quickstartDialogTitle">
+        <div class="dashboard-dialog-card quickstart-dialog">
+            <div class="dashboard-dialog-heading">
+                <p class="panel-kicker">Developer quickstart</p>
+                <h2 id="quickstartDialogTitle">Start rendering PDFs</h2>
+                <p id="quickstartDialogDescription">Send your first PDF request using your live API key pre-filled below.</p>
+            </div>
+
+            <div class="quickstart-key-banner">
+                <div class="quickstart-key-info">
+                    <span class="quickstart-key-label">Active API Key</span>
+                    <code id="quickstartKeyValue" class="quickstart-key-value">YOUR_API_KEY</code>
+                </div>
+                <button id="quickstartCopyKeyBtn" class="dashboard-button dashboard-button-secondary" type="button">Copy Key</button>
+            </div>
+
+            <div class="quickstart-tabs-container">
+                <div class="quickstart-tablist" role="tablist" aria-label="Code snippet languages">
+                    <button id="quickstartTabCurl" class="quickstart-tab is-active" role="tab" type="button" aria-selected="true" aria-controls="quickstartPanelCurl" tabindex="0">cURL</button>
+                    <button id="quickstartTabNode" class="quickstart-tab" role="tab" type="button" aria-selected="false" aria-controls="quickstartPanelNode" tabindex="-1">Node.js</button>
+                    <button id="quickstartTabPython" class="quickstart-tab" role="tab" type="button" aria-selected="false" aria-controls="quickstartPanelPython" tabindex="-1">Python</button>
+                    <button id="quickstartTabGo" class="quickstart-tab" role="tab" type="button" aria-selected="false" aria-controls="quickstartPanelGo" tabindex="-1">Go</button>
+                </div>
+
+                <div id="quickstartPanelCurl" class="quickstart-tabpanel" role="tabpanel" aria-labelledby="quickstartTabCurl" tabindex="0">
+                    <div class="quickstart-code-header">
+                        <span class="quickstart-lang-badge">cURL / bash</span>
+                        <button id="quickstartCopyCurlBtn" class="dashboard-button dashboard-button-secondary quickstart-copy-btn" type="button">Copy Code</button>
+                    </div>
+                    <pre class="quickstart-pre"><code id="quickstartCodeCurl" class="quickstart-code"></code></pre>
+                </div>
+
+                <div id="quickstartPanelNode" class="quickstart-tabpanel" role="tabpanel" aria-labelledby="quickstartTabNode" tabindex="0" hidden>
+                    <div class="quickstart-code-header">
+                        <span class="quickstart-lang-badge">Node.js 18+ (Fetch)</span>
+                        <button id="quickstartCopyNodeBtn" class="dashboard-button dashboard-button-secondary quickstart-copy-btn" type="button">Copy Code</button>
+                    </div>
+                    <pre class="quickstart-pre"><code id="quickstartCodeNode" class="quickstart-code"></code></pre>
+                </div>
+
+                <div id="quickstartPanelPython" class="quickstart-tabpanel" role="tabpanel" aria-labelledby="quickstartTabPython" tabindex="0" hidden>
+                    <div class="quickstart-code-header">
+                        <span class="quickstart-lang-badge">Python 3 (Requests)</span>
+                        <button id="quickstartCopyPythonBtn" class="dashboard-button dashboard-button-secondary quickstart-copy-btn" type="button">Copy Code</button>
+                    </div>
+                    <pre class="quickstart-pre"><code id="quickstartCodePython" class="quickstart-code"></code></pre>
+                </div>
+
+                <div id="quickstartPanelGo" class="quickstart-tabpanel" role="tabpanel" aria-labelledby="quickstartTabGo" tabindex="0" hidden>
+                    <div class="quickstart-code-header">
+                        <span class="quickstart-lang-badge">Go (net/http)</span>
+                        <button id="quickstartCopyGoBtn" class="dashboard-button dashboard-button-secondary quickstart-copy-btn" type="button">Copy Code</button>
+                    </div>
+                    <pre class="quickstart-pre"><code id="quickstartCodeGo" class="quickstart-code"></code></pre>
+                </div>
+            </div>
+
+            <div class="quickstart-dialog-footer">
+                <a class="quickstart-docs-link" href="/docs/api/" target="_blank" rel="noopener noreferrer">Explore full API documentation &rarr;</a>
+                <button id="quickstartDialogClose" class="dashboard-button dashboard-button-primary" type="button">Done</button>
+            </div>
         </div>
     </dialog>
 

@@ -33,3 +33,67 @@ func TestCognitoSubjectRejectsMissingOrMalformedClaims(t *testing.T) {
 		t.Fatalf("subject = %q, want user-1", got)
 	}
 }
+
+func TestCreateKeyRequestUnmarshal(t *testing.T) {
+	tests := []struct {
+		name     string
+		body     string
+		wantName string
+	}{
+		{name: "empty body", body: "", wantName: ""},
+		{name: "empty json", body: "{}", wantName: ""},
+		{name: "with default key name", body: `{"name":"Default Key"}`, wantName: "Default Key"},
+		{name: "with custom name", body: `{"name":"Production Server"}`, wantName: "Production Server"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			var req CreateKeyRequest
+			if tc.body != "" {
+				if err := json.Unmarshal([]byte(tc.body), &req); err != nil {
+					t.Fatalf("unmarshal error: %v", err)
+				}
+			}
+			if req.Name != tc.wantName {
+				t.Fatalf("req.Name = %q, want %q", req.Name, tc.wantName)
+			}
+		})
+	}
+}
+
+func TestCreateKeyResponseAndAPIKeyInfoNameJSON(t *testing.T) {
+	resp := CreateKeyResponse{
+		KeyID:  "key-123",
+		APIKey: "sk_live_testkey",
+		Name:   "Default Key",
+	}
+	bytes, err := json.Marshal(resp)
+	if err != nil {
+		t.Fatalf("marshal error: %v", err)
+	}
+	var decoded CreateKeyResponse
+	if err := json.Unmarshal(bytes, &decoded); err != nil {
+		t.Fatalf("unmarshal error: %v", err)
+	}
+	if decoded.Name != "Default Key" || decoded.KeyID != "key-123" || decoded.APIKey != "sk_live_testkey" {
+		t.Fatalf("unexpected decoded response: %#v", decoded)
+	}
+
+	info := APIKeyInfo{
+		KeyID:     "key-123",
+		Name:      "Default Key",
+		CreatedAt: 1700000000,
+		IsActive:  true,
+	}
+	infoBytes, err := json.Marshal(info)
+	if err != nil {
+		t.Fatalf("marshal info error: %v", err)
+	}
+	var decodedInfo APIKeyInfo
+	if err := json.Unmarshal(infoBytes, &decodedInfo); err != nil {
+		t.Fatalf("unmarshal info error: %v", err)
+	}
+	if decodedInfo.Name != "Default Key" || decodedInfo.KeyID != "key-123" || !decodedInfo.IsActive {
+		t.Fatalf("unexpected decoded info: %#v", decodedInfo)
+	}
+}

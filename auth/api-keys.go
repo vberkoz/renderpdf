@@ -25,9 +25,14 @@ var (
 	ddb            = dynamodb.New(sess)
 )
 
+type CreateKeyRequest struct {
+	Name string `json:"name,omitempty"`
+}
+
 type CreateKeyResponse struct {
 	KeyID  string `json:"keyId"`
 	APIKey string `json:"apiKey"`
+	Name   string `json:"name,omitempty"`
 }
 
 type ListKeysResponse struct {
@@ -36,6 +41,7 @@ type ListKeysResponse struct {
 
 type APIKeyInfo struct {
 	KeyID     string `json:"keyId"`
+	Name      string `json:"name,omitempty"`
 	CreatedAt int64  `json:"createdAt"`
 	LastUsed  int64  `json:"lastUsed,omitempty"`
 	IsActive  bool   `json:"isActive"`
@@ -67,7 +73,11 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 
 	switch request.HTTPMethod {
 	case "POST":
-		return createKey(userID, corsHeaders)
+		var req CreateKeyRequest
+		if request.Body != "" {
+			_ = json.Unmarshal([]byte(request.Body), &req)
+		}
+		return createKey(userID, req.Name, corsHeaders)
 	case "GET":
 		return listKeys(userID, corsHeaders)
 	case "DELETE":
@@ -92,22 +102,54 @@ func apiErrorResponse(status int, code, message string, headers map[string]strin
 	return events.APIGatewayProxyResponse{StatusCode: status, Body: string(body), Headers: headers}
 }
 
-func createKey(userId string, headers map[string]string) (events.APIGatewayProxyResponse, error) {
+func getUserKeyCount(userId string) (int, error) {
+	result, err := ddb.Query(&dynamodb.QueryInput{
+		TableName:              aws.String(tableName),
+		KeyConditionExpression: aws.String("PK = :pk AND begins_with(SK, :sk)"),
+		ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{
+			":pk": {S: aws.String(fmt.Sprintf("USER#%s", userId))},
+			":sk": {S: aws.String("APIKEY#")},
+		},
+		Select: aws.String("COUNT"),
+	})
+	if err != nil {
+		return 0, err
+	}
+	if result.Count != nil {
+		return int(*result.Count), nil
+	}
+	return 0, nil
+}
+
+func createKey(userId, keyName string, headers map[string]string) (events.APIGatewayProxyResponse, error) {
+	keyName = strings.TrimSpace(keyName)
+	if keyName == "" {
+		existingCount, err := getUserKeyCount(userId)
+		if err == nil && existingCount == 0 {
+			keyName = "Default Key"
+		} else {
+			keyName = "API Key"
+		}
+	}
+
 	keyId := uuid.New().String()
 	apiKey := generateAPIKey()
 	hashedKey := hashKey(apiKey)
 
+	item := map[string]*dynamodb.AttributeValue{
+		"PK":        {S: aws.String(fmt.Sprintf("USER#%s", userId))},
+		"SK":        {S: aws.String(fmt.Sprintf("APIKEY#%s", keyId))},
+		"GSI1PK":    {S: aws.String(fmt.Sprintf("APIKEY#%s", hashedKey))},
+		"keyId":     {S: aws.String(keyId)},
+		"name":      {S: aws.String(keyName)},
+		"userId":    {S: aws.String(userId)},
+		"createdAt": {N: aws.String(fmt.Sprintf("%d", time.Now().Unix()))},
+		"isActive":  {BOOL: aws.Bool(true)},
+	}
+
 	_, err := ddb.PutItem(&dynamodb.PutItemInput{
 		TableName: aws.String(tableName),
-		Item: map[string]*dynamodb.AttributeValue{
-			"PK":        {S: aws.String(fmt.Sprintf("USER#%s", userId))},
-			"SK":        {S: aws.String(fmt.Sprintf("APIKEY#%s", keyId))},
-			"GSI1PK":    {S: aws.String(fmt.Sprintf("APIKEY#%s", hashedKey))},
-			"keyId":     {S: aws.String(keyId)},
-			"userId":    {S: aws.String(userId)},
-			"createdAt": {N: aws.String(fmt.Sprintf("%d", time.Now().Unix()))},
-			"isActive":  {BOOL: aws.Bool(true)},
-		},
+		Item:      item,
 	})
 
 	if err != nil {
@@ -116,7 +158,7 @@ func createKey(userId string, headers map[string]string) (events.APIGatewayProxy
 	}
 	saveAnalyticsEvent(userId, "api_key_created")
 
-	resp := CreateKeyResponse{KeyID: keyId, APIKey: apiKey}
+	resp := CreateKeyResponse{KeyID: keyId, APIKey: apiKey, Name: keyName}
 	body, _ := json.Marshal(resp)
 
 	return events.APIGatewayProxyResponse{
@@ -170,6 +212,9 @@ func listKeys(userId string, headers map[string]string) (events.APIGatewayProxyR
 		key := APIKeyInfo{
 			KeyID:    *item["keyId"].S,
 			IsActive: *item["isActive"].BOOL,
+		}
+		if item["name"] != nil && item["name"].S != nil {
+			key.Name = *item["name"].S
 		}
 		if item["createdAt"] != nil {
 			fmt.Sscanf(*item["createdAt"].N, "%d", &key.CreatedAt)

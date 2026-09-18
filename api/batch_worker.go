@@ -205,11 +205,11 @@ func processBatchItem(ctx context.Context, message batchQueueMessage) error {
 func renderBatchNormalizedSource(ctx context.Context, owner string, normalized normalizedRenderRequest) ([]byte, error) {
 	switch normalized.Kind {
 	case renderKindDocument:
-		html, _, err := resolveDocumentRenderHTML(normalized.Body)
+		html, docReq, err := resolveDocumentRenderHTML(normalized.Body)
 		if err != nil {
 			return nil, err
 		}
-		return generateDocumentPDF(ctx, html)
+		return generateDocumentPDFWithOptions(ctx, html, docReq.Options)
 	case renderKindTemplate:
 		html, _, err := resolveTemplateRenderHTML(ctx, templateStoreFactory(), owner, normalized.Body)
 		if err != nil {

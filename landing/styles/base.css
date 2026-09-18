@@ -82,11 +82,55 @@ h1, h2, h3, h4, p { margin-top: 0; }
   color: var(--text); outline: none;
 }
 .footer, .auth-footer, .dashboard-footer {
-  display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px;
-  padding: 16px 0 0; border-top: 1px solid var(--line); color: var(--muted); font-size: .72rem;
+  display: flex; flex-direction: column; gap: 20px;
+  padding: 24px 0 28px; border-top: 1px solid var(--line); color: var(--muted); font-size: .76rem;
 }
 .footer p, .auth-footer p, .dashboard-footer p { margin: 0; }
 .footer nav, .auth-footer nav, .auth-footer > div, .dashboard-footer nav, .dashboard-footer > div { gap: 14px; }
+.footer-top {
+  display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 24px;
+}
+.footer-brand-section {
+  display: flex; flex-direction: column; gap: 6px; max-width: 380px;
+}
+.footer-brand {
+  display: inline-flex; align-items: center; gap: 8px; color: var(--text);
+  font-family: var(--font-mono); font-size: .78rem; font-weight: 700;
+  letter-spacing: .08em; text-transform: uppercase;
+}
+.footer-entity {
+  font-weight: 600; color: var(--text); margin: 0; font-size: .8rem;
+}
+.footer-address, .footer-contact {
+  margin: 0; color: var(--muted); font-size: .74rem; line-height: 1.45;
+}
+.footer-contact a {
+  color: var(--text); text-decoration: underline; text-underline-offset: 2px;
+}
+.footer-links-grid {
+  display: flex; flex-wrap: wrap; gap: 36px;
+}
+.footer-col {
+  display: flex; flex-direction: column; gap: 10px; min-width: 140px; align-items: flex-start;
+}
+.footer-col-title {
+  color: var(--text); font-family: var(--font-mono); font-size: .68rem;
+  font-weight: 700; letter-spacing: .08em; text-transform: uppercase; text-align: left;
+}
+.footer-col nav {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 8px; width: 100%;
+}
+.footer-col nav a {
+  color: var(--muted); text-decoration: none; font-size: .76rem; text-align: left;
+}
+.footer-col nav a:hover, .footer-col nav a:focus-visible {
+  color: var(--text); text-decoration: underline;
+}
+.footer-bottom {
+  display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px;
+  padding-top: 16px; border-top: 1px solid var(--line); font-size: .72rem; color: var(--muted);
+}
+.footer-bottom p { margin: 0; }
 .dashboard-footer { padding-bottom: 24px; }
 
 .eyebrow, .panel-kicker, .auth-eyebrow, .template-card-kicker, .stats-topbar p,

@@ -24,6 +24,7 @@ const (
 	maxDocumentCSSBytes             = 128 * 1024
 	maxDocumentDataBytes            = 256 * 1024
 	maxDocumentRenderInputBytes     = 1024 * 1024
+	maxDocumentTemplateBytes        = 64 * 1024
 	maxDocumentDataDepth            = 10
 	defaultDocumentFormat           = "A4"
 	defaultDocumentMargin           = "18mm"
@@ -186,8 +187,25 @@ func resolveDocumentRenderHTML(body string) (string, documentRenderRequest, erro
 // contract. Conversion into Chromium print options is added with the document
 // compiler, but all accepted values are validated here.
 type documentRenderOptions struct {
-	Format string `json:"format,omitempty"`
-	Margin string `json:"margin,omitempty"`
+	Format              string `json:"format,omitempty"`
+	Margin              string `json:"margin,omitempty"`
+	HeaderTemplate      string `json:"headerTemplate,omitempty"`
+	FooterTemplate      string `json:"footerTemplate,omitempty"`
+	DisplayHeaderFooter *bool  `json:"displayHeaderFooter,omitempty"`
+	Password            string `json:"password,omitempty"`
+	OwnerPassword       string `json:"ownerPassword,omitempty"`
+	Permissions         string `json:"permissions,omitempty"`
+}
+
+func (o documentRenderOptions) isZero() bool {
+	return o.Format == "" &&
+		o.Margin == "" &&
+		o.HeaderTemplate == "" &&
+		o.FooterTemplate == "" &&
+		o.DisplayHeaderFooter == nil &&
+		o.Password == "" &&
+		o.OwnerPassword == "" &&
+		o.Permissions == ""
 }
 
 // parseDocumentRenderRequest accepts exactly one JSON object and rejects
@@ -516,6 +534,35 @@ func validateDocumentOptions(options *documentRenderOptions) error {
 	}
 	if value < 0 || value > maximum {
 		return documentRequestError(422, "document_margin_invalid", "options.margin must be a value from 0mm to 50mm or 0in to 2in")
+	}
+	if len(options.HeaderTemplate) > maxDocumentTemplateBytes {
+		return documentRequestError(413, "document_template_too_large", fmt.Sprintf("options.headerTemplate must not exceed %d bytes", maxDocumentTemplateBytes))
+	}
+	if len(options.FooterTemplate) > maxDocumentTemplateBytes {
+		return documentRequestError(413, "document_template_too_large", fmt.Sprintf("options.footerTemplate must not exceed %d bytes", maxDocumentTemplateBytes))
+	}
+	if options.HeaderTemplate != "" {
+		if err := validateDocumentSafety(options.HeaderTemplate, ""); err != nil {
+			return err
+		}
+	}
+	if options.FooterTemplate != "" {
+		if err := validateDocumentSafety(options.FooterTemplate, ""); err != nil {
+			return err
+		}
+	}
+	if len(options.Password) > 128 {
+		return documentRequestError(422, "document_password_invalid", "options.password must not exceed 128 characters")
+	}
+	if len(options.OwnerPassword) > 128 {
+		return documentRequestError(422, "document_password_invalid", "options.ownerPassword must not exceed 128 characters")
+	}
+	if options.Permissions != "" {
+		switch strings.ToLower(strings.TrimSpace(options.Permissions)) {
+		case "all", "print", "none":
+		default:
+			return documentRequestError(422, "document_permissions_invalid", "options.permissions must be one of all, print, or none")
+		}
 	}
 	return nil
 }

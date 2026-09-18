@@ -108,7 +108,7 @@ func normalizeCanonicalRenderRequestWithOwner(ctx context.Context, body, ownerID
 		return string(encoded), nil
 	}
 	noDocumentFields := func() bool {
-		return request.CSS == "" && request.Data == nil && request.Options == (documentRenderOptions{})
+		return request.CSS == "" && request.Data == nil && request.Options.isZero()
 	}
 
 	switch request.Source.Type {
@@ -155,7 +155,7 @@ func normalizeCanonicalRenderRequestWithOwner(ctx context.Context, body, ownerID
 		}
 		result.Kind, result.Body = renderKindUpload, encoded
 	case "stored":
-		if request.Source.ID == "" || request.Source.Content != "" || request.Source.TemplateID != "" || request.Source.Variables != nil || request.Source.URL != "" || request.Source.UploadID != "" || request.Source.Entrypoint != "" || request.CSS != "" || request.Options != (documentRenderOptions{}) || ownerID == "" {
+		if request.Source.ID == "" || request.Source.Content != "" || request.Source.TemplateID != "" || request.Source.Variables != nil || request.Source.URL != "" || request.Source.UploadID != "" || request.Source.Entrypoint != "" || request.CSS != "" || !request.Options.isZero() || ownerID == "" {
 			return normalizedRenderRequest{}, &renderError{Code: "render_source_invalid", Message: "stored sources require source.id and may only override data", Status: 422}
 		}
 		definition, err := sourceDefinitionLoader(ctx, ownerID, request.Source.ID)

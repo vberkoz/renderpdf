@@ -238,6 +238,7 @@ cd /Users/basilsergius/projects/renderpdf && ./scripts/deploy-landing.sh
 - Then verify manually:
   - landing page loads
   - docs page loads at `https://renderpdf.vberkoz.com/docs/api`
+  - legal pages load at `/terms`, `/privacy`, `/refund`, and `/cancellation`
   - demo form submits successfully
   - returned PDF link opens
 

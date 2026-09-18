@@ -512,6 +512,13 @@ func TestParseDocumentRenderRequestRejectsInvalidContract(t *testing.T) {
 		{"CSS import", `{"version":"1","html":"<p>Hi</p>","css":"@import url('https://example.test/a.css');","data":{}}`, "document_css_unsafe"},
 		{"CSS asset", `{"version":"1","html":"<p>Hi</p>","css":"p { background: url(https://example.test/a.png); }","data":{}}`, "document_asset_disallowed"},
 		{"inline CSS asset", `{"version":"1","html":"<p style=\"background: url(https://example.test/a.png)\">Hi</p>","data":{}}`, "document_asset_disallowed"},
+		{"unsafe headerTemplate", `{"version":"1","html":"<p>Hi</p>","data":{},"options":{"headerTemplate":"<div><script>alert(1)</script></div>"}}`, "document_html_unsafe"},
+		{"unsafe footerTemplate", `{"version":"1","html":"<p>Hi</p>","data":{},"options":{"footerTemplate":"<div><iframe src=\"https://evil.test\"></iframe></div>"}}`, "document_html_unsafe"},
+		{"oversized headerTemplate", `{"version":"1","html":"<p>Hi</p>","data":{},"options":{"headerTemplate":"` + strings.Repeat("x", maxDocumentTemplateBytes+1) + `"}}`, "document_template_too_large"},
+		{"oversized footerTemplate", `{"version":"1","html":"<p>Hi</p>","data":{},"options":{"footerTemplate":"` + strings.Repeat("x", maxDocumentTemplateBytes+1) + `"}}`, "document_template_too_large"},
+		{"invalid permissions", `{"version":"1","html":"<p>Hi</p>","data":{},"options":{"permissions":"invalid"}}`, "document_permissions_invalid"},
+		{"password too long", `{"version":"1","html":"<p>Hi</p>","data":{},"options":{"password":"` + strings.Repeat("x", 129) + `"}}`, "document_password_invalid"},
+		{"ownerPassword too long", `{"version":"1","html":"<p>Hi</p>","data":{},"options":{"ownerPassword":"` + strings.Repeat("x", 129) + `"}}`, "document_password_invalid"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -563,3 +570,39 @@ func TestValidateDocumentRenderInputSize(t *testing.T) {
 		t.Fatalf("error = %#v, want document_render_input_too_large", err)
 	}
 }
+
+func TestDocumentOptionsValidationAndPlaceholders(t *testing.T) {
+	reqJSON := `{
+		"version": "1",
+		"html": "<h1>Test</h1>",
+		"data": {},
+		"options": {
+			"headerTemplate": "<div style=\"font-size:10px;\"><span class=\"title\"></span> - <span class=\"date\"></span></div>",
+			"footerTemplate": "<div style=\"font-size:10px;\">Page <span class=\"pageNumber\"></span> of <span class=\"totalPages\"></span></div>",
+			"displayHeaderFooter": false,
+			"password": "user-secret",
+			"ownerPassword": "owner-secret",
+			"permissions": "print"
+		}
+	}`
+	req, err := parseDocumentRenderRequest(reqJSON)
+	if err != nil {
+		t.Fatalf("parseDocumentRenderRequest error = %v", err)
+	}
+	if req.Options.DisplayHeaderFooter == nil || *req.Options.DisplayHeaderFooter != false {
+		t.Fatalf("expected displayHeaderFooter to be false, got %#v", req.Options.DisplayHeaderFooter)
+	}
+	if !strings.Contains(req.Options.FooterTemplate, "pageNumber") {
+		t.Fatalf("expected pageNumber placeholder, got %s", req.Options.FooterTemplate)
+	}
+	if !strings.Contains(req.Options.FooterTemplate, "totalPages") {
+		t.Fatalf("expected totalPages placeholder, got %s", req.Options.FooterTemplate)
+	}
+	if !strings.Contains(req.Options.HeaderTemplate, "date") || !strings.Contains(req.Options.HeaderTemplate, "title") {
+		t.Fatalf("expected date and title placeholder, got %s", req.Options.HeaderTemplate)
+	}
+	if req.Options.Password != "user-secret" || req.Options.OwnerPassword != "owner-secret" || req.Options.Permissions != "print" {
+		t.Fatalf("unexpected password options: %#v", req.Options)
+	}
+}
+

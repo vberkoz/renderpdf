@@ -11,8 +11,13 @@
 .auth-card-heading h2 { font-size: 1.5rem; }
 .google-button { width: 100%; justify-content: flex-start; gap: 12px; }
 .google-button svg { width: 20px; height: 20px; padding: 2px; border-radius: 4px; background: #fff; }
+.email-button { width: 100%; justify-content: flex-start; gap: 12px; }
+.email-button svg { width: 20px; height: 20px; flex-shrink: 0; color: var(--muted); }
 .auth-divider { display: flex; align-items: center; gap: 12px; color: var(--muted); font-family: var(--font-mono); font-size: .62rem; letter-spacing: .08em; text-transform: uppercase; }
 .auth-divider::before, .auth-divider::after { height: 1px; flex: 1; background: var(--line); content: ""; }
+.auth-alternate-action { display: flex; align-items: center; justify-content: center; gap: 6px; font-size: .78rem; color: var(--muted); }
+.auth-text-link { border: 0; padding: 0; background: transparent; color: var(--text); font-weight: 600; font-size: inherit; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.auth-text-link:hover, .auth-text-link:focus-visible { color: #2563eb; outline: none; }
 .auth-steps { display: grid; margin: 0; padding: 0; list-style: none; }
 .auth-steps li { display: grid; grid-template-columns: 28px 1fr; gap: 10px; padding: 11px 0; border-bottom: 1px solid var(--line); }
 .auth-steps span { color: var(--muted); font-family: var(--font-mono); font-size: .64rem; }

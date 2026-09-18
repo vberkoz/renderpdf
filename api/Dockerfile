@@ -1,4 +1,4 @@
-FROM golang:1.24 AS builder
+FROM golang:1.25 AS builder
 
 WORKDIR /build
 COPY go.mod go.sum ./
@@ -16,6 +16,22 @@ RUN apk add --no-cache curl unzip && \
     unzip -j /tmp/chromium-layer.zip \
       'nodejs/node_modules/@sparticuz/chromium/bin/*' -d /chromium
 
+FROM alpine:3.22 AS fonts
+
+RUN apk add --no-cache curl && \
+    mkdir -p /fonts && \
+    curl -sSL -o /fonts/Inter.ttf "https://github.com/google/fonts/raw/main/ofl/inter/Inter%5Bopsz%2Cwght%5D.ttf" && \
+    curl -sSL -o /fonts/Inter-Italic.ttf "https://github.com/google/fonts/raw/main/ofl/inter/Inter-Italic%5Bopsz%2Cwght%5D.ttf" && \
+    curl -sSL -o /fonts/Roboto.ttf "https://github.com/google/fonts/raw/main/ofl/roboto/Roboto%5Bwdth%2Cwght%5D.ttf" && \
+    curl -sSL -o /fonts/Roboto-Italic.ttf "https://github.com/google/fonts/raw/main/ofl/roboto/Roboto-Italic%5Bwdth%2Cwght%5D.ttf" && \
+    curl -sSL -o /fonts/OpenSans.ttf "https://github.com/google/fonts/raw/main/ofl/opensans/OpenSans%5Bwdth%2Cwght%5D.ttf" && \
+    curl -sSL -o /fonts/OpenSans-Italic.ttf "https://github.com/google/fonts/raw/main/ofl/opensans/OpenSans-Italic%5Bwdth%2Cwght%5D.ttf" && \
+    curl -sSL -o /fonts/Lato-Regular.ttf "https://github.com/google/fonts/raw/main/ofl/lato/Lato-Regular.ttf" && \
+    curl -sSL -o /fonts/Lato-Bold.ttf "https://github.com/google/fonts/raw/main/ofl/lato/Lato-Bold.ttf" && \
+    curl -sSL -o /fonts/Lato-Italic.ttf "https://github.com/google/fonts/raw/main/ofl/lato/Lato-Italic.ttf" && \
+    curl -sSL -o /fonts/Montserrat.ttf "https://github.com/google/fonts/raw/main/ofl/montserrat/Montserrat%5Bwght%5D.ttf" && \
+    curl -sSL -o /fonts/Montserrat-Italic.ttf "https://github.com/google/fonts/raw/main/ofl/montserrat/Montserrat-Italic%5Bwght%5D.ttf"
+
 FROM public.ecr.aws/lambda/provided:al2023
 
 ENV HOME=/tmp
@@ -24,6 +40,12 @@ ENV XDG_CACHE_HOME=/tmp
 ENV TMPDIR=/tmp
 
 COPY --from=chromium /chromium /opt/chromium
+COPY --from=fonts /fonts /opt/fonts
+COPY --from=fonts /fonts /usr/share/fonts/google
 COPY --from=builder /build/bootstrap /var/task/bootstrap
+
+RUN dnf install -y fontconfig && \
+    fc-cache -f -v /opt/fonts /usr/share/fonts/google && \
+    dnf clean all
 
 ENTRYPOINT ["/var/task/bootstrap"]

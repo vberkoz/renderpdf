@@ -402,43 +402,86 @@ Content-management handover and launch support</div></div></li>
                 <div class="pricing-grid">
                     <article class="pricing-card">
                         <p class="pricing-tier">Free</p>
-                        <p class="pricing-price"><strong>$0</strong><span>/ month</span></p>
+                        <p class="pricing-price"><strong>$0 USD</strong><span>/ month</span></p>
                         <p class="pricing-allowance">25 PDFs each month</p>
                         <a class="button" href="/app/">Create free account</a>
                     </article>
                     <article class="pricing-card">
                         <p class="pricing-tier">Starter</p>
-                        <p class="pricing-price"><strong>$19</strong><span>/ month</span></p>
+                        <p class="pricing-price"><strong>$19 USD</strong><span>/ month</span></p>
                         <p class="pricing-allowance">5,000 PDFs each month</p>
-                        <p class="pricing-status">Upgrade after sign-in</p>
+                        <p class="pricing-status">Billed monthly · Cancel anytime</p>
                         <a class="button" href="/app/">Create free account</a>
                     </article>
                     <article class="pricing-card pricing-card-featured">
                         <p class="pricing-badge">Most popular</p>
                         <p class="pricing-tier">Professional</p>
-                        <p class="pricing-price"><strong>$49</strong><span>/ month</span></p>
+                        <p class="pricing-price"><strong>$49 USD</strong><span>/ month</span></p>
                         <p class="pricing-allowance">20,000 PDFs each month</p>
-                        <p class="pricing-status">Upgrade after sign-in</p>
+                        <p class="pricing-status">Billed monthly · Cancel anytime</p>
                         <a class="button button-primary" href="/app/">Create free account</a>
                     </article>
                     <article class="pricing-card">
                         <p class="pricing-tier">Business</p>
-                        <p class="pricing-price"><strong>Custom</strong><span> pricing</span></p>
+                        <p class="pricing-price"><strong>Custom USD</strong><span> pricing</span></p>
                         <p class="pricing-allowance">High-volume and tailored plans</p>
-                        <p class="pricing-status">Available by request</p>
+                        <p class="pricing-status">Invoiced monthly or annually</p>
                     </article>
+                </div>
+
+                <div class="pricing-exhaustion-card" aria-labelledby="quota-exhaustion-heading">
+                    <div>
+                        <h3 id="quota-exhaustion-heading">What happens when your quota is exhausted?</h3>
+                        <p>When you reach 100% of your plan's monthly PDF allowance, subsequent render requests return an <code>HTTP 429 Too Many Requests</code> status code. This hard limit prevents unexpected bill shocks or surge charges. Monthly allowances reset automatically at the start of your next billing cycle.</p>
+                    </div>
+                    <div class="pricing-exhaustion-options">
+                        <div>
+                            <strong>Need more PDFs immediately?</strong>
+                            <p>Buy an on-demand overage pack of 1,000 PDFs for $5 USD without changing plans, or upgrade to Professional anytime with instant prorated billing.</p>
+                        </div>
+                        <div>
+                            <span>Subscriptions recur monthly and can be cancelled self-serve anytime. Payments are securely managed by Paddle, our Merchant of Record. Covered by our <a href="/refund/">14-day refund policy</a>.</span>
+                        </div>
+                    </div>
                 </div>
             </section>
         </main>
 
         <footer class="footer">
-            <p>RenderPDF / Built for developers shipping documents.</p>
-            <nav aria-label="Footer navigation">
-                <a href="/docs/api/">Documentation</a>
-                <a href="/app/">API keys</a>
-                <a href="https://stats.uptimerobot.com/UNP4h7ipig" target="_blank" rel="noopener noreferrer">System status</a>
-                <a href="https://vberkoz.com/">vberkoz.com</a>
-            </nav>
+            <div class="footer-top">
+                <div class="footer-brand-section">
+                    <div class="footer-brand">
+                        <span class="brand-mark" aria-hidden="true"></span>
+                        <span>RenderPDF</span>
+                    </div>
+                    <p class="footer-entity">RenderPDF Studio LLC</p>
+                    <p class="footer-address">131 Continental Dr, Suite 305, Newark, DE 19713, USA</p>
+                    <p class="footer-contact">Support: <a href="mailto:support@renderpdf.vberkoz.com">support@renderpdf.vberkoz.com</a></p>
+                </div>
+                <div class="footer-links-grid">
+                    <div class="footer-col">
+                        <span class="footer-col-title">Product</span>
+                        <nav aria-label="Product navigation">
+                            <a href="#pricing">Pricing</a>
+                            <a href="/docs/api/">API reference</a>
+                            <a href="/app/">Dashboard</a>
+                            <a href="https://stats.uptimerobot.com/UNP4h7ipig" target="_blank" rel="noopener noreferrer">System status</a>
+                        </nav>
+                    </div>
+                    <div class="footer-col">
+                        <span class="footer-col-title">Legal &amp; Compliance</span>
+                        <nav aria-label="Legal navigation">
+                            <a href="/terms/">Terms of Service</a>
+                            <a href="/privacy/">Privacy Policy</a>
+                            <a href="/refund/">Refund Policy</a>
+                            <a href="/cancellation/">Cancellation</a>
+                        </nav>
+                    </div>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2026 RenderPDF Studio LLC. All rights reserved. Payments and subscriptions are securely managed by Paddle, our Merchant of Record.</p>
+            </div>
         </footer>
     </div>
 

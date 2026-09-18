@@ -539,17 +539,96 @@ Resources:
         - AttributeName: SK
           KeyType: RANGE
 
+  CognitoAccountLinkerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
+      Policies:
+        - PolicyName: CognitoAndDynamoAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'cognito-idp:ListUsers'
+                  - 'cognito-idp:AdminLinkProviderForUser'
+                  - 'cognito-idp:AdminGetUser'
+                  - 'cognito-idp:AdminUpdateUserAttributes'
+                Resource: !Sub 'arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/*'
+              - Effect: Allow
+                Action:
+                  - 'dynamodb:GetItem'
+                  - 'dynamodb:PutItem'
+                  - 'dynamodb:Query'
+                Resource:
+                  - !GetAtt ApiKeysTable.Arn
+                  - !GetAtt UsageTable.Arn
+                  - !GetAtt TemplatesTable.Arn
+
+  CognitoAccountLinkerFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub '${AppName}-account-linker'
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt CognitoAccountLinkerRole.Arn
+      Code:
+        ZipFile: |
+          exports.handler = async (event) => event;
+      MemorySize: 256
+      Timeout: 15
+      Environment:
+        Variables:
+          API_KEYS_TABLE: !Ref ApiKeysTable
+          TABLE_NAME: !Ref UsageTable
+          TEMPLATE_TABLE_NAME: !Ref TemplatesTable
+
   UserPoolV2:
     Type: AWS::Cognito::UserPool
     Properties:
       UserPoolName: !Sub '${AppName}-users-v2'
       AutoVerifiedAttributes:
         - email
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: false
+          RequireUppercase: true
+          TemporaryPasswordValidityDays: 7
+      LambdaConfig:
+        PreSignUp: !GetAtt CognitoAccountLinkerFunction.Arn
+        PostConfirmation: !GetAtt CognitoAccountLinkerFunction.Arn
       Schema:
         - Name: email
           AttributeDataType: String
           Required: true
           Mutable: true
+
+  CognitoAccountLinkerPreSignUpPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref CognitoAccountLinkerFunction
+      Action: lambda:InvokeFunction
+      Principal: cognito-idp.amazonaws.com
+      SourceArn: !GetAtt UserPoolV2.Arn
+
+  CognitoAccountLinkerPostConfirmationPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref CognitoAccountLinkerFunction
+      Action: lambda:InvokeFunction
+      Principal: cognito-idp.amazonaws.com
+      SourceArn: !GetAtt UserPoolV2.Arn
 
   UserPoolDomainV2:
     Type: AWS::Cognito::UserPoolDomain
@@ -591,6 +670,29 @@ Resources:
         - !Sub 'https://${LandingDomain}/app/'
       SupportedIdentityProviders:
         - Google
+
+  UserPoolEmailClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: !Sub '${AppName}-email-client'
+      UserPoolId: !Ref UserPoolV2
+      AllowedOAuthFlows:
+        - implicit
+      AllowedOAuthScopes:
+        - email
+        - openid
+        - profile
+      AllowedOAuthFlowsUserPoolClient: true
+      ExplicitAuthFlows:
+        - ALLOW_USER_SRP_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+      CallbackURLs:
+        - !Sub 'https://${LandingDomain}/app/callback'
+        - !Sub 'https://${LandingDomain}/app/callback.html'
+      LogoutURLs:
+        - !Sub 'https://${LandingDomain}/app/'
+      SupportedIdentityProviders:
+        - COGNITO
 
   LambdaExecutionRole:
     Type: AWS::IAM::Role
@@ -2018,6 +2120,8 @@ Outputs:
     Value: !Ref UserPoolV2
   UserPoolClientId:
     Value: !Ref UserPoolClientV2
+  UserPoolEmailClientId:
+    Value: !Ref UserPoolEmailClient
   CognitoDomain:
     Value: !Sub 'https://${AppName}-auth-${AWS::AccountId}.auth.${AWS::Region}.amazoncognito.com'
   ApiKeysTableName:

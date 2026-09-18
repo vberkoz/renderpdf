@@ -3,7 +3,7 @@
 ## Purpose
 
 - Static public landing page and demo form for the PDF API.
-- Served publicly at `https://renderpdf.vberkoz.com/`, with API docs at `https://renderpdf.vberkoz.com/docs/api`.
+- Served publicly at `https://renderpdf.vberkoz.com/`, with API docs at `https://renderpdf.vberkoz.com/docs/api`, and legal/compliance pages at `/terms`, `/privacy`, `/refund`, and `/cancellation`.
 
 ## Entrypoints
 

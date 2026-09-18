@@ -183,19 +183,34 @@ strikethrough, and task lists only; raw HTML is not enabled.
 - Supported `options.format` values are `A4`, `Letter`, and `Legal`.
 - `options.margin` must use `mm` or `in`, from `0mm` through `50mm` or from
   `0in` through `2in` (for example, `18mm` or `0.5in`).
+- `options.headerTemplate` and `options.footerTemplate` allow custom dynamic
+  HTML templates for headers and footers (up to 64 KiB each). Chromium
+  placeholders are supported: `<span class="pageNumber"></span>`,
+  `<span class="totalPages"></span>`, `<span class="date"></span>`, and
+  `<span class="title"></span>`.
+- `options.displayHeaderFooter`: set to `false` to cleanly disable headers and
+  footers without requiring `<meta name="renderpdf:no-header-footer">`.
+- `options.password`: sets owner and user password protection (AES-256
+  encryption) for secure documents like invoices, payroll slips, and legal contracts.
+  Optional `options.ownerPassword` sets a separate owner password, and
+  `options.permissions` restricts user rights (`all`, `print`, or `none`).
+- Standard developer fonts (`Inter`, `Roboto`, `Open Sans`, `Lato`, `Montserrat`)
+  are pre-installed with a pre-warmed font cache in the Lambda image, avoiding
+  500ms–2000ms internet font fetch latency.
 - `webhookUrl` and `webhookSecret` are optional and use the same signed,
   asynchronous `pdf.completed` delivery behavior as other authenticated
   render requests.
 
 ### Limits and rejected fields
 
-- Request JSON: 1 MiB; HTML: 768 KiB; CSS: 128 KiB; data: 256 KiB.
+- Request JSON: 1 MiB; HTML: 768 KiB; CSS: 128 KiB; data: 256 KiB; header/footer templates: 64 KiB each.
 - The final HTML/CSS input supplied to the renderer is limited to 1 MiB. The
   document compiler rechecks this after data binding.
 - `data` may be nested no more than 10 levels, including its root object.
 - Only `version`, `source`, `css`, `data`, `options`, `webhookUrl`, and
-  `webhookSecret` are allowed at the top level. Only `format` and `margin` are
-  allowed under `options`.
+  `webhookSecret` are allowed at the top level. Under `options`, only `format`,
+  `margin`, `headerTemplate`, `footerTemplate`, `displayHeaderFooter`,
+  `password`, `ownerPassword`, and `permissions` are accepted.
 - Fields such as `javascript`, `scripts`, `assets`, and arbitrary page-size or
   margin-side options are rejected as unknown fields.
 

@@ -139,7 +139,7 @@
                             </div>
                             <pre id="file-example-code"><code class="language-bash">curl -X POST https://renderpdf.vberkoz.com/api/v1/trial/render \
   -H "Content-Type: application/json" \
-  --data "$(jq -Rs '{html: .}' /Users/basilsergius/projects/renderpdf/doc-examples/invoice.html)"</code></pre>
+  --data "$(jq -Rs '{html: .}' invoice.html)"</code></pre>
                         </div>
                         <div class="callout">
                             <span class="callout-mark" aria-hidden="true">i</span>
@@ -742,12 +742,40 @@ public class RenderPdf {
         </main>
 
         <footer class="footer">
-            <p>RenderPDF / API reference v1</p>
-            <nav aria-label="Footer navigation">
-                <a href="/">Home</a>
-                <a href="/app/">Dashboard</a>
-                <a href="https://vberkoz.com/">vberkoz.com</a>
-            </nav>
+            <div class="footer-top">
+                <div class="footer-brand-section">
+                    <div class="footer-brand">
+                        <span class="brand-mark" aria-hidden="true"></span>
+                        <span>RenderPDF</span>
+                    </div>
+                    <p class="footer-entity">RenderPDF Studio LLC</p>
+                    <p class="footer-address">131 Continental Dr, Suite 305, Newark, DE 19713, USA</p>
+                    <p class="footer-contact">Support: <a href="mailto:support@renderpdf.vberkoz.com">support@renderpdf.vberkoz.com</a></p>
+                </div>
+                <div class="footer-links-grid">
+                    <div class="footer-col">
+                        <span class="footer-col-title">Product</span>
+                        <nav aria-label="Product navigation">
+                            <a href="/">Home</a>
+                            <a href="/#pricing">Pricing</a>
+                            <a href="/app/">Dashboard</a>
+                            <a href="https://stats.uptimerobot.com/UNP4h7ipig" target="_blank" rel="noopener noreferrer">System status</a>
+                        </nav>
+                    </div>
+                    <div class="footer-col">
+                        <span class="footer-col-title">Legal &amp; Compliance</span>
+                        <nav aria-label="Legal navigation">
+                            <a href="/terms/">Terms of Service</a>
+                            <a href="/privacy/">Privacy Policy</a>
+                            <a href="/refund/">Refund Policy</a>
+                            <a href="/cancellation/">Cancellation</a>
+                        </nav>
+                    </div>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2026 RenderPDF Studio LLC. All rights reserved. Payments and subscriptions are securely managed by Paddle, our Merchant of Record.</p>
+            </div>
         </footer>
     </div>
 

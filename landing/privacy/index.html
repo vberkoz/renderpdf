@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Privacy Policy for RenderPDF. GDPR and CCPA compliance, document retention schedules, third-party data processors, and data subject rights.">
+    <title>Privacy Policy | RenderPDF</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="/styles/base.css" rel="stylesheet">
+    <link href="/styles/legal.css" rel="stylesheet">
+</head>
+<body>
+    <a class="skip-link" href="#main-content">Skip to main content</a>
+    <div class="shell">
+        <div>
+            <header class="topbar">
+                <a class="brand" href="/" aria-label="RenderPDF home">
+                    <span class="brand-mark" aria-hidden="true"></span>
+                    <span>RenderPDF</span>
+                </a>
+                <nav id="privacy-primary-navigation" class="topnav" data-carbon-header-nav aria-label="Primary navigation">
+                    <a href="/">Home</a>
+                    <a href="/#pricing">Pricing</a>
+                    <a href="/docs/api/">API docs</a>
+                    <a href="/app/">Dashboard</a>
+                    <a href="https://github.com/vberkoz/renderpdf">GitHub</a>
+                </nav>
+            </header>
+        </div>
+
+        <main id="main-content" tabindex="-1">
+            <section class="legal-hero" aria-labelledby="privacy-title">
+                <p class="eyebrow">Data Protection &amp; Privacy</p>
+                <h1 id="privacy-title">Privacy Policy</h1>
+                <div class="legal-meta">
+                    <span>Effective Date: August 1, 2026</span>
+                    <span>Last Updated: September 16, 2026</span>
+                    <span class="badge">GDPR &amp; CCPA Compliant</span>
+                </div>
+            </section>
+
+            <div class="legal-layout">
+                <aside class="legal-sidebar" aria-label="Table of contents">
+                    <p class="legal-sidebar-title">Sections</p>
+                    <nav aria-label="Privacy Policy sections">
+                        <a href="#overview">1. Overview</a>
+                        <a href="#data-collected">2. Information We Collect</a>
+                        <a href="#retention">3. Document Retention</a>
+                        <a href="#processors">4. Third-Party Processors</a>
+                        <a href="#gdpr-compliance">5. GDPR Compliance</a>
+                        <a href="#ccpa-compliance">6. CCPA &amp; CPRA</a>
+                        <a href="#security">7. Security Practices</a>
+                        <a href="#contact">8. Contact Data Controller</a>
+                    </nav>
+                </aside>
+
+                <div class="legal-content">
+                    <section id="overview" class="legal-section" aria-labelledby="overview-heading">
+                        <h2 id="overview-heading">1. Overview and Data Controller</h2>
+                        <p>RenderPDF Studio LLC ("RenderPDF", "we", "us", or "our") is dedicated to safeguarding your privacy and personal data. This Privacy Policy explains how we collect, process, store, retain, and protect personal information when you visit our website, use our API, or interact with our developer dashboard.</p>
+                        <p>For the purposes of the General Data Protection Regulation (GDPR), the UK Data Protection Act, and applicable privacy regulations, the Data Controller responsible for your personal data is:</p>
+                        <div class="legal-callout">
+                            <div class="legal-callout-icon" aria-hidden="true">i</div>
+                            <div class="legal-callout-content">
+                                <strong>Data Controller</strong>
+                                <p>RenderPDF Studio LLC<br>131 Continental Dr, Suite 305, Newark, DE 19713, USA<br>Dedicated Privacy Contact: <a href="mailto:support@renderpdf.vberkoz.com">support@renderpdf.vberkoz.com</a></p>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section id="data-collected" class="legal-section" aria-labelledby="data-collected-heading">
+                        <h2 id="data-collected-heading">2. Information We Collect and Process</h2>
+                        <p>We adhere strictly to the principle of data minimization. We collect only the information necessary to provide, secure, and bill for the Service:</p>
+                        <ul>
+                            <li><strong>Account &amp; Identity Data:</strong> When you register and sign in via Google OAuth, we receive your verified primary email address, your display name, and a persistent unique identifier (<code>sub</code> claim). We never receive, store, or have access to your Google account password.</li>
+                            <li><strong>API Request &amp; Rendering Data:</strong> When you send documents to our API, we process the supplied HTML, Markdown, CSS, dynamic JSON variables, URL parameters, or ZIP package archives to execute Chromium headless rendering. Rendered PDFs are stored in encrypted, private Amazon S3 buckets accessible only via signed, expiring download URLs.</li>
+                            <li><strong>Usage &amp; Telemetry Data:</strong> We record timestamped event records in Amazon DynamoDB capturing request ID, HTTP method, source type, byte count, render duration, and account quota utilization. For anonymous trial requests, we compute a one-way privacy-preserving SHA-256 hash of the client IP address to enforce daily rate limits; raw IP addresses are never persisted.</li>
+                            <li><strong>Billing &amp; Payment Data:</strong> All financial transactions are processed by our Merchant of Record, Paddle.com Market Ltd. RenderPDF does not collect, process, or store full credit card numbers, CVVs, or bank account details. We receive only non-sensitive transaction tokens, subscription status, and customer identifiers required to allocate account quotas.</li>
+                        </ul>
+                    </section>
+
+                    <section id="retention" class="legal-section" aria-labelledby="retention-heading">
+                        <h2 id="retention-heading">3. Explicit Document Retention Schedule</h2>
+                        <p>We enforce strict, automated data retention and lifecycle deletion policies across all storage layers:</p>
+                        <div class="legal-table-wrap">
+                            <table class="legal-table">
+                                <thead>
+                                    <tr>
+                                        <th>Data / Asset Category</th>
+                                        <th>Retention Window</th>
+                                        <th>Storage Location</th>
+                                        <th>Deletion Mechanism</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><strong>Rendered PDFs</strong></td>
+                                        <td>30 calendar days</td>
+                                        <td>Private Amazon S3 (us-east-1)</td>
+                                        <td>Automated S3 lifecycle policy permanently purges files after 30 days. Signed download URLs expire in 15 minutes.</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Uploaded Packages (ZIPs)</strong></td>
+                                        <td>24 hours (1 day)</td>
+                                        <td>Isolated Amazon S3 bucket</td>
+                                        <td>Automated S3 lifecycle rule permanently deletes uploaded source archives 24 hours after upload.</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Usage Analytics &amp; Activity Logs</strong></td>
+                                        <td>90 calendar days</td>
+                                        <td>Amazon DynamoDB</td>
+                                        <td>DynamoDB native Time-to-Live (TTL) automatically purges request activity logs 90 days after creation.</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Account Profile &amp; API Keys</strong></td>
+                                        <td>Duration of active account</td>
+                                        <td>Amazon Cognito / DynamoDB</td>
+                                        <td>Retained while your account is active. Permanently deleted upon verified customer account deletion request.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+
+                    <section id="processors" class="legal-section" aria-labelledby="processors-heading">
+                        <h2 id="processors-heading">4. Third-Party Data Processors (Subprocessors)</h2>
+                        <p>We engage trusted, enterprise-grade third-party service providers to support our cloud infrastructure, authentication, and payment workflows. Each subprocessor operates under strict data protection agreements ensuring equivalent privacy standards:</p>
+                        <div class="legal-card-grid">
+                            <div class="legal-card">
+                                <span class="legal-card-title">Amazon Web Services (AWS)</span>
+                                <p><strong>Region:</strong> us-east-1 (N. Virginia, USA)</p>
+                                <p><strong>Purpose:</strong> Primary cloud infrastructure, serverless compute (AWS Lambda), private object storage (Amazon S3), NoSQL database (Amazon DynamoDB), identity directory (Amazon Cognito), and content delivery network (Amazon CloudFront).</p>
+                            </div>
+                            <div class="legal-card">
+                                <span class="legal-card-title">Paddle (Paddle.com Market Ltd)</span>
+                                <p><strong>Region:</strong> United Kingdom &amp; Global</p>
+                                <p><strong>Purpose:</strong> Merchant of Record, payment gateway, checkout management, invoicing, sales tax/VAT calculation, remittance, and PCI-DSS Level 1 compliant financial processing.</p>
+                            </div>
+                            <div class="legal-card">
+                                <span class="legal-card-title">Google LLC</span>
+                                <p><strong>Region:</strong> United States &amp; Global</p>
+                                <p><strong>Purpose:</strong> Single Sign-On (SSO) identity provider via Google OAuth 2.0 to authenticate developers accessing the RenderPDF dashboard.</p>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section id="gdpr-compliance" class="legal-section" aria-labelledby="gdpr-heading">
+                        <h2 id="gdpr-heading">5. GDPR Compliance (EU &amp; UK Data Subjects)</h2>
+                        <p>If you reside in the European Economic Area (EEA) or the United Kingdom, our processing of your personal data complies with Regulation (EU) 2016/679 (GDPR) and the UK Data Protection Act 2018.</p>
+                        <h3>Legal Bases for Processing (GDPR Article 6)</h3>
+                        <ul>
+                            <li><strong>Contractual Necessity (Art. 6(1)(b)):</strong> Processing necessary to provide PDF generation services, create API keys, authenticate accounts, and deliver customer support.</li>
+                            <li><strong>Legitimate Interests (Art. 6(1)(f)):</strong> Processing necessary to monitor infrastructure health, enforce rate limits, detect and block malicious content or cyberattacks, and prevent abuse.</li>
+                            <li><strong>Legal Obligation (Art. 6(1)(c)):</strong> Maintaining transaction records and cooperating with statutory compliance obligations via our Merchant of Record.</li>
+                        </ul>
+                        <h3>Your Data Subject Rights</h3>
+                        <p>Under GDPR Articles 15 through 22, you have the following rights regarding your personal data:</p>
+                        <ul>
+                            <li><strong>Right of Access (Art. 15):</strong> Request a copy of all personal data we hold about you.</li>
+                            <li><strong>Right to Rectification (Art. 16):</strong> Request correction of inaccurate or incomplete personal data.</li>
+                            <li><strong>Right to Erasure / Right to be Forgotten (Art. 17):</strong> Request permanent deletion of your personal data and account records.</li>
+                            <li><strong>Right to Restriction of Processing (Art. 18):</strong> Request that we restrict the processing of your personal data under certain conditions.</li>
+                            <li><strong>Right to Data Portability (Art. 20):</strong> Receive your personal data in a structured, commonly used, and machine-readable format.</li>
+                            <li><strong>Right to Object (Art. 21):</strong> Object to the processing of your data where processing is based on legitimate interests.</li>
+                            <li><strong>Right to Lodge a Complaint:</strong> Lodge a complaint with your competent supervisory authority (such as the ICO in the UK or the relevant EU Data Protection Authority).</li>
+                        </ul>
+                        <p>To exercise any of these rights, email our Data Protection team at <a href="mailto:support@renderpdf.vberkoz.com">support@renderpdf.vberkoz.com</a>. We respond to all verified requests within thirty (30) days without fee.</p>
+                    </section>
+
+                    <section id="ccpa-compliance" class="legal-section" aria-labelledby="ccpa-heading">
+                        <h2 id="ccpa-heading">6. CCPA and CPRA Compliance (California Residents)</h2>
+                        <p>This section applies to California residents pursuant to the California Consumer Privacy Act of 2018 (CCPA) and the California Privacy Rights Act of 2020 (CPRA).</p>
+                        <ul>
+                            <li><strong>No Sale or Sharing of Personal Information:</strong> RenderPDF has never sold, and will never sell or share, your personal information or document contents with third parties for monetary or other valuable consideration, nor for cross-context behavioral advertising.</li>
+                            <li><strong>Categories of Personal Information Collected:</strong> Identifiers (email address, Google profile ID, IP hash), commercial information (transaction records and quotas), and internet activity logs (API usage metrics).</li>
+                            <li><strong>California Consumer Rights:</strong> You have the right to know what personal information we collect, the right to delete your personal information, the right to correct inaccurate personal information, and the right not to receive discriminatory treatment for exercising your privacy rights.</li>
+                            <li><strong>Exercising Your Rights:</strong> You may submit a request by contacting <a href="mailto:support@renderpdf.vberkoz.com">support@renderpdf.vberkoz.com</a> with the subject line "CCPA Request".</li>
+                        </ul>
+                    </section>
+
+                    <section id="security" class="legal-section" aria-labelledby="security-heading">
+                        <h2 id="security-heading">7. Technical and Organizational Security Practices</h2>
+                        <p>We employ multi-layered technical, physical, and administrative safeguards to protect your documents and credentials:</p>
+                        <ul>
+                            <li><strong>Encryption in Transit:</strong> All HTTP communications require TLS 1.3 or TLS 1.2 with modern cryptographic cipher suites; unencrypted HTTP requests are automatically redirected to HTTPS.</li>
+                            <li><strong>Encryption at Rest:</strong> All PDF documents stored in Amazon S3 and metadata in Amazon DynamoDB are encrypted using AES-256 server-side encryption.</li>
+                            <li><strong>Strict Isolation:</strong> Customer API keys and stored templates are isolated per customer account and verified through AWS Lambda authorizers. Documents cannot be accessed across account boundaries.</li>
+                            <li><strong>Expiring Signed URLs:</strong> Rendered PDFs are delivered through private Amazon S3 presigned URLs that automatically expire after 15 minutes, preventing unauthorized URL indexing or sharing.</li>
+                        </ul>
+                    </section>
+
+                    <section id="contact" class="legal-section" aria-labelledby="contact-heading">
+                        <h2 id="contact-heading">8. How to Contact the Data Controller</h2>
+                        <p>If you have any questions, concerns, or requests regarding this Privacy Policy or our data protection practices, please contact us:</p>
+                        <div class="legal-card-grid">
+                            <div class="legal-card">
+                                <span class="legal-card-title">Company Name</span>
+                                <p><strong>RenderPDF Studio LLC</strong></p>
+                                <p>Attn: Privacy &amp; Data Protection</p>
+                            </div>
+                            <div class="legal-card">
+                                <span class="legal-card-title">Mailing Address</span>
+                                <p>131 Continental Dr, Suite 305<br>Newark, DE 19713<br>United States of America</p>
+                            </div>
+                            <div class="legal-card">
+                                <span class="legal-card-title">Dedicated Support Email</span>
+                                <p><a href="mailto:support@renderpdf.vberkoz.com">support@renderpdf.vberkoz.com</a></p>
+                                <p>Subject: Privacy &amp; Data Subject Request</p>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            </div>
+        </main>
+
+        <footer class="footer">
+            <div class="footer-top">
+                <div class="footer-brand-section">
+                    <div class="footer-brand">
+                        <span class="brand-mark" aria-hidden="true"></span>
+                        <span>RenderPDF</span>
+                    </div>
+                    <p class="footer-entity">RenderPDF Studio LLC</p>
+                    <p class="footer-address">131 Continental Dr, Suite 305, Newark, DE 19713, USA</p>
+                    <p class="footer-contact">Support: <a href="mailto:support@renderpdf.vberkoz.com">support@renderpdf.vberkoz.com</a></p>
+                </div>
+                <div class="footer-links-grid">
+                    <div class="footer-col">
+                        <span class="footer-col-title">Product</span>
+                        <nav aria-label="Product navigation">
+                            <a href="/#pricing">Pricing</a>
+                            <a href="/docs/api/">API reference</a>
+                            <a href="/app/">Dashboard</a>
+                            <a href="https://stats.uptimerobot.com/UNP4h7ipig" target="_blank" rel="noopener noreferrer">System status</a>
+                        </nav>
+                    </div>
+                    <div class="footer-col">
+                        <span class="footer-col-title">Legal &amp; Compliance</span>
+                        <nav aria-label="Legal navigation">
+                            <a href="/terms/">Terms of Service</a>
+                            <a href="/privacy/">Privacy Policy</a>
+                            <a href="/refund/">Refund Policy</a>
+                            <a href="/cancellation/">Cancellation</a>
+                        </nav>
+                    </div>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2026 RenderPDF Studio LLC. All rights reserved. Payments and subscriptions are securely managed by Paddle, our Merchant of Record.</p>
+            </div>
+        </footer>
+    </div>
+</body>
+</html>

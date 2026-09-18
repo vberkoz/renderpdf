@@ -37,7 +37,7 @@
             <section class="auth-card" aria-labelledby="sign-in-title">
                 <div class="auth-card-heading">
                     <p class="auth-eyebrow">Account access</p>
-                    <h2 id="sign-in-title">Sign in with Google</h2>
+                    <h2 id="sign-in-title">Sign in to RenderPDF</h2>
                 </div>
 
                 <button id="loginBtn" class="google-button" type="button">
@@ -48,20 +48,62 @@
                         <path fill="#EA4335" d="M12 5.95c1.47 0 2.79.51 3.83 1.5l2.87-2.88A9.64 9.64 0 0 0 12 2a10 10 0 0 0-8.96 5.47l3.35 2.61C7.18 7.71 9.39 5.95 12 5.95Z"/>
                     </svg>
                     Continue with Google
-
                 </button>
 
-                <p class="auth-fineprint">RenderPDF uses your basic Google profile and email for account access. Your password is never shared with us.</p>
+                <div class="auth-divider"><span>or</span></div>
+
+                <button id="emailLoginBtn" class="button button-secondary email-button" type="button">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <rect x="2" y="4" width="20" height="16" rx="2"></rect>
+                        <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path>
+                    </svg>
+                    Continue with Email &amp; Password
+                </button>
+
+                <div class="auth-alternate-action">
+                    <span>Need an account?</span>
+                    <button id="emailSignUpBtn" class="auth-text-link" type="button">Sign up with email</button>
+                </div>
+
+                <p class="auth-fineprint">Sign in with your Google account or email and password. Supports corporate email (Microsoft 365, Google Workspace, custom domains) and privacy providers (Proton, Fastmail).</p>
             </section>
         </main>
 
         <footer class="auth-footer">
-            <p>RenderPDF / Developer access</p>
-            <nav aria-label="Footer navigation">
-                <a href="/docs/api/">Documentation</a>
-                <a href="/">Try the free endpoint</a>
-                <a href="https://vberkoz.com/">vberkoz.com</a>
-            </nav>
+            <div class="footer-top">
+                <div class="footer-brand-section">
+                    <div class="footer-brand">
+                        <span class="brand-mark" aria-hidden="true"></span>
+                        <span>RenderPDF</span>
+                    </div>
+                    <p class="footer-entity">RenderPDF Studio LLC</p>
+                    <p class="footer-address">131 Continental Dr, Suite 305, Newark, DE 19713, USA</p>
+                    <p class="footer-contact">Support: <a href="mailto:support@renderpdf.vberkoz.com">support@renderpdf.vberkoz.com</a></p>
+                </div>
+                <div class="footer-links-grid">
+                    <div class="footer-col">
+                        <span class="footer-col-title">Navigation</span>
+                        <nav aria-label="Footer navigation">
+                            <a href="/">Home</a>
+                            <a href="/#pricing">Pricing</a>
+                            <a href="/docs/api/">API docs</a>
+                            <a href="https://stats.uptimerobot.com/UNP4h7ipig" target="_blank" rel="noopener noreferrer">System status</a>
+                        </nav>
+                    </div>
+                    <div class="footer-col">
+                        <span class="footer-col-title">Legal &amp; Compliance</span>
+                        <nav aria-label="Legal navigation">
+                            <a href="/terms/">Terms of Service</a>
+                            <a href="/privacy/">Privacy Policy</a>
+                            <a href="/refund/">Refund Policy</a>
+                            <a href="/cancellation/">Cancellation</a>
+                        </nav>
+                    </div>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2026 RenderPDF Studio LLC. All rights reserved. Payments and subscriptions are securely managed by Paddle, our Merchant of Record.</p>
+            </div>
         </footer>
     </div>
 
@@ -69,8 +111,12 @@
 
     <script>
         const COGNITO_DOMAIN = 'https://renderpdf-auth-653268860643.auth.us-east-1.amazoncognito.com';
-        const CLIENT_ID = '78pkhoj4ml959gb80coslgm42t';
+        const GOOGLE_CLIENT_ID = '78pkhoj4ml959gb80coslgm42t';
+        const EMAIL_CLIENT_ID = '5gqa1riu69sek3sj7nscrq956l';
         const REDIRECT_URI = 'https://renderpdf.vberkoz.com/app/callback';
+
+        const googleAuthParams = `client_id=${GOOGLE_CLIENT_ID}&response_type=token&scope=email+openid+profile&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&identity_provider=Google`;
+        const emailAuthParams = `client_id=${EMAIL_CLIENT_ID}&response_type=token&scope=email+openid+profile&redirect_uri=${encodeURIComponent(REDIRECT_URI)}`;
 
         document.getElementById('loginBtn').addEventListener('click', () => {
             const button = document.getElementById('loginBtn');
@@ -78,13 +124,23 @@
             button.setAttribute('aria-busy', 'true');
             button.classList.add('is-processing');
             button.textContent = 'Redirecting…';
-            const authUrl = `${COGNITO_DOMAIN}/oauth2/authorize?` +
-                `client_id=${CLIENT_ID}&` +
-                `response_type=token&` +
-                `scope=email+openid+profile&` +
-                `redirect_uri=${encodeURIComponent(REDIRECT_URI)}&` +
-                `identity_provider=Google`;
-            window.location.href = authUrl;
+            window.location.href = `${COGNITO_DOMAIN}/oauth2/authorize?${googleAuthParams}`;
+        });
+
+        document.getElementById('emailLoginBtn').addEventListener('click', () => {
+            const button = document.getElementById('emailLoginBtn');
+            button.disabled = true;
+            button.setAttribute('aria-busy', 'true');
+            button.classList.add('is-processing');
+            button.textContent = 'Redirecting…';
+            window.location.href = `${COGNITO_DOMAIN}/login?${emailAuthParams}`;
+        });
+
+        document.getElementById('emailSignUpBtn').addEventListener('click', () => {
+            const button = document.getElementById('emailSignUpBtn');
+            button.disabled = true;
+            button.setAttribute('aria-busy', 'true');
+            window.location.href = `${COGNITO_DOMAIN}/signup?${emailAuthParams}`;
         });
     </script>
 </body>

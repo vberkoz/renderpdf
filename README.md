@@ -10,7 +10,7 @@ Serverless API that converts HTML to PDF using AWS Lambda (Go), API Gateway, S3,
 - Secure PDF storage with presigned S3 URLs
 - Usage tracking and analytics via DynamoDB
 - RESTful API with JSON responses
-- Google OAuth authentication via AWS Cognito
+- User authentication via AWS Cognito (Google OAuth and Email/Password)
 - API key management dashboard
 - Custom authorizer for API security
 
@@ -240,7 +240,7 @@ When `webhookSecret` is supplied, deliveries include `X-RenderPDF-Signature` as 
 - **API Gateway**: REST API endpoint with custom authorizer
 - **S3**: Secure PDF storage with lifecycle policies
 - **DynamoDB**: Request tracking, usage analytics, and API key storage
-- **Cognito**: User authentication with Google OAuth
+- **Cognito**: User authentication with Google OAuth and Email/Password
 - **CloudFront**: CDN for landing page and dashboard
 
 ## Configuration
