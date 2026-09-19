@@ -582,7 +582,7 @@ func authorizerValue(request events.APIGatewayProxyRequest, name string) string 
 }
 
 func applyPDFSecurity(pdfBytes []byte, options documentRenderOptions) ([]byte, error) {
-	if options.Password == "" {
+	if options.Password == "" && options.OwnerPassword == "" {
 		return pdfBytes, nil
 	}
 	userPW := options.Password

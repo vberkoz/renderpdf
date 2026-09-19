@@ -141,6 +141,78 @@ textarea:focus, input:not([type="hidden"], [type="file"], [type="checkbox"], [ty
 .pricing-card-featured { border-color: var(--line-strong); background: linear-gradient(180deg, #fff, #f8fafc); }
 .pricing-badge { color: var(--text) !important; font-family: var(--font-mono); font-size: .65rem !important; font-weight: 700; text-transform: uppercase; }
 
+.pricing-billing-switch-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0 10px;
+}
+.pricing-billing-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border-radius: var(--control-radius);
+  border: 1px solid var(--line-strong);
+  background: #fff;
+}
+.pricing-billing-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 16px;
+  border: 0;
+  border-radius: var(--control-radius);
+  background: transparent;
+  color: var(--muted);
+  font-size: .85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 150ms ease;
+}
+.pricing-billing-toggle-btn:hover {
+  color: var(--text);
+}
+.pricing-billing-toggle-btn.is-active {
+  background: var(--text);
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, .12);
+}
+.pricing-save-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: #dcfce7;
+  color: #15803d;
+  font-family: var(--font-mono);
+  font-size: .68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .02em;
+}
+.pricing-billing-toggle-btn.is-active .pricing-save-badge {
+  background: #166534;
+  color: #bbf7d0;
+}
+.pricing-billing-caption {
+  font-size: .78rem;
+  color: var(--muted);
+  text-align: center;
+}
+.pricing-savings {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: .76rem !important;
+  color: #15803d !important;
+  font-weight: 500;
+}
+.pricing-savings .savings-text {
+  font-weight: 700;
+}
+
 .pricing-exhaustion-card {
   display: grid;
   grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);

@@ -22,6 +22,8 @@ const PADDLE_ENVIRONMENT = process.env.PADDLE_ENVIRONMENT || 'production';
 const PADDLE_PRICES = {
   starter: process.env.PADDLE_STARTER_PRICE_ID || '',
   pro: process.env.PADDLE_PRO_PRICE_ID || '',
+  starter_annual: process.env.PADDLE_STARTER_ANNUAL_PRICE_ID || '',
+  pro_annual: process.env.PADDLE_PRO_ANNUAL_PRICE_ID || '',
 };
 const PADDLE_OVERAGE_PRICE_ID = process.env.PADDLE_OVERAGE_PRICE_ID || '';
 const OVERAGE_RENDER_CREDITS = positiveInteger(process.env.OVERAGE_RENDER_CREDITS, 1000);
@@ -93,7 +95,9 @@ function customerResponse(statusCode, payload) {
 
 function tierFromAttributes(attributes) {
   const proPrice = PADDLE_PRICES.pro || process.env.PADDLE_PRO_PRICE_ID || '';
+  const proAnnualPrice = PADDLE_PRICES.pro_annual || process.env.PADDLE_PRO_ANNUAL_PRICE_ID || '';
   const starterPrice = PADDLE_PRICES.starter || process.env.PADDLE_STARTER_PRICE_ID || '';
+  const starterAnnualPrice = PADDLE_PRICES.starter_annual || process.env.PADDLE_STARTER_ANNUAL_PRICE_ID || '';
 
   const extractItemDetails = (item) => {
     if (!item) return { ids: [], name: '' };
@@ -141,10 +145,11 @@ function tierFromAttributes(attributes) {
 
   const allItems = collectItems();
 
-  // 1. Pro price ID match (active items, scheduled items, or transaction previews)
-  if (proPrice) {
+  // 1. Pro price ID match (monthly or annual, active items, scheduled items, or transaction previews)
+  const proIds = [proPrice, proAnnualPrice].filter(Boolean);
+  if (proIds.length > 0) {
     for (const item of allItems) {
-      if (extractItemDetails(item).ids.includes(proPrice)) return 'pro';
+      if (extractItemDetails(item).ids.some((id) => proIds.includes(id))) return 'pro';
     }
   }
 
@@ -154,10 +159,11 @@ function tierFromAttributes(attributes) {
     if (name.includes('pro') || name.includes('professional')) return 'pro';
   }
 
-  // 3. Starter price ID match
-  if (starterPrice) {
+  // 3. Starter price ID match (monthly or annual)
+  const starterIds = [starterPrice, starterAnnualPrice].filter(Boolean);
+  if (starterIds.length > 0) {
     for (const item of allItems) {
-      if (extractItemDetails(item).ids.includes(starterPrice)) return 'starter';
+      if (extractItemDetails(item).ids.some((id) => starterIds.includes(id))) return 'starter';
     }
   }
 
@@ -169,9 +175,32 @@ function tierFromAttributes(attributes) {
 
   // 5. Fallback to custom_data.plan
   const customPlan = String(attributes?.custom_data?.plan || '').trim().toLowerCase();
-  if (customPlan === 'starter' || customPlan === 'pro') return customPlan;
+  if (customPlan === 'starter' || customPlan === 'starter_annual') return 'starter';
+  if (customPlan === 'pro' || customPlan === 'pro_annual') return 'pro';
 
   return 'pro';
+}
+
+function intervalFromAttributes(attributes) {
+  const proAnnualPrice = PADDLE_PRICES.pro_annual || process.env.PADDLE_PRO_ANNUAL_PRICE_ID || '';
+  const starterAnnualPrice = PADDLE_PRICES.starter_annual || process.env.PADDLE_STARTER_ANNUAL_PRICE_ID || '';
+  const annualIds = [proAnnualPrice, starterAnnualPrice].filter(Boolean);
+
+  if (attributes?.billing_cycle?.interval === 'year') return 'year';
+
+  const items = Array.isArray(attributes?.items) ? attributes.items : [];
+  for (const item of items) {
+    const ids = [item.price?.id, item.price_id, item.id].filter(Boolean).map(String);
+    if (annualIds.some((id) => ids.includes(id))) return 'year';
+    const name = [item.price?.product?.name, item.price?.name, item.description].filter(Boolean).join(' ').toLowerCase();
+    if (name.includes('annual') || name.includes('yearly')) return 'year';
+    if (item.price?.billing_cycle?.interval === 'year') return 'year';
+  }
+
+  const customPlan = String(attributes?.custom_data?.plan || '').trim().toLowerCase();
+  if (customPlan.includes('annual') || customPlan.includes('year')) return 'year';
+
+  return 'month';
 }
 
 async function syncSubscriptionWithPaddle(userId, billing) {
@@ -296,15 +325,13 @@ async function createCheckout(request) {
   const tier = String(checkout.plan || 'pro').toLowerCase();
   const isOverage = tier === 'overage';
   if (!isOverage && !Object.hasOwn(PADDLE_PRICES, tier)) return customerResponse(422, { error: 'Choose a valid plan' });
-  const priceID = isOverage ? PADDLE_OVERAGE_PRICE_ID : PADDLE_PRICES[tier];
-  if (!PADDLE_API_KEY || !PADDLE_CLIENT_TOKEN || !priceID || !PADDLE_CHECKOUT_URL) {
+  const apiKey = process.env.PADDLE_API_KEY || PADDLE_API_KEY;
+  const clientToken = process.env.PADDLE_CLIENT_TOKEN || PADDLE_CLIENT_TOKEN;
+  const checkoutUrl = process.env.PADDLE_CHECKOUT_URL || PADDLE_CHECKOUT_URL;
+  const environment = process.env.PADDLE_ENVIRONMENT || PADDLE_ENVIRONMENT;
+  const priceID = isOverage ? (process.env.PADDLE_OVERAGE_PRICE_ID || PADDLE_OVERAGE_PRICE_ID) : PADDLE_PRICES[tier];
+  if (!apiKey || !clientToken || !priceID || !checkoutUrl) {
     return customerResponse(503, { error: 'Billing is not configured yet' });
-  }
-  if (isOverage) {
-    const billing = await getBilling(userId);
-    const quotaRecord = await getQuotaRecord(userId, new Date());
-    const quota = quotaRecord.limit || monthlyQuotaForBilling(billing);
-    if (quotaRecord.used < quota) return customerResponse(409, { error: 'Use your included monthly PDFs before buying overage renders' });
   }
   try {
     const result = await paddleRequest('/transactions', {
@@ -315,12 +342,12 @@ async function createCheckout(request) {
         custom_data: isOverage
           ? { user_id: userId, entitlement: 'overage' }
           : { user_id: userId, plan: tier },
-        checkout: { url: PADDLE_CHECKOUT_URL },
+        checkout: { url: checkoutUrl },
       }),
     });
     const transactionId = result?.data?.id;
     if (!transactionId) throw new Error('Paddle did not return a transaction ID');
-    return customerResponse(200, { transactionId, clientToken: PADDLE_CLIENT_TOKEN, environment: PADDLE_ENVIRONMENT });
+    return customerResponse(200, { transactionId, clientToken, environment });
   } catch (err) {
     console.error('Could not create Paddle checkout', err);
     return customerResponse(502, { error: 'Could not start checkout' });
@@ -352,8 +379,13 @@ async function changePlan(request) {
   if (!userId) return customerResponse(401, { error: 'Sign in is required' });
   let input;
   try { input = JSON.parse(request.body || '{}'); } catch { return customerResponse(400, { error: 'Invalid plan change request' }); }
-  const tier = String(input.plan || '').toLowerCase();
-  const priceID = PADDLE_PRICES[tier] || process.env[tier === 'starter' ? 'PADDLE_STARTER_PRICE_ID' : 'PADDLE_PRO_PRICE_ID'] || '';
+  const requestedPlan = String(input.plan || '').toLowerCase();
+  const priceID = PADDLE_PRICES[requestedPlan] || process.env[
+    requestedPlan === 'starter' ? 'PADDLE_STARTER_PRICE_ID' :
+    requestedPlan === 'starter_annual' ? 'PADDLE_STARTER_ANNUAL_PRICE_ID' :
+    requestedPlan === 'pro_annual' ? 'PADDLE_PRO_ANNUAL_PRICE_ID' :
+    'PADDLE_PRO_PRICE_ID'
+  ] || '';
   if (!priceID) return customerResponse(422, { error: 'Choose a valid plan' });
   if (!PADDLE_API_KEY && !process.env.PADDLE_API_KEY) return customerResponse(503, { error: 'Billing is not configured yet' });
 
@@ -361,12 +393,18 @@ async function changePlan(request) {
   if (!billing?.subscriptionId || !['active', 'trialing'].includes(billing.status)) {
     return customerResponse(409, { error: 'No active subscription is available to change' });
   }
-  if (billing.tier === tier) return customerResponse(409, { error: 'You are already on this plan' });
+  const currentTier = billing.tier;
+  const currentInterval = billing.interval || (billing.plan && billing.plan.toLowerCase().includes('annual') ? 'year' : 'month');
+  const targetTier = requestedPlan.startsWith('starter') ? 'starter' : 'pro';
+  const targetInterval = (requestedPlan.includes('annual') || requestedPlan.includes('year')) ? 'year' : 'month';
+  if (currentTier === targetTier && currentInterval === targetInterval) {
+    return customerResponse(409, { error: 'You are already on this plan' });
+  }
 
   try {
     const patchBody = {
       items: [{ price_id: priceID, quantity: 1 }],
-      custom_data: { user_id: userId, plan: tier },
+      custom_data: { user_id: userId, plan: requestedPlan },
       proration_billing_mode: 'prorated_immediately',
     };
     if (billing.scheduledAction) {
@@ -383,7 +421,7 @@ async function changePlan(request) {
     const subAttributes = {
       ...updatedSub,
       status: updatedSub.status || 'active',
-      custom_data: { user_id: userId, plan: tier, ...(updatedSub.custom_data || {}) },
+      custom_data: { user_id: userId, plan: requestedPlan, ...(updatedSub.custom_data || {}) },
       items: [{ price: { id: priceID } }, ...(Array.isArray(updatedSub.items) ? updatedSub.items.slice(1) : [])],
     };
     try {
@@ -392,7 +430,7 @@ async function changePlan(request) {
       console.warn('Could not immediately sync billing after changePlan', saveErr);
     }
 
-    return customerResponse(200, { requested: true, plan: tier, changed: true });
+    return customerResponse(200, { requested: true, plan: requestedPlan, changed: true });
   } catch (err) {
     console.error('Could not change Paddle subscription plan', err);
     if (err?.status === 403) {
@@ -461,9 +499,11 @@ async function receiveOverageWebhook(payload) {
   const transaction = payload?.data || {};
   const userId = String(transaction?.custom_data?.user_id || '').trim();
   const transactionId = String(transaction?.id || '').trim();
+  const overagePriceId = process.env.PADDLE_OVERAGE_PRICE_ID || PADDLE_OVERAGE_PRICE_ID || '';
+  const itemPriceId = String(transaction.items?.[0]?.price?.id || transaction.items?.[0]?.price_id || '');
   const isOverage = transaction?.custom_data?.entitlement === 'overage' &&
     Array.isArray(transaction.items) && transaction.items.length === 1 &&
-    String(transaction.items[0]?.price?.id || '') === PADDLE_OVERAGE_PRICE_ID &&
+    itemPriceId === overagePriceId &&
     Number(transaction.items[0]?.quantity) === 1;
   if (!eventId || !occurredAt || !userId || !transactionId || !isOverage) {
     console.log('Paddle transaction.completed ignored: not a valid RenderPDF overage purchase');
@@ -823,6 +863,7 @@ function billingFields(userId, subscriptionId, attributes, eventId, occurredAt) 
   const value = (input) => ({ S: String(input || '') });
   const billingPeriod = attributes.current_billing_period || {};
   const tier = tierFromAttributes(attributes);
+  const interval = intervalFromAttributes(attributes);
   const scheduledChange = attributes.scheduled_change || {};
   return {
     requestId: value(`BILLING#${userId}`),
@@ -832,8 +873,9 @@ function billingFields(userId, subscriptionId, attributes, eventId, occurredAt) 
     subscriptionId: value(subscriptionId),
     paddleCustomerId: value(attributes.customer_id),
     tier: value(tier),
+    interval: value(interval),
     status: value(attributes.status || 'unknown'),
-    plan: value(planNameForTier(tier)),
+    plan: value(planNameForTier(tier, interval)),
     renewsAt: value(attributes.next_billed_at || billingPeriod.ends_at),
     endsAt: value(attributes.canceled_at),
     scheduledAction: value(scheduledChange.action),
@@ -859,6 +901,7 @@ function publicBilling(billing) {
     status: billing.status || 'unknown',
     plan: billing.plan || 'RenderPDF Pro',
     tier: billing.tier || 'pro',
+    interval: billing.interval || 'month',
     renewsAt: billing.renewsAt || null,
     endsAt: billing.endsAt || null,
     scheduledChange: billing.scheduledAction && billing.scheduledAt
@@ -867,9 +910,11 @@ function publicBilling(billing) {
   };
 }
 
-function planNameForTier(tier) {
-  const names = { starter: 'RenderPDF Starter', pro: 'RenderPDF Professional' };
-  return names[tier] || 'RenderPDF Professional';
+function planNameForTier(tier, interval = 'month') {
+  if (tier === 'starter') {
+    return interval === 'year' ? 'RenderPDF Starter (Annual)' : 'RenderPDF Starter';
+  }
+  return interval === 'year' ? 'RenderPDF Professional (Annual)' : 'RenderPDF Professional';
 }
 
 async function paddleRequest(path, options = {}) {
@@ -970,7 +1015,12 @@ exports.saveBillingWebhook = saveBillingWebhook;
 exports.updateQuotaOnSubscriptionChange = updateQuotaOnSubscriptionChange;
 exports.monthlyQuotaForBilling = monthlyQuotaForBilling;
 exports.tierFromAttributes = tierFromAttributes;
+exports.intervalFromAttributes = intervalFromAttributes;
+exports.planNameForTier = planNameForTier;
 exports.syncSubscriptionWithPaddle = syncSubscriptionWithPaddle;
 exports.changePlan = changePlan;
+exports.receiveOverageWebhook = receiveOverageWebhook;
+exports.creditOverage = creditOverage;
+exports.createCheckout = createCheckout;
 exports.ddb = ddb;
 exports.PADDLE_PRICES = PADDLE_PRICES;

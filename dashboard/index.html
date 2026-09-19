@@ -147,7 +147,7 @@
                         </div>
                         <div class="billing-actions">
                             <button id="upgradePlanBtn" class="dashboard-button dashboard-button-primary" type="button">Upgrade plan</button>
-                            <button id="buyOverageBtn" class="dashboard-button dashboard-button-primary" type="button" hidden>Buy 1,000 PDFs — $5 USD</button>
+                            <button id="buyOverageBtn" class="dashboard-button dashboard-button-secondary" type="button">Buy 1,000 PDFs — $5 USD</button>
                             <button id="manageBillingBtn" class="dashboard-button dashboard-button-primary" type="button" hidden>Manage billing</button>
                         </div>
                     </header>
@@ -155,11 +155,11 @@
                     <div class="billing-info-grid">
                         <div class="billing-info-card">
                             <h3>Billing terms &amp; currency</h3>
-                            <p>All plans are priced and billed in <strong>$ USD</strong> on a recurring <strong>monthly</strong> basis. You can manage payment methods, download invoices, or cancel your subscription at any time via <strong>Manage billing</strong>.</p>
+                            <p>All plans are priced and billed in <strong>$ USD</strong> on a recurring <strong>monthly or annual</strong> basis (save 20% with annual plans: $190/yr Starter, $490/yr Professional). You can manage payment methods, download invoices, or cancel your subscription at any time via <strong>Manage billing</strong>.</p>
                         </div>
                         <div class="billing-info-card">
                             <h3>Quota exhaustion policy</h3>
-                            <p>When you reach 100% of your monthly PDF quota, further render requests pause with an <code>HTTP 429 Too Many Requests</code> code to prevent unexpected costs. You can resume immediately by buying an on-demand overage pack (1,000 PDFs for $5 USD) or upgrading to Professional.</p>
+                            <p>When you reach 100% of your monthly PDF quota, further render requests pause with an <code>HTTP 429 Too Many Requests</code> code to prevent unexpected costs. You can add capacity at any time by buying an on-demand overage pack (1,000 PDFs for $5 USD) or upgrading to Professional.</p>
                         </div>
                         <div class="billing-info-card">
                             <h3>Cancellation &amp; refunds</h3>
@@ -431,7 +431,16 @@
                 <h2 id="billingPlanDialogTitle">Choose the capacity you need</h2>
                 <p>Changes are prorated today. All plans include private PDF storage and API-key access.</p>
             </div>
-            <div class="plan-options">
+            <div class="plan-billing-switch-wrap">
+                <div class="pricing-billing-toggle" role="group" aria-label="Billing interval">
+                    <button type="button" class="dashboard-interval-btn is-active" data-dialog-interval="monthly" aria-pressed="true">Billed monthly</button>
+                    <button type="button" class="dashboard-interval-btn" data-dialog-interval="annual" aria-pressed="false">
+                        <span>Billed annually</span>
+                        <span class="pricing-save-badge">Save 20%</span>
+                    </button>
+                </div>
+            </div>
+            <div class="plan-options" id="monthlyPlanOptions">
                 <button class="plan-option" type="button" data-plan="starter" aria-label="Choose Starter, 5,000 PDFs per month for $19 USD per month">
                     <span class="plan-option-copy"><strong>Starter</strong><span>5,000 PDFs per month · Billed monthly</span></span>
                     <span class="plan-option-price"><strong>$19 USD</strong><span>/ month</span></span>
@@ -441,7 +450,24 @@
                     <span class="plan-option-price"><strong>$49 USD</strong><span>/ month</span></span>
                 </button>
             </div>
-            <p class="field-help" style="margin: 10px 0 0; text-align: center;">Subscriptions renew monthly in $ USD and can be cancelled self-serve anytime. Covered by our <a href="/refund/" target="_blank" rel="noopener noreferrer">14-day refund policy</a>.</p>
+            <div class="plan-options" id="annualPlanOptions" hidden>
+                <button class="plan-option" type="button" data-plan="starter_annual" aria-label="Choose Starter Annual, 5,000 PDFs per month for $190 USD per year (saves $38)">
+                    <span class="plan-option-copy"><strong>Starter Annual</strong><span>5,000 PDFs per month · Billed annually (saves $38/yr)</span></span>
+                    <span class="plan-option-price"><strong>$190 USD</strong><span>/ year</span></span>
+                </button>
+                <button class="plan-option" type="button" data-plan="pro_annual" aria-label="Choose Professional Annual, 20,000 PDFs per month for $490 USD per year (saves $98)">
+                    <span class="plan-option-copy"><strong>Professional Annual</strong><span>20,000 PDFs per month · Billed annually (saves $98/yr)</span></span>
+                    <span class="plan-option-price"><strong>$490 USD</strong><span>/ year</span></span>
+                </button>
+            </div>
+            <div class="plan-overage-card">
+                <div class="plan-option-copy">
+                    <strong>Need a one-time capacity boost?</strong>
+                    <span>Add 1,000 PDFs to this month’s allowance anytime without changing subscription plans.</span>
+                </div>
+                <button id="dialogBuyOverageBtn" class="dashboard-button dashboard-button-secondary" type="button">Buy 1,000 PDFs — $5 USD</button>
+            </div>
+            <p class="field-help" style="margin: 10px 0 0; text-align: center;">Subscriptions renew monthly or annually in $ USD and can be cancelled self-serve anytime. Covered by our <a href="/refund/" target="_blank" rel="noopener noreferrer">14-day refund policy</a>.</p>
             <div class="dashboard-dialog-actions"><button id="billingPlanDialogClose" class="dashboard-button dashboard-button-secondary" type="button">Close</button></div>
         </div>
     </dialog>

@@ -377,8 +377,8 @@ Content-management handover and launch support</div></div></li>
                 <article>
                     <span class="capability-index">03</span>
                     <div>
-                        <h2>Secure delivery</h2>
-                        <p>Return private PDFs through expiring download links, ready for your product.</p>
+                        <h2>Secure delivery &amp; encryption</h2>
+                        <p>Protect confidential financial statements and contracts with AES-256 passwords and granular permissions.</p>
                     </div>
                 </article>
                 <article>
@@ -399,6 +399,17 @@ Content-management handover and launch support</div></div></li>
                     <p>Every plan includes the same Chromium renderer, secure delivery, and API-key access. Create a free account first; upgrade in the dashboard after sign-in.</p>
                 </header>
 
+                <div class="pricing-billing-switch-wrap">
+                    <div class="pricing-billing-toggle" role="group" aria-label="Billing frequency">
+                        <button type="button" class="pricing-billing-toggle-btn is-active" data-billing="monthly" aria-pressed="true">Billed monthly</button>
+                        <button type="button" class="pricing-billing-toggle-btn" data-billing="annual" aria-pressed="false">
+                            <span>Billed annually</span>
+                            <span class="pricing-save-badge">Save 20%</span>
+                        </button>
+                    </div>
+                    <span class="pricing-billing-caption">Annual plans provide immediate non-dilutive upfront working capital with 20% savings</span>
+                </div>
+
                 <div class="pricing-grid">
                     <article class="pricing-card">
                         <p class="pricing-tier">Free</p>
@@ -406,17 +417,19 @@ Content-management handover and launch support</div></div></li>
                         <p class="pricing-allowance">25 PDFs each month</p>
                         <a class="button" href="/app/">Create free account</a>
                     </article>
-                    <article class="pricing-card">
+                    <article class="pricing-card" data-tier="starter">
                         <p class="pricing-tier">Starter</p>
-                        <p class="pricing-price"><strong>$19 USD</strong><span>/ month</span></p>
+                        <p class="pricing-price"><strong class="pricing-amount">$19 USD</strong><span class="pricing-period">/ month</span></p>
+                        <p class="pricing-savings" hidden>Billed annually at $190/yr · <span class="savings-text">Saves $38</span></p>
                         <p class="pricing-allowance">5,000 PDFs each month</p>
                         <p class="pricing-status">Billed monthly · Cancel anytime</p>
                         <a class="button" href="/app/">Create free account</a>
                     </article>
-                    <article class="pricing-card pricing-card-featured">
+                    <article class="pricing-card pricing-card-featured" data-tier="pro">
                         <p class="pricing-badge">Most popular</p>
                         <p class="pricing-tier">Professional</p>
-                        <p class="pricing-price"><strong>$49 USD</strong><span>/ month</span></p>
+                        <p class="pricing-price"><strong class="pricing-amount">$49 USD</strong><span class="pricing-period">/ month</span></p>
+                        <p class="pricing-savings" hidden>Billed annually at $490/yr · <span class="savings-text">Saves $98</span></p>
                         <p class="pricing-allowance">20,000 PDFs each month</p>
                         <p class="pricing-status">Billed monthly · Cancel anytime</p>
                         <a class="button button-primary" href="/app/">Create free account</a>
@@ -426,6 +439,7 @@ Content-management handover and launch support</div></div></li>
                         <p class="pricing-price"><strong>Custom USD</strong><span> pricing</span></p>
                         <p class="pricing-allowance">High-volume and tailored plans</p>
                         <p class="pricing-status">Invoiced monthly or annually</p>
+                        <a class="button" href="mailto:support@renderpdf.vberkoz.com?subject=RenderPDF%20Business%20Plan%20Inquiry">Contact sales</a>
                     </article>
                 </div>
 
@@ -437,10 +451,10 @@ Content-management handover and launch support</div></div></li>
                     <div class="pricing-exhaustion-options">
                         <div>
                             <strong>Need more PDFs immediately?</strong>
-                            <p>Buy an on-demand overage pack of 1,000 PDFs for $5 USD without changing plans, or upgrade to Professional anytime with instant prorated billing.</p>
+                            <p>Buy an on-demand overage pack of 1,000 PDFs for $5 USD at any time without changing plans, or upgrade to Professional anytime with instant prorated billing.</p>
                         </div>
                         <div>
-                            <span>Subscriptions recur monthly and can be cancelled self-serve anytime. Payments are securely managed by Paddle, our Merchant of Record. Covered by our <a href="/refund/">14-day refund policy</a>.</span>
+                            <span>Subscriptions recur monthly or annually and can be cancelled self-serve anytime. Payments are securely managed by Paddle, our Merchant of Record. Covered by our <a href="/refund/">14-day refund policy</a>.</span>
                         </div>
                     </div>
                 </div>
@@ -639,6 +653,57 @@ Content-management handover and launch support</div></div></li>
                 btn.classList.remove('is-processing');
                 btnLabel.textContent = 'Render PDF';
             }
+        });
+
+        const pricingToggleBtns = document.querySelectorAll('.pricing-billing-toggle-btn');
+        const starterCard = document.querySelector('.pricing-card[data-tier="starter"]');
+        const proCard = document.querySelector('.pricing-card[data-tier="pro"]');
+
+        pricingToggleBtns.forEach((toggleBtn) => {
+            toggleBtn.addEventListener('click', () => {
+                const billing = toggleBtn.dataset.billing;
+                pricingToggleBtns.forEach((b) => {
+                    const isActive = b === toggleBtn;
+                    b.classList.toggle('is-active', isActive);
+                    b.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+                });
+
+                if (starterCard) {
+                    const amount = starterCard.querySelector('.pricing-amount');
+                    const period = starterCard.querySelector('.pricing-period');
+                    const status = starterCard.querySelector('.pricing-status');
+                    const savings = starterCard.querySelector('.pricing-savings');
+                    if (billing === 'annual') {
+                        amount.textContent = '$190 USD';
+                        period.textContent = '/ year';
+                        status.textContent = 'Billed annually ($190/yr) · Cancel anytime';
+                        if (savings) savings.hidden = false;
+                    } else {
+                        amount.textContent = '$19 USD';
+                        period.textContent = '/ month';
+                        status.textContent = 'Billed monthly · Cancel anytime';
+                        if (savings) savings.hidden = true;
+                    }
+                }
+
+                if (proCard) {
+                    const amount = proCard.querySelector('.pricing-amount');
+                    const period = proCard.querySelector('.pricing-period');
+                    const status = proCard.querySelector('.pricing-status');
+                    const savings = proCard.querySelector('.pricing-savings');
+                    if (billing === 'annual') {
+                        amount.textContent = '$490 USD';
+                        period.textContent = '/ year';
+                        status.textContent = 'Billed annually ($490/yr) · Cancel anytime';
+                        if (savings) savings.hidden = false;
+                    } else {
+                        amount.textContent = '$49 USD';
+                        period.textContent = '/ month';
+                        status.textContent = 'Billed monthly · Cancel anytime';
+                        if (savings) savings.hidden = true;
+                    }
+                }
+            });
         });
     </script>
 </body>

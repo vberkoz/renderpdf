@@ -20,17 +20,18 @@ FROM alpine:3.22 AS fonts
 
 RUN apk add --no-cache curl && \
     mkdir -p /fonts && \
-    curl -sSL -o /fonts/Inter.ttf "https://github.com/google/fonts/raw/main/ofl/inter/Inter%5Bopsz%2Cwght%5D.ttf" && \
-    curl -sSL -o /fonts/Inter-Italic.ttf "https://github.com/google/fonts/raw/main/ofl/inter/Inter-Italic%5Bopsz%2Cwght%5D.ttf" && \
-    curl -sSL -o /fonts/Roboto.ttf "https://github.com/google/fonts/raw/main/ofl/roboto/Roboto%5Bwdth%2Cwght%5D.ttf" && \
-    curl -sSL -o /fonts/Roboto-Italic.ttf "https://github.com/google/fonts/raw/main/ofl/roboto/Roboto-Italic%5Bwdth%2Cwght%5D.ttf" && \
-    curl -sSL -o /fonts/OpenSans.ttf "https://github.com/google/fonts/raw/main/ofl/opensans/OpenSans%5Bwdth%2Cwght%5D.ttf" && \
-    curl -sSL -o /fonts/OpenSans-Italic.ttf "https://github.com/google/fonts/raw/main/ofl/opensans/OpenSans-Italic%5Bwdth%2Cwght%5D.ttf" && \
-    curl -sSL -o /fonts/Lato-Regular.ttf "https://github.com/google/fonts/raw/main/ofl/lato/Lato-Regular.ttf" && \
-    curl -sSL -o /fonts/Lato-Bold.ttf "https://github.com/google/fonts/raw/main/ofl/lato/Lato-Bold.ttf" && \
-    curl -sSL -o /fonts/Lato-Italic.ttf "https://github.com/google/fonts/raw/main/ofl/lato/Lato-Italic.ttf" && \
-    curl -sSL -o /fonts/Montserrat.ttf "https://github.com/google/fonts/raw/main/ofl/montserrat/Montserrat%5Bwght%5D.ttf" && \
-    curl -sSL -o /fonts/Montserrat-Italic.ttf "https://github.com/google/fonts/raw/main/ofl/montserrat/Montserrat-Italic%5Bwght%5D.ttf"
+    curl -f -sSL -o /fonts/Inter.ttf "https://github.com/google/fonts/raw/main/ofl/inter/Inter%5Bopsz%2Cwght%5D.ttf" && \
+    curl -f -sSL -o /fonts/Inter-Italic.ttf "https://github.com/google/fonts/raw/main/ofl/inter/Inter-Italic%5Bopsz%2Cwght%5D.ttf" && \
+    curl -f -sSL -o /fonts/Roboto.ttf "https://github.com/google/fonts/raw/main/ofl/roboto/Roboto%5Bwdth%2Cwght%5D.ttf" && \
+    curl -f -sSL -o /fonts/Roboto-Italic.ttf "https://github.com/google/fonts/raw/main/ofl/roboto/Roboto-Italic%5Bwdth%2Cwght%5D.ttf" && \
+    curl -f -sSL -o /fonts/OpenSans.ttf "https://github.com/google/fonts/raw/main/ofl/opensans/OpenSans%5Bwdth%2Cwght%5D.ttf" && \
+    curl -f -sSL -o /fonts/OpenSans-Italic.ttf "https://github.com/google/fonts/raw/main/ofl/opensans/OpenSans-Italic%5Bwdth%2Cwght%5D.ttf" && \
+    curl -f -sSL -o /fonts/Lato-Regular.ttf "https://github.com/google/fonts/raw/main/ofl/lato/Lato-Regular.ttf" && \
+    curl -f -sSL -o /fonts/Lato-Bold.ttf "https://github.com/google/fonts/raw/main/ofl/lato/Lato-Bold.ttf" && \
+    curl -f -sSL -o /fonts/Lato-Italic.ttf "https://github.com/google/fonts/raw/main/ofl/lato/Lato-Italic.ttf" && \
+    curl -f -sSL -o /fonts/Lato-BoldItalic.ttf "https://github.com/google/fonts/raw/main/ofl/lato/Lato-BoldItalic.ttf" && \
+    curl -f -sSL -o /fonts/Montserrat.ttf "https://github.com/google/fonts/raw/main/ofl/montserrat/Montserrat%5Bwght%5D.ttf" && \
+    curl -f -sSL -o /fonts/Montserrat-Italic.ttf "https://github.com/google/fonts/raw/main/ofl/montserrat/Montserrat-Italic%5Bwght%5D.ttf"
 
 FROM public.ecr.aws/lambda/provided:al2023
 

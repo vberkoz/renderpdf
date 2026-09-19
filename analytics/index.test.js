@@ -566,3 +566,242 @@ test('changePlan succeeds and clears scheduled change if present', async () => {
   }
 });
 
+test('subscription.created with starter_annual upgrades quota to Starter tier (5,000)', async () => {
+  const originalSend = analytics.ddb.send;
+  const commands = [];
+
+  analytics.ddb.send = async (command) => {
+    commands.push(command);
+    if (command.constructor.name === 'GetItemCommand') {
+      const key = command.input?.Key?.requestId?.S || '';
+      if (key.startsWith('BILLING#')) return { Item: null };
+      if (key.startsWith('USER_QUOTA#')) return { Item: { used: { N: '25' }, limit: { N: '25' } } };
+    }
+    return {};
+  };
+
+  try {
+    const userId = 'user-test-annual-1';
+    const subscriptionId = 'sub-test-annual-1';
+    const attributes = {
+      id: subscriptionId,
+      status: 'active',
+      custom_data: { user_id: userId, plan: 'starter_annual' },
+      items: [{ price: { product: { name: 'RenderPDF Starter Annual' } } }],
+    };
+    const eventId = 'evt-annual-1';
+    const occurredAt = new Date('2026-09-16T12:00:00Z');
+
+    await analytics.saveBillingWebhook(userId, subscriptionId, attributes, eventId, occurredAt, 'subscription.created');
+
+    assert.strictEqual(commands.length, 4);
+
+    const billingUpdate = commands[1];
+    assert.strictEqual(billingUpdate.input.Key.requestId.S, 'BILLING#user-test-annual-1');
+    assert.strictEqual(billingUpdate.input.ExpressionAttributeValues[':tier'].S, 'starter');
+    assert.strictEqual(billingUpdate.input.ExpressionAttributeValues[':interval'].S, 'year');
+    assert.strictEqual(billingUpdate.input.ExpressionAttributeValues[':plan'].S, 'RenderPDF Starter (Annual)');
+
+    const quotaUpdate = commands[3];
+    assert.strictEqual(quotaUpdate.input.Key.requestId.S, 'USER_QUOTA#user-test-annual-1#2026-09');
+    assert.strictEqual(quotaUpdate.input.ExpressionAttributeValues[':limit'].N, '5000');
+  } finally {
+    analytics.ddb.send = originalSend;
+  }
+});
+
+test('subscription.created with pro_annual upgrades quota to Pro tier (20,000)', async () => {
+  const originalSend = analytics.ddb.send;
+  const commands = [];
+
+  analytics.ddb.send = async (command) => {
+    commands.push(command);
+    if (command.constructor.name === 'GetItemCommand') {
+      const key = command.input?.Key?.requestId?.S || '';
+      if (key.startsWith('BILLING#')) return { Item: null };
+      if (key.startsWith('USER_QUOTA#')) return { Item: { used: { N: '0' }, limit: { N: '25' } } };
+    }
+    return {};
+  };
+
+  try {
+    const userId = 'user-test-annual-2';
+    const subscriptionId = 'sub-test-annual-2';
+    const attributes = {
+      id: subscriptionId,
+      status: 'active',
+      custom_data: { user_id: userId, plan: 'pro_annual' },
+      items: [{ price: { product: { name: 'RenderPDF Professional Annual' } } }],
+    };
+    const eventId = 'evt-annual-2';
+    const occurredAt = new Date('2026-09-16T12:00:00Z');
+
+    await analytics.saveBillingWebhook(userId, subscriptionId, attributes, eventId, occurredAt, 'subscription.created');
+
+    assert.strictEqual(commands.length, 4);
+
+    const billingUpdate = commands[1];
+    assert.strictEqual(billingUpdate.input.ExpressionAttributeValues[':tier'].S, 'pro');
+    assert.strictEqual(billingUpdate.input.ExpressionAttributeValues[':interval'].S, 'year');
+    assert.strictEqual(billingUpdate.input.ExpressionAttributeValues[':plan'].S, 'RenderPDF Professional (Annual)');
+
+    const quotaUpdate = commands[3];
+    assert.strictEqual(quotaUpdate.input.ExpressionAttributeValues[':limit'].N, '20000');
+  } finally {
+    analytics.ddb.send = originalSend;
+  }
+});
+
+test('tierFromAttributes and intervalFromAttributes resolve annual pricing and intervals', () => {
+  process.env.PADDLE_STARTER_PRICE_ID = 'pri_starter_123';
+  process.env.PADDLE_STARTER_ANNUAL_PRICE_ID = 'pri_starter_yr_123';
+  process.env.PADDLE_PRO_PRICE_ID = 'pri_pro_456';
+  process.env.PADDLE_PRO_ANNUAL_PRICE_ID = 'pri_pro_yr_456';
+
+  const subStarterAnnual = {
+    items: [{ price: { id: 'pri_starter_yr_123' } }],
+  };
+  assert.strictEqual(analytics.tierFromAttributes(subStarterAnnual), 'starter');
+  assert.strictEqual(analytics.intervalFromAttributes(subStarterAnnual), 'year');
+
+  const subProAnnual = {
+    items: [{ price: { id: 'pri_pro_yr_456' } }],
+  };
+  assert.strictEqual(analytics.tierFromAttributes(subProAnnual), 'pro');
+  assert.strictEqual(analytics.intervalFromAttributes(subProAnnual), 'year');
+
+  const subMonthly = {
+    items: [{ price: { id: 'pri_starter_123' } }],
+  };
+  assert.strictEqual(analytics.tierFromAttributes(subMonthly), 'starter');
+  assert.strictEqual(analytics.intervalFromAttributes(subMonthly), 'month');
+});
+
+test('receiveOverageWebhook credits 1,000 PDFs for price pri_01m2fzxsmngvj4a5186zydh2ej', async () => {
+  process.env.PADDLE_OVERAGE_PRICE_ID = 'pri_01m2fzxsmngvj4a5186zydh2ej';
+  const originalSend = analytics.ddb.send;
+  const commands = [];
+
+  analytics.ddb.send = async (command) => {
+    commands.push(command);
+    if (command.constructor.name === 'GetItemCommand') {
+      const key = command.input?.Key?.requestId?.S || '';
+      if (key.startsWith('BILLING#')) {
+        // User on Starter tier (5,000 quota)
+        return { Item: { tier: { S: 'starter' }, status: { S: 'active' } } };
+      }
+    }
+    return {};
+  };
+
+  try {
+    const payload = {
+      event_id: 'evt_overage_test_1',
+      occurred_at: '2026-09-19T10:00:00Z',
+      data: {
+        id: 'txn_overage_123',
+        custom_data: { user_id: 'user_overage_test', entitlement: 'overage' },
+        items: [
+          {
+            price: { id: 'pri_01m2fzxsmngvj4a5186zydh2ej' },
+            quantity: 1,
+          },
+        ],
+      },
+    };
+
+    const res = await analytics.receiveOverageWebhook(payload);
+    assert.strictEqual(res.statusCode, 200);
+    const body = JSON.parse(res.body);
+    assert.strictEqual(body.received, true);
+
+    assert.strictEqual(commands.length, 2);
+
+    const transact = commands[1];
+    assert.strictEqual(transact.constructor.name, 'TransactWriteItemsCommand');
+    const items = transact.input.TransactItems;
+    assert.strictEqual(items.length, 2);
+
+    // Put OVERAGE record
+    const putItem = items[0].Put.Item;
+    assert.strictEqual(putItem.requestId.S, 'OVERAGE#txn_overage_123');
+    assert.strictEqual(putItem.customerId.S, 'user_overage_test');
+    assert.strictEqual(putItem.paddleTransactionId.S, 'txn_overage_123');
+    assert.strictEqual(putItem.credits.N, '1000');
+
+    // Update USER_QUOTA
+    const quotaUpdate = items[1].Update;
+    assert.strictEqual(quotaUpdate.Key.requestId.S, 'USER_QUOTA#user_overage_test#2026-09');
+    assert.strictEqual(quotaUpdate.ExpressionAttributeValues[':baseQuota'].N, '5000');
+    assert.strictEqual(quotaUpdate.ExpressionAttributeValues[':credits'].N, '1000');
+  } finally {
+    analytics.ddb.send = originalSend;
+  }
+});
+
+test('receiveOverageWebhook ignores transaction with mismatched price ID', async () => {
+  process.env.PADDLE_OVERAGE_PRICE_ID = 'pri_01m2fzxsmngvj4a5186zydh2ej';
+  const payload = {
+    event_id: 'evt_overage_test_mismatch',
+    occurred_at: '2026-09-19T10:00:00Z',
+    data: {
+      id: 'txn_wrong_price',
+      custom_data: { user_id: 'user_overage_test', entitlement: 'overage' },
+      items: [
+        {
+          price: { id: 'pri_some_other_price' },
+          quantity: 1,
+        },
+      ],
+    },
+  };
+
+  const res = await analytics.receiveOverageWebhook(payload);
+  assert.strictEqual(res.statusCode, 200);
+  const body = JSON.parse(res.body);
+  assert.strictEqual(body.ignored, true);
+});
+
+test('createCheckout with plan overage succeeds at any time without requiring quota exhaustion', async () => {
+  const originalFetch = global.fetch;
+  let postedBody = null;
+
+  global.fetch = async (url, options) => {
+    if (options?.method === 'POST') {
+      postedBody = JSON.parse(options.body);
+      return {
+        ok: true,
+        json: async () => ({
+          data: {
+            id: 'txn_overage_test_checkout',
+          },
+        }),
+      };
+    }
+    return { ok: true, json: async () => ({}) };
+  };
+
+  process.env.PADDLE_API_KEY = 'test_key';
+  process.env.PADDLE_CLIENT_TOKEN = 'test_client_token';
+  process.env.PADDLE_OVERAGE_PRICE_ID = 'pri_01m2fzxsmngvj4a5186zydh2ej';
+  process.env.PADDLE_CHECKOUT_URL = 'https://renderpdf.vberkoz.com/app/?view=billing';
+
+  try {
+    const res = await analytics.createCheckout({
+      requestContext: { authorizer: { claims: { sub: 'user_checkout_test' } } },
+      body: JSON.stringify({ plan: 'overage' }),
+    });
+
+    assert.strictEqual(res.statusCode, 200);
+    const body = JSON.parse(res.body);
+    assert.strictEqual(body.transactionId, 'txn_overage_test_checkout');
+    assert.strictEqual(body.clientToken, 'test_client_token');
+
+    assert.strictEqual(postedBody.items[0].price_id, 'pri_01m2fzxsmngvj4a5186zydh2ej');
+    assert.strictEqual(postedBody.custom_data.user_id, 'user_checkout_test');
+    assert.strictEqual(postedBody.custom_data.entitlement, 'overage');
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+

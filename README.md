@@ -12,6 +12,7 @@ Serverless API that converts HTML to PDF using AWS Lambda (Go), API Gateway, S3,
 - RESTful API with JSON responses
 - User authentication via AWS Cognito (Google OAuth and Email/Password)
 - API key management dashboard
+- AES-256 PDF encryption and password protection (owner/user passwords, print/copy permissions)
 - Custom authorizer for API security
 
 ## Prerequisites
@@ -120,6 +121,13 @@ Supported paper formats are `A4`, `Letter`, and `Legal`; omitted options
 default to `A4` and `18mm`. Margins may use `mm` (`0–50mm`) or `in` (`0–2in`).
 CSS supported by headless Chrome is accepted except `@page`, `@import`,
 `url()`, and unsafe legacy expressions. Page settings must come from `options`.
+Dynamic headers and footers are supported via `options.headerTemplate`,
+`options.footerTemplate`, and `options.displayHeaderFooter`.
+
+For sensitive documents such as financial statements, legal contracts, and
+payroll slips, `options.password` enables AES-256 owner/user password protection.
+An optional `options.ownerPassword` sets a separate master password, and
+`options.permissions` restricts user rights (`all`, `print`, or `none`).
 
 The contract also reserves a mutually exclusive `source` object for Markdown:
 `{"source":{"type":"markdown","content":"# {{report.title}}"}}`. Its

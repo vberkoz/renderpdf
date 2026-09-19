@@ -27,7 +27,7 @@
 - `POST /api/v1/billing/checkout`
   - Requires the Cognito authorizer.
   - Creates a Paddle subscription checkout, or a one-time 1,000-PDF overage
-    checkout once the account has exhausted its current monthly allowance.
+    checkout at any time to add capacity to the current monthly allowance.
 - `POST /api/v1/billing/portal`
   - Requires the Cognito authorizer.
   - Creates a fresh, authenticated Paddle customer-portal session.
@@ -63,7 +63,7 @@ Set these CloudFormation parameters before enabling checkout:
 
 - `PaddleApiKey`
 - `PaddleClientToken` and `PaddleEnvironment` (`sandbox` while testing)
-- `PaddleStarterPriceId`, `PaddleProPriceId`, and `PaddleOveragePriceId`
+- `PaddleStarterPriceId`, `PaddleStarterAnnualPriceId`, `PaddleProPriceId`, `PaddleProAnnualPriceId`, and `PaddleOveragePriceId`
 - `PaddleCheckoutUrl` (an approved RenderPDF URL; defaults to the dashboard)
 - `PaddleWebhookSecret`
 - quota limits: `FreeMonthlyQuota`, `StarterMonthlyQuota`, and

@@ -65,10 +65,18 @@ Parameters:
     Type: String
     Default: ''
     Description: Paddle recurring Starter price ID
+  PaddleStarterAnnualPriceId:
+    Type: String
+    Default: ''
+    Description: Paddle recurring annual Starter price ID
   PaddleProPriceId:
     Type: String
     Default: ''
     Description: Paddle recurring Pro price ID
+  PaddleProAnnualPriceId:
+    Type: String
+    Default: ''
+    Description: Paddle recurring annual Pro price ID
   PaddleOveragePriceId:
     Type: String
     Default: ''
@@ -1016,7 +1024,9 @@ Resources:
           PADDLE_CLIENT_TOKEN: !Ref PaddleClientToken
           PADDLE_ENVIRONMENT: !Ref PaddleEnvironment
           PADDLE_STARTER_PRICE_ID: !Ref PaddleStarterPriceId
+          PADDLE_STARTER_ANNUAL_PRICE_ID: !Ref PaddleStarterAnnualPriceId
           PADDLE_PRO_PRICE_ID: !Ref PaddleProPriceId
+          PADDLE_PRO_ANNUAL_PRICE_ID: !Ref PaddleProAnnualPriceId
           PADDLE_OVERAGE_PRICE_ID: !Ref PaddleOveragePriceId
           PADDLE_CHECKOUT_URL: !Ref PaddleCheckoutUrl
           PADDLE_WEBHOOK_SECRET: !Ref PaddleWebhookSecret

@@ -68,6 +68,7 @@
                             <summary>Render inputs</summary>
                             <a href="#render">Render HTML</a>
                             <a href="#render-document">Document JSON</a>
+                            <a href="#pdf-security">Password &amp; security</a>
                             <a href="#markdown">Markdown</a>
                             <a href="#render-url">Public URL</a>
                             <a href="#render-upload">Local package</a>
@@ -261,7 +262,7 @@
                         <div class="property-row"><code>source</code><span class="type">object</span><span class="optional">optional</span><p>Mutually exclusive with <code>html</code>. The Markdown shape is <code>{ type: "markdown", content: "..." }</code>; it is converted to HTML with raw HTML disabled.</p></div>
                         <div class="property-row"><code>css</code><span class="type">string</span><span class="optional">optional</span><p>Document CSS supported by headless Chrome, subject to the restrictions below.</p></div>
                         <div class="property-row"><code>data</code><span class="type">object</span><span class="required">required</span><p>Nested values for every binding. Missing values, unused leaves, and malformed bindings return <code>422</code>; inserted values are HTML-escaped.</p></div>
-                        <div class="property-row"><code>options</code><span class="type">object</span><span class="optional">optional</span><p><code>format</code> may be <code>A4</code>, <code>Letter</code>, or <code>Legal</code>. <code>margin</code> accepts <code>0–50mm</code> or <code>0–2in</code>. Defaults are <code>A4</code> and <code>18mm</code>.</p></div>
+                        <div class="property-row"><code>options</code><span class="type">object</span><span class="optional">optional</span><p>Layout and document security settings. <code>format</code> may be <code>A4</code>, <code>Letter</code>, or <code>Legal</code>. <code>margin</code> accepts <code>0–50mm</code> or <code>0–2in</code> (defaults: <code>A4</code> and <code>18mm</code>). <code>headerTemplate</code> and <code>footerTemplate</code> accept HTML up to 64 KiB; <code>displayHeaderFooter</code> toggles headers and footers. <code>password</code> and <code>ownerPassword</code> set AES-256 encryption; <code>permissions</code> restricts user rights (<code>all</code>, <code>print</code>, or <code>none</code>). See <a href="#pdf-security">Document password &amp; security permissions</a> below.</p></div>
                         <div class="code-block">
                             <div class="code-header"><span>cURL</span><button type="button" class="copy-button" data-copy-target="render-document-code">Copy</button></div>
                             <pre id="render-document-code"><code class="language-bash">curl -X POST https://renderpdf.vberkoz.com/api/v1/render \
@@ -281,6 +282,29 @@
                             <div><span>Request / final input</span><strong>1 MiB</strong></div>
                             <div><span>HTML / CSS</span><strong>768 / 128 KiB</strong></div>
                             <div><span>Data</span><strong>256 KiB / 10 levels</strong></div>
+                        </div>
+                        <h3 id="pdf-security">Document password &amp; security permissions</h3>
+                        <p class="section-copy">Protect sensitive and confidential PDFs with industry-standard AES-256 encryption. Adding <code>options.password</code> prevents unauthorized access to vital enterprise records, such as financial statements, legal contracts, and payroll slips. You can also designate an <code>ownerPassword</code> for administrative rights and set <code>permissions</code> to restrict user rights.</p>
+                        <div class="property-row"><code>password</code><span class="type">string</span><span class="optional">optional</span><p>User password required to open and decrypt the document (up to 128 characters). Vital for safeguarding confidential financial statements, client contracts, and employee payroll slips.</p></div>
+                        <div class="property-row"><code>ownerPassword</code><span class="type">string</span><span class="optional">optional</span><p>Owner password required to modify document permissions or remove protection (up to 128 characters). Defaults to <code>password</code> if omitted.</p></div>
+                        <div class="property-row"><code>permissions</code><span class="type">string</span><span class="optional">optional</span><p>Permissions granted to users who open the PDF: <code>all</code> (default; full printing, copying, and modification rights), <code>print</code> (allows high-resolution printing only; prevents content extraction and modification), or <code>none</code> (view-only; prevents printing, copying, and modification).</p></div>
+                        <div class="code-block">
+                            <div class="code-header"><span>cURL · Password-protected contract or payroll slip</span><button type="button" class="copy-button" data-copy-target="render-password-code">Copy</button></div>
+                            <pre id="render-password-code"><code class="language-bash">curl -X POST https://renderpdf.vberkoz.com/api/v1/render \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -d '{
+    "version": "1",
+    "source": { "type": "html", "content": "&lt;main&gt;&lt;h1&gt;Confidential Payroll Statement&lt;/h1&gt;&lt;p&gt;Employee: {{employee.name}}&lt;/p&gt;&lt;p&gt;Net Pay: {{payroll.netPay}}&lt;/p&gt;&lt;/main&gt;" },
+    "data": { "employee": { "name": "Jane Doe" }, "payroll": { "netPay": "$5,420.00" } },
+    "options": {
+      "format": "A4",
+      "margin": "18mm",
+      "password": "JanePayroll2026!",
+      "ownerPassword": "FinanceMasterKey999!",
+      "permissions": "print"
+    }
+  }'</code></pre>
                         </div>
                         <p class="section-footnote">Optional <code>webhookUrl</code> and <code>webhookSecret</code> fields use the same signed <code>pdf.completed</code> delivery flow as other authenticated render endpoints.</p>
                     </section>

@@ -44,8 +44,16 @@
     "ParameterValue": "YOUR_PADDLE_STARTER_PRICE_ID"
   },
   {
+    "ParameterKey": "PaddleStarterAnnualPriceId",
+    "ParameterValue": "YOUR_PADDLE_STARTER_ANNUAL_PRICE_ID"
+  },
+  {
     "ParameterKey": "PaddleProPriceId",
     "ParameterValue": "YOUR_PADDLE_PRO_PRICE_ID"
+  },
+  {
+    "ParameterKey": "PaddleProAnnualPriceId",
+    "ParameterValue": "YOUR_PADDLE_PRO_ANNUAL_PRICE_ID"
   },
   {
     "ParameterKey": "PaddleOveragePriceId",

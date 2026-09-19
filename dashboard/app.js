@@ -708,11 +708,30 @@ function parseDocumentEditor() {
     if (documentByteLength(JSON.stringify(request.data)) > 256 * 1024) throw new Error('data must not exceed 256 KB.');
 
     const options = { format: 'A4', margin: '18mm', ...(request.options || {}) };
-    const unknownOption = Object.keys(options).find((field) => !['format', 'margin'].includes(field));
+    const allowedOptions = ['format', 'margin', 'headerTemplate', 'footerTemplate', 'displayHeaderFooter', 'password', 'ownerPassword', 'permissions'];
+    const unknownOption = Object.keys(options).find((field) => !allowedOptions.includes(field));
     if (unknownOption) throw new Error(`Unknown options field "${unknownOption}".`);
     if (!['A4', 'Letter', 'Legal'].includes(options.format)) throw new Error('options.format must be one of A4, Letter, or Legal.');
     const marginMatch = typeof options.margin === 'string' && options.margin.match(/^([0-9]+(?:\.[0-9]+)?)(mm|in)$/);
     if (!marginMatch || Number(marginMatch[1]) > (marginMatch[2] === 'in' ? 2 : 50)) throw new Error('options.margin must be a value from 0mm to 50mm or 0in to 2in.');
+    if (options.headerTemplate !== undefined && (typeof options.headerTemplate !== 'string' || documentByteLength(options.headerTemplate) > 64 * 1024)) {
+        throw new Error('options.headerTemplate must be a string up to 64 KB.');
+    }
+    if (options.footerTemplate !== undefined && (typeof options.footerTemplate !== 'string' || documentByteLength(options.footerTemplate) > 64 * 1024)) {
+        throw new Error('options.footerTemplate must be a string up to 64 KB.');
+    }
+    if (options.displayHeaderFooter !== undefined && typeof options.displayHeaderFooter !== 'boolean') {
+        throw new Error('options.displayHeaderFooter must be a boolean.');
+    }
+    if (options.password !== undefined && (typeof options.password !== 'string' || options.password.length > 128)) {
+        throw new Error('options.password must be a string up to 128 characters.');
+    }
+    if (options.ownerPassword !== undefined && (typeof options.ownerPassword !== 'string' || options.ownerPassword.length > 128)) {
+        throw new Error('options.ownerPassword must be a string up to 128 characters.');
+    }
+    if (options.permissions !== undefined && !['all', 'print', 'none'].includes(String(options.permissions).trim().toLowerCase())) {
+        throw new Error('options.permissions must be one of all, print, or none.');
+    }
 
     const css = request.css || '';
     validateDocumentCSSForPreview(css);
@@ -1500,7 +1519,18 @@ function renderDashboard(data) {
     });
     document.getElementById('upgradePlanBtn').textContent = subscribed ? 'Change plan' : 'Upgrade plan';
     document.getElementById('upgradePlanBtn').hidden = subscribed && !canChangePlan;
-    document.getElementById('buyOverageBtn').hidden = (usage.remaining ?? 0) > 0;
+    const isExhausted = (usage.remaining ?? 0) <= 0;
+    const buyOverageBtn = document.getElementById('buyOverageBtn');
+    if (buyOverageBtn) {
+        buyOverageBtn.hidden = false;
+        if (isExhausted) {
+            buyOverageBtn.classList.remove('dashboard-button-secondary');
+            buyOverageBtn.classList.add('dashboard-button-primary');
+        } else {
+            buyOverageBtn.classList.remove('dashboard-button-primary');
+            buyOverageBtn.classList.add('dashboard-button-secondary');
+        }
+    }
     document.getElementById('manageBillingBtn').hidden = !subscribed;
     const overviewPlanAction = document.getElementById('overviewPlanAction');
     if (overviewPlanAction) {
@@ -1677,6 +1707,22 @@ if (checkAuth()) {
         document.getElementById('billingPlanDialog').showModal();
     });
     document.getElementById('billingPlanDialogClose').addEventListener('click', () => document.getElementById('billingPlanDialog').close());
+    document.querySelectorAll('.dashboard-interval-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const interval = btn.dataset.dialogInterval;
+            document.querySelectorAll('.dashboard-interval-btn').forEach((b) => {
+                const isActive = b === btn;
+                b.classList.toggle('is-active', isActive);
+                b.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+            });
+            const monthlyOptions = document.getElementById('monthlyPlanOptions');
+            const annualOptions = document.getElementById('annualPlanOptions');
+            if (monthlyOptions && annualOptions) {
+                monthlyOptions.hidden = interval === 'annual';
+                annualOptions.hidden = interval !== 'annual';
+            }
+        });
+    });
     document.querySelectorAll('[data-plan]').forEach((button) => button.addEventListener('click', async () => {
         const billingStatus = document.getElementById('billingStatus');
         const changingPlan = ['active', 'trialing'].includes(currentBilling.status);
@@ -1719,9 +1765,8 @@ if (checkAuth()) {
         }
     });
 
-    document.getElementById('buyOverageBtn').addEventListener('click', async () => {
+    async function handleBuyOverage(button) {
         const billingStatus = document.getElementById('billingStatus');
-        const button = document.getElementById('buyOverageBtn');
         setButtonPending(button, true, 'Opening checkout...');
         try {
             const data = await startCheckout('overage');
@@ -1732,6 +1777,15 @@ if (checkAuth()) {
         } finally {
             setButtonPending(button, false);
         }
+    }
+
+    document.getElementById('buyOverageBtn')?.addEventListener('click', (event) => {
+        handleBuyOverage(event.currentTarget);
+    });
+
+    document.getElementById('dialogBuyOverageBtn')?.addEventListener('click', (event) => {
+        document.getElementById('billingPlanDialog').close();
+        handleBuyOverage(event.currentTarget);
     });
 
     document.getElementById('copyOverviewDefaultKeyBtn')?.addEventListener('click', (event) => {
