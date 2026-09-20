@@ -8,6 +8,7 @@ const {
   TransactWriteItemsCommand,
   UpdateItemCommand,
 } = require('@aws-sdk/client-dynamodb');
+const { sendPaymentFailedAlert } = require('./notifications');
 
 const ANALYTICS_INDEX = 'AnalyticsDateIndex';
 const ANALYTICS_TTL_DAYS = 90;
@@ -249,6 +250,19 @@ async function readCustomerDashboard(request) {
     billing = await syncSubscriptionWithPaddle(userId, billing);
   }
 
+  const userEmail = String(request.requestContext?.authorizer?.claims?.email || '').trim();
+  if (userEmail && billing && !billing.customerEmail) {
+    try {
+      await ddb.send(new UpdateItemCommand({
+        TableName: TABLE_NAME,
+        Key: { requestId: { S: `BILLING#${userId}` }, timestamp: { N: '0' } },
+        UpdateExpression: 'SET customerEmail = :email',
+        ExpressionAttributeValues: { ':email': { S: userEmail } },
+      }));
+      billing.customerEmail = userEmail;
+    } catch {}
+  }
+
   const now = new Date();
   const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
   const today = dateKey(now);
@@ -333,6 +347,7 @@ async function createCheckout(request) {
   if (!apiKey || !clientToken || !priceID || !checkoutUrl) {
     return customerResponse(503, { error: 'Billing is not configured yet' });
   }
+  const userEmail = String(request.requestContext?.authorizer?.claims?.email || '').trim();
   try {
     const result = await paddleRequest('/transactions', {
       method: 'POST',
@@ -340,8 +355,8 @@ async function createCheckout(request) {
         items: [{ price_id: priceID, quantity: 1 }],
         collection_mode: 'automatic',
         custom_data: isOverage
-          ? { user_id: userId, entitlement: 'overage' }
-          : { user_id: userId, plan: tier },
+          ? { user_id: userId, user_email: userEmail, entitlement: 'overage' }
+          : { user_id: userId, user_email: userEmail, plan: tier },
         checkout: { url: checkoutUrl },
       }),
     });
@@ -462,6 +477,9 @@ async function receivePaddleWebhook(request) {
   if (eventType === 'transaction.completed') {
     return receiveOverageWebhook(payload);
   }
+  if (eventType === 'transaction.payment_failed') {
+    return receivePaymentFailedWebhook(payload);
+  }
   if (!PADDLE_SUBSCRIPTION_EVENTS.has(eventType)) {
     console.log(`Paddle webhook ignored: unsupported event type ${eventType || 'unknown'}`);
     return response(200, { received: true, ignored: true });
@@ -520,6 +538,33 @@ async function receiveOverageWebhook(payload) {
     return response(500, { error: 'Could not apply overage credit' });
   }
   console.log(`Paddle overage credit applied: ${transactionId} (+${OVERAGE_RENDER_CREDITS})`);
+  return response(200, { received: true });
+}
+
+async function receivePaymentFailedWebhook(payload) {
+  const transaction = payload?.data || {};
+  const userId = String(transaction?.custom_data?.user_id || '').trim();
+  const customerEmail = String(transaction?.custom_data?.user_email || transaction?.customer?.email || '').trim();
+  if (userId) {
+    const previousBilling = await getBilling(userId);
+    if (!previousBilling?.pastDueAlertSentAt) {
+      try {
+        await sendPaymentFailedAlert(ddb, TABLE_NAME, userId, customerEmail);
+        await ddb.send(new UpdateItemCommand({
+          TableName: TABLE_NAME,
+          Key: { requestId: { S: `BILLING#${userId}` }, timestamp: { N: '0' } },
+          UpdateExpression: 'SET pastDueAlertSentAt = :now, #status = if_not_exists(#status, :pastDue)',
+          ExpressionAttributeNames: { '#status': 'status' },
+          ExpressionAttributeValues: {
+            ':now': { N: String(Math.floor(Date.now() / 1000)) },
+            ':pastDue': { S: 'past_due' },
+          },
+        }));
+      } catch (alertErr) {
+        console.error('Could not send payment failed alert from transaction webhook', alertErr);
+      }
+    }
+  }
   return response(200, { received: true });
 }
 
@@ -731,6 +776,8 @@ async function getBilling(userId) {
       scheduledAction: stringValue(result.Item, 'scheduledAction'),
       scheduledAt: stringValue(result.Item, 'scheduledAt'),
       updatePaymentMethod: stringValue(result.Item, 'updatePaymentMethod'),
+      customerEmail: stringValue(result.Item, 'customerEmail'),
+      pastDueAlertSentAt: stringValue(result.Item, 'pastDueAlertSentAt'),
     };
   } catch (err) {
     console.error('Could not read billing state', err);
@@ -826,6 +873,23 @@ async function saveBillingWebhook(userId, subscriptionId, attributes, eventId, o
     updateInput.ConditionExpression = '(attribute_not_exists(#eventTime) OR #eventTime < :eventTime) AND (attribute_not_exists(#eventId) OR #eventId <> :eventId)';
   }
   await ddb.send(new UpdateItemCommand(updateInput));
+  const isPastDue = attributes?.status === 'past_due' || eventType === 'subscription.past_due';
+  if (isPastDue && (previousBilling?.status !== 'past_due' || !previousBilling?.pastDueAlertSentAt)) {
+    const customerEmail = String(attributes?.custom_data?.user_email || attributes?.customer?.email || previousBilling?.customerEmail || '').trim();
+    try {
+      await sendPaymentFailedAlert(ddb, TABLE_NAME, userId, customerEmail);
+      await ddb.send(new UpdateItemCommand({
+        TableName: TABLE_NAME,
+        Key: { requestId: { S: `BILLING#${userId}` }, timestamp: { N: '0' } },
+        UpdateExpression: 'SET pastDueAlertSentAt = :now',
+        ExpressionAttributeValues: {
+          ':now': { N: String(Math.floor(Date.now() / 1000)) },
+        },
+      }));
+    } catch (alertErr) {
+      console.error('Could not send payment failed alert', alertErr);
+    }
+  }
   if (!eventType || QUOTA_UPGRADE_EVENTS.has(eventType)) {
     await updateQuotaOnSubscriptionChange(userId, occurredAt, attributes, previousBilling);
   }
@@ -885,6 +949,11 @@ function billingFields(userId, subscriptionId, attributes, eventId, occurredAt) 
     paddleEventOccurredAtMs: { N: String(occurredAt.getTime()) },
     updatedAt: { N: String(Math.floor(Date.now() / 1000)) },
   };
+  const email = String(attributes?.custom_data?.user_email || attributes?.customer?.email || '').trim();
+  if (email && email.includes('@')) {
+    fields.customerEmail = value(email);
+  }
+  return fields;
 }
 
 function paddleEventTime(value) {
@@ -1022,5 +1091,7 @@ exports.changePlan = changePlan;
 exports.receiveOverageWebhook = receiveOverageWebhook;
 exports.creditOverage = creditOverage;
 exports.createCheckout = createCheckout;
+exports.receivePaymentFailedWebhook = receivePaymentFailedWebhook;
+exports.sendPaymentFailedAlert = sendPaymentFailedAlert;
 exports.ddb = ddb;
 exports.PADDLE_PRICES = PADDLE_PRICES;

@@ -69,6 +69,9 @@ func handler(ctx context.Context, event events.APIGatewayCustomAuthorizerRequest
 	if item["keyId"] != nil && item["keyId"].S != nil {
 		policy.Context["apiKeyId"] = *item["keyId"].S
 	}
+	if item["email"] != nil && item["email"].S != nil && *item["email"].S != "" {
+		policy.Context["email"] = *item["email"].S
+	}
 	return policy, nil
 }
 

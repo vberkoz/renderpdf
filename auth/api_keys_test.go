@@ -34,6 +34,17 @@ func TestCognitoSubjectRejectsMissingOrMalformedClaims(t *testing.T) {
 	}
 }
 
+func TestCognitoEmailRejectsMissingOrMalformedClaims(t *testing.T) {
+	if got := cognitoEmail(events.APIGatewayProxyRequest{}); got != "" {
+		t.Fatalf("email = %q, want empty", got)
+	}
+	request := events.APIGatewayProxyRequest{}
+	request.RequestContext.Authorizer = map[string]interface{}{"claims": map[string]interface{}{"email": " user@example.com "}}
+	if got := cognitoEmail(request); got != "user@example.com" {
+		t.Fatalf("email = %q, want user@example.com", got)
+	}
+}
+
 func TestCreateKeyRequestUnmarshal(t *testing.T) {
 	tests := []struct {
 		name     string

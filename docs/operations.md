@@ -37,3 +37,13 @@ keys, credentials, or status-page management URLs to this repository.
 
 The API monitor uses the read-only trial quota endpoint, so it never creates a
 PDF or consumes the trial-render quota.
+
+## Support & Feedback Email Routing (Forward Email)
+
+The CloudFormation stack defines Route 53 MX and TXT records for `renderpdf.vberkoz.com` using [Forward Email](https://forwardemail.net) to forward incoming messages sent to `support@renderpdf.vberkoz.com` directly to `SupportFeedbackEmail` (default: `vberkoz@gmail.com`).
+
+- **MX Records**: `mx1.forwardemail.net` (priority 10), `mx2.forwardemail.net` (priority 20).
+- **Routing TXT Record**: `forward-email=support:${SupportFeedbackEmail},*:${SupportFeedbackEmail}` routes emails sent to `support@renderpdf.vberkoz.com` as well as any other address on the domain.
+- **SPF TXT Record**: `v=spf1 a mx include:spf.forwardemail.net -all` authorizes Forward Email to handle deliveries without landing in spam.
+
+To change the forwarding destination, update the `SupportFeedbackEmail` parameter in `parameters.json` and deploy.

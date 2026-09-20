@@ -30,6 +30,10 @@ Parameters:
     Type: String
     Default: vberkoz@gmail.com
     Description: Confirmed email address for operational and budget alerts
+  SupportFeedbackEmail:
+    Type: String
+    Default: vberkoz@gmail.com
+    Description: Destination email address for support@ and user feedback forwarding
   MonthlyOperatingBudgetLimit:
     Type: Number
     Default: 15
@@ -107,6 +111,14 @@ Parameters:
     Default: 1000
     MinValue: 1
     Description: PDF renders credited for each completed overage purchase
+  NotificationFromEmail:
+    Type: String
+    Default: 'RenderPDF <support@renderpdf.vberkoz.com>'
+    Description: Sender email address used for quota warnings and billing alert notifications
+  SesRegion:
+    Type: String
+    Default: 'us-east-1'
+    Description: AWS region used for Amazon SES transactional email dispatch
 
 Resources:
   OperationsAlertsTopic:
@@ -393,6 +405,28 @@ Resources:
       AliasTarget:
         HostedZoneId: Z2FDTNDATAQYW2
         DNSName: !GetAtt CloudFrontDistribution.DomainName
+
+  LandingMxRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Ref LandingDomain
+      Type: MX
+      TTL: 300
+      ResourceRecords:
+        - '10 mx1.forwardemail.net'
+        - '20 mx2.forwardemail.net'
+
+  LandingEmailRoutingTxtRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Ref LandingDomain
+      Type: TXT
+      TTL: 300
+      ResourceRecords:
+        - !Sub '"forward-email=support:${SupportFeedbackEmail},*:${SupportFeedbackEmail}"'
+        - '"v=spf1 a mx include:spf.forwardemail.net -all"'
 
   PdfBucket:
     Type: AWS::S3::Bucket
@@ -770,6 +804,15 @@ Resources:
                 Resource:
                   - !GetAtt BatchQueue.Arn
                   - !GetAtt BatchDeadLetterQueue.Arn
+              - Effect: Allow
+                Action:
+                  - 'ses:SendEmail'
+                  - 'ses:SendRawEmail'
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - 'cognito-idp:AdminGetUser'
+                Resource: !GetAtt UserPoolV2.Arn
 
   WebhookDeadLetterQueue:
     Type: AWS::SQS::Queue
@@ -828,6 +871,9 @@ Resources:
           TEMPLATE_TABLE_NAME: !Ref TemplatesTable
           DOCUMENT_STORE_TABLE_NAME: !Ref DocumentStoreTable
           BATCH_QUEUE_URL: !Ref BatchQueue
+          NOTIFICATION_FROM_EMAIL: !Ref NotificationFromEmail
+          SES_REGION: !Ref SesRegion
+          USER_POOL_ID: !Ref UserPoolV2
 
   TrialPdfFunction:
     Type: AWS::Lambda::Function
@@ -1034,6 +1080,9 @@ Resources:
           STARTER_MONTHLY_QUOTA: !Ref StarterMonthlyQuota
           PRO_MONTHLY_QUOTA: !Ref ProMonthlyQuota
           OVERAGE_RENDER_CREDITS: !Ref OverageRenderCredits
+          NOTIFICATION_FROM_EMAIL: !Ref NotificationFromEmail
+          SES_REGION: !Ref SesRegion
+          USER_POOL_ID: !Ref UserPoolV2
 
   RestApi:
     Type: AWS::ApiGateway::RestApi

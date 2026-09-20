@@ -60,7 +60,7 @@ ACCOUNT_LINKER_ZIP="$(mktemp -t renderpdf-account-linker.XXXXXX).zip"
 trap 'rm -f "${ANALYTICS_ZIP}" "${WEBHOOKS_ZIP}" "${ACCOUNT_LINKER_ZIP}"' EXIT
 echo "Packaging native Node.js analytics Lambda..."
 cd "${ROOT_DIR}/analytics"
-zip -q -j "${ANALYTICS_ZIP}" index.js package.json
+zip -q -j "${ANALYTICS_ZIP}" index.js notifications.js package.json
 echo "Packaging webhook worker Lambda..."
 cd "${ROOT_DIR}/webhooks"
 zip -q -j "${WEBHOOKS_ZIP}" index.js

@@ -46,7 +46,24 @@ func accountMonthlyQuota(customerID string) (int, error) {
 	return positiveEnvInt("FREE_MONTHLY_QUOTA", 25), nil
 }
 
-func reserveAccountQuota(customerID string, now time.Time) (*accountQuota, error) {
+func checkQuotaAfterReservation(customerID, customerEmail, key string, attrs map[string]*dynamodb.AttributeValue, now time.Time) {
+	if attrs == nil {
+		return
+	}
+	used := 0
+	limit := 0
+	if attrs["used"] != nil && attrs["used"].N != nil {
+		fmt.Sscanf(*attrs["used"].N, "%d", &used)
+	}
+	if attrs["limit"] != nil && attrs["limit"].N != nil {
+		fmt.Sscanf(*attrs["limit"].N, "%d", &limit)
+	}
+	if limit > 0 {
+		maybeSendQuotaAlert(customerID, customerEmail, key, used, limit, now)
+	}
+}
+
+func reserveAccountQuota(customerID, customerEmail string, now time.Time) (*accountQuota, error) {
 	if customerID == "" {
 		return nil, nil
 	}
@@ -55,7 +72,7 @@ func reserveAccountQuota(customerID string, now time.Time) (*accountQuota, error
 		return nil, fmt.Errorf("load account plan: %w", err)
 	}
 	key := fmt.Sprintf("USER_QUOTA#%s#%s", customerID, now.UTC().Format("2006-01"))
-	_, err = ddbClient.UpdateItem(&dynamodb.UpdateItemInput{
+	updateRes, err := ddbClient.UpdateItem(&dynamodb.UpdateItemInput{
 		TableName: aws.String(tableName),
 		Key: map[string]*dynamodb.AttributeValue{
 			"requestId": {S: aws.String(key)},
@@ -77,13 +94,14 @@ func reserveAccountQuota(customerID string, now time.Time) (*accountQuota, error
 			":entity":  {S: aws.String("USER_QUOTA")},
 			":expires": {N: aws.String(fmt.Sprintf("%d", now.UTC().AddDate(0, 2, 0).Unix()))},
 		},
+		ReturnValues: aws.String("ALL_NEW"),
 	})
 	if err != nil {
 		if awsErr, ok := err.(awserr.Error); ok && awsErr.Code() == dynamodb.ErrCodeConditionalCheckFailedException {
 			// If quota was exceeded under the stored limit, check if the account's plan quota
 			// is greater than the stored limit (e.g. user recently upgraded).
 			// If #limit < :limit and #used < :limit, upgrade #limit and reserve one quota unit.
-			_, upgradeErr := ddbClient.UpdateItem(&dynamodb.UpdateItemInput{
+			upgradeRes, upgradeErr := ddbClient.UpdateItem(&dynamodb.UpdateItemInput{
 				TableName: aws.String(tableName),
 				Key: map[string]*dynamodb.AttributeValue{
 					"requestId": {S: aws.String(key)},
@@ -101,17 +119,22 @@ func reserveAccountQuota(customerID string, now time.Time) (*accountQuota, error
 					":entity":  {S: aws.String("USER_QUOTA")},
 					":expires": {N: aws.String(fmt.Sprintf("%d", now.UTC().AddDate(0, 2, 0).Unix()))},
 				},
+				ReturnValues: aws.String("ALL_NEW"),
 			})
 			if upgradeErr == nil {
+				checkQuotaAfterReservation(customerID, customerEmail, key, upgradeRes.Attributes, now)
 				return &accountQuota{Key: key}, nil
 			}
 			if upAwsErr, ok := upgradeErr.(awserr.Error); ok && upAwsErr.Code() == dynamodb.ErrCodeConditionalCheckFailedException {
+				// Monthly quota exceeded: trigger 100% alert check
+				maybeSendQuotaAlert(customerID, customerEmail, key, limit, limit, now)
 				return nil, errAccountQuotaExceeded
 			}
 			return nil, upgradeErr
 		}
 		return nil, err
 	}
+	checkQuotaAfterReservation(customerID, customerEmail, key, updateRes.Attributes, now)
 	return &accountQuota{Key: key}, nil
 }
 

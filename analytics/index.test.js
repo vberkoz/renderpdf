@@ -22,6 +22,26 @@ Module.prototype.require = function (id, ...args) {
       UpdateItemCommand,
     };
   }
+  if (id === '@aws-sdk/client-ses') {
+    class MockSESClient {
+      send() {}
+    }
+    class SendEmailCommand { constructor(input) { this.input = input; } }
+    return {
+      SESClient: MockSESClient,
+      SendEmailCommand,
+    };
+  }
+  if (id === '@aws-sdk/client-cognito-identity-provider') {
+    class MockCognitoClient {
+      send() {}
+    }
+    class AdminGetUserCommand { constructor(input) { this.input = input; } }
+    return {
+      CognitoIdentityProviderClient: MockCognitoClient,
+      AdminGetUserCommand,
+    };
+  }
   return originalRequire.apply(this, [id, ...args]);
 };
 
@@ -799,9 +819,173 @@ test('createCheckout with plan overage succeeds at any time without requiring qu
 
     assert.strictEqual(postedBody.items[0].price_id, 'pri_01m2fzxsmngvj4a5186zydh2ej');
     assert.strictEqual(postedBody.custom_data.user_id, 'user_checkout_test');
+    assert.strictEqual(postedBody.custom_data.user_email, '');
     assert.strictEqual(postedBody.custom_data.entitlement, 'overage');
   } finally {
     global.fetch = originalFetch;
   }
 });
+
+test('buildPaymentFailedEmail formats email with prompt and quick link to update payment method', () => {
+  const notifications = require('./notifications');
+  const { subject, html, text } = notifications.buildPaymentFailedEmail('billing@example.com');
+
+  assert.ok(subject.includes('Payment failed'));
+  const prompt = 'Please update your payment method promptly to prevent your API access from being suspended.';
+  assert.ok(text.includes(prompt));
+  assert.ok(html.includes('update your payment method promptly'));
+  assert.ok(text.includes('https://renderpdf.vberkoz.com/app/#billing'));
+  assert.ok(html.includes('https://renderpdf.vberkoz.com/app/#billing'));
+});
+
+test('subscription.past_due triggers payment failed alert email via SES', async () => {
+  const notifications = require('./notifications');
+  const sentEmails = [];
+  notifications.setSESClient({
+    send: async (command) => {
+      sentEmails.push(command.input);
+      return { MessageId: 'ses_msg_123' };
+    },
+  });
+
+  const commands = [];
+  const origSend = analytics.ddb.send;
+  analytics.ddb.send = async (command) => {
+    commands.push(command);
+    if (command.constructor.name === 'GetItemCommand') {
+      const key = command.input.Key.requestId.S;
+      if (key === 'BILLING#user_past_due_1') {
+        return {
+          Item: {
+            status: { S: 'active' },
+            tier: { S: 'pro' },
+            customerEmail: { S: 'user1@example.com' },
+          },
+        };
+      }
+      return { Item: null };
+    }
+    return {};
+  };
+
+  try {
+    await analytics.saveBillingWebhook(
+      'user_past_due_1',
+      'sub_123',
+      {
+        status: 'past_due',
+        custom_data: { user_id: 'user_past_due_1', user_email: 'user1@example.com' },
+      },
+      'evt_past_due_1',
+      new Date('2026-09-20T10:00:00Z'),
+      'subscription.past_due'
+    );
+
+    assert.strictEqual(sentEmails.length, 1);
+    assert.strictEqual(sentEmails[0].Destination.ToAddresses[0], 'user1@example.com');
+    assert.ok(sentEmails[0].Message.Subject.Data.includes('Payment failed'));
+
+    // Verify pastDueAlertSentAt was updated in DynamoDB
+    const alertUpdate = commands.find(
+      (c) => c.constructor.name === 'UpdateItemCommand' && c.input.UpdateExpression === 'SET pastDueAlertSentAt = :now'
+    );
+    assert.ok(alertUpdate, 'expected pastDueAlertSentAt update command');
+    assert.strictEqual(alertUpdate.input.Key.requestId.S, 'BILLING#user_past_due_1');
+  } finally {
+    analytics.ddb.send = origSend;
+  }
+});
+
+test('duplicate subscription.past_due webhook does not resend payment failed alert', async () => {
+  const notifications = require('./notifications');
+  const sentEmails = [];
+  notifications.setSESClient({
+    send: async (command) => {
+      sentEmails.push(command.input);
+      return { MessageId: 'ses_msg_123' };
+    },
+  });
+
+  const origSend = analytics.ddb.send;
+  analytics.ddb.send = async (command) => {
+    if (command.constructor.name === 'GetItemCommand') {
+      const key = command.input.Key.requestId.S;
+      if (key === 'BILLING#user_past_due_dup') {
+        return {
+          Item: {
+            status: { S: 'past_due' },
+            tier: { S: 'pro' },
+            customerEmail: { S: 'user_dup@example.com' },
+            pastDueAlertSentAt: { S: '1700000000' },
+          },
+        };
+      }
+      return { Item: null };
+    }
+    return {};
+  };
+
+  try {
+    await analytics.saveBillingWebhook(
+      'user_past_due_dup',
+      'sub_123',
+      {
+        status: 'past_due',
+        custom_data: { user_id: 'user_past_due_dup', user_email: 'user_dup@example.com' },
+      },
+      'evt_past_due_dup',
+      new Date('2026-09-20T10:00:00Z'),
+      'subscription.past_due'
+    );
+
+    assert.strictEqual(sentEmails.length, 0, 'duplicate past due webhook should not resend alert');
+  } finally {
+    analytics.ddb.send = origSend;
+  }
+});
+
+test('transaction.payment_failed triggers payment failed alert email', async () => {
+  const notifications = require('./notifications');
+  const sentEmails = [];
+  notifications.setSESClient({
+    send: async (command) => {
+      sentEmails.push(command.input);
+      return { MessageId: 'ses_msg_123' };
+    },
+  });
+
+  const origSend = analytics.ddb.send;
+  analytics.ddb.send = async (command) => {
+    if (command.constructor.name === 'GetItemCommand') {
+      const key = command.input.Key.requestId.S;
+      if (key === 'BILLING#user_txn_failed') {
+        return {
+          Item: {
+            status: { S: 'active' },
+            customerEmail: { S: 'fail@example.com' },
+          },
+        };
+      }
+      return { Item: null };
+    }
+    return {};
+  };
+
+  try {
+    const res = await analytics.receivePaymentFailedWebhook({
+      event_type: 'transaction.payment_failed',
+      data: {
+        id: 'txn_fail_123',
+        custom_data: { user_id: 'user_txn_failed', user_email: 'fail@example.com' },
+      },
+    });
+
+    assert.strictEqual(res.statusCode, 200);
+    assert.strictEqual(sentEmails.length, 1);
+    assert.strictEqual(sentEmails[0].Destination.ToAddresses[0], 'fail@example.com');
+  } finally {
+    analytics.ddb.send = origSend;
+  }
+});
+
 

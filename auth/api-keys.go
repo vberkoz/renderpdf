@@ -67,6 +67,7 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		"X-Request-Id":                     requestID,
 	}
 	userID := cognitoSubject(request)
+	userEmail := cognitoEmail(request)
 	if userID == "" {
 		return apiErrorResponse(401, "authentication_required", "Authentication is required", corsHeaders), nil
 	}
@@ -77,7 +78,7 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		if request.Body != "" {
 			_ = json.Unmarshal([]byte(request.Body), &req)
 		}
-		return createKey(userID, req.Name, corsHeaders)
+		return createKey(userID, userEmail, req.Name, corsHeaders)
 	case "GET":
 		return listKeys(userID, corsHeaders)
 	case "DELETE":
@@ -95,6 +96,15 @@ func cognitoSubject(request events.APIGatewayProxyRequest) string {
 	}
 	subject, _ := claims["sub"].(string)
 	return strings.TrimSpace(subject)
+}
+
+func cognitoEmail(request events.APIGatewayProxyRequest) string {
+	claims, ok := request.RequestContext.Authorizer["claims"].(map[string]interface{})
+	if !ok {
+		return ""
+	}
+	email, _ := claims["email"].(string)
+	return strings.TrimSpace(email)
 }
 
 func apiErrorResponse(status int, code, message string, headers map[string]string) events.APIGatewayProxyResponse {
@@ -121,7 +131,7 @@ func getUserKeyCount(userId string) (int, error) {
 	return 0, nil
 }
 
-func createKey(userId, keyName string, headers map[string]string) (events.APIGatewayProxyResponse, error) {
+func createKey(userId, userEmail, keyName string, headers map[string]string) (events.APIGatewayProxyResponse, error) {
 	keyName = strings.TrimSpace(keyName)
 	if keyName == "" {
 		existingCount, err := getUserKeyCount(userId)
@@ -146,6 +156,9 @@ func createKey(userId, keyName string, headers map[string]string) (events.APIGat
 		"createdAt": {N: aws.String(fmt.Sprintf("%d", time.Now().Unix()))},
 		"isActive":  {BOOL: aws.Bool(true)},
 	}
+	if userEmail != "" {
+		item["email"] = &dynamodb.AttributeValue{S: aws.String(userEmail)}
+	}
 
 	_, err := ddb.PutItem(&dynamodb.PutItemInput{
 		TableName: aws.String(tableName),
@@ -155,6 +168,21 @@ func createKey(userId, keyName string, headers map[string]string) (events.APIGat
 	if err != nil {
 		fmt.Printf("API key create failed: %v\n", err)
 		return apiErrorResponse(503, "api_keys_unavailable", "API key management is temporarily unavailable", headers), nil
+	}
+	if userEmail != "" && usageTableName != "" {
+		_, _ = ddb.UpdateItem(&dynamodb.UpdateItemInput{
+			TableName: aws.String(usageTableName),
+			Key: map[string]*dynamodb.AttributeValue{
+				"requestId": {S: aws.String(fmt.Sprintf("USER_PROFILE#%s", userId))},
+				"timestamp": {N: aws.String("0")},
+			},
+			UpdateExpression: aws.String("SET customerEmail = :email, entityType = :entity, updatedAt = :now"),
+			ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{
+				":email":  {S: aws.String(userEmail)},
+				":entity": {S: aws.String("USER_PROFILE")},
+				":now":    {N: aws.String(fmt.Sprintf("%d", time.Now().Unix()))},
+			},
+		})
 	}
 	saveAnalyticsEvent(userId, "api_key_created")
 

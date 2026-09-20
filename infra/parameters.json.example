@@ -16,6 +16,10 @@
     "ParameterValue": "ops@example.com"
   },
   {
+    "ParameterKey": "SupportFeedbackEmail",
+    "ParameterValue": "support-feedback@example.com"
+  },
+  {
     "ParameterKey": "MonthlyOperatingBudgetLimit",
     "ParameterValue": "15"
   },
@@ -82,5 +86,13 @@
   {
     "ParameterKey": "OverageRenderCredits",
     "ParameterValue": "1000"
+  },
+  {
+    "ParameterKey": "NotificationFromEmail",
+    "ParameterValue": "RenderPDF <support@renderpdf.vberkoz.com>"
+  },
+  {
+    "ParameterKey": "SesRegion",
+    "ParameterValue": "us-east-1"
   }
 ]

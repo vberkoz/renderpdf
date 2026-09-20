@@ -24,7 +24,7 @@ func TestAccountQuotaReservationAndRefund(t *testing.T) {
 	ddbClient, tableName = fake, "renderpdf-usage"
 	now := time.Date(2026, time.August, 19, 10, 0, 0, 0, time.UTC)
 
-	quota, err := reserveAccountQuota("customer-123", now)
+	quota, err := reserveAccountQuota("customer-123", "", now)
 	if err != nil {
 		t.Fatalf("reserve account quota: %v", err)
 	}
@@ -49,7 +49,7 @@ func TestAccountQuotaReservationRejectsExhaustedPlan(t *testing.T) {
 	t.Cleanup(func() { ddbClient = previousClient })
 	ddbClient = &fakeDynamoDB{updateErr: awserr.New(dynamodb.ErrCodeConditionalCheckFailedException, "quota exhausted", nil)}
 
-	_, err := reserveAccountQuota("customer-123", time.Now())
+	_, err := reserveAccountQuota("customer-123", "", time.Now())
 	if !errors.Is(err, errAccountQuotaExceeded) {
 		t.Fatalf("error = %v, want account quota exceeded", err)
 	}
@@ -100,7 +100,7 @@ func TestAccountQuotaReservationUpgradesExhaustedPlan(t *testing.T) {
 	ddbClient, tableName = fake, "renderpdf-usage"
 	now := time.Date(2026, time.August, 19, 10, 0, 0, 0, time.UTC)
 
-	quota, err := reserveAccountQuota("customer-123", now)
+	quota, err := reserveAccountQuota("customer-123", "", now)
 	if err != nil {
 		t.Fatalf("reserve account quota should succeed after upgrade fallback: %v", err)
 	}

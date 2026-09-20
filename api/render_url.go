@@ -44,11 +44,5 @@ func validateRenderURL(rawURL string) (string, error) {
 }
 
 func isPublicIP(address net.IP) bool {
-	if address == nil || address.IsLoopback() || address.IsUnspecified() || address.IsMulticast() || address.IsLinkLocalUnicast() || address.IsLinkLocalMulticast() {
-		return false
-	}
-	if ipv4 := address.To4(); ipv4 != nil {
-		return !ipv4.IsPrivate() && !ipv4.IsLinkLocalUnicast() && !ipv4.Equal(net.ParseIP("169.254.169.254"))
-	}
-	return !address.IsPrivate()
+	return !isBlockedIP(address)
 }

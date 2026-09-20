@@ -32,6 +32,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/chromedp/cdproto/emulation"
+	"github.com/chromedp/cdproto/fetch"
 	"github.com/chromedp/cdproto/log"
 	"github.com/chromedp/cdproto/network"
 	"github.com/chromedp/cdproto/page"
@@ -363,7 +364,8 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 	}
 	var reservedAccountQuota *accountQuota
 	if !isTrial {
-		reservedQuota, quotaErr := reserveAccountQuota(analytics.CustomerID, time.Now().UTC())
+		customerEmail := authorizerValue(request, "email")
+		reservedQuota, quotaErr := reserveAccountQuota(analytics.CustomerID, customerEmail, time.Now().UTC())
 		if quotaErr != nil {
 			if errors.Is(quotaErr, errAccountQuotaExceeded) {
 				analytics.ErrorType = "rate_limit"
@@ -743,10 +745,39 @@ func generatePDFURLWithCustomSettings(ctx context.Context, targetURL string, dis
 	var buf []byte
 	diagnostics := newRenderDiagnostics()
 	chromedp.ListenTarget(taskCtx, diagnostics.listen)
+	chromedp.ListenTarget(taskCtx, func(ev interface{}) {
+		event, ok := ev.(*fetch.EventRequestPaused)
+		if !ok || event == nil {
+			return
+		}
+		if event.Request == nil {
+			go func(reqID fetch.RequestID) {
+				if taskCtx.Err() != nil {
+					return
+				}
+				_ = fetch.FailRequest(reqID, network.ErrorReasonBlockedByClient).Do(taskCtx)
+			}(event.RequestID)
+			return
+		}
+
+		reqID := event.RequestID
+		reqURL := event.Request.URL
+		go func() {
+			if taskCtx.Err() != nil {
+				return
+			}
+			if !isSafeNetworkURL(reqURL) {
+				fmt.Printf("SSRF filter: blocked request to %s\n", reqURL)
+				_ = fetch.FailRequest(reqID, network.ErrorReasonBlockedByClient).Do(taskCtx)
+				return
+			}
+			_ = fetch.ContinueRequest(reqID).Do(taskCtx)
+		}()
+	})
 	stage := "navigation"
 
 	fmt.Println("Running chromedp...")
-	actions := []chromedp.Action{network.Enable(), runtime.Enable(), log.Enable()}
+	actions := []chromedp.Action{fetch.Enable(), network.Enable(), runtime.Enable(), log.Enable()}
 	if disableJavaScript {
 		actions = append(actions, emulation.SetScriptExecutionDisabled(true))
 	}
