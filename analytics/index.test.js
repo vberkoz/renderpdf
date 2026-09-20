@@ -42,6 +42,18 @@ Module.prototype.require = function (id, ...args) {
       AdminGetUserCommand,
     };
   }
+  if (id === '@aws-sdk/client-api-gateway') {
+    class MockAPIGatewayClient {
+      send() {}
+    }
+    class CreateUsagePlanKeyCommand { constructor(input) { this.input = input; } }
+    class DeleteUsagePlanKeyCommand { constructor(input) { this.input = input; } }
+    return {
+      APIGatewayClient: MockAPIGatewayClient,
+      CreateUsagePlanKeyCommand,
+      DeleteUsagePlanKeyCommand,
+    };
+  }
   return originalRequire.apply(this, [id, ...args]);
 };
 
@@ -987,5 +999,56 @@ test('transaction.payment_failed triggers payment failed alert email', async () 
     analytics.ddb.send = origSend;
   }
 });
+
+test('syncUserUsagePlans migrates active keys between usage plans', async () => {
+  const origDdbSend = analytics.ddb.send;
+  const origApigwSend = analytics.apigw.send;
+  const apigwCommands = [];
+
+  process.env.API_KEYS_TABLE = 'ApiKeysTable';
+  process.env.FREE_USAGE_PLAN_ID = 'free-plan-id';
+  process.env.STARTER_USAGE_PLAN_ID = 'starter-plan-id';
+  process.env.PRO_USAGE_PLAN_ID = 'pro-plan-id';
+
+  analytics.ddb.send = async (cmd) => {
+    if (cmd.constructor.name === 'QueryCommand') {
+      return {
+        Items: [
+          {
+            PK: { S: 'USER#user_plan_test' },
+            SK: { S: 'APIKEY#key_1' },
+            isActive: { BOOL: true },
+            apiGatewayKeyId: { S: 'agw_key_1' },
+          },
+          {
+            PK: { S: 'USER#user_plan_test' },
+            SK: { S: 'APIKEY#key_inactive' },
+            isActive: { BOOL: false },
+            apiGatewayKeyId: { S: 'agw_key_2' },
+          },
+        ],
+      };
+    }
+    return {};
+  };
+
+  analytics.apigw.send = async (cmd) => {
+    apigwCommands.push(cmd);
+    return {};
+  };
+
+  try {
+    await analytics.syncUserUsagePlans('user_plan_test', 'pro');
+    assert.ok(apigwCommands.length > 0);
+    const createCmd = apigwCommands.find(c => c.constructor.name === 'CreateUsagePlanKeyCommand');
+    assert.ok(createCmd);
+    assert.strictEqual(createCmd.input.UsagePlanId, 'pro-plan-id');
+    assert.strictEqual(createCmd.input.KeyId, 'agw_key_1');
+  } finally {
+    analytics.ddb.send = origDdbSend;
+    analytics.apigw.send = origApigwSend;
+  }
+});
+
 
 

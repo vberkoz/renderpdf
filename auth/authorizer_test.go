@@ -57,3 +57,25 @@ func TestGeneratePolicyAllowsTheCurrentAPIStage(t *testing.T) {
 		t.Fatalf("policy resource = %q, want %q", got, want)
 	}
 }
+
+func TestGeneratePolicyWithUsageIdentifierKey(t *testing.T) {
+	methodARN := "arn:aws:execute-api:us-east-1:123456789012:abc123/prod/POST/api/v1/render"
+	policy := generatePolicy("user-1", "Allow", methodARN)
+	hashed := hashKey("sk_live_samplekey")
+	policy.UsageIdentifierKey = hashed
+
+	if policy.UsageIdentifierKey != hashed {
+		t.Fatalf("policy.UsageIdentifierKey = %q, want %q", policy.UsageIdentifierKey, hashed)
+	}
+	if len(policy.UsageIdentifierKey) != 64 {
+		t.Fatalf("expected 64 char hex UsageIdentifierKey, got length %d", len(policy.UsageIdentifierKey))
+	}
+}
+
+func TestGetUserBillingTierDefault(t *testing.T) {
+	tier := getUserBillingTier("")
+	if tier != "free" {
+		t.Fatalf("getUserBillingTier(\"\") = %q, want \"free\"", tier)
+	}
+}
+

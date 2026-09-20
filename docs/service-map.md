@@ -33,7 +33,7 @@
 ### Auth Services
 
 - Purpose:
-  - Validate Bearer API keys and manage user API keys.
+  - Validate Bearer API keys, return `UsageIdentifierKey` for API Gateway Usage Plan throttling, and manage user API keys with API Gateway key sync.
 - Source:
   - `auth/authorizer.go`
   - `auth/api-keys.go`
@@ -44,6 +44,8 @@
   - `scripts/deploy.sh`
 - Tests:
   - `scripts/verify-auth.sh`
+- Maintenance:
+  - `scripts/sync-api-keys.sh`
 
 ### Analytics
 

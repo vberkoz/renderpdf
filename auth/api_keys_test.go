@@ -108,3 +108,11 @@ func TestCreateKeyResponseAndAPIKeyInfoNameJSON(t *testing.T) {
 		t.Fatalf("unexpected decoded info: %#v", decodedInfo)
 	}
 }
+
+func TestGetUserBillingTierFallback(t *testing.T) {
+	tier := getUserBillingTier("")
+	if tier != "free" {
+		t.Fatalf("getUserBillingTier(\"\") = %q, want \"free\"", tier)
+	}
+}
+

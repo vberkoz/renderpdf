@@ -36,3 +36,33 @@ func TestGenerateAPIKey(t *testing.T) {
 		t.Error("Generated keys should be unique")
 	}
 }
+
+func TestResolveUsagePlanID(t *testing.T) {
+	freeID := "plan-free-123"
+	starterID := "plan-starter-456"
+	proID := "plan-pro-789"
+
+	tests := []struct {
+		name string
+		tier string
+		want string
+	}{
+		{name: "empty tier defaults to free", tier: "", want: freeID},
+		{name: "free tier", tier: "free", want: freeID},
+		{name: "starter tier", tier: "starter", want: starterID},
+		{name: "starter uppercase", tier: "STARTER", want: starterID},
+		{name: "pro tier", tier: "pro", want: proID},
+		{name: "pro uppercase", tier: "PRO", want: proID},
+		{name: "unknown tier defaults to free", tier: "enterprise", want: freeID},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := resolveUsagePlanID(tt.tier, freeID, starterID, proID)
+			if got != tt.want {
+				t.Fatalf("resolveUsagePlanID(%q) = %q, want %q", tt.tier, got, tt.want)
+			}
+		})
+	}
+}
+

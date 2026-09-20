@@ -14,15 +14,20 @@ import (
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/apigateway"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/google/uuid"
 )
 
 var (
-	tableName      = os.Getenv("API_KEYS_TABLE")
-	usageTableName = os.Getenv("TABLE_NAME")
-	sess           = session.Must(session.NewSession())
-	ddb            = dynamodb.New(sess)
+	tableName          = os.Getenv("API_KEYS_TABLE")
+	usageTableName     = os.Getenv("TABLE_NAME")
+	freeUsagePlanID    = os.Getenv("FREE_USAGE_PLAN_ID")
+	starterUsagePlanID = os.Getenv("STARTER_USAGE_PLAN_ID")
+	proUsagePlanID     = os.Getenv("PRO_USAGE_PLAN_ID")
+	sess               = session.Must(session.NewSession())
+	ddb                = dynamodb.New(sess)
+	apigw              = apigateway.New(sess)
 )
 
 type CreateKeyRequest struct {
@@ -146,6 +151,32 @@ func createKey(userId, userEmail, keyName string, headers map[string]string) (ev
 	apiKey := generateAPIKey()
 	hashedKey := hashKey(apiKey)
 
+	var apiGatewayKeyId string
+	tier := getUserBillingTier(userId)
+	planID := resolveUsagePlanID(tier, freeUsagePlanID, starterUsagePlanID, proUsagePlanID)
+
+	if planID != "" {
+		keyNameForAgw := fmt.Sprintf("%s-%s", userId, keyId)
+		createOutput, err := apigw.CreateApiKey(&apigateway.CreateApiKeyInput{
+			Name:    aws.String(keyNameForAgw),
+			Value:   aws.String(hashedKey),
+			Enabled: aws.Bool(true),
+		})
+		if err != nil {
+			fmt.Printf("API Gateway CreateApiKey failed: %v\n", err)
+		} else if createOutput != nil && createOutput.Id != nil {
+			apiGatewayKeyId = *createOutput.Id
+			_, planErr := apigw.CreateUsagePlanKey(&apigateway.CreateUsagePlanKeyInput{
+				UsagePlanId: aws.String(planID),
+				KeyId:       aws.String(apiGatewayKeyId),
+				KeyType:     aws.String("API_KEY"),
+			})
+			if planErr != nil {
+				fmt.Printf("API Gateway CreateUsagePlanKey failed: %v\n", planErr)
+			}
+		}
+	}
+
 	item := map[string]*dynamodb.AttributeValue{
 		"PK":        {S: aws.String(fmt.Sprintf("USER#%s", userId))},
 		"SK":        {S: aws.String(fmt.Sprintf("APIKEY#%s", keyId))},
@@ -155,6 +186,9 @@ func createKey(userId, userEmail, keyName string, headers map[string]string) (ev
 		"userId":    {S: aws.String(userId)},
 		"createdAt": {N: aws.String(fmt.Sprintf("%d", time.Now().Unix()))},
 		"isActive":  {BOOL: aws.Bool(true)},
+	}
+	if apiGatewayKeyId != "" {
+		item["apiGatewayKeyId"] = &dynamodb.AttributeValue{S: aws.String(apiGatewayKeyId)}
 	}
 	if userEmail != "" {
 		item["email"] = &dynamodb.AttributeValue{S: aws.String(userEmail)}
@@ -264,6 +298,25 @@ func listKeys(userId string, headers map[string]string) (events.APIGatewayProxyR
 }
 
 func deleteKey(userId, keyId string, headers map[string]string) (events.APIGatewayProxyResponse, error) {
+	// Look up the key first to see if apiGatewayKeyId is present
+	getItem, getErr := ddb.GetItem(&dynamodb.GetItemInput{
+		TableName: aws.String(tableName),
+		Key: map[string]*dynamodb.AttributeValue{
+			"PK": {S: aws.String(fmt.Sprintf("USER#%s", userId))},
+			"SK": {S: aws.String(fmt.Sprintf("APIKEY#%s", keyId))},
+		},
+	})
+	if getErr == nil && getItem != nil && getItem.Item != nil {
+		if agwKey := getItem.Item["apiGatewayKeyId"]; agwKey != nil && agwKey.S != nil && *agwKey.S != "" {
+			_, err := apigw.DeleteApiKey(&apigateway.DeleteApiKeyInput{
+				ApiKey: agwKey.S,
+			})
+			if err != nil {
+				fmt.Printf("API Gateway DeleteApiKey failed: %v\n", err)
+			}
+		}
+	}
+
 	_, err := ddb.UpdateItem(&dynamodb.UpdateItemInput{
 		TableName: aws.String(tableName),
 		Key: map[string]*dynamodb.AttributeValue{
@@ -282,6 +335,33 @@ func deleteKey(userId, keyId string, headers map[string]string) (events.APIGatew
 	}
 
 	return events.APIGatewayProxyResponse{StatusCode: 204, Headers: headers}, nil
+}
+
+func getUserBillingTier(userId string) string {
+	if usageTableName == "" || userId == "" {
+		return "free"
+	}
+	result, err := ddb.GetItem(&dynamodb.GetItemInput{
+		TableName: aws.String(usageTableName),
+		Key: map[string]*dynamodb.AttributeValue{
+			"requestId": {S: aws.String("BILLING#" + userId)},
+			"timestamp": {N: aws.String("0")},
+		},
+		ConsistentRead: aws.Bool(true),
+	})
+	if err != nil || result.Item == nil {
+		return "free"
+	}
+	if result.Item["status"] != nil && result.Item["status"].S != nil {
+		status := *result.Item["status"].S
+		if status == "active" || status == "trialing" || status == "past_due" {
+			if result.Item["tier"] != nil && result.Item["tier"].S != nil {
+				return *result.Item["tier"].S
+			}
+			return "pro"
+		}
+	}
+	return "free"
 }
 
 func main() {

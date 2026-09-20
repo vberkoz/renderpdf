@@ -813,6 +813,15 @@ Resources:
                 Action:
                   - 'cognito-idp:AdminGetUser'
                 Resource: !GetAtt UserPoolV2.Arn
+              - Effect: Allow
+                Action:
+                  - 'apigateway:GET'
+                  - 'apigateway:POST'
+                  - 'apigateway:PUT'
+                  - 'apigateway:DELETE'
+                Resource:
+                  - !Sub 'arn:aws:apigateway:${AWS::Region}::/apikeys*'
+                  - !Sub 'arn:aws:apigateway:${AWS::Region}::/usageplans*'
 
   WebhookDeadLetterQueue:
     Type: AWS::SQS::Queue
@@ -1027,6 +1036,10 @@ Resources:
       Environment:
         Variables:
           API_KEYS_TABLE: !Ref ApiKeysTable
+          TABLE_NAME: !Ref UsageTable
+          FREE_USAGE_PLAN_ID: !Ref FreeUsagePlan
+          STARTER_USAGE_PLAN_ID: !Ref StarterUsagePlan
+          PRO_USAGE_PLAN_ID: !Ref ProUsagePlan
 
   ApiKeysFunction:
     Type: AWS::Lambda::Function
@@ -1042,6 +1055,9 @@ Resources:
         Variables:
           API_KEYS_TABLE: !Ref ApiKeysTable
           TABLE_NAME: !Ref UsageTable
+          FREE_USAGE_PLAN_ID: !Ref FreeUsagePlan
+          STARTER_USAGE_PLAN_ID: !Ref StarterUsagePlan
+          PRO_USAGE_PLAN_ID: !Ref ProUsagePlan
 
   AnalyticsFunction:
     Type: AWS::Lambda::Function
@@ -1064,6 +1080,10 @@ Resources:
       Environment:
         Variables:
           TABLE_NAME: !Ref UsageTable
+          API_KEYS_TABLE: !Ref ApiKeysTable
+          FREE_USAGE_PLAN_ID: !Ref FreeUsagePlan
+          STARTER_USAGE_PLAN_ID: !Ref StarterUsagePlan
+          PRO_USAGE_PLAN_ID: !Ref ProUsagePlan
           STATS_ALLOWED_EMAIL: !Ref StatsAllowedEmail
           PADDLE_API_KEY: !Ref PaddleApiKey
           PADDLE_API_BASE: !Ref PaddleApiBase
@@ -1089,6 +1109,7 @@ Resources:
     Properties:
       Name: !Sub '${AppName}-api'
       Description: HTML to PDF API
+      ApiKeySourceType: AUTHORIZER
 
   RenderResource:
     Type: AWS::ApiGateway::Resource
@@ -1399,6 +1420,7 @@ Resources:
       HttpMethod: POST
       AuthorizationType: CUSTOM
       AuthorizerId: !Ref ApiAuthorizer
+      ApiKeyRequired: true
       Integration:
         Type: AWS_PROXY
         IntegrationHttpMethod: POST
@@ -1412,38 +1434,39 @@ Resources:
       HttpMethod: GET
       AuthorizationType: CUSTOM
       AuthorizerId: !Ref ApiAuthorizer
+      ApiKeyRequired: true
       Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}
 
   FilesGetMethod:
     Type: AWS::ApiGateway::Method
-    Properties: {RestApiId: !Ref RestApi, ResourceId: !Ref FilesResource, HttpMethod: GET, AuthorizationType: CUSTOM, AuthorizerId: !Ref ApiAuthorizer, Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}}
+    Properties: {RestApiId: !Ref RestApi, ResourceId: !Ref FilesResource, HttpMethod: GET, AuthorizationType: CUSTOM, AuthorizerId: !Ref ApiAuthorizer, ApiKeyRequired: true, Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}}
   BatchesPostMethod:
     Type: AWS::ApiGateway::Method
-    Properties: {RestApiId: !Ref RestApi, ResourceId: !Ref BatchesResource, HttpMethod: POST, AuthorizationType: CUSTOM, AuthorizerId: !Ref ApiAuthorizer, Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}}
+    Properties: {RestApiId: !Ref RestApi, ResourceId: !Ref BatchesResource, HttpMethod: POST, AuthorizationType: CUSTOM, AuthorizerId: !Ref ApiAuthorizer, ApiKeyRequired: true, Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}}
   BatchesGetMethod:
     Type: AWS::ApiGateway::Method
-    Properties: {RestApiId: !Ref RestApi, ResourceId: !Ref BatchesResource, HttpMethod: GET, AuthorizationType: CUSTOM, AuthorizerId: !Ref ApiAuthorizer, Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}}
+    Properties: {RestApiId: !Ref RestApi, ResourceId: !Ref BatchesResource, HttpMethod: GET, AuthorizationType: CUSTOM, AuthorizerId: !Ref ApiAuthorizer, ApiKeyRequired: true, Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}}
   BatchGetMethod:
     Type: AWS::ApiGateway::Method
-    Properties: {RestApiId: !Ref RestApi, ResourceId: !Ref BatchItemResource, HttpMethod: GET, AuthorizationType: CUSTOM, AuthorizerId: !Ref ApiAuthorizer, Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}}
+    Properties: {RestApiId: !Ref RestApi, ResourceId: !Ref BatchItemResource, HttpMethod: GET, AuthorizationType: CUSTOM, AuthorizerId: !Ref ApiAuthorizer, ApiKeyRequired: true, Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}}
   BatchItemsGetMethod:
     Type: AWS::ApiGateway::Method
-    Properties: {RestApiId: !Ref RestApi, ResourceId: !Ref BatchItemsResource, HttpMethod: GET, AuthorizationType: CUSTOM, AuthorizerId: !Ref ApiAuthorizer, Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}}
+    Properties: {RestApiId: !Ref RestApi, ResourceId: !Ref BatchItemsResource, HttpMethod: GET, AuthorizationType: CUSTOM, AuthorizerId: !Ref ApiAuthorizer, ApiKeyRequired: true, Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}}
   BatchCancelPostMethod:
     Type: AWS::ApiGateway::Method
-    Properties: {RestApiId: !Ref RestApi, ResourceId: !Ref BatchCancelResource, HttpMethod: POST, AuthorizationType: CUSTOM, AuthorizerId: !Ref ApiAuthorizer, Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}}
+    Properties: {RestApiId: !Ref RestApi, ResourceId: !Ref BatchCancelResource, HttpMethod: POST, AuthorizationType: CUSTOM, AuthorizerId: !Ref ApiAuthorizer, ApiKeyRequired: true, Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}}
   BatchDownloadGetMethod:
     Type: AWS::ApiGateway::Method
-    Properties: {RestApiId: !Ref RestApi, ResourceId: !Ref BatchDownloadResource, HttpMethod: GET, AuthorizationType: CUSTOM, AuthorizerId: !Ref ApiAuthorizer, Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}}
+    Properties: {RestApiId: !Ref RestApi, ResourceId: !Ref BatchDownloadResource, HttpMethod: GET, AuthorizationType: CUSTOM, AuthorizerId: !Ref ApiAuthorizer, ApiKeyRequired: true, Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}}
   FileUploadPostMethod:
     Type: AWS::ApiGateway::Method
-    Properties: {RestApiId: !Ref RestApi, ResourceId: !Ref FileUploadResource, HttpMethod: POST, AuthorizationType: CUSTOM, AuthorizerId: !Ref ApiAuthorizer, Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}}
+    Properties: {RestApiId: !Ref RestApi, ResourceId: !Ref FileUploadResource, HttpMethod: POST, AuthorizationType: CUSTOM, AuthorizerId: !Ref ApiAuthorizer, ApiKeyRequired: true, Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}}
   FileDownloadGetMethod:
     Type: AWS::ApiGateway::Method
-    Properties: {RestApiId: !Ref RestApi, ResourceId: !Ref FileDownloadResource, HttpMethod: GET, AuthorizationType: CUSTOM, AuthorizerId: !Ref ApiAuthorizer, Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}}
+    Properties: {RestApiId: !Ref RestApi, ResourceId: !Ref FileDownloadResource, HttpMethod: GET, AuthorizationType: CUSTOM, AuthorizerId: !Ref ApiAuthorizer, ApiKeyRequired: true, Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}}
   FileDeleteMethod:
     Type: AWS::ApiGateway::Method
-    Properties: {RestApiId: !Ref RestApi, ResourceId: !Ref FileItemResource, HttpMethod: DELETE, AuthorizationType: CUSTOM, AuthorizerId: !Ref ApiAuthorizer, Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}}
+    Properties: {RestApiId: !Ref RestApi, ResourceId: !Ref FileItemResource, HttpMethod: DELETE, AuthorizationType: CUSTOM, AuthorizerId: !Ref ApiAuthorizer, ApiKeyRequired: true, Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}}
 
   SourcesOptionsMethod:
     Type: AWS::ApiGateway::Method
@@ -1470,6 +1493,7 @@ Resources:
       HttpMethod: POST
       AuthorizationType: CUSTOM
       AuthorizerId: !Ref ApiAuthorizer
+      ApiKeyRequired: true
       Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}
 
   SourceGetMethod:
@@ -1480,6 +1504,7 @@ Resources:
       HttpMethod: GET
       AuthorizationType: CUSTOM
       AuthorizerId: !Ref ApiAuthorizer
+      ApiKeyRequired: true
       Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}
 
   SourceOptionsMethod:
@@ -1507,6 +1532,7 @@ Resources:
       HttpMethod: PUT
       AuthorizationType: CUSTOM
       AuthorizerId: !Ref ApiAuthorizer
+      ApiKeyRequired: true
       Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}
 
   SourceDeleteMethod:
@@ -1517,6 +1543,7 @@ Resources:
       HttpMethod: DELETE
       AuthorizationType: CUSTOM
       AuthorizerId: !Ref ApiAuthorizer
+      ApiKeyRequired: true
       Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}
 
   PackageUploadOptionsMethod:
@@ -1551,6 +1578,7 @@ Resources:
       HttpMethod: POST
       AuthorizationType: CUSTOM
       AuthorizerId: !Ref ApiAuthorizer
+      ApiKeyRequired: true
       Integration:
         Type: AWS_PROXY
         IntegrationHttpMethod: POST
@@ -1612,6 +1640,7 @@ Resources:
       HttpMethod: POST
       AuthorizationType: CUSTOM
       AuthorizerId: !Ref ApiAuthorizer
+      ApiKeyRequired: true
       Integration:
         Type: AWS_PROXY
         IntegrationHttpMethod: POST
@@ -1625,6 +1654,7 @@ Resources:
       HttpMethod: GET
       AuthorizationType: CUSTOM
       AuthorizerId: !Ref ApiAuthorizer
+      ApiKeyRequired: true
       Integration:
         Type: AWS_PROXY
         IntegrationHttpMethod: POST
@@ -1638,6 +1668,7 @@ Resources:
       HttpMethod: GET
       AuthorizationType: CUSTOM
       AuthorizerId: !Ref ApiAuthorizer
+      ApiKeyRequired: true
       Integration:
         Type: AWS_PROXY
         IntegrationHttpMethod: POST
@@ -1651,6 +1682,7 @@ Resources:
       HttpMethod: PUT
       AuthorizationType: CUSTOM
       AuthorizerId: !Ref ApiAuthorizer
+      ApiKeyRequired: true
       Integration:
         Type: AWS_PROXY
         IntegrationHttpMethod: POST
@@ -1664,6 +1696,7 @@ Resources:
       HttpMethod: DELETE
       AuthorizationType: CUSTOM
       AuthorizerId: !Ref ApiAuthorizer
+      ApiKeyRequired: true
       Integration:
         Type: AWS_PROXY
         IntegrationHttpMethod: POST
@@ -2029,7 +2062,7 @@ Resources:
 
   # API Gateway deployments are immutable snapshots. Bump this logical ID when
   # routes or methods change so CloudFormation publishes them to the prod stage.
-  ApiDeploymentV33:
+  ApiDeploymentV34:
     Type: AWS::ApiGateway::Deployment
     DependsOn:
       - ApiRootGetMethod
@@ -2105,6 +2138,45 @@ Resources:
     Properties:
       RestApiId: !Ref RestApi
       StageName: prod
+
+  FreeUsagePlan:
+    Type: AWS::ApiGateway::UsagePlan
+    DependsOn: ApiDeploymentV34
+    Properties:
+      UsagePlanName: !Sub '${AppName}-free-usage-plan'
+      Description: 'Free tier per-key throttling (10 RPS steady, 20 RPS burst)'
+      Throttle:
+        RateLimit: 10
+        BurstLimit: 20
+      ApiStages:
+        - ApiId: !Ref RestApi
+          Stage: prod
+
+  StarterUsagePlan:
+    Type: AWS::ApiGateway::UsagePlan
+    DependsOn: ApiDeploymentV34
+    Properties:
+      UsagePlanName: !Sub '${AppName}-starter-usage-plan'
+      Description: 'Starter tier per-key throttling (25 RPS steady, 50 RPS burst)'
+      Throttle:
+        RateLimit: 25
+        BurstLimit: 50
+      ApiStages:
+        - ApiId: !Ref RestApi
+          Stage: prod
+
+  ProUsagePlan:
+    Type: AWS::ApiGateway::UsagePlan
+    DependsOn: ApiDeploymentV34
+    Properties:
+      UsagePlanName: !Sub '${AppName}-pro-usage-plan'
+      Description: 'Pro tier per-key throttling (50 RPS steady, 100 RPS burst)'
+      Throttle:
+        RateLimit: 50
+        BurstLimit: 100
+      ApiStages:
+        - ApiId: !Ref RestApi
+          Stage: prod
 
   LambdaApiPermission:
     Type: AWS::Lambda::Permission
@@ -2187,3 +2259,10 @@ Outputs:
     Value: !Ref ApiKeysTable
   TemplatesTableName:
     Value: !Ref TemplatesTable
+  FreeUsagePlanId:
+    Value: !Ref FreeUsagePlan
+  StarterUsagePlanId:
+    Value: !Ref StarterUsagePlan
+  ProUsagePlanId:
+    Value: !Ref ProUsagePlan
+

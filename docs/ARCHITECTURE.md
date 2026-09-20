@@ -48,12 +48,14 @@
 - Callback stores tokens in `localStorage`.
 - `/Users/basilsergius/projects/renderpdf/dashboard/app.js` calls `/api/v1/api-keys` endpoints with bearer auth.
 
-### API Key Flow
+### API Key & Throttling Flow
 
-- Dashboard creates a key through the API-key Lambda.
-- Client uses the returned key against `/api/v1/render`.
-- Authorizer Lambda validates the Bearer API key against DynamoDB.
-- Main API Lambda processes the request only if authorization passes.
+- Dashboard creates a key through the API-key Lambda. The Lambda creates an API key in API Gateway and attaches it to the customer's tier Usage Plan (`FreeUsagePlan`, `StarterUsagePlan`, or `ProUsagePlan`).
+- Client uses the returned key as `Authorization: Bearer <key>` against `/api/v1/render` or other protected routes.
+- Authorizer Lambda validates the Bearer API key against DynamoDB, provisions in API Gateway if missing (lazy self-healing), and returns `UsageIdentifierKey` set to the key's SHA-256 hash.
+- API Gateway applies per-key rate and burst throttling (Free: 10 RPS steady / 20 burst; Starter: 25 RPS steady / 50 burst; Pro: 50 RPS steady / 100 burst).
+- If request rate exceeds plan limits, API Gateway returns `429 Too Many Requests` at the edge before invoking the rendering Lambda.
+- Main API Lambda processes the request only if authorization and throttling pass.
 
 ### Uploaded Package Flow
 

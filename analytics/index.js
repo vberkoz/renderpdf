@@ -8,6 +8,11 @@ const {
   TransactWriteItemsCommand,
   UpdateItemCommand,
 } = require('@aws-sdk/client-dynamodb');
+const {
+  APIGatewayClient,
+  CreateUsagePlanKeyCommand,
+  DeleteUsagePlanKeyCommand,
+} = require('@aws-sdk/client-api-gateway');
 const { sendPaymentFailedAlert } = require('./notifications');
 
 const ANALYTICS_INDEX = 'AnalyticsDateIndex';
@@ -15,6 +20,10 @@ const ANALYTICS_TTL_DAYS = 90;
 const DEFAULT_DAYS = 7;
 const MAX_DAYS = 90;
 const TABLE_NAME = process.env.TABLE_NAME;
+const API_KEYS_TABLE = process.env.API_KEYS_TABLE || '';
+const FREE_USAGE_PLAN_ID = process.env.FREE_USAGE_PLAN_ID || '';
+const STARTER_USAGE_PLAN_ID = process.env.STARTER_USAGE_PLAN_ID || '';
+const PRO_USAGE_PLAN_ID = process.env.PRO_USAGE_PLAN_ID || '';
 const STATS_ALLOWED_EMAIL = String(process.env.STATS_ALLOWED_EMAIL || 'vberkoz@gmail.com').trim().toLowerCase();
 const PADDLE_API_KEY = process.env.PADDLE_API_KEY || '';
 const PADDLE_API_BASE = String(process.env.PADDLE_API_BASE || 'https://api.paddle.com').replace(/\/+$/, '');
@@ -51,6 +60,7 @@ const PLAN_QUOTAS = {
   pro: positiveInteger(process.env.PRO_MONTHLY_QUOTA, 20000),
 };
 const ddb = new DynamoDBClient({});
+const apigw = new APIGatewayClient({});
 const EVENT_NAME = /^[a-zA-Z0-9._:-]{1,64}$/;
 
 function response(statusCode, payload) {
@@ -897,6 +907,11 @@ async function saveBillingWebhook(userId, subscriptionId, attributes, eventId, o
 
 async function updateQuotaOnSubscriptionChange(userId, occurredAt, attributes, previousBilling) {
   const tier = tierFromAttributes(attributes);
+  try {
+    await syncUserUsagePlans(userId, tier);
+  } catch (syncErr) {
+    console.warn(`Could not sync usage plans for user ${userId}:`, syncErr);
+  }
   const status = String(attributes?.status || 'unknown').toLowerCase();
   const newBaseQuota = monthlyQuotaForBilling({ tier, status });
   if (newBaseQuota <= FREE_MONTHLY_QUOTA) return;
@@ -921,6 +936,67 @@ async function updateQuotaOnSubscriptionChange(userId, occurredAt, attributes, p
       ':zero': { N: '0' },
     },
   }));
+}
+
+async function syncUserUsagePlans(userId, tier) {
+  const freePlanId = process.env.FREE_USAGE_PLAN_ID || FREE_USAGE_PLAN_ID;
+  const starterPlanId = process.env.STARTER_USAGE_PLAN_ID || STARTER_USAGE_PLAN_ID;
+  const proPlanId = process.env.PRO_USAGE_PLAN_ID || PRO_USAGE_PLAN_ID;
+  const apiKeysTable = process.env.API_KEYS_TABLE || API_KEYS_TABLE;
+
+  if (!freePlanId && !starterPlanId && !proPlanId) return;
+  if (!apiKeysTable || !userId) return;
+
+  const targetPlanId = tier === 'pro' ? (proPlanId || freePlanId)
+    : tier === 'starter' ? (starterPlanId || freePlanId)
+    : freePlanId;
+
+  if (!targetPlanId) return;
+
+  try {
+    const keysResult = await ddb.send(new QueryCommand({
+      TableName: apiKeysTable,
+      KeyConditionExpression: 'PK = :pk AND begins_with(SK, :sk)',
+      ExpressionAttributeValues: {
+        ':pk': { S: `USER#${userId}` },
+        ':sk': { S: 'APIKEY#' },
+      },
+    }));
+
+    const items = keysResult.Items || [];
+    const allPlanIds = [freePlanId, starterPlanId, proPlanId].filter(Boolean);
+
+    for (const item of items) {
+      if (!item.isActive?.BOOL || !item.apiGatewayKeyId?.S) continue;
+      const keyId = item.apiGatewayKeyId.S;
+
+      for (const oldPlanId of allPlanIds) {
+        if (oldPlanId === targetPlanId) continue;
+        try {
+          await apigw.send(new DeleteUsagePlanKeyCommand({
+            UsagePlanId: oldPlanId,
+            KeyId: keyId,
+          }));
+        } catch (_) {
+          // Ignore if key was not in this plan
+        }
+      }
+
+      try {
+        await apigw.send(new CreateUsagePlanKeyCommand({
+          UsagePlanId: targetPlanId,
+          KeyId: keyId,
+          KeyType: 'API_KEY',
+        }));
+      } catch (err) {
+        if (err.name !== 'ConflictException') {
+          console.warn(`Could not attach key ${keyId} to usage plan ${targetPlanId}:`, err);
+        }
+      }
+    }
+  } catch (err) {
+    console.warn(`Could not sync usage plans for user ${userId}:`, err);
+  }
 }
 
 function billingFields(userId, subscriptionId, attributes, eventId, occurredAt) {
@@ -1093,5 +1169,8 @@ exports.creditOverage = creditOverage;
 exports.createCheckout = createCheckout;
 exports.receivePaymentFailedWebhook = receivePaymentFailedWebhook;
 exports.sendPaymentFailedAlert = sendPaymentFailedAlert;
+exports.syncUserUsagePlans = syncUserUsagePlans;
 exports.ddb = ddb;
+exports.apigw = apigw;
 exports.PADDLE_PRICES = PADDLE_PRICES;
+
