@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Convert HTML to PDF in Node.js using native fetch without heavy Puppeteer binaries, memory leaks, or serverless cold starts. Step-by-step code tutorial.">
+    <link rel="canonical" href="https://renderpdf.vberkoz.com/guides/html-to-pdf-node-js/">
+
+    <!-- OpenGraph / Social Sharing -->
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://renderpdf.vberkoz.com/guides/html-to-pdf-node-js/">
+    <meta property="og:title" content="How to Convert HTML to PDF in Node.js (Without Puppeteer) | RenderPDF">
+    <meta property="og:description" content="Convert HTML to PDF in Node.js with native fetch. Zero npm dependencies, no Chromium bundle bloat, and no memory leaks.">
+    <meta property="og:image" content="https://renderpdf.vberkoz.com/og-image.jpg">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="Convert HTML to PDF in Node.js">
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:url" content="https://renderpdf.vberkoz.com/guides/html-to-pdf-node-js/">
+    <meta name="twitter:title" content="How to Convert HTML to PDF in Node.js (Without Puppeteer) | RenderPDF">
+    <meta name="twitter:description" content="Convert HTML to PDF in Node.js with native fetch. Zero npm dependencies, no Chromium bundle bloat, and no memory leaks.">
+    <meta name="twitter:image" content="https://renderpdf.vberkoz.com/og-image.jpg">
+
+    <title>How to Convert HTML to PDF in Node.js (Without Puppeteer) | RenderPDF</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="/styles/base.css" rel="stylesheet">
+    <link href="/styles/seo.css" rel="stylesheet">
+
+    <!-- JSON-LD Structured Data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "TechArticle",
+      "headline": "How to Convert HTML to PDF in Node.js Without Puppeteer",
+      "description": "Step-by-step developer guide for converting HTML to PDF in Node.js using native fetch and the RenderPDF API.",
+      "url": "https://renderpdf.vberkoz.com/guides/html-to-pdf-node-js/",
+      "author": {
+        "@type": "Organization",
+        "name": "RenderPDF"
+      }
+    }
+    </script>
+</head>
+<body>
+    <a class="skip-link" href="#main-content">Skip to main content</a>
+    <div class="shell">
+        <header class="topbar">
+            <a class="brand" href="/" aria-label="RenderPDF home">
+                <span class="brand-mark" aria-hidden="true"></span>
+                <span>RenderPDF</span>
+            </a>
+            <nav id="node-primary-navigation" class="topnav" aria-label="Primary navigation">
+                <a href="/#pricing">Pricing</a>
+                <a href="/docs/api/">API docs</a>
+                <a href="/app/">Dashboard</a>
+                <a href="https://github.com/vberkoz/renderpdf">GitHub</a>
+            </nav>
+        </header>
+
+        <main id="main-content" tabindex="-1" class="seo-shell">
+            <!-- Hero Section -->
+            <section class="seo-hero" aria-labelledby="nodejs-heading">
+                <nav class="seo-breadcrumb" aria-label="Breadcrumb">
+                    <a href="/">Home</a>
+                    <span aria-hidden="true">/</span>
+                    <a href="/guides/html-to-pdf-node-js/">Guides</a>
+                    <span aria-hidden="true">/</span>
+                    <span>Node.js</span>
+                </nav>
+                <h1 id="nodejs-heading">How to Convert HTML to PDF in Node.js (Without Puppeteer)</h1>
+                <p class="lead">Self-hosting Puppeteer or Playwright in Node.js leads to heavy 300MB+ container builds, zombie browser processes, and memory crashes. RenderPDF lets you render production PDFs via standard native <code>fetch</code> with zero npm dependencies.</p>
+                
+                <div class="seo-hero-actions">
+                    <a class="button button-primary" href="/#playground">Try the playground</a>
+                    <a class="button button-secondary" href="/docs/api/quick-start/">Quick start guide</a>
+                </div>
+
+                <div class="seo-pill-group">
+                    <span class="seo-pill"><span class="seo-pill-dot" aria-hidden="true"></span>Zero npm Dependencies (Node 18+ fetch)</span>
+                    <span class="seo-pill"><span class="seo-pill-dot" aria-hidden="true"></span>Vercel &amp; AWS Lambda Compatible</span>
+                    <span class="seo-pill"><span class="seo-pill-dot" aria-hidden="true"></span>No Zombie Chrome Processes</span>
+                    <span class="seo-pill"><span class="seo-pill-dot" aria-hidden="true"></span>TypeScript Ready</span>
+                </div>
+            </section>
+
+            <!-- Puppeteer Pain Points -->
+            <section class="seo-grid-3" aria-label="Why Avoid Puppeteer">
+                <div class="seo-card">
+                    <h2>Zero Container Bloat</h2>
+                    <p>Puppeteer installs a 300MB+ headless Chromium binary that regularly blows past AWS Lambda and serverless bundle limits. RenderPDF requires only a lightweight HTTP request.</p>
+                </div>
+                <div class="seo-card">
+                    <h2>No Zombie Chrome Leaks</h2>
+                    <p>Uncaught exceptions or timeouts in Node.js often leave orphaned Chrome instances running in the background, starving your server of RAM and causing OOM crashes.</p>
+                </div>
+                <div class="seo-card">
+                    <h2>Sub-2-Second Execution</h2>
+                    <p>Instead of enduring 4-second cold starts while Chromium boots on each serverless invocation, RenderPDF routes requests to pre-warmed AWS Lambda workers instantly.</p>
+                </div>
+            </section>
+
+            <!-- Step-by-Step Code Tutorial -->
+            <section class="step-container" aria-labelledby="tutorial-heading">
+                <div class="faq-header">
+                    <h2 id="tutorial-heading">Step-by-Step: Converting HTML to PDF in Node.js</h2>
+                    <p>Follow this tutorial to integrate PDF generation into your Node.js or TypeScript application.</p>
+                </div>
+
+                <!-- Step 1 -->
+                <div class="step-card">
+                    <div class="step-header">
+                        <span class="step-num">1</span>
+                        <h3>Minimal Example with Native Fetch (Zero Dependencies)</h3>
+                    </div>
+                    <p class="step-description">Node.js 18 and newer include native <code>fetch</code> globally. Here is a complete script to generate a PDF and write it to disk:</p>
+
+                    <div class="code-block">
+                        <div class="code-header">
+                            <span>generate-pdf.mjs</span>
+                            <button type="button" class="copy-button" data-copy-target="node-basic-code" aria-label="Copy Node.js basic snippet">Copy</button>
+                        </div>
+                        <pre id="node-basic-code"><code>import fs from 'node:fs/promises';
+
+async function generatePDF() {
+  const response = await fetch('https://renderpdf.vberkoz.com/api/v1/render', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${process.env.RENDERPDF_API_KEY}`
+    },
+    body: JSON.stringify({
+      version: '1',
+      source: {
+        type: 'html',
+        content: '&lt;main&gt;&lt;h1&gt;Invoice #1042&lt;/h1&gt;&lt;p&gt;Amount Due: $450.00&lt;/p&gt;&lt;/main&gt;'
+      },
+      options: {
+        format: 'A4',
+        margin: '15mm'
+      }
+    })
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(`PDF generation failed: ${error.message || response.statusText}`);
+  }
+
+  const { url } = await response.json();
+
+  // Download the generated PDF from the secure presigned S3 URL
+  const pdfResponse = await fetch(url);
+  const buffer = Buffer.from(await pdfResponse.arrayBuffer());
+  await fs.writeFile('invoice.pdf', buffer);
+  console.log('PDF saved to invoice.pdf successfully!');
+}
+
+generatePDF().catch(console.error);</code></pre>
+                    </div>
+                </div>
+
+                <!-- Step 2 -->
+                <div class="step-card">
+                    <div class="step-header">
+                        <span class="step-num">2</span>
+                        <h3>Structured Document JSON with Data Interpolation</h3>
+                    </div>
+                    <p class="step-description">For production apps, separate your layout, CSS styles, and dynamic runtime data into clean JSON fields. RenderPDF automatically HTML-escapes all dynamic values for protection against XSS:</p>
+
+                    <div class="code-block">
+                        <div class="code-header">
+                            <span>structured-invoice.mjs</span>
+                            <button type="button" class="copy-button" data-copy-target="node-structured-code" aria-label="Copy structured document code">Copy</button>
+                        </div>
+                        <pre id="node-structured-code"><code>const payload = {
+  version: '1',
+  source: {
+    type: 'html',
+    content: `&lt;header&gt;&lt;h1&gt;Receipt {{receipt.id}}&lt;/h1&gt;&lt;p&gt;Customer: {{customer.name}}&lt;/p&gt;&lt;/header&gt;`
+  },
+  css: `
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 20px; }
+    h1 { color: #111827; margin: 0 0 10px; }
+  `,
+  data: {
+    receipt: { id: 'REC-9032' },
+    customer: { name: 'Sarah Connor' }
+  },
+  options: {
+    format: 'Letter',
+    margin: '20mm',
+    displayHeaderFooter: true,
+    footerTemplate: '&lt;div style="font-size:10px;text-align:center;width:100%;"&gt;Page &lt;span class="pageNumber"&gt;&lt;/span&gt; of &lt;span class="totalPages"&gt;&lt;/span&gt;&lt;/div&gt;'
+  }
+};</code></pre>
+                    </div>
+                </div>
+
+                <!-- Step 3 -->
+                <div class="step-card">
+                    <div class="step-header">
+                        <span class="step-num">3</span>
+                        <h3>TypeScript Definitions</h3>
+                    </div>
+                    <p class="step-description">Drop these type definitions into your TypeScript codebase for complete autocomplete and type safety:</p>
+
+                    <div class="code-block">
+                        <div class="code-header">
+                            <span>types/renderpdf.ts</span>
+                            <button type="button" class="copy-button" data-copy-target="node-ts-code" aria-label="Copy TypeScript types">Copy</button>
+                        </div>
+                        <pre id="node-ts-code"><code>export interface RenderRequest {
+  version: '1';
+  source:
+    | { type: 'html'; content: string }
+    | { type: 'markdown'; content: string }
+    | { type: 'template'; templateId: string; variables?: Record&lt;string, unknown&gt; }
+    | { type: 'url'; url: string };
+  css?: string;
+  data?: Record&lt;string, unknown&gt;;
+  options?: {
+    format?: 'A4' | 'Letter' | 'Legal';
+    margin?: string;
+    landscape?: boolean;
+    displayHeaderFooter?: boolean;
+    headerTemplate?: string;
+    footerTemplate?: string;
+    password?: string;
+  };
+  webhookUrl?: string;
+  webhookSecret?: string;
+}
+
+export interface RenderResponse {
+  requestId: string;
+  url: string;
+  size: number;
+}</code></pre>
+                    </div>
+                </div>
+            </section>
+
+            <!-- FAQ Section -->
+            <section class="faq-section" aria-labelledby="nodejs-faq-heading">
+                <div class="faq-header">
+                    <h2 id="nodejs-faq-heading">Frequently Asked Questions</h2>
+                    <p>Everything you need to know about using RenderPDF in Node.js and TypeScript.</p>
+                </div>
+
+                <div class="faq-list">
+                    <details class="faq-item">
+                        <summary>Can I run this on Vercel, Netlify, or Cloudflare Workers?</summary>
+                        <div class="faq-content">
+                            <p>Yes. Because RenderPDF is an external REST API, your serverless functions do not need to bundle Chromium or maintain a headless browser instance. It works smoothly on Vercel Serverless/Edge Functions, Netlify Functions, Cloudflare Workers, and AWS Lambda.</p>
+                        </div>
+                    </details>
+                    <details class="faq-item">
+                        <summary>How do I test without an API key in Node.js?</summary>
+                        <div class="faq-content">
+                            <p>Send a POST request to <code>https://renderpdf.vberkoz.com/api/v1/trial/render</code> with <code>{"html": "&lt;h1&gt;Hello World&lt;/h1&gt;"}</code>. You can perform 3 trial renders per IP address every day without any headers or authentication.</p>
+                        </div>
+                    </details>
+                    <details class="faq-item">
+                        <summary>How does RenderPDF handle external CSS fonts and images?</summary>
+                        <div class="faq-content">
+                            <p>You can reference Google Fonts via <code>&lt;link&gt;</code> or standard <code>@import</code>, or inline images as Base64 data URIs. For bundled local assets (images, fonts, stylesheets, scripts), use RenderPDF's ZIP package upload endpoint (<code>POST /api/v1/files/upload</code>).</p>
+                        </div>
+                    </details>
+                    <details class="faq-item">
+                        <summary>How long does the returned download URL remain valid?</summary>
+                        <div class="faq-content">
+                            <p>The returned S3 download URL is presigned and cryptographically signed by AWS. It expires after 15 minutes. Once downloaded, you can save the PDF to disk, upload it to your own storage bucket, or stream it to your end user.</p>
+                        </div>
+                    </details>
+                </div>
+            </section>
+
+            <!-- CTA Banner -->
+            <section class="seo-cta-banner" aria-labelledby="node-cta-heading">
+                <div class="seo-cta-content">
+                    <h2 id="node-cta-heading">Ready to drop Puppeteer from your package.json?</h2>
+                    <p>Get started with 3 free trial renders daily or generate a production API key in seconds.</p>
+                </div>
+                <div class="seo-cta-actions">
+                    <a class="button button-primary" href="/#playground">Try the playground</a>
+                    <a class="button button-secondary" href="/app/">Get API key</a>
+                </div>
+            </section>
+
+            <!-- Related Guides -->
+            <section class="seo-related" aria-labelledby="node-related-heading">
+                <h2 id="node-related-heading">Related Solutions &amp; Guides</h2>
+                <div class="seo-related-grid">
+                    <a class="seo-related-card" href="/guides/html-to-pdf-python/">
+                        <strong>HTML to PDF in Python &rarr;</strong>
+                        <span>Fast, lightweight PDF generation for Django, FastAPI, and Flask.</span>
+                    </a>
+                    <a class="seo-related-card" href="/use-cases/generate-invoices-pdf-api/">
+                        <strong>Generate Invoices with PDF API &rarr;</strong>
+                        <span>Dynamic page numbers, multi-page tables, and invoice encryption.</span>
+                    </a>
+                    <a class="seo-related-card" href="/alternatives/docraptor-alternative/">
+                        <strong>DocRaptor Alternative &rarr;</strong>
+                        <span>Modern Chromium alternative to DocRaptor's PrinceXML.</span>
+                    </a>
+                </div>
+            </section>
+        </main>
+
+        <footer class="footer">
+            <div class="footer-top">
+                <div class="footer-brand-section">
+                    <div class="footer-brand">
+                        <span class="brand-mark" aria-hidden="true"></span>
+                        <span>RenderPDF</span>
+                    </div>
+                    <p class="footer-entity">RenderPDF Studio LLC</p>
+                    <p class="footer-address">131 Continental Dr, Suite 305, Newark, DE 19713, USA</p>
+                    <p class="footer-contact">Support: <a href="mailto:support@renderpdf.vberkoz.com">support@renderpdf.vberkoz.com</a></p>
+                </div>
+                <div class="footer-links-grid">
+                    <div class="footer-col">
+                        <span class="footer-col-title">Product</span>
+                        <nav aria-label="Product navigation">
+                            <a href="/#pricing">Pricing</a>
+                            <a href="/docs/api/">API reference</a>
+                            <a href="/app/">Dashboard</a>
+                            <a href="https://stats.uptimerobot.com/UNP4h7ipig" target="_blank" rel="noopener noreferrer">System status</a>
+                        </nav>
+                    </div>
+                    <div class="footer-col">
+                        <span class="footer-col-title">Solutions &amp; Guides</span>
+                        <nav aria-label="Solutions navigation">
+                            <a href="/alternatives/docraptor-alternative/">DocRaptor Alternative</a>
+                            <a href="/use-cases/generate-invoices-pdf-api/">Invoice PDF API</a>
+                            <a href="/guides/html-to-pdf-node-js/">HTML to PDF in Node.js</a>
+                            <a href="/guides/html-to-pdf-python/">HTML to PDF in Python</a>
+                        </nav>
+                    </div>
+                    <div class="footer-col">
+                        <span class="footer-col-title">Legal &amp; Compliance</span>
+                        <nav aria-label="Legal navigation">
+                            <a href="/terms/">Terms of Service</a>
+                            <a href="/privacy/">Privacy Policy</a>
+                            <a href="/refund/">Refund Policy</a>
+                            <a href="/cancellation/">Cancellation</a>
+                        </nav>
+                    </div>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2026 RenderPDF Studio LLC. All rights reserved. Payments and subscriptions are securely managed by Paddle, our Merchant of Record.</p>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        document.querySelectorAll('.copy-button').forEach((button) => {
+            button.addEventListener('click', async () => {
+                const target = document.getElementById(button.dataset.copyTarget);
+                if (!target) return;
+                const originalText = button.textContent;
+                try {
+                    await navigator.clipboard.writeText(target.textContent);
+                    button.textContent = 'Copied!';
+                } catch {
+                    button.textContent = 'Failed';
+                }
+                setTimeout(() => { button.textContent = originalText; }, 1600);
+            });
+        });
+    </script>
+</body>
+</html>

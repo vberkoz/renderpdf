@@ -97,7 +97,13 @@
   - `scripts/deploy-landing.sh`
 - Public paths:
   - `https://renderpdf.vberkoz.com/`
+  - `https://renderpdf.vberkoz.com/robots.txt`
+  - `https://renderpdf.vberkoz.com/sitemap.xml`
   - `https://renderpdf.vberkoz.com/docs/api`
+  - `https://renderpdf.vberkoz.com/alternatives/docraptor-alternative`
+  - `https://renderpdf.vberkoz.com/use-cases/generate-invoices-pdf-api`
+  - `https://renderpdf.vberkoz.com/guides/html-to-pdf-node-js`
+  - `https://renderpdf.vberkoz.com/guides/html-to-pdf-python`
   - `https://renderpdf.vberkoz.com/terms`
   - `https://renderpdf.vberkoz.com/privacy`
   - `https://renderpdf.vberkoz.com/refund`
