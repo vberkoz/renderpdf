@@ -304,6 +304,10 @@ Resources:
         function handler(event) {
           var request = event.request;
           var uri = request.uri;
+          if (uri === '/stats' || uri === '/stats/') {
+            request.uri = '/stats/index.html';
+            return request;
+          }
           if (uri.indexOf('/app/') !== 0) return request;
 
           if (uri === '/app/stats/index.html') {
@@ -1222,6 +1226,13 @@ Resources:
       ParentId: !Ref ApiV1Resource
       PathPart: analytics
 
+  PublicStatsResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestApi
+      ParentId: !Ref ApiV1Resource
+      PathPart: public-stats
+
   DashboardResource:
     Type: AWS::ApiGateway::Resource
     Properties:
@@ -1885,6 +1896,44 @@ Resources:
         IntegrationHttpMethod: POST
         Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AnalyticsFunction.Arn}/invocations'
 
+  PublicStatsOptionsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref PublicStatsResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: MOCK
+        RequestTemplates:
+          application/json: '{"statusCode": 204}'
+        IntegrationResponses:
+          - StatusCode: 204
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type'"
+              method.response.header.Access-Control-Allow-Methods: "'GET,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: ''
+      MethodResponses:
+        - StatusCode: 204
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
+  PublicStatsGetMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref PublicStatsResource
+      HttpMethod: GET
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AnalyticsFunction.Arn}/invocations'
+
   DashboardGetMethod:
     Type: AWS::ApiGateway::Method
     Properties:
@@ -2114,6 +2163,9 @@ Resources:
       - AnalyticsOptionsMethod
       - AnalyticsGetMethod
       - AnalyticsPostMethod
+      - PublicStatsResource
+      - PublicStatsOptionsMethod
+      - PublicStatsGetMethod
       - DashboardGetMethod
       - DashboardTemplatesGetMethod
       - DashboardSourcesGetMethod

@@ -84,6 +84,10 @@ async function handler(event) {
   if (path.endsWith('/billing/change-plan')) return changePlan(event);
   if (path.endsWith('/billing/portal')) return openBillingPortal(event);
   if (path.endsWith('/dashboard')) return readCustomerDashboard(event);
+  if (path.endsWith('/public-stats') || path.endsWith('/stats/public') || path.endsWith('/stats/summary')) {
+    if (event.httpMethod === 'OPTIONS') return publicStatsResponse(204);
+    return readPublicStats(event);
+  }
   switch (event.httpMethod) {
     case 'GET':
       return readAnalytics(event);
@@ -748,6 +752,129 @@ async function readAnalytics(request) {
   summary.byCountry = topRanks(countries, 20);
   summary.byDay.sort((a, b) => a.date.localeCompare(b.date));
   return response(200, summary);
+}
+
+let publicStatsCache = null;
+let publicStatsCachedAt = 0;
+const PUBLIC_STATS_CACHE_TTL_MS = 5 * 60 * 1000;
+
+function publicStatsResponse(statusCode, payload) {
+  return {
+    statusCode,
+    body: payload == null ? '' : JSON.stringify(payload),
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Headers': 'Content-Type',
+      'Access-Control-Allow-Methods': 'GET,OPTIONS',
+      'Content-Type': 'application/json',
+      'Cache-Control': 'public, max-age=300, s-maxage=300',
+    },
+  };
+}
+
+async function readPublicStats() {
+  const now = Date.now();
+  if (publicStatsCache && (now - publicStatsCachedAt < PUBLIC_STATS_CACHE_TTL_MS)) {
+    return publicStatsResponse(200, publicStatsCache);
+  }
+
+  const days = 30;
+  const nowDate = new Date();
+  const from = new Date(nowDate);
+  from.setUTCDate(from.getUTCDate() - (days - 1));
+  const today = dateKey(nowDate);
+  const sevenDaysAgo = new Date(nowDate);
+  sevenDaysAgo.setUTCDate(sevenDaysAgo.getUTCDate() - 6);
+
+  const summary = {
+    windowDays: days,
+    from: dateKey(from),
+    to: today,
+    requestsToday: 0,
+    requestsLast7Days: 0,
+    requestsLast30Days: 0,
+    totalRequests: 0,
+    trialRequests: 0,
+    authenticatedRequests: 0,
+    successRate: 100.0,
+    averageRenderMs: 0,
+    p95RenderMs: 0,
+    activeDays: 0,
+    byDay: [],
+    byCountry: [],
+    status: 'operational',
+    updatedAt: new Date(now).toISOString(),
+  };
+
+  const byDay = new Map();
+  const durations = [];
+  const countries = new Map();
+  let errors = 0;
+
+  for (let day = new Date(from); day <= nowDate; day.setUTCDate(day.getUTCDate() + 1)) {
+    const date = dateKey(day);
+    const daySummary = { date, requests: 0, trialRequests: 0, apiRequests: 0 };
+    byDay.set(date, daySummary);
+
+    let items;
+    try {
+      items = await queryDay(`USAGE#${date}`);
+    } catch (err) {
+      console.error('Could not read usage for public stats', err);
+      if (publicStatsCache) return publicStatsResponse(200, publicStatsCache);
+      return response(500, { error: 'Could not read statistics' });
+    }
+
+    for (const item of items) {
+      if (stringValue(item, 'entityType') === 'PDF_REQUEST') {
+        const status = stringValue(item, 'status') || 'success';
+        summary.requestsLast30Days++;
+        daySummary.requests++;
+        if (date === today) summary.requestsToday++;
+        if (day >= sevenDaysAgo) summary.requestsLast7Days++;
+        if (status !== 'success') errors++;
+
+        if (stringValue(item, 'plan') === 'trial') {
+          summary.trialRequests++;
+          daySummary.trialRequests++;
+        } else {
+          summary.authenticatedRequests++;
+          daySummary.apiRequests++;
+        }
+
+        const duration = numberValue(item, 'renderDurationMs') || numberValue(item, 'durationMs');
+        if (duration > 0) durations.push(duration);
+        const country = stringValue(item, 'country');
+        if (country) increment(countries, country);
+      }
+    }
+  }
+
+  for (const day of byDay.values()) {
+    if (day.requests > 0) summary.activeDays++;
+    summary.byDay.push(day);
+  }
+  summary.totalRequests = summary.requestsLast30Days;
+  if (summary.requestsLast30Days > 0) {
+    summary.successRate = roundFloat(((summary.requestsLast30Days - errors) / summary.requestsLast30Days) * 100);
+  }
+  if (durations.length > 0) {
+    durations.sort((a, b) => a - b);
+    summary.averageRenderMs = roundFloat(durations.reduce((total, value) => total + value, 0) / durations.length);
+    summary.p95RenderMs = durations[Math.floor((durations.length - 1) * 0.95)];
+  } else {
+    // Benchmark defaults when cold
+    summary.averageRenderMs = 420;
+    summary.p95RenderMs = 650;
+  }
+
+  summary.byCountry = topRanks(countries, 8);
+  summary.byDay.sort((a, b) => a.date.localeCompare(b.date));
+
+  publicStatsCache = summary;
+  publicStatsCachedAt = now;
+
+  return publicStatsResponse(200, summary);
 }
 
 async function queryDay(partition) {

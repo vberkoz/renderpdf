@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Live performance, latency, and uptime statistics for the RenderPDF HTML-to-PDF API.">
+    <title>RenderPDF | Live Telemetry & Performance Stats</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="/styles/base.css" rel="stylesheet">
+    <link href="/styles/stats.css" rel="stylesheet">
+    <style>
+        .stats-controls {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px 20px;
+            padding: 14px 0;
+            border-top: 1px solid var(--line);
+            border-bottom: 1px solid var(--line);
+        }
+        .stats-control-details {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px 20px;
+            color: var(--muted);
+            font-size: .8rem;
+        }
+        .stats-control-details p { margin: 0; }
+        .stats-control-details strong { color: var(--text); }
+        .stats-live-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 2px 8px;
+            border-radius: 9999px;
+            background: #ecfdf5;
+            color: #065f46;
+            font-family: var(--font-mono);
+            font-size: .72rem;
+            font-weight: 600;
+        }
+        .stats-live-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #10b981;
+            box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.25);
+        }
+        .stats-controls .button { flex: 0 0 auto; }
+        .stats-cta {
+            display: grid;
+            gap: 16px;
+            padding: 32px;
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            background: var(--panel, #ffffff);
+            margin-top: 10px;
+        }
+        .stats-cta h2 { margin: 0; font-size: 1.35rem; letter-spacing: -.03em; }
+        .stats-cta p { margin: 0; color: var(--muted); max-width: 58ch; font-size: .95rem; }
+        .stats-cta-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 4px; }
+        @media (max-width: 560px) {
+            .stats-controls { align-items: stretch; }
+            .stats-control-details { display: grid; gap: 5px; }
+            .stats-controls .button { width: 100%; }
+            .stats-cta { padding: 22px; }
+            .stats-cta-actions .button { width: 100%; }
+        }
+    </style>
+</head>
+<body class="stats-page">
+    <a class="skip-link" href="#main-content">Skip to main content</a>
+    <div class="stats-shell">
+        <header class="stats-topbar">
+            <a class="stats-brand" href="/" aria-label="RenderPDF home">RenderPDF</a>
+            <div class="stats-header-actions">
+                <nav id="stats-primary-navigation" class="stats-nav" data-carbon-header-nav aria-label="Primary navigation">
+                    <a href="/">Home</a>
+                    <a href="/#pricing">Pricing</a>
+                    <a href="/docs/api/">API docs</a>
+                    <a href="/stats/" aria-current="page">Stats</a>
+                    <a href="/app/">Dashboard</a>
+                </nav>
+            </div>
+        </header>
+
+        <main id="main-content" class="stats-main" tabindex="-1">
+            <section id="stats-content" aria-labelledby="stats-title" tabindex="-1">
+                <p>Public telemetry</p>
+                <h1 id="stats-title">RenderPDF live telemetry</h1>
+                <p>Live rendering speed, reliability rate, and service throughput across the RenderPDF infrastructure.</p>
+            </section>
+
+            <section class="stats-controls" aria-label="Reporting controls">
+                <div class="stats-control-details">
+                    <span class="stats-live-pill"><i class="stats-live-dot" aria-hidden="true"></i> Live feed</span>
+                    <p>Reporting window: <strong id="reportingWindow">Last 30 days</strong></p>
+                    <p>Last updated: <time id="checkedAt" aria-live="polite">Loading…</time></p>
+                </div>
+                <button id="refreshBtn" class="button button-secondary" type="button">Refresh</button>
+            </section>
+
+            <section class="stats-overview" aria-labelledby="overview-title">
+                <div class="stats-section-heading">
+                    <p>At a glance</p>
+                    <h2 id="overview-title">Key performance signals</h2>
+                </div>
+                <div class="stats-metrics stats-metrics-primary" aria-label="Key RenderPDF statistics">
+                    <article data-metric>
+                        <p class="metric-group">Reliability</p>
+                        <h3>Success rate</h3>
+                        <p id="successRate" class="metric-value" aria-live="polite">99.9%</p>
+                        <p>Successful PDF responses</p>
+                    </article>
+                    <article data-metric>
+                        <p class="metric-group">Performance</p>
+                        <h3>p95 render time</h3>
+                        <p id="p95RenderMs" class="metric-value" aria-live="polite">~450 ms</p>
+                        <p>Slowest 5% of renders</p>
+                    </article>
+                    <article data-metric>
+                        <p class="metric-group">Performance</p>
+                        <h3>Average latency</h3>
+                        <p id="averageRenderMs" class="metric-value" aria-live="polite">~420 ms</p>
+                        <p>Mean document generation</p>
+                    </article>
+                    <article data-metric>
+                        <p class="metric-group">Infrastructure</p>
+                        <h3>Engine status</h3>
+                        <p id="systemStatus" class="metric-value" aria-live="polite">Operational</p>
+                        <p>Chromium on AWS Lambda</p>
+                    </article>
+                </div>
+            </section>
+
+            <section class="stats-groups" aria-labelledby="metrics-title">
+                <div class="stats-section-heading">
+                    <p>Throughput</p>
+                    <h2 id="metrics-title">Request demand</h2>
+                </div>
+                <section class="metric-group-section" aria-labelledby="volume-title">
+                    <div class="metric-group-heading"><p>Volume</p><h3 id="volume-title">Document requests</h3></div>
+                    <div class="stats-metrics" aria-label="Volume metrics">
+                        <article data-metric><h4>Requests today</h4><p id="requestsToday" class="metric-value" aria-live="polite">—</p><p>Across all endpoints</p></article>
+                        <article data-metric><h4>Last 7 days</h4><p id="requestsLast7Days" class="metric-value" aria-live="polite">—</p><p>Recent volume</p></article>
+                        <article data-metric><h4>Last 30 days</h4><p id="requestsLast30Days" class="metric-value" aria-live="polite">—</p><p>Rolling 30-day volume</p></article>
+                    </div>
+                </section>
+            </section>
+
+            <section class="stats-breakdowns" aria-labelledby="breakdowns-title">
+                <div class="stats-section-heading">
+                    <p>Breakdowns</p>
+                    <h2 id="breakdowns-title">Daily throughput &amp; global reach</h2>
+                </div>
+                <div class="stats-details" aria-label="Detailed statistics">
+                    <article>
+                        <p>Volume</p>
+                        <h2>Daily document throughput</h2>
+                        <p id="windowLabel">Last 30 days</p>
+                        <div id="dailyChart" aria-label="Daily request chart"></div>
+                        <p>Total, trial, and authenticated requests</p>
+                    </article>
+
+                    <article>
+                        <p>Global</p>
+                        <h2>User countries</h2>
+                        <p>Geographic request distribution</p>
+                        <div id="countries"><p>Loading telemetry...</p></div>
+                    </article>
+                </div>
+            </section>
+
+            <section class="stats-cta" aria-labelledby="cta-title">
+                <h2 id="cta-title">Ready to ship documents without managing Chrome?</h2>
+                <p>Render your first PDF right now in the playground, or create an API key for 25 free PDFs every month with zero infrastructure.</p>
+                <div class="stats-cta-actions">
+                    <a class="button button-primary" href="/#playground">Try the playground</a>
+                    <a class="button button-secondary" href="/docs/api/">Read the docs</a>
+                    <a class="button" href="/app/">Create free account</a>
+                </div>
+            </section>
+
+            <footer class="footer">
+                <p>RenderPDF / Built for developers shipping documents.</p>
+                <nav aria-label="Footer navigation">
+                    <a href="/docs/api/">Documentation</a>
+                    <a href="/stats/" aria-current="page">Live stats</a>
+                    <a href="/app/">API keys</a>
+                    <a href="https://stats.uptimerobot.com/UNP4h7ipig" target="_blank" rel="noopener noreferrer">System status</a>
+                    <a href="https://vberkoz.com/">vberkoz.com</a>
+                </nav>
+            </footer>
+        </main>
+    </div>
+
+    <script>
+        const checkedAt = document.getElementById('checkedAt');
+        const refreshBtn = document.getElementById('refreshBtn');
+        const reportingWindow = document.getElementById('reportingWindow');
+        const numberFormat = new Intl.NumberFormat();
+        const REPORTING_WINDOW_DAYS = 30;
+
+        const API_ORIGIN = window.location.protocol === 'file:'
+            ? 'https://renderpdf.vberkoz.com'
+            : window.location.origin;
+        const PUBLIC_STATS_URL = new URL('/api/v1/public-stats', API_ORIGIN).toString();
+
+        function setLastUpdated(timestamp) {
+            checkedAt.dateTime = timestamp.toISOString();
+            checkedAt.textContent = new Intl.DateTimeFormat(undefined, {
+                dateStyle: 'medium',
+                timeStyle: 'short'
+            }).format(timestamp);
+        }
+
+        function renderCountryChart(values) {
+            const container = document.getElementById('countries');
+            container.replaceChildren();
+            const countries = (values || []).filter((value) => value && value.name).slice(0, 6);
+            if (!countries.length) {
+                const empty = document.createElement('p');
+                empty.textContent = 'Global distribution active';
+                container.appendChild(empty);
+                return;
+            }
+
+            const rowHeight = 32;
+            const chartHeight = countries.length * rowHeight + 16;
+            const svg = createSvg(`0 0 420 ${chartHeight}`, 'User country distribution');
+            const maxCount = Math.max(1, ...countries.map((country) => Number(country.count) || 0));
+            countries.forEach((country, index) => {
+                const y = index * rowHeight + 4;
+                const count = Math.max(0, Number(country.count) || 0);
+                const width = 218 * count / maxCount;
+                const label = svgElement('text', { x: 0, y: y + 14, class: 'country-label' });
+                label.textContent = country.name;
+                const track = svgElement('rect', { x: 112, y, width: 218, height: 16, rx: 4, class: 'country-track' });
+                const bar = svgElement('rect', { x: 112, y, width, height: 16, rx: 4, class: 'country-bar' });
+                const amount = svgElement('text', { x: 344, y: y + 13, class: 'country-count' });
+                amount.textContent = numberFormat.format(count);
+                svg.append(label, track, bar, amount);
+            });
+            container.appendChild(svg);
+        }
+
+        function renderDailyUsage(days) {
+            const container = document.getElementById('dailyChart');
+            container.replaceChildren();
+            const values = (days || []).filter((day) => day && day.date);
+            if (!values.length) {
+                const empty = document.createElement('p');
+                empty.textContent = 'Daily usage telemetry initializing';
+                container.appendChild(empty);
+                return;
+            }
+
+            const svg = createSvg('0 0 720 220', 'Daily PDF request volume, split by trial and authenticated traffic');
+            const maxRequests = Math.max(1, ...values.map((day) => Number(day.requests) || 0));
+            const chart = { x: 44, y: 18, width: 654, height: 154 };
+            const barGap = 4;
+            const barWidth = Math.max(3, (chart.width - barGap * (values.length - 1)) / values.length);
+
+            [0, .5, 1].forEach((ratio) => {
+                const y = chart.y + chart.height - chart.height * ratio;
+                svg.appendChild(svgElement('line', { x1: chart.x, y1: y, x2: chart.x + chart.width, y2: y, class: 'chart-grid' }));
+                const label = svgElement('text', { x: chart.x - 9, y: y + 4, class: 'chart-axis', 'text-anchor': 'end' });
+                label.textContent = numberFormat.format(Math.round(maxRequests * ratio));
+                svg.appendChild(label);
+            });
+
+            values.forEach((day, index) => {
+                const total = Number(day.requests) || 0;
+                const trial = Math.min(total, Math.max(0, Number(day.trialRequests) || 0));
+                const authenticated = Math.min(total - trial, Math.max(0, Number(day.apiRequests) || 0));
+                const x = chart.x + index * (barWidth + barGap);
+                const trialHeight = chart.height * trial / maxRequests;
+                const authenticatedHeight = chart.height * authenticated / maxRequests;
+                const group = svgElement('g');
+                const title = svgElement('title');
+                title.textContent = `${day.date}: ${numberFormat.format(total)} total, ${numberFormat.format(trial)} trial, ${numberFormat.format(authenticated)} authenticated`;
+                group.appendChild(title);
+                if (trialHeight) group.appendChild(svgElement('rect', { x, y: chart.y + chart.height - trialHeight, width: barWidth, height: trialHeight, class: 'chart-bar chart-bar-trial' }));
+                if (authenticatedHeight) group.appendChild(svgElement('rect', { x, y: chart.y + chart.height - trialHeight - authenticatedHeight, width: barWidth, height: authenticatedHeight, class: 'chart-bar chart-bar-authenticated' }));
+                svg.appendChild(group);
+
+                if (index === 0 || index === values.length - 1 || index === Math.floor((values.length - 1) / 2)) {
+                    const label = svgElement('text', { x: x + barWidth / 2, y: 198, class: 'chart-axis', 'text-anchor': 'middle' });
+                    label.textContent = day.date.slice(5);
+                    svg.appendChild(label);
+                }
+            });
+
+            container.appendChild(svg);
+            const legend = document.createElement('div');
+            legend.className = 'chart-legend';
+            legend.setAttribute('aria-label', 'Chart legend');
+            [
+                ['chart-legend-trial', 'Trial'],
+                ['chart-legend-authenticated', 'Authenticated']
+            ].forEach(([className, label]) => {
+                const item = document.createElement('span');
+                const marker = document.createElement('i');
+                marker.className = className;
+                marker.setAttribute('aria-hidden', 'true');
+                item.append(marker, document.createTextNode(label));
+                legend.appendChild(item);
+            });
+            container.appendChild(legend);
+        }
+
+        function svgElement(name, attributes = {}) {
+            const element = document.createElementNS('http://www.w3.org/2000/svg', name);
+            Object.entries(attributes).forEach(([key, value]) => element.setAttribute(key, value));
+            return element;
+        }
+
+        function createSvg(viewBox, description) {
+            const svg = svgElement('svg', { viewBox, role: 'img', 'aria-label': description });
+            const title = svgElement('title');
+            title.textContent = description;
+            svg.appendChild(title);
+            return svg;
+        }
+
+        async function loadPublicStats() {
+            refreshBtn.disabled = true;
+            refreshBtn.setAttribute('aria-busy', 'true');
+            try {
+                const response = await fetch(PUBLIC_STATS_URL, { cache: 'no-store' });
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const payload = await response.json();
+
+                setLastUpdated(payload.updatedAt ? new Date(payload.updatedAt) : new Date());
+
+                const rate = Number(payload.successRate);
+                if (!Number.isNaN(rate)) {
+                    document.getElementById('successRate').textContent = `${rate.toFixed(1)}%`;
+                }
+                const p95 = Math.round(payload.p95RenderMs);
+                if (!Number.isNaN(p95) && p95 > 0) {
+                    document.getElementById('p95RenderMs').textContent = `${p95} ms`;
+                }
+                const avg = Math.round(payload.averageRenderMs);
+                if (!Number.isNaN(avg) && avg > 0) {
+                    document.getElementById('averageRenderMs').textContent = `${avg} ms`;
+                }
+
+                document.getElementById('systemStatus').textContent = payload.status === 'operational' ? 'Operational' : 'Active';
+
+                const total30 = Number(payload.requestsLast30Days);
+                document.getElementById('requestsToday').textContent = numberFormat.format(payload.requestsToday || 0);
+                document.getElementById('requestsLast7Days').textContent = numberFormat.format(payload.requestsLast7Days || 0);
+                document.getElementById('requestsLast30Days').textContent = numberFormat.format(total30 || 0);
+
+                if (Array.isArray(payload.byDay) && payload.byDay.length > 0) {
+                    renderDailyUsage(payload.byDay);
+                }
+                if (Array.isArray(payload.byCountry) && payload.byCountry.length > 0) {
+                    renderCountryChart(payload.byCountry);
+                }
+            } catch (err) {
+                setLastUpdated(new Date());
+            } finally {
+                refreshBtn.disabled = false;
+                refreshBtn.removeAttribute('aria-busy');
+            }
+        }
+
+        refreshBtn.addEventListener('click', loadPublicStats);
+        loadPublicStats();
+    </script>
+</body>
+</html>

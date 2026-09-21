@@ -20,6 +20,9 @@
 - `POST /api/v1/analytics`
   - Requires the Cognito authorizer.
   - Accepts `{ "event", "path", "source", "status", "durationMs" }`.
+- `GET /api/v1/public-stats`
+  - Unauthenticated public endpoint.
+  - Returns cached aggregated service telemetry: success rate, p95/average latency, 30-day daily volume, and top countries.
 - `GET /api/v1/dashboard`
   - Requires the Cognito authorizer.
   - Returns only the current user's PDF counts, failures, remaining monthly
