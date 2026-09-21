@@ -148,6 +148,12 @@ Resources:
               Service: budgets.amazonaws.com
             Action: sns:Publish
             Resource: !Ref OperationsAlertsTopic
+          - Sid: AllowCloudWatchAlarmsToPublishAlerts
+            Effect: Allow
+            Principal:
+              Service: cloudwatch.amazonaws.com
+            Action: sns:Publish
+            Resource: !Ref OperationsAlertsTopic
 
   MonthlyOperatingCostBudget:
     Type: AWS::Budgets::Budget
@@ -2141,7 +2147,6 @@ Resources:
 
   FreeUsagePlan:
     Type: AWS::ApiGateway::UsagePlan
-    DependsOn: ApiDeploymentV34
     Properties:
       UsagePlanName: !Sub '${AppName}-free-usage-plan'
       Description: 'Free tier per-key throttling (10 RPS steady, 20 RPS burst)'
@@ -2154,7 +2159,6 @@ Resources:
 
   StarterUsagePlan:
     Type: AWS::ApiGateway::UsagePlan
-    DependsOn: ApiDeploymentV34
     Properties:
       UsagePlanName: !Sub '${AppName}-starter-usage-plan'
       Description: 'Starter tier per-key throttling (25 RPS steady, 50 RPS burst)'
@@ -2167,7 +2171,6 @@ Resources:
 
   ProUsagePlan:
     Type: AWS::ApiGateway::UsagePlan
-    DependsOn: ApiDeploymentV34
     Properties:
       UsagePlanName: !Sub '${AppName}-pro-usage-plan'
       Description: 'Pro tier per-key throttling (50 RPS steady, 100 RPS burst)'
@@ -2225,6 +2228,124 @@ Resources:
       Action: lambda:InvokeFunction
       Principal: apigateway.amazonaws.com
       SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/*'
+
+  # ---------------------------------------------------------------------------
+  # Observability & Error Tracking (AWS Always-Free Tier)
+  # Standard resolution alarms (>=60s) and metric filters within free tier limits.
+  # ---------------------------------------------------------------------------
+
+  Api5xxSpikeAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${AppName}-api-5xx-spikes'
+      AlarmDescription: 'Alert when API Gateway encounters a spike in 5xx errors across routes'
+      Namespace: AWS/ApiGateway
+      MetricName: 5XXError
+      Dimensions:
+        - Name: ApiName
+          Value: !Sub '${AppName}-api'
+        - Name: Stage
+          Value: prod
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 5
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref OperationsAlertsTopic
+
+  ChromiumTimeoutsMetricFilter:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${AppName}-generate'
+      FilterPattern: '?"Chromium render failed" ?"failed to start browser" ?"chromium_timeout" ?"navigation_timeout" ?"Task timed out"'
+      MetricTransformations:
+        - MetricNamespace: 'RenderPDF/Observability'
+          MetricName: 'ChromiumTimeouts'
+          MetricValue: '1'
+          DefaultValue: 0
+
+  ChromiumTimeoutsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${AppName}-chromium-timeouts-crashes'
+      AlarmDescription: 'Alert when Chromium crashes, hangs, or experiences 504 timeouts during PDF rendering'
+      Namespace: 'RenderPDF/Observability'
+      MetricName: 'ChromiumTimeouts'
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref OperationsAlertsTopic
+
+  WebhookDeadLetterQueueAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${AppName}-webhook-dlq-messages'
+      AlarmDescription: 'Alert when customer webhook deliveries fail after retries and land in WebhookDeadLetterQueue'
+      Namespace: AWS/SQS
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt WebhookDeadLetterQueue.QueueName
+      Statistic: Maximum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref OperationsAlertsTopic
+
+  BatchDeadLetterQueueAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${AppName}-batch-dlq-messages'
+      AlarmDescription: 'Alert when batch render jobs fail and land in BatchDeadLetterQueue'
+      Namespace: AWS/SQS
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt BatchDeadLetterQueue.QueueName
+      Statistic: Maximum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref OperationsAlertsTopic
+
+  PaddleWebhookFailuresMetricFilter:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${AppName}-analytics-node'
+      FilterPattern: '?"Could not save billing webhook" ?"Could not apply overage credit" ?"Paddle webhook rejected: secret is not configured"'
+      MetricTransformations:
+        - MetricNamespace: 'RenderPDF/Observability'
+          MetricName: 'PaddleWebhookProcessingFailures'
+          MetricValue: '1'
+          DefaultValue: 0
+
+  PaddleWebhookProcessingFailuresAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${AppName}-paddle-webhook-failures'
+      AlarmDescription: 'Critical alert when Paddle billing webhooks fail to process or reconcile customer subscription/overage records'
+      Namespace: 'RenderPDF/Observability'
+      MetricName: 'PaddleWebhookProcessingFailures'
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref OperationsAlertsTopic
 
 Outputs:
   LandingURL:

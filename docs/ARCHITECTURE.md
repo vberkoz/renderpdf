@@ -27,7 +27,7 @@
   - Node.js Lambda for authenticated analytics event writes and aggregate reads.
   - Reads the shared usage table through `AnalyticsDateIndex`.
 - `infra/cloudformation.yaml`
-  - Defines buckets, CloudFront, API Gateway, Lambda functions, DynamoDB tables, Cognito resources, and DNS/cert wiring.
+  - Defines buckets, CloudFront, API Gateway, Lambda functions, DynamoDB tables, Cognito resources, CloudWatch Alarms & Metric Filters (Always-Free Tier), and DNS/cert wiring.
 - `infra/ecr-lifecycle-policy.json`
   - Applied by the deployment script to retain the two newest images in each ECR repository.
 
