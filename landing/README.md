@@ -18,7 +18,7 @@
 - `/Users/basilsergius/projects/renderpdf/landing/index.html`
   - Contains the live API URL and in-page fetch behavior.
 - `/Users/basilsergius/projects/renderpdf/landing/docs/api/index.html`
-  - Public API docs page served from the same CloudFront distribution.
+  - Public API docs entrypoint (Quick start), with individual article pages under `landing/docs/api/*/index.html`. Served from the same CloudFront distribution.
 
 ## How To Test
 

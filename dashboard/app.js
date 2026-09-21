@@ -1215,7 +1215,7 @@ function renderKeys(keys) {
         explanation.textContent = 'An API key authenticates server-side requests. Store it in a secret manager or environment variable—never in browser code.';
         const exampleLink = document.createElement('a');
         exampleLink.className = 'empty-state-link';
-        exampleLink.href = '/docs/api/#render';
+        exampleLink.href = '/docs/api/render/';
         exampleLink.textContent = 'See your first render example →';
         empty.append(title, explanation, exampleLink);
         renderTable(container, { caption: 'API keys', empty });

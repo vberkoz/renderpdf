@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="RenderPDF API quick start guide: render your first PDF in seconds with or without an API key.">
-    <title>RenderPDF API | Quick Start</title>
+    <meta name="description" content="Render local HTML, CSS, images, and fonts packaged as a ZIP archive.">
+    <title>Render Local Package | RenderPDF API</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -31,46 +31,25 @@
         </div>
 
         <main id="main-content" tabindex="-1">
-            <section class="docs-hero">
-                <div class="docs-hero-copy">
-                    <p class="eyebrow">Developer reference / v1</p>
-                    <h1>RenderPDF API</h1>
-                    <p class="lead">Turn HTML into downloadable PDFs with one request. Start with the no-key trial endpoint, then move to authenticated generation when you’re ready.</p>
-                    <div class="docs-hero-meta" aria-label="API characteristics">
-                        <span>REST</span><span>JSON</span><span>Private PDF delivery</span>
-                    </div>
-                </div>
-                <div class="base-url-card" aria-label="API connection details">
-                    <div class="base-url-heading"><span>Base URL</span><a href="https://renderpdf.vberkoz.com/api/v1/">API status <span aria-hidden="true">↗</span></a></div>
-                    <code>https://renderpdf.vberkoz.com/api/v1</code>
-                    <div class="quickstart-call">
-                        <span class="method-badge">POST</span>
-                        <code>/trial/render</code>
-                        <span class="trial-badge">No key needed</span>
-                    </div>
-                    <p>Render your first PDF before creating an account.</p>
-                </div>
-            </section>
-
             <div class="docs-layout">
                 <aside class="sidebar">
                     <p class="sidebar-title">Documentation</p>
                     <nav aria-label="Documentation sections">
-                        <details class="sidebar-group" open>
+                        <details class="sidebar-group">
                             <summary>Get started</summary>
-                            <a href="/docs/api/" class="is-active" aria-current="page">Quick start</a>
+                            <a href="/docs/api/">Quick start</a>
                             <a href="/docs/api/trial/">Anonymous trial</a>
                             <a href="/docs/api/request-basics/">Request basics</a>
                             <a href="/docs/api/authentication/">Authentication</a>
                         </details>
-                        <details class="sidebar-group">
+                        <details class="sidebar-group" open>
                             <summary>Render inputs</summary>
                             <a href="/docs/api/render/">Render HTML</a>
                             <a href="/docs/api/render-document/">Document JSON</a>
                             <a href="/docs/api/pdf-security/">Password &amp; security</a>
                             <a href="/docs/api/markdown/">Markdown</a>
                             <a href="/docs/api/render-url/">Public URL</a>
-                            <a href="/docs/api/render-upload/">Local package</a>
+                            <a href="/docs/api/render-upload/" class="is-active" aria-current="page">Local package</a>
                         </details>
                         <details class="sidebar-group">
                             <summary>Templates & batches</summary>
@@ -103,54 +82,34 @@
                 </aside>
 
                 <div class="content">
-                    <section class="doc-section" id="quick-start">
-<div class="section-heading">
-                            <p class="eyebrow">Get started</p>
-                            <h2>Quick start</h2>
-                            <p>Run one request to try RenderPDF without an account, then use the authenticated request below when you have an API key.</p>
-                        </div>
-                        <div class="code-block">
-                            <div class="code-header">
-                                <span>Terminal</span>
-                                <button type="button" class="copy-button" data-copy-target="quick-start-code">Copy</button>
+                    <section class="doc-section endpoint-section" id="render-upload">
+<div class="endpoint-heading">
+                            <div>
+                                <p class="eyebrow">Render inputs</p>
+                                <h1>Render a local HTML package</h1>
                             </div>
-                            <pre id="quick-start-code"><code class="language-bash">curl -X POST https://renderpdf.vberkoz.com/api/v1/trial/render \
-  -H "Content-Type: application/json" \
-  -d '{"html":"&lt;h1&gt;Hello World&lt;/h1&gt;"}'</code></pre>
+                            <div class="route"><span class="method">POST</span><code>/render</code></div>
                         </div>
-                        <h3>Render with an API key</h3>
-                        <p class="section-copy">Create a key in the <a href="/app/">dashboard</a>, then use the production endpoint.</p>
+                        <p class="section-copy">Use this authenticated two-step workflow when a document has local CSS, images, fonts, or JavaScript. ZIP files must use relative paths, contain <code>index.html</code> by default, and are limited to 25 MB compressed, 50 MB extracted, and 500 files. Packages are private, expire after one day, and cannot load network resources while rendering.</p>
                         <div class="code-block">
-                            <div class="code-header">
-                                <span>Terminal</span>
-                                <button type="button" class="copy-button" data-copy-target="quick-start-auth-code">Copy</button>
-                            </div>
-                            <pre id="quick-start-auth-code"><code class="language-bash">curl -X POST https://renderpdf.vberkoz.com/api/v1/render \
+                            <div class="code-header"><span>cURL</span><button type="button" class="copy-button" data-copy-target="render-upload-code">Copy</button></div>
+                            <pre id="render-upload-code"><code class="language-bash">upload=$(curl -s -X POST https://renderpdf.vberkoz.com/api/v1/files/upload \
+  -H "Authorization: Bearer YOUR_API_KEY")
+curl -X PUT --upload-file invoice.zip "$(jq -r .uploadUrl &lt;&lt;&lt;"$upload")"
+curl -X POST https://renderpdf.vberkoz.com/api/v1/render \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_API_KEY" \
-  -d '{"version":"1","source":{"type":"html","content":"&lt;h1&gt;Hello World&lt;/h1&gt;"},"data":{}}'</code></pre>
+  -d "{\"version\":\"1\",\"source\":{\"type\":\"upload\",\"uploadId\":\"$(jq -r .uploadId &lt;&lt;&lt;"$upload")\"}}"</code></pre>
                         </div>
-                        <h3>Render an HTML file</h3>
-                        <p class="section-copy">From this repository, use <code>jq</code> to read an HTML file as a JSON string before posting it.</p>
-                        <div class="code-block">
-                            <div class="code-header">
-                                <span>Terminal</span>
-                                <button type="button" class="copy-button" data-copy-target="file-example-code">Copy</button>
-                            </div>
-                            <pre id="file-example-code"><code class="language-bash">curl -X POST https://renderpdf.vberkoz.com/api/v1/trial/render \
-  -H "Content-Type: application/json" \
-  --data "$(jq -Rs '{html: .}' invoice.html)"</code></pre>
-                        </div>
-                        <div class="callout">
-                            <span class="callout-mark" aria-hidden="true">i</span>
-                            <p>The trial allows 3 successful PDFs per public IP per UTC day. Failed renders are refunded automatically.</p>
-                        </div>
-                        <p class="section-footnote">When you are ready for production, create an API key in the <a href="/app/">dashboard</a>, switch the path to <code>/render</code>, and send the key in the <code>Authorization</code> header.</p>
                     </section>
                     <nav class="docs-pagination" aria-label="Documentation pagination">
-                        <a class="pagination-link pagination-next" href="/docs/api/trial/">
+                        <a class="pagination-link pagination-prev" href="/docs/api/render-url/">
+                            <span class="pagination-label">&larr; Previous</span>
+                            <span class="pagination-title">Public URL</span>
+                        </a>
+                        <a class="pagination-link pagination-next" href="/docs/api/templates/">
                             <span class="pagination-label">Next &rarr;</span>
-                            <span class="pagination-title">Anonymous trial</span>
+                            <span class="pagination-title">Templates</span>
                         </a>
                     </nav>
                 </div>
@@ -198,32 +157,6 @@
     <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.11.1/build/highlight.min.js"></script>
     <script>
         if (window.hljs) window.hljs.highlightAll();
-
-        const hashRoutes = {
-            '#quick-start': '/docs/api/',
-            '#trial': '/docs/api/trial/',
-            '#request-basics': '/docs/api/request-basics/',
-            '#authentication': '/docs/api/authentication/',
-            '#render': '/docs/api/render/',
-            '#render-document': '/docs/api/render-document/',
-            '#pdf-security': '/docs/api/pdf-security/',
-            '#markdown': '/docs/api/markdown/',
-            '#render-url': '/docs/api/render-url/',
-            '#render-upload': '/docs/api/render-upload/',
-            '#templates': '/docs/api/templates/',
-            '#render-template': '/docs/api/render-template/',
-            '#sources': '/docs/api/sources/',
-            '#files': '/docs/api/files/',
-            '#batches': '/docs/api/batches/',
-            '#webhooks': '/docs/api/webhooks/',
-            '#examples': '/docs/api/examples/',
-            '#response': '/docs/api/response/',
-            '#errors': '/docs/api/errors/',
-            '#api-keys': '/docs/api/api-keys/'
-        };
-        if (window.location.hash && hashRoutes[window.location.hash]) {
-            window.location.replace(hashRoutes[window.location.hash]);
-        }
 
         async function copyCode(button) {
             const target = document.getElementById(button.dataset.copyTarget);
