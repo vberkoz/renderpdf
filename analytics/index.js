@@ -11,11 +11,26 @@ const {
   UpdateItemCommand,
 } = require('@aws-sdk/client-dynamodb');
 const {
+  CognitoIdentityProviderClient,
+  AdminDisableUserCommand,
+  AdminEnableUserCommand,
+  ListUsersCommand,
+  AdminGetUserCommand,
+} = require('@aws-sdk/client-cognito-identity-provider');
+const {
   APIGatewayClient,
   CreateUsagePlanKeyCommand,
   DeleteUsagePlanKeyCommand,
 } = require('@aws-sdk/client-api-gateway');
-const { sendPaymentFailedAlert } = require('./notifications');
+const { sendPaymentFailedAlert, sendTelegramErrorAlert } = require('./notifications');
+const {
+  handleChatMessage,
+  buildSystemPrompt,
+  listAdminChats,
+  getAdminChatTranscript,
+  postAdminChatReply,
+  updateAdminChatStatus,
+} = require('./chat');
 
 const ANALYTICS_INDEX = 'AnalyticsDateIndex';
 const ANALYTICS_TTL_DAYS = 90;
@@ -23,6 +38,7 @@ const DEFAULT_DAYS = 7;
 const MAX_DAYS = 90;
 const TABLE_NAME = process.env.TABLE_NAME;
 const API_KEYS_TABLE = process.env.API_KEYS_TABLE || '';
+const USER_POOL_ID = process.env.USER_POOL_ID || '';
 const FREE_USAGE_PLAN_ID = process.env.FREE_USAGE_PLAN_ID || '';
 const STARTER_USAGE_PLAN_ID = process.env.STARTER_USAGE_PLAN_ID || '';
 const PRO_USAGE_PLAN_ID = process.env.PRO_USAGE_PLAN_ID || '';
@@ -58,11 +74,14 @@ const QUOTA_UPGRADE_EVENTS = new Set([
 ]);
 const FREE_MONTHLY_QUOTA = positiveInteger(process.env.FREE_MONTHLY_QUOTA, 25);
 const PLAN_QUOTAS = {
+  free: positiveInteger(process.env.FREE_MONTHLY_QUOTA, 25),
   starter: positiveInteger(process.env.STARTER_MONTHLY_QUOTA, 5000),
   pro: positiveInteger(process.env.PRO_MONTHLY_QUOTA, 20000),
+  enterprise: positiveInteger(process.env.ENTERPRISE_MONTHLY_QUOTA, 100000),
 };
 const ddb = new DynamoDBClient({});
 const apigw = new APIGatewayClient({});
+const cognito = new CognitoIdentityProviderClient({});
 const EVENT_NAME = /^[a-zA-Z0-9._:-]{1,64}$/;
 
 function response(statusCode, payload) {
@@ -80,7 +99,37 @@ function response(statusCode, payload) {
 }
 
 async function handler(event) {
+  try {
+    return await routeRequest(event);
+  } catch (err) {
+    console.error('Unhandled error in analytics handler:', err);
+    await sendTelegramErrorAlert({
+      context: `${event?.httpMethod || 'HTTP'} ${event?.resource || event?.path || '/'}`,
+      error: err,
+      details: {
+        sourceIp: event?.requestContext?.identity?.sourceIp,
+        userId: event?.requestContext?.authorizer?.claims?.sub,
+        route: event?.queryStringParameters?.route,
+      },
+    }).catch(() => {});
+    return response(500, { error: 'Internal server error' });
+  }
+}
+
+async function routeRequest(event) {
   const path = event.resource || event.path || '';
+  let routeOverride = event.queryStringParameters?.route || event.queryStringParameters?.view || '';
+  if (routeOverride && typeof routeOverride === 'string' && routeOverride.includes('%')) {
+    try {
+      routeOverride = decodeURIComponent(routeOverride);
+    } catch {
+      // keep original
+    }
+  }
+  const effectivePath = routeOverride
+    ? (routeOverride.startsWith('/') ? routeOverride : `/${routeOverride}`)
+    : path;
+
   if (path.endsWith('/billing/webhook')) return receivePaddleWebhook(event);
   if (path.endsWith('/billing/checkout')) return createCheckout(event);
   if (path.endsWith('/billing/change-plan')) return changePlan(event);
@@ -90,11 +139,91 @@ async function handler(event) {
     if (event.httpMethod === 'OPTIONS') return publicStatsResponse(204);
     return readPublicStats(event);
   }
-  if (path.endsWith('/admin/analytics') || path.includes('/admin/analytics')) {
+  if (effectivePath.endsWith('/chat') || effectivePath === '/api/v1/chat') {
+    if (event.httpMethod === 'OPTIONS' || event.httpMethod === 'POST') return handleChatMessage(event);
+    return response(405, { error: 'Method not allowed' });
+  }
+  if (effectivePath.endsWith('/admin/analytics') || effectivePath.includes('/admin/analytics')) {
     if (event.httpMethod === 'OPTIONS') return response(204);
     if (event.httpMethod === 'GET') return readAdminAnalytics(event);
     return response(405, { error: 'Method not allowed' });
   }
+  if (effectivePath.includes('/admin/users') || effectivePath.includes('/api/v1/users') || effectivePath.endsWith('/users') || effectivePath.startsWith('/users/')) {
+    if (event.httpMethod === 'OPTIONS') return response(204);
+
+    const planMatch = effectivePath.match(/\/(?:admin\/)?users\/([^/?#]+)\/plan$/) || (event.path || '').match(/\/(?:admin\/)?users\/([^/?#]+)\/plan$/);
+    if (planMatch || event.resource?.endsWith('/plan')) {
+      const userId = (event.pathParameters?.userId && event.pathParameters?.userId !== '{userId}') ? event.pathParameters.userId : (planMatch ? planMatch[1] : null);
+      if (event.httpMethod === 'POST') return handleAdminUserPlanOverride(event, userId);
+      return response(405, { error: 'Method not allowed' });
+    }
+
+    const quotaMatch = effectivePath.match(/\/(?:admin\/)?users\/([^/?#]+)\/quota$/) || (event.path || '').match(/\/(?:admin\/)?users\/([^/?#]+)\/quota$/);
+    if (quotaMatch || event.resource?.endsWith('/quota')) {
+      const userId = (event.pathParameters?.userId && event.pathParameters?.userId !== '{userId}') ? event.pathParameters.userId : (quotaMatch ? quotaMatch[1] : null);
+      if (event.httpMethod === 'POST') return handleAdminUserQuotaAdjust(event, userId);
+      return response(405, { error: 'Method not allowed' });
+    }
+
+    const statusMatch = effectivePath.match(/\/(?:admin\/)?users\/([^/?#]+)\/status$/) || (event.path || '').match(/\/(?:admin\/)?users\/([^/?#]+)\/status$/);
+    if (statusMatch || event.resource?.endsWith('/status')) {
+      const userId = (event.pathParameters?.userId && event.pathParameters?.userId !== '{userId}') ? event.pathParameters.userId : (statusMatch ? statusMatch[1] : null);
+      if (event.httpMethod === 'POST') return handleAdminUserStatus(event, userId);
+      return response(405, { error: 'Method not allowed' });
+    }
+
+    const revokeMatch = effectivePath.match(/\/(?:admin\/)?users\/([^/?#]+)\/keys\/([^/?#]+)\/revoke$/) || (event.path || '').match(/\/(?:admin\/)?users\/([^/?#]+)\/keys\/([^/?#]+)\/revoke$/);
+    if (revokeMatch || event.resource?.endsWith('/revoke')) {
+      const userId = (event.pathParameters?.userId && event.pathParameters?.userId !== '{userId}') ? event.pathParameters.userId : (revokeMatch ? revokeMatch[1] : null);
+      const keyId = (event.pathParameters?.keyId && event.pathParameters?.keyId !== '{keyId}') ? event.pathParameters.keyId : (revokeMatch ? revokeMatch[2] : null);
+      if (event.httpMethod === 'POST') return handleAdminKeyRevoke(event, userId, keyId);
+      return response(405, { error: 'Method not allowed' });
+    }
+
+    const userIdParam = event.pathParameters?.userId || event.queryStringParameters?.userId;
+    const match = effectivePath.match(/\/(?:admin\/)?users\/([^/?#]+)$/) || (event.path || '').match(/\/(?:admin\/)?users\/([^/?#]+)$/);
+    const userId = (userIdParam && userIdParam !== '{userId}') ? userIdParam : (match ? match[1] : null);
+    if (userId && userId !== 'users') {
+      if (event.httpMethod === 'GET') return readAdminUserDossier(event, userId);
+      return response(405, { error: 'Method not allowed' });
+    }
+    if (event.httpMethod === 'GET') return searchAdminUsers(event);
+    return response(405, { error: 'Method not allowed' });
+  }
+  if (effectivePath.includes('/admin/audit-logs') || effectivePath.endsWith('/audit-logs')) {
+    if (event.httpMethod === 'OPTIONS') return response(204);
+    if (event.httpMethod === 'GET') return listAdminAuditLogs(event);
+    return response(405, { error: 'Method not allowed' });
+  }
+  if (effectivePath.includes('/admin/chats') || effectivePath.endsWith('/chats') || effectivePath.startsWith('/chats/')) {
+    if (event.httpMethod === 'OPTIONS') return response(204);
+
+    const replyMatch = effectivePath.match(/\/(?:admin\/)?chats\/([^/?#]+)\/reply$/) || (event.path || '').match(/\/(?:admin\/)?chats\/([^/?#]+)\/reply$/);
+    if (replyMatch || event.resource?.endsWith('/reply')) {
+      const sessionId = (event.pathParameters?.sessionId && event.pathParameters?.sessionId !== '{sessionId}') ? event.pathParameters.sessionId : (replyMatch ? replyMatch[1] : null);
+      if (event.httpMethod === 'POST') return postAdminChatReply(event, sessionId);
+      return response(405, { error: 'Method not allowed' });
+    }
+
+    const statusMatch = effectivePath.match(/\/(?:admin\/)?chats\/([^/?#]+)\/status$/) || (event.path || '').match(/\/(?:admin\/)?chats\/([^/?#]+)\/status$/);
+    if (statusMatch || (event.resource?.includes('/chats/') && event.resource?.endsWith('/status'))) {
+      const sessionId = (event.pathParameters?.sessionId && event.pathParameters?.sessionId !== '{sessionId}') ? event.pathParameters.sessionId : (statusMatch ? statusMatch[1] : null);
+      if (event.httpMethod === 'POST') return updateAdminChatStatus(event, sessionId);
+      return response(405, { error: 'Method not allowed' });
+    }
+
+    const sessionIdParam = event.pathParameters?.sessionId || event.queryStringParameters?.sessionId;
+    const match = effectivePath.match(/\/(?:admin\/)?chats\/([^/?#]+)$/) || (event.path || '').match(/\/(?:admin\/)?chats\/([^/?#]+)$/);
+    const sessionId = (sessionIdParam && sessionIdParam !== '{sessionId}') ? sessionIdParam : (match ? match[1] : null);
+    if (sessionId && sessionId !== 'chats') {
+      if (event.httpMethod === 'GET') return getAdminChatTranscript(event, sessionId);
+      return response(405, { error: 'Method not allowed' });
+    }
+
+    if (event.httpMethod === 'GET') return listAdminChats(event);
+    return response(405, { error: 'Method not allowed' });
+  }
+
   switch (event.httpMethod) {
     case 'GET':
       return readAdminAnalytics(event);
@@ -1190,6 +1319,727 @@ async function readAnalytics(request) {
   return readAdminAnalytics(request);
 }
 
+function getCognitoAttr(user, attrName) {
+  if (!user) return '';
+  const attrs = user.Attributes || user.UserAttributes || [];
+  if (Array.isArray(attrs)) {
+    const found = attrs.find((a) => a.Name === attrName || a.name === attrName);
+    if (found) return found.Value != null ? found.Value : (found.value != null ? found.value : '');
+  }
+  if (user[attrName] != null) return String(user[attrName]);
+  return '';
+}
+
+function formatCognitoDate(d) {
+  if (!d) return '';
+  if (d instanceof Date) return d.toISOString();
+  if (typeof d === 'number') {
+    return new Date(d > 1e11 ? d : d * 1000).toISOString();
+  }
+  if (typeof d === 'string') {
+    try {
+      const parsed = new Date(d);
+      return Number.isFinite(parsed.getTime()) ? parsed.toISOString() : d;
+    } catch (_) {
+      return d;
+    }
+  }
+  return '';
+}
+
+async function findCognitoUser(userPoolId, identifier) {
+  if (!identifier) return null;
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(identifier);
+
+  // 1. If it's a UUID, search by sub attribute first
+  if (isUuid) {
+    try {
+      const listRes = await cognito.send(new ListUsersCommand({
+        UserPoolId: userPoolId,
+        Filter: `sub = "${identifier}"`,
+        Limit: 1,
+      }));
+      if (listRes?.Users && listRes.Users.length > 0) {
+        return listRes.Users[0];
+      }
+    } catch (err) {
+      console.warn(`Cognito ListUsers by sub failed for ${identifier}:`, err);
+    }
+  }
+
+  // 2. Try AdminGetUser (matches Username exactly)
+  try {
+    const userRes = await cognito.send(new AdminGetUserCommand({
+      UserPoolId: userPoolId,
+      Username: identifier,
+    }));
+    if (userRes) return userRes;
+  } catch (err) {
+    if (err.name !== 'UserNotFoundException') {
+      console.warn(`Cognito AdminGetUser failed for ${identifier}:`, err);
+    }
+  }
+
+  // 3. Try ListUsers by email
+  if (identifier.includes('@')) {
+    try {
+      const listRes = await cognito.send(new ListUsersCommand({
+        UserPoolId: userPoolId,
+        Filter: `email = "${identifier}"`,
+        Limit: 1,
+      }));
+      if (listRes?.Users && listRes.Users.length > 0) {
+        return listRes.Users[0];
+      }
+    } catch (err) {
+      console.warn(`Cognito ListUsers by email failed for ${identifier}:`, err);
+    }
+  }
+
+  // 4. Fallback: if not UUID or email, try sub filter anyway
+  if (!isUuid) {
+    try {
+      const listRes = await cognito.send(new ListUsersCommand({
+        UserPoolId: userPoolId,
+        Filter: `sub = "${identifier}"`,
+        Limit: 1,
+      }));
+      if (listRes?.Users && listRes.Users.length > 0) {
+        return listRes.Users[0];
+      }
+    } catch (_) {}
+  }
+
+  return null;
+}
+
+function mapRecentRequest(rawItem) {
+  const item = unwrap(rawItem) || {};
+  return {
+    requestId: String(item.requestId || ''),
+    timestamp: Number(item.timestamp) || 0,
+    status: String(item.status || 'success'),
+    errorType: String(item.errorType || ''),
+    durationMs: Number(item.durationMs ?? item.renderDurationMs) || 0,
+    size: Number(item.size) || 0,
+  };
+}
+
+async function getRecentRequestsForUser(userId) {
+  const tableName = process.env.TABLE_NAME || TABLE_NAME || 'RenderPdfTable';
+
+  // 1. Try querying CustomerIdDateIndex
+  try {
+    const res = await ddb.send(new QueryCommand({
+      TableName: tableName,
+      IndexName: 'CustomerIdDateIndex',
+      KeyConditionExpression: 'customerId = :cid',
+      ExpressionAttributeValues: { ':cid': { S: userId } },
+      ScanIndexForward: false,
+      Limit: 25,
+    }));
+    if (res?.Items && res.Items.length > 0) {
+      return res.Items.map(mapRecentRequest);
+    }
+  } catch (_) {
+    // If index query fails or does not exist, continue to fallback
+  }
+
+  // 2. Try customer partition CUSTOMER#<userId>
+  try {
+    const res = await ddb.send(new QueryCommand({
+      TableName: tableName,
+      KeyConditionExpression: 'requestId = :pk',
+      ExpressionAttributeValues: { ':pk': { S: `CUSTOMER#${userId}` } },
+      ScanIndexForward: false,
+      Limit: 25,
+    }));
+    if (res?.Items && res.Items.length > 0) {
+      return res.Items.map(mapRecentRequest);
+    }
+  } catch (_) {}
+
+  // 3. Fallback: scan recent days using queryDay
+  const logs = [];
+  const now = new Date();
+  for (let i = 0; i < 30 && logs.length < 25; i++) {
+    const d = new Date(now);
+    d.setUTCDate(d.getUTCDate() - i);
+    try {
+      const items = await queryDay(`USAGE#${dateKey(d)}`);
+      for (const item of items) {
+        if (stringValue(item, 'entityType') === 'PDF_REQUEST' && stringValue(item, 'customerId') === userId) {
+          logs.push(mapRecentRequest(item));
+        }
+      }
+    } catch (_) {}
+  }
+  logs.sort((a, b) => b.timestamp - a.timestamp);
+  return logs.slice(0, 25);
+}
+
+async function searchAdminUsers(request) {
+  if (!isAuthorizedAdmin(request)) {
+    return response(403, { error: 'Forbidden' });
+  }
+
+  const userPoolId = process.env.USER_POOL_ID || USER_POOL_ID || 'renderpdf-users-v2';
+  const queryParams = request?.queryStringParameters || {};
+  const q = String(queryParams.q || '').trim();
+  const tierParam = String(queryParams.tier || '').trim();
+  const statusParam = String(queryParams.status || '').trim();
+  const limitParam = positiveInteger(queryParams.limit, 25);
+  const limit = Math.min(Math.max(1, limitParam), 100);
+  const cursor = queryParams.cursor ? String(queryParams.cursor).trim() : null;
+
+  let cognitoUsers = [];
+  let nextCursor = null;
+
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(q);
+
+  if (isUuid) {
+    const singleUser = await findCognitoUser(userPoolId, q);
+    if (singleUser) {
+      cognitoUsers = [singleUser];
+    }
+  } else {
+    const listParams = {
+      UserPoolId: userPoolId,
+      Limit: limit,
+    };
+    if (cursor) {
+      listParams.PaginationToken = cursor;
+    }
+    if (q) {
+      listParams.Filter = `email ^= "${q}"`;
+    }
+    try {
+      const listRes = await cognito.send(new ListUsersCommand(listParams));
+      cognitoUsers = listRes?.Users || [];
+      nextCursor = listRes?.PaginationToken || null;
+    } catch (err) {
+      console.error('Cognito ListUsers error:', err);
+      return response(500, { error: 'Could not list users' });
+    }
+  }
+
+  if (cognitoUsers.length === 0) {
+    return response(200, { users: [], nextCursor: null });
+  }
+
+  const now = new Date();
+  const currentMonth = dateKey(now).slice(0, 7);
+  const tableName = process.env.TABLE_NAME || TABLE_NAME || 'RenderPdfTable';
+  const apiKeysTable = process.env.API_KEYS_TABLE || API_KEYS_TABLE;
+
+  const keys = [];
+  for (const u of cognitoUsers) {
+    const uid = getCognitoAttr(u, 'sub') || u.Username;
+    if (uid) {
+      keys.push({ requestId: { S: `BILLING#${uid}` }, timestamp: { N: '0' } });
+      keys.push({ requestId: { S: `USER_QUOTA#${uid}#${currentMonth}` }, timestamp: { N: '0' } });
+    }
+  }
+
+  const billingMap = new Map();
+  const quotaMap = new Map();
+
+  if (keys.length > 0) {
+    try {
+      for (let i = 0; i < keys.length; i += 100) {
+        const chunk = keys.slice(i, i + 100);
+        const batchRes = await ddb.send(new BatchGetItemCommand({
+          RequestItems: { [tableName]: { Keys: chunk } },
+        }));
+        const rawItems = batchRes?.Responses?.[tableName]
+          || (TABLE_NAME && batchRes?.Responses?.[TABLE_NAME])
+          || (batchRes?.Responses && Object.values(batchRes.Responses)[0])
+          || [];
+        for (const raw of rawItems) {
+          const item = unwrap(raw) || {};
+          const reqId = String(item.requestId || '');
+          if (reqId.startsWith('BILLING#')) {
+            const uid = reqId.slice('BILLING#'.length);
+            billingMap.set(uid, item);
+          } else if (reqId.startsWith('USER_QUOTA#')) {
+            const parts = reqId.split('#');
+            const uid = parts[1];
+            quotaMap.set(uid, item);
+          }
+        }
+      }
+    } catch (err) {
+      console.error('BatchGetItem error in searchAdminUsers:', err);
+    }
+  }
+
+  const activeKeysMap = new Map();
+  if (apiKeysTable) {
+    await Promise.all(cognitoUsers.map(async (u) => {
+      const uid = getCognitoAttr(u, 'sub') || u.Username;
+      if (!uid) return;
+      try {
+        const keysRes = await ddb.send(new QueryCommand({
+          TableName: apiKeysTable,
+          KeyConditionExpression: 'PK = :pk AND begins_with(SK, :sk)',
+          ExpressionAttributeValues: {
+            ':pk': { S: `USER#${uid}` },
+            ':sk': { S: 'APIKEY#' },
+          },
+        }));
+        const count = (keysRes.Items || []).filter((k) => {
+          const item = unwrap(k);
+          return item.isActive !== false;
+        }).length;
+        activeKeysMap.set(uid, count);
+      } catch (_) {
+        activeKeysMap.set(uid, 0);
+      }
+    }));
+  }
+
+  const assembledUsers = cognitoUsers.map((u) => {
+    const uid = getCognitoAttr(u, 'sub') || u.Username;
+    const billing = billingMap.get(uid) || {};
+    const quota = quotaMap.get(uid) || {};
+
+    const tier = billing.tier || 'free';
+    const status = billing.status || 'active';
+    const manualOverride = Boolean(billing.manualOverride === true || billing.manualOverride === 'true');
+    const provider = billing.provider || (billing.subscriptionId ? 'paddle' : (manualOverride ? 'manual' : 'paddle'));
+    const quotaUsed = Number(quota.used) || 0;
+    const baseQuota = monthlyQuotaForBilling({ tier, status });
+    const quotaLimit = Number(quota.limit) || baseQuota;
+    const activeKeys = activeKeysMap.get(uid) || 0;
+
+    return {
+      id: uid,
+      email: getCognitoAttr(u, 'email'),
+      tier,
+      status,
+      provider,
+      manualOverride,
+      quotaUsed,
+      quotaLimit,
+      quotaMonth: currentMonth,
+      activeKeys,
+      createdAt: formatCognitoDate(u.UserCreateDate),
+    };
+  });
+
+  let filteredUsers = assembledUsers;
+  if (tierParam && tierParam.toLowerCase() !== 'all') {
+    filteredUsers = filteredUsers.filter((u) => u.tier.toLowerCase() === tierParam.toLowerCase());
+  }
+  if (statusParam && statusParam.toLowerCase() !== 'all') {
+    filteredUsers = filteredUsers.filter((u) => u.status.toLowerCase() === statusParam.toLowerCase());
+  }
+
+  return response(200, {
+    users: filteredUsers,
+    nextCursor,
+  });
+}
+
+async function readAdminUserDossier(request, explicitUserId = null) {
+  if (!isAuthorizedAdmin(request)) {
+    return response(403, { error: 'Forbidden' });
+  }
+
+  const userIdParam = explicitUserId || request?.pathParameters?.userId || request?.queryStringParameters?.userId;
+  const routeParam = request?.queryStringParameters?.route || request?.queryStringParameters?.view || '';
+  const match = (routeParam ? (routeParam.startsWith('/') ? routeParam : `/${routeParam}`) : (request?.path || request?.resource || '')).match(/\/(?:admin\/)?users\/([^/?#]+)$/);
+  const userId = (userIdParam && userIdParam !== '{userId}') ? userIdParam : (match ? match[1] : null);
+
+  if (!userId || userId === 'users') {
+    return response(400, { error: 'userId is required' });
+  }
+
+  const userPoolId = process.env.USER_POOL_ID || USER_POOL_ID || 'renderpdf-users-v2';
+
+  // 1. Cognito user lookup (supports sub UUID, username, and email)
+  let userRes;
+  try {
+    userRes = await findCognitoUser(userPoolId, userId);
+  } catch (err) {
+    console.error(`Cognito lookup error for ${userId}:`, err);
+    return response(500, { error: 'Could not retrieve user' });
+  }
+
+  if (!userRes) {
+    return response(404, { error: 'User not found' });
+  }
+
+  const subId = getCognitoAttr(userRes, 'sub');
+  const canonicalUserId = subId || userRes.Username || userId;
+
+  const user = {
+    id: canonicalUserId,
+    email: getCognitoAttr(userRes, 'email'),
+    emailVerified: getCognitoAttr(userRes, 'email_verified') === 'true',
+    enabled: userRes.Enabled !== false,
+    createdAt: formatCognitoDate(userRes.UserCreateDate),
+  };
+
+  // 2. Billing state
+  let billingRecord = null;
+  try {
+    billingRecord = await getBilling(canonicalUserId);
+  } catch (err) {
+    console.warn(`Could not read billing state for ${canonicalUserId}:`, err);
+  }
+
+  const tier = billingRecord?.tier || 'free';
+  const status = billingRecord?.status || 'active';
+  const manualOverride = Boolean(billingRecord?.manualOverride === true || billingRecord?.manualOverride === 'true');
+  const provider = billingRecord?.provider || (billingRecord?.subscriptionId ? 'paddle' : (manualOverride ? 'manual' : (tier === 'free' ? 'none' : 'paddle')));
+  const plan = billingRecord?.plan || (tier === 'free' ? 'Free' : planNameForTier(tier));
+
+  const billing = {
+    tier,
+    status,
+    plan,
+    provider,
+    manualOverride,
+    subscriptionId: billingRecord?.subscriptionId || null,
+    renewsAt: billingRecord?.renewsAt || null,
+  };
+
+  // 3. Quota state
+  const now = new Date();
+  const currentMonth = dateKey(now).slice(0, 7);
+  let quotaRecord = { used: 0, limit: 0 };
+  try {
+    quotaRecord = await getQuotaRecord(canonicalUserId, now);
+  } catch (err) {
+    console.warn(`Could not read quota record for ${canonicalUserId}:`, err);
+  }
+
+  const baseQuota = monthlyQuotaForBilling(billingRecord);
+  const quotaLimit = Math.max(quotaRecord.limit || 0, baseQuota);
+  const quotaUsed = quotaRecord.used || 0;
+
+  const quota = {
+    month: currentMonth,
+    used: quotaUsed,
+    limit: quotaLimit,
+    remaining: Math.max(0, quotaLimit - quotaUsed),
+  };
+
+  // 4. Active API Keys
+  const apiKeysTable = process.env.API_KEYS_TABLE || API_KEYS_TABLE;
+  let apiKeys = [];
+  if (apiKeysTable) {
+    try {
+      const keysRes = await ddb.send(new QueryCommand({
+        TableName: apiKeysTable,
+        KeyConditionExpression: 'PK = :pk AND begins_with(SK, :sk)',
+        ExpressionAttributeValues: {
+          ':pk': { S: `USER#${canonicalUserId}` },
+          ':sk': { S: 'APIKEY#' },
+        },
+      }));
+      apiKeys = (keysRes.Items || []).map((raw) => {
+        const item = unwrap(raw) || {};
+        return {
+          keyId: String(item.keyId || ''),
+          name: String(item.name || ''),
+          isActive: item.isActive !== false,
+          createdAt: Number(item.createdAt) || 0,
+          lastUsed: item.lastUsed != null ? Number(item.lastUsed) : null,
+        };
+      });
+    } catch (err) {
+      console.warn(`Could not query API keys for user ${canonicalUserId}:`, err);
+    }
+  }
+
+  // 5. Recent Request Telemetry
+  let recentRequests = [];
+  try {
+    recentRequests = await getRecentRequestsForUser(canonicalUserId);
+  } catch (err) {
+    console.warn(`Could not query recent requests for user ${canonicalUserId}:`, err);
+  }
+
+  return response(200, {
+    user,
+    billing,
+    quota,
+    apiKeys,
+    recentRequests,
+  });
+}
+
+function getAdminEmail(request) {
+  const claims = request?.requestContext?.authorizer?.claims;
+  return claims?.email || claims?.username || claims?.sub || 'admin';
+}
+
+function parseJsonBody(request) {
+  if (!request?.body) return {};
+  if (typeof request.body === 'object') return request.body;
+  try {
+    return JSON.parse(request.body);
+  } catch {
+    return null;
+  }
+}
+
+async function recordAdminAudit({ adminEmail, targetUserId, action, reason, details }) {
+  const now = new Date();
+  const dateKey = now.toISOString().slice(0, 10);
+  const auditId = crypto.randomUUID ? crypto.randomUUID() : `audit-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const expiresAt = Math.floor(now.getTime() / 1000) + (365 * 86400);
+
+  await ddb.send(new PutItemCommand({
+    TableName: TABLE_NAME,
+    Item: {
+      requestId: { S: `ADMIN_AUDIT#${dateKey}` },
+      timestamp: { N: String(Math.floor(now.getTime() / 1000)) },
+      entityType: { S: 'ADMIN_AUDIT' },
+      auditId: { S: auditId },
+      adminEmail: { S: adminEmail || 'unknown' },
+      targetUserId: { S: targetUserId || '' },
+      action: { S: action },
+      reason: { S: reason || '' },
+      details: { S: JSON.stringify(details || {}) },
+      expiresAt: { N: String(expiresAt) },
+    },
+  }));
+}
+
+async function handleAdminUserPlanOverride(request, explicitUserId = null) {
+  if (!isAuthorizedAdmin(request)) {
+    return response(403, { error: 'Forbidden' });
+  }
+
+  const userIdParam = explicitUserId || request?.pathParameters?.userId || request?.queryStringParameters?.userId;
+  const routeParam = request?.queryStringParameters?.route || request?.queryStringParameters?.view || '';
+  const match = (routeParam ? (routeParam.startsWith('/') ? routeParam : `/${routeParam}`) : (request?.path || request?.resource || '')).match(/\/(?:admin\/)?users\/([^/?#]+)\/plan$/);
+  const userId = (userIdParam && userIdParam !== '{userId}') ? userIdParam : (match ? match[1] : null);
+
+  if (!userId || userId === 'users') {
+    return response(400, { error: 'userId is required' });
+  }
+
+  const body = parseJsonBody(request);
+  if (!body) {
+    return response(400, { error: 'Invalid JSON body' });
+  }
+
+  const tier = String(body.tier || '').toLowerCase().trim();
+  const validTiers = ['free', 'starter', 'pro', 'enterprise'];
+  if (!validTiers.includes(tier)) {
+    return response(400, { error: `Invalid tier. Allowed tiers: ${validTiers.join(', ')}` });
+  }
+
+  const reason = String(body.reason || '').trim();
+  if (!reason) {
+    return response(400, { error: 'Reason is required for audit trail' });
+  }
+
+  const manualOverride = body.manualOverride !== undefined ? Boolean(body.manualOverride) : true;
+  const customMonthlyQuota = body.customMonthlyQuota != null && body.customMonthlyQuota !== '' ? parseInt(body.customMonthlyQuota, 10) : null;
+  const quotaLimit = (customMonthlyQuota != null && !isNaN(customMonthlyQuota) && customMonthlyQuota > 0)
+    ? customMonthlyQuota
+    : (PLAN_QUOTAS[tier] || PLAN_QUOTAS.pro);
+
+  const adminEmail = getAdminEmail(request);
+  const now = new Date();
+  const occurredAtIso = now.toISOString();
+
+  let previousBilling = null;
+  try {
+    previousBilling = await getBilling(userId);
+  } catch (err) {
+    console.warn(`Could not read previous billing for ${userId}:`, err);
+  }
+
+  // 1. Update BILLING#<userId>
+  const planName = planNameForTier(tier, 'month');
+  await ddb.send(new UpdateItemCommand({
+    TableName: TABLE_NAME,
+    Key: { requestId: { S: `BILLING#${userId}` }, timestamp: { N: '0' } },
+    UpdateExpression: 'SET entityType = :entity, customerId = :customerId, #tier = :tier, #status = :status, #plan = :plan, manualOverride = :manualOverride, overrideReason = :reason, overrideSetBy = :admin, overrideSetAt = :setAt, updatedAt = :updatedAt',
+    ExpressionAttributeNames: {
+      '#tier': 'tier',
+      '#status': 'status',
+      '#plan': 'plan',
+    },
+    ExpressionAttributeValues: {
+      ':entity': { S: 'BILLING' },
+      ':customerId': { S: userId },
+      ':tier': { S: tier },
+      ':status': { S: 'active' },
+      ':plan': { S: planName },
+      ':manualOverride': { BOOL: manualOverride },
+      ':reason': { S: reason },
+      ':admin': { S: adminEmail },
+      ':setAt': { S: occurredAtIso },
+      ':updatedAt': { N: String(Math.floor(now.getTime() / 1000)) },
+    },
+  }));
+
+  // 2. Update USER_QUOTA#<userId>#YYYY-MM
+  const month = dateKey(now).slice(0, 7);
+  const quotaKey = `USER_QUOTA#${userId}#${month}`;
+  const expiresAt = Math.floor(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 2, 1)).getTime() / 1000);
+  await ddb.send(new UpdateItemCommand({
+    TableName: TABLE_NAME,
+    Key: { requestId: { S: quotaKey }, timestamp: { N: '0' } },
+    UpdateExpression: 'SET #limit = :limit, entityType = :entity, expiresAt = :expiresAt, #used = if_not_exists(#used, :zero)',
+    ExpressionAttributeNames: { '#limit': 'limit', '#used': 'used' },
+    ExpressionAttributeValues: {
+      ':limit': { N: String(quotaLimit) },
+      ':entity': { S: 'USER_QUOTA' },
+      ':expiresAt': { N: String(expiresAt) },
+      ':zero': { N: '0' },
+    },
+  }));
+
+  // 3. Sync API Gateway Usage Plans
+  try {
+    await syncUserUsagePlans(userId, tier);
+  } catch (syncErr) {
+    console.warn(`Could not sync usage plans for user ${userId}:`, syncErr);
+  }
+
+  // 4. Audit Log
+  await recordAdminAudit({
+    adminEmail,
+    targetUserId: userId,
+    action: 'PLAN_OVERRIDE',
+    reason,
+    details: {
+      previousTier: previousBilling?.tier || 'free',
+      newTier: tier,
+      manualOverride,
+      customMonthlyQuota: customMonthlyQuota || null,
+      quotaLimit,
+    },
+  });
+
+  return response(200, {
+    success: true,
+    userId,
+    tier,
+    manualOverride,
+    quotaLimit,
+  });
+}
+
+async function handleAdminUserQuotaAdjust(request, explicitUserId = null) {
+  if (!isAuthorizedAdmin(request)) {
+    return response(403, { error: 'Forbidden' });
+  }
+
+  const userIdParam = explicitUserId || request?.pathParameters?.userId || request?.queryStringParameters?.userId;
+  const routeParam = request?.queryStringParameters?.route || request?.queryStringParameters?.view || '';
+  const match = (routeParam ? (routeParam.startsWith('/') ? routeParam : `/${routeParam}`) : (request?.path || request?.resource || '')).match(/\/(?:admin\/)?users\/([^/?#]+)\/quota$/);
+  const userId = (userIdParam && userIdParam !== '{userId}') ? userIdParam : (match ? match[1] : null);
+
+  if (!userId || userId === 'users') {
+    return response(400, { error: 'userId is required' });
+  }
+
+  const body = parseJsonBody(request);
+  if (!body) {
+    return response(400, { error: 'Invalid JSON body' });
+  }
+
+  const action = String(body.action || '').toLowerCase().trim();
+  const validActions = ['add_credits', 'set_limit', 'reset_usage'];
+  if (!validActions.includes(action)) {
+    return response(400, { error: `Invalid action. Allowed actions: ${validActions.join(', ')}` });
+  }
+
+  const reason = String(body.reason || '').trim();
+  if (!reason) {
+    return response(400, { error: 'Reason is required for audit trail' });
+  }
+
+  const now = new Date();
+  const month = dateKey(now).slice(0, 7);
+  let quotaRecord = { used: 0, limit: 0 };
+  try {
+    quotaRecord = await getQuotaRecord(userId, now);
+  } catch (err) {
+    console.warn(`Could not read quota record for ${userId}:`, err);
+  }
+
+  let currentLimit = quotaRecord.limit || 0;
+  const currentUsed = quotaRecord.used || 0;
+  if (currentLimit === 0) {
+    let billing = null;
+    try {
+      billing = await getBilling(userId);
+    } catch (_) {}
+    currentLimit = monthlyQuotaForBilling(billing);
+  }
+
+  let newLimit = currentLimit;
+  let newUsed = currentUsed;
+
+  if (action === 'add_credits') {
+    const amount = parseInt(body.amount, 10);
+    if (isNaN(amount) || amount <= 0) {
+      return response(400, { error: 'amount must be a positive integer' });
+    }
+    newLimit = currentLimit + amount;
+  } else if (action === 'set_limit') {
+    const amount = parseInt(body.amount, 10);
+    if (isNaN(amount) || amount < 0) {
+      return response(400, { error: 'amount must be a non-negative integer' });
+    }
+    newLimit = amount;
+  } else if (action === 'reset_usage') {
+    newUsed = 0;
+  }
+
+  const quotaKey = `USER_QUOTA#${userId}#${month}`;
+  const expiresAt = Math.floor(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 2, 1)).getTime() / 1000);
+
+  await ddb.send(new UpdateItemCommand({
+    TableName: TABLE_NAME,
+    Key: { requestId: { S: quotaKey }, timestamp: { N: '0' } },
+    UpdateExpression: 'SET #limit = :limit, #used = :used, entityType = :entity, expiresAt = :expiresAt',
+    ExpressionAttributeNames: { '#limit': 'limit', '#used': 'used' },
+    ExpressionAttributeValues: {
+      ':limit': { N: String(newLimit) },
+      ':used': { N: String(newUsed) },
+      ':entity': { S: 'USER_QUOTA' },
+      ':expiresAt': { N: String(expiresAt) },
+    },
+  }));
+
+  const adminEmail = getAdminEmail(request);
+  await recordAdminAudit({
+    adminEmail,
+    targetUserId: userId,
+    action: 'QUOTA_ADJUST',
+    reason,
+    details: {
+      action,
+      amount: body.amount != null ? body.amount : null,
+      previousUsed: currentUsed,
+      previousLimit: currentLimit,
+      newUsed,
+      newLimit,
+      month,
+    },
+  });
+
+  return response(200, {
+    success: true,
+    userId,
+    month,
+    used: newUsed,
+    limit: newLimit,
+    remaining: Math.max(0, newLimit - newUsed),
+  });
+}
+
 let publicStatsCache = null;
 let publicStatsCachedAt = 0;
 const PUBLIC_STATS_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -1379,6 +2229,10 @@ async function getBilling(userId) {
       tier: stringValue(result.Item, 'tier'),
       status: stringValue(result.Item, 'status'),
       plan: stringValue(result.Item, 'plan'),
+      provider: stringValue(result.Item, 'provider'),
+      manualOverride: result.Item.manualOverride?.BOOL != null
+        ? result.Item.manualOverride.BOOL
+        : (result.Item.manualOverride?.S === 'true' || Boolean(unwrap(result.Item.manualOverride))),
       renewsAt: stringValue(result.Item, 'renewsAt'),
       endsAt: stringValue(result.Item, 'endsAt'),
       scheduledAction: stringValue(result.Item, 'scheduledAction'),
@@ -1403,7 +2257,8 @@ async function getQuotaRecord(userId, monthStart) {
 }
 
 function monthlyQuotaForBilling(billing) {
-  return billing && ['active', 'trialing', 'past_due'].includes(billing.status)
+  if (!billing || !billing.tier || billing.tier === 'free') return FREE_MONTHLY_QUOTA;
+  return ['active', 'trialing', 'past_due'].includes(billing.status)
     ? (PLAN_QUOTAS[billing.tier] || PLAN_QUOTAS.pro)
     : FREE_MONTHLY_QUOTA;
 }
@@ -1452,6 +2307,18 @@ async function creditOverage(userId, transactionId, eventId, occurredAt) {
 
 async function saveBillingWebhook(userId, subscriptionId, attributes, eventId, occurredAt, eventType = '') {
   const previousBilling = await getBilling(userId);
+  if (previousBilling?.manualOverride === true) {
+    const isDowngradeOrCancel =
+      ['subscription.canceled', 'subscription.paused', 'subscription.past_due'].includes(eventType) ||
+      attributes?.status === 'canceled' ||
+      attributes?.status === 'past_due';
+
+    if (isDowngradeOrCancel) {
+      console.log(`Paddle webhook ignored: manualOverride is active for user ${userId} (${eventType})`);
+      return; // Preserve the admin's manual plan
+    }
+  }
+
   const fields = billingFields(userId, subscriptionId, attributes, eventId, occurredAt);
   const names = {};
   const values = {};
@@ -1462,6 +2329,11 @@ async function saveBillingWebhook(userId, subscriptionId, attributes, eventId, o
     names[token] = name;
     values[valueToken] = value;
     updates.push(`${token} = ${valueToken}`);
+  }
+  if (previousBilling?.manualOverride === true) {
+    names['#manualOverride'] = 'manualOverride';
+    values[':manualOverride'] = { BOOL: false };
+    updates.push('#manualOverride = :manualOverride');
   }
   names['#eventTime'] = 'paddleEventOccurredAtMs';
   names['#eventId'] = 'paddleEventId';
@@ -1545,7 +2417,7 @@ async function syncUserUsagePlans(userId, tier) {
   if (!freePlanId && !starterPlanId && !proPlanId) return;
   if (!apiKeysTable || !userId) return;
 
-  const targetPlanId = tier === 'pro' ? (proPlanId || freePlanId)
+  const targetPlanId = (tier === 'pro' || tier === 'enterprise') ? (proPlanId || freePlanId)
     : tier === 'starter' ? (starterPlanId || freePlanId)
     : freePlanId;
 
@@ -1654,8 +2526,12 @@ function publicBilling(billing) {
 }
 
 function planNameForTier(tier, interval = 'month') {
+  if (tier === 'free') return 'RenderPDF Free';
   if (tier === 'starter') {
     return interval === 'year' ? 'RenderPDF Starter (Annual)' : 'RenderPDF Starter';
+  }
+  if (tier === 'enterprise') {
+    return 'RenderPDF Enterprise';
   }
   return interval === 'year' ? 'RenderPDF Professional (Annual)' : 'RenderPDF Professional';
 }
@@ -1726,12 +2602,20 @@ function parseDays(value, fallback = DEFAULT_DAYS) {
 }
 
 function stringValue(item, key) {
-  return item?.[key]?.S || '';
+  return item?.[key]?.S || (typeof item?.[key] === 'string' ? item[key] : '');
 }
 
 function numberValue(item, key) {
-  const value = Number.parseInt(item?.[key]?.N || '0', 10);
-  return Number.isFinite(value) ? value : 0;
+  if (item?.[key]?.N != null) {
+    const value = Number.parseInt(item[key].N, 10);
+    return Number.isFinite(value) ? value : 0;
+  }
+  if (typeof item?.[key] === 'number') return item[key];
+  if (typeof item?.[key] === 'string') {
+    const parsed = Number.parseInt(item[key], 10);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  return 0;
 }
 
 function limitString(value, max) {
@@ -1786,4 +2670,228 @@ exports.isAuthorizedAdmin = isAuthorizedAdmin;
 exports.aggregateDayData = aggregateDayData;
 exports.recordPublicEvent = recordPublicEvent;
 exports.dateKey = dateKey;
+exports.cognito = cognito;
+exports.searchAdminUsers = searchAdminUsers;
+exports.readAdminUserDossier = readAdminUserDossier;
+exports.getCognitoAttr = getCognitoAttr;
+exports.getRecentRequestsForUser = getRecentRequestsForUser;
+exports.findCognitoUser = findCognitoUser;
+exports.handleAdminUserPlanOverride = handleAdminUserPlanOverride;
+exports.handleAdminUserQuotaAdjust = handleAdminUserQuotaAdjust;
+exports.recordAdminAudit = recordAdminAudit;
+exports.handleAdminUserStatus = handleAdminUserStatus;
+exports.handleAdminKeyRevoke = handleAdminKeyRevoke;
+exports.listAdminAuditLogs = listAdminAuditLogs;
+exports.handleChatMessage = handleChatMessage;
+exports.buildSystemPrompt = buildSystemPrompt;
+exports.listAdminChats = listAdminChats;
+exports.getAdminChatTranscript = getAdminChatTranscript;
+exports.postAdminChatReply = postAdminChatReply;
+exports.updateAdminChatStatus = updateAdminChatStatus;
 
+// ─── GOVERNANCE APIS ──────────────────────────────────────────────────────────
+
+/**
+ * POST /api/v1/admin/users/{userId}/status
+ * Body: { action: "disable" | "enable", reason }
+ */
+async function handleAdminUserStatus(request, explicitUserId) {
+  if (!isAuthorizedAdmin(request)) {
+    return response(403, { error: 'Forbidden' });
+  }
+
+  const routeParam = request?.queryStringParameters?.route || '';
+  const routePath = routeParam
+    ? (routeParam.startsWith('/') ? routeParam : `/${routeParam}`)
+    : (request?.path || request?.resource || '');
+  const match = routePath.match(/\/(?:admin\/)?users\/([^/?#]+)\/status$/);
+  const userIdParam = explicitUserId || request?.pathParameters?.userId;
+  const userId = (userIdParam && userIdParam !== '{userId}') ? userIdParam : (match ? match[1] : null);
+
+  if (!userId || userId === 'users') {
+    return response(400, { error: 'userId is required' });
+  }
+
+  const body = parseJsonBody(request);
+  if (!body) return response(400, { error: 'Invalid JSON body' });
+
+  const action = String(body.action || '').toLowerCase().trim();
+  if (action !== 'disable' && action !== 'enable') {
+    return response(400, { error: 'action must be "disable" or "enable"' });
+  }
+
+  const reason = String(body.reason || '').trim();
+  if (!reason) return response(400, { error: 'Reason is required for audit trail' });
+
+  const userPoolId = process.env.USER_POOL_ID || USER_POOL_ID;
+  const adminEmail = getAdminEmail(request);
+
+  const CognitoCmd = action === 'disable' ? AdminDisableUserCommand : AdminEnableUserCommand;
+  await cognito.send(new CognitoCmd({ UserPoolId: userPoolId, Username: userId }));
+
+  if (action === 'disable') {
+    const apiKeysTable = process.env.API_KEYS_TABLE || API_KEYS_TABLE;
+    if (apiKeysTable) {
+      try {
+        const keysResult = await ddb.send(new QueryCommand({
+          TableName: apiKeysTable,
+          KeyConditionExpression: 'PK = :pk AND begins_with(SK, :sk)',
+          ExpressionAttributeValues: {
+            ':pk': { S: `USER#${userId}` },
+            ':sk': { S: 'APIKEY#' },
+          },
+        }));
+        for (const item of (keysResult.Items || [])) {
+          const sk = item.SK?.S;
+          if (!sk) continue;
+          await ddb.send(new UpdateItemCommand({
+            TableName: apiKeysTable,
+            Key: { PK: { S: `USER#${userId}` }, SK: { S: sk } },
+            UpdateExpression: 'SET isActive = :false',
+            ExpressionAttributeValues: { ':false': { BOOL: false } },
+          }));
+        }
+      } catch (err) {
+        console.warn(`Could not deactivate API keys for user ${userId}:`, err);
+      }
+    }
+  }
+
+  await recordAdminAudit({
+    adminEmail,
+    targetUserId: userId,
+    action: action === 'disable' ? 'USER_SUSPEND' : 'USER_ACTIVATE',
+    reason,
+    details: { cognitoAction: action },
+  });
+
+  return response(200, { success: true, userId, action });
+}
+
+/**
+ * POST /api/v1/admin/users/{userId}/keys/{keyId}/revoke
+ * Body: { reason }
+ */
+async function handleAdminKeyRevoke(request, explicitUserId, explicitKeyId) {
+  if (!isAuthorizedAdmin(request)) {
+    return response(403, { error: 'Forbidden' });
+  }
+
+  const routeParam = request?.queryStringParameters?.route || '';
+  const routePath = routeParam
+    ? (routeParam.startsWith('/') ? routeParam : `/${routeParam}`)
+    : (request?.path || request?.resource || '');
+  const routeMatch = routePath.match(/\/(?:admin\/)?users\/([^/?#]+)\/keys\/([^/?#]+)\/revoke$/);
+
+  const userIdParam = explicitUserId || request?.pathParameters?.userId;
+  const keyIdParam = explicitKeyId || request?.pathParameters?.keyId;
+  const userId = (userIdParam && userIdParam !== '{userId}') ? userIdParam : (routeMatch ? routeMatch[1] : null);
+  const keyId = (keyIdParam && keyIdParam !== '{keyId}') ? keyIdParam : (routeMatch ? routeMatch[2] : null);
+
+  if (!userId || userId === 'users') return response(400, { error: 'userId is required' });
+  if (!keyId) return response(400, { error: 'keyId is required' });
+
+  const body = parseJsonBody(request);
+  if (!body) return response(400, { error: 'Invalid JSON body' });
+
+  const reason = String(body.reason || '').trim();
+  if (!reason) return response(400, { error: 'Reason is required for audit trail' });
+
+  const apiKeysTable = process.env.API_KEYS_TABLE || API_KEYS_TABLE;
+  const adminEmail = getAdminEmail(request);
+
+  let apiGatewayKeyId = null;
+  if (apiKeysTable) {
+    const keysResult = await ddb.send(new QueryCommand({
+      TableName: apiKeysTable,
+      KeyConditionExpression: 'PK = :pk AND SK = :sk',
+      ExpressionAttributeValues: {
+        ':pk': { S: `USER#${userId}` },
+        ':sk': { S: `APIKEY#${keyId}` },
+      },
+    }));
+    const keyItem = (keysResult.Items || [])[0];
+    apiGatewayKeyId = keyItem?.apiGatewayKeyId?.S || null;
+
+    await ddb.send(new UpdateItemCommand({
+      TableName: apiKeysTable,
+      Key: { PK: { S: `USER#${userId}` }, SK: { S: `APIKEY#${keyId}` } },
+      UpdateExpression: 'SET isActive = :false',
+      ExpressionAttributeValues: { ':false': { BOOL: false } },
+    }));
+  }
+
+  if (apiGatewayKeyId) {
+    const freePlanId = process.env.FREE_USAGE_PLAN_ID || FREE_USAGE_PLAN_ID;
+    const starterPlanId = process.env.STARTER_USAGE_PLAN_ID || STARTER_USAGE_PLAN_ID;
+    const proPlanId = process.env.PRO_USAGE_PLAN_ID || PRO_USAGE_PLAN_ID;
+    for (const planId of [freePlanId, starterPlanId, proPlanId].filter(Boolean)) {
+      try {
+        await apigw.send(new DeleteUsagePlanKeyCommand({ UsagePlanId: planId, KeyId: apiGatewayKeyId }));
+      } catch (_) {
+        // Key may not be in this plan — ignore
+      }
+    }
+  }
+
+  await recordAdminAudit({
+    adminEmail,
+    targetUserId: userId,
+    action: 'KEY_REVOKE',
+    reason,
+    details: { keyId, apiGatewayKeyId },
+  });
+
+  return response(200, { success: true, userId, keyId });
+}
+
+/**
+ * GET /api/v1/admin/audit-logs?days={days}&limit={limit}
+ * Queries ADMIN_AUDIT#YYYY-MM-DD partitions across the requested days.
+ * Returns { logs: [...], count } sorted by timestamp descending.
+ */
+async function listAdminAuditLogs(request) {
+  if (!isAuthorizedAdmin(request)) {
+    return response(403, { error: 'Forbidden' });
+  }
+
+  const qs = request?.queryStringParameters || {};
+  const days = Math.min(Math.max(parseInt(qs.days, 10) || 30, 1), 90);
+  const limitParam = Math.min(Math.max(parseInt(qs.limit, 10) || 100, 1), 500);
+
+  const now = new Date();
+  const allLogs = [];
+  for (let i = 0; i < days; i++) {
+    const d = new Date(now);
+    d.setUTCDate(d.getUTCDate() - i);
+    const dk = d.toISOString().slice(0, 10);
+    try {
+      const result = await ddb.send(new QueryCommand({
+        TableName: TABLE_NAME,
+        KeyConditionExpression: 'requestId = :pk',
+        ExpressionAttributeValues: { ':pk': { S: `ADMIN_AUDIT#${dk}` } },
+        ScanIndexForward: false,
+        Limit: limitParam,
+      }));
+      const items = (result.Items || []).map((item) => ({
+        requestId: item.requestId?.S,
+        timestamp: Number(item.timestamp?.N || 0),
+        auditId: item.auditId?.S,
+        adminEmail: item.adminEmail?.S,
+        targetUserId: item.targetUserId?.S,
+        action: item.action?.S,
+        reason: item.reason?.S,
+        details: (() => { try { return JSON.parse(item.details?.S || '{}'); } catch (_) { return {}; } })(),
+      }));
+      allLogs.push(...items);
+      if (allLogs.length >= limitParam) break;
+    } catch (err) {
+      console.warn(`Could not query audit logs for ADMIN_AUDIT#${dk}:`, err);
+    }
+  }
+
+  allLogs.sort((a, b) => b.timestamp - a.timestamp);
+  const page = allLogs.slice(0, limitParam);
+
+  return response(200, { logs: page, count: page.length });
+}

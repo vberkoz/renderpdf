@@ -182,6 +182,12 @@
   font-weight: 700;
 }
 
+.legal-callout-icon svg {
+  width: 12px;
+  height: 12px;
+  stroke-width: 2.5;
+}
+
 .legal-callout-content {
   display: flex;
   flex-direction: column;

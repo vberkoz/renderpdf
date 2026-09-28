@@ -7,7 +7,7 @@ window.customSelect = (() => {
     const parts = (select) => ({
         trigger: select.querySelector('.custom-select-trigger'),
         menu: select.querySelector('.custom-select-menu'),
-        input: select.querySelector('input[type="hidden"]'),
+        input: select.querySelector('input[type="hidden"], select'),
         value: select.querySelector('.custom-select-value'),
         label: select.querySelector('.custom-select-label')
     });
@@ -16,7 +16,7 @@ window.customSelect = (() => {
     function ensureConstruct(select) {
         const { trigger, value, label } = parts(select);
         if (!trigger || !value || !label) return false;
-        const input = select.querySelector('input[type="hidden"]');
+        const input = select.querySelector('input[type="hidden"], select');
         const baseId = input?.id || `custom-select-${Math.random().toString(36).slice(2)}`;
         if (!label.id) label.id = `${baseId}-label`;
         if (!value.id) value.id = `${baseId}-value-label`;
@@ -25,7 +25,7 @@ window.customSelect = (() => {
             const icon = document.createElement('span');
             icon.className = 'custom-select-icon';
             icon.setAttribute('aria-hidden', 'true');
-            icon.innerHTML = '<svg viewBox="0 0 16 16" width="16" height="16" focusable="false" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"></path></svg>';
+            icon.innerHTML = '<svg class="lucide lucide-chevron-down" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
             trigger.append(icon);
         }
         return true;
@@ -82,6 +82,12 @@ window.customSelect = (() => {
         selects().forEach((select) => {
             if (!ensureConstruct(select)) return;
             const { input } = parts(select);
+            if (input && !input.dataset.customSelectBound) {
+                input.dataset.customSelectBound = 'true';
+                input.addEventListener('change', () => {
+                    sync(select, input.value, false);
+                });
+            }
             sync(select, input?.value || options(select)[0]?.dataset.value || '', false);
         });
         if (initialized) return;

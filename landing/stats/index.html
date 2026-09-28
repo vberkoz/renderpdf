@@ -102,7 +102,7 @@
                     <p>Reporting window: <strong id="reportingWindow">Last 30 days</strong></p>
                     <p>Last updated: <time id="checkedAt" aria-live="polite">Loading…</time></p>
                 </div>
-                <button id="refreshBtn" class="button button-secondary" type="button">Refresh</button>
+                <button id="refreshBtn" class="button button-secondary" type="button"><svg class="lucide lucide-rotate-cw" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg> Refresh</button>
             </section>
 
             <section class="stats-overview" aria-labelledby="overview-title">
@@ -112,25 +112,25 @@
                 </div>
                 <div class="stats-metrics stats-metrics-primary" aria-label="Key RenderPDF statistics">
                     <article data-metric>
-                        <p class="metric-group">Reliability</p>
+                        <p class="metric-group"><svg class="lucide lucide-shield-check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg> Reliability</p>
                         <h3>Success rate</h3>
                         <p id="successRate" class="metric-value" aria-live="polite">99.9%</p>
                         <p>Successful PDF responses</p>
                     </article>
                     <article data-metric>
-                        <p class="metric-group">Performance</p>
+                        <p class="metric-group"><svg class="lucide lucide-gauge" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/></svg> Performance</p>
                         <h3>p95 render time</h3>
                         <p id="p95RenderMs" class="metric-value" aria-live="polite">~450 ms</p>
                         <p>Slowest 5% of renders</p>
                     </article>
                     <article data-metric>
-                        <p class="metric-group">Performance</p>
+                        <p class="metric-group"><svg class="lucide lucide-zap" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Performance</p>
                         <h3>Average latency</h3>
                         <p id="averageRenderMs" class="metric-value" aria-live="polite">~420 ms</p>
                         <p>Mean document generation</p>
                     </article>
                     <article data-metric>
-                        <p class="metric-group">Infrastructure</p>
+                        <p class="metric-group"><svg class="lucide lucide-server" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="8" x="2" y="2" rx="2" ry="2"/><rect width="20" height="8" x="2" y="14" rx="2" ry="2"/><line x1="6" x2="6.01" y1="6" y2="6"/><line x1="6" x2="6.01" y1="18" y2="18"/></svg> Infrastructure</p>
                         <h3>Engine status</h3>
                         <p id="systemStatus" class="metric-value" aria-live="polite">Operational</p>
                         <p>Chromium on AWS Lambda</p>
@@ -374,6 +374,12 @@
 
         refreshBtn.addEventListener('click', loadPublicStats);
         loadPublicStats();
+    </script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script>
+        if (window.lucide) {
+            window.lucide.createIcons();
+        }
     </script>
 </body>
 </html>

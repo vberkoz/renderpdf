@@ -4,7 +4,7 @@
 | :--- | :--- |
 | **Task ID** | TASK-USERS-01 |
 | **Feature** | [`features/users/`](file:///Users/basilsergius/projects/renderpdf/dashboard/admin/features/users/spec.md) |
-| **Status** | Ready for Implementation |
+| **Status** | Completed |
 | **Target Files** | `analytics/index.js`, `analytics/index.test.js` |
 | **Prerequisites** | None |
 

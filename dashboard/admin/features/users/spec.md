@@ -134,6 +134,6 @@ Exports `initUserDirectoryTab()`:
 
 ## 5. Implementation Tasks
 
-- [ ] [Task 2.1: User Directory & Dossier Backend API](file:///Users/basilsergius/projects/renderpdf/dashboard/admin/features/users/tasks/01-users-api.md)
-- [ ] [Task 2.2: User Directory Table & Search UI](file:///Users/basilsergius/projects/renderpdf/dashboard/admin/features/users/tasks/02-user-table-ui.md)
-- [ ] [Task 2.3: Sliding Support Dossier Drawer UI](file:///Users/basilsergius/projects/renderpdf/dashboard/admin/features/users/tasks/03-user-dossier-drawer-ui.md)
+- [x] [Task 2.1: User Directory & Dossier Backend API](file:///Users/basilsergius/projects/renderpdf/dashboard/admin/features/users/tasks/01-users-api.md)
+- [x] [Task 2.2: User Directory Table & Search UI](file:///Users/basilsergius/projects/renderpdf/dashboard/admin/features/users/tasks/02-user-table-ui.md)
+- [x] [Task 2.3: Sliding Support Dossier Drawer UI](file:///Users/basilsergius/projects/renderpdf/dashboard/admin/features/users/tasks/03-user-dossier-drawer-ui.md)

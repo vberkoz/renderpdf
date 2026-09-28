@@ -39,9 +39,15 @@ Module.prototype.require = function (id, ...args) {
       send() {}
     }
     class AdminGetUserCommand { constructor(input) { this.input = input; } }
+    class AdminDisableUserCommand { constructor(input) { this.input = input; } }
+    class AdminEnableUserCommand { constructor(input) { this.input = input; } }
+    class ListUsersCommand { constructor(input) { this.input = input; } }
     return {
       CognitoIdentityProviderClient: MockCognitoClient,
       AdminGetUserCommand,
+      AdminDisableUserCommand,
+      AdminEnableUserCommand,
+      ListUsersCommand,
     };
   }
   if (id === '@aws-sdk/client-api-gateway') {
@@ -54,6 +60,16 @@ Module.prototype.require = function (id, ...args) {
       APIGatewayClient: MockAPIGatewayClient,
       CreateUsagePlanKeyCommand,
       DeleteUsagePlanKeyCommand,
+    };
+  }
+  if (id === '@aws-sdk/client-bedrock-runtime') {
+    class MockBedrockRuntimeClient {
+      send() {}
+    }
+    class ConverseCommand { constructor(input) { this.input = input; } }
+    return {
+      BedrockRuntimeClient: MockBedrockRuntimeClient,
+      ConverseCommand,
     };
   }
   return originalRequire.apply(this, [id, ...args]);
@@ -1672,6 +1688,1161 @@ test('readAdminAnalytics automatically aggregates raw USAGE and ANALYTICS items 
     analytics.ddb.send = origDdbSend;
   }
 });
+
+test('admin users endpoints return 403 Forbidden for non-admin callers', async () => {
+  const nonAdminEvent = {
+    resource: '/api/v1/admin/users',
+    path: '/api/v1/admin/users',
+    httpMethod: 'GET',
+    requestContext: {
+      authorizer: { claims: { email: 'regular@user.com' } },
+    },
+  };
+  const dossierEvent = {
+    resource: '/api/v1/admin/users/{userId}',
+    path: '/api/v1/admin/users/c1f7b76e-3c2e-4b21-8273-df3e18a992bc',
+    pathParameters: { userId: 'c1f7b76e-3c2e-4b21-8273-df3e18a992bc' },
+    httpMethod: 'GET',
+    requestContext: {
+      authorizer: { claims: { email: 'regular@user.com' } },
+    },
+  };
+
+  const res1 = await analytics.handler(nonAdminEvent);
+  assert.strictEqual(res1.statusCode, 403);
+
+  const res2 = await analytics.handler(dossierEvent);
+  assert.strictEqual(res2.statusCode, 403);
+
+  const res3 = await analytics.searchAdminUsers({ requestContext: {} });
+  assert.strictEqual(res3.statusCode, 403);
+
+  const res4 = await analytics.readAdminUserDossier({ requestContext: {} }, 'u1');
+  assert.strictEqual(res4.statusCode, 403);
+});
+
+test('searchAdminUsers by email prefix matches users and joins billing, quota, and active keys', async () => {
+  const origCognitoSend = analytics.cognito.send;
+  const origDdbSend = analytics.ddb.send;
+  const cognitoCommands = [];
+  const ddbCommands = [];
+
+  const userId = 'c1f7b76e-3c2e-4b21-8273-df3e18a992bc';
+  const email = 'customer@acme.com';
+
+  analytics.cognito.send = async (cmd) => {
+    cognitoCommands.push(cmd);
+    if (cmd.constructor.name === 'ListUsersCommand') {
+      assert.strictEqual(cmd.input.Filter, 'email ^= "customer@acme.com"');
+      return {
+        Users: [
+          {
+            Username: userId,
+            Attributes: [
+              { Name: 'sub', Value: userId },
+              { Name: 'email', Value: email },
+            ],
+            UserCreateDate: new Date('2026-04-12T14:22:00Z'),
+          },
+        ],
+        PaginationToken: 'next-page-tok-123',
+      };
+    }
+    return {};
+  };
+
+  analytics.ddb.send = async (cmd) => {
+    ddbCommands.push(cmd);
+    if (cmd.constructor.name === 'BatchGetItemCommand') {
+      const tableName = Object.keys(cmd.input.RequestItems)[0];
+      return {
+        Responses: {
+          [tableName]: [
+            {
+              requestId: { S: `BILLING#${userId}` },
+              tier: { S: 'starter' },
+              status: { S: 'active' },
+              provider: { S: 'paddle' },
+              manualOverride: { BOOL: false },
+            },
+            {
+              requestId: { S: `USER_QUOTA#${userId}#2026-09` },
+              used: { N: '412' },
+              limit: { N: '5000' },
+            },
+          ],
+        },
+      };
+    }
+    if (cmd.constructor.name === 'QueryCommand') {
+      // API_KEYS_TABLE query
+      return {
+        Items: [
+          { keyId: { S: 'key_1' }, isActive: { BOOL: true } },
+          { keyId: { S: 'key_2' }, isActive: { BOOL: true } },
+          { keyId: { S: 'key_3' }, isActive: { BOOL: false } },
+        ],
+      };
+    }
+    return {};
+  };
+
+  try {
+    const event = {
+      resource: '/api/v1/admin/users',
+      path: '/api/v1/admin/users',
+      httpMethod: 'GET',
+      queryStringParameters: { q: 'customer@acme.com', tier: 'all', status: 'all' },
+      requestContext: {
+        authorizer: { claims: { 'cognito:groups': ['Admins'] } },
+      },
+    };
+
+    const res = await analytics.handler(event);
+    assert.strictEqual(res.statusCode, 200);
+
+    const body = JSON.parse(res.body);
+    assert.strictEqual(body.nextCursor, 'next-page-tok-123');
+    assert.strictEqual(body.users.length, 1);
+
+    const u = body.users[0];
+    assert.strictEqual(u.id, userId);
+    assert.strictEqual(u.email, email);
+    assert.strictEqual(u.tier, 'starter');
+    assert.strictEqual(u.status, 'active');
+    assert.strictEqual(u.provider, 'paddle');
+    assert.strictEqual(u.manualOverride, false);
+    assert.strictEqual(u.quotaUsed, 412);
+    assert.strictEqual(u.quotaLimit, 5000);
+    assert.strictEqual(u.activeKeys, 2);
+    assert.strictEqual(u.createdAt, '2026-04-12T14:22:00.000Z');
+  } finally {
+    analytics.cognito.send = origCognitoSend;
+    analytics.ddb.send = origDdbSend;
+  }
+});
+
+test('searchAdminUsers by UUID queries Cognito AdminGetUser directly', async () => {
+  const origCognitoSend = analytics.cognito.send;
+  const origDdbSend = analytics.ddb.send;
+  const uuid = 'c1f7b76e-3c2e-4b21-8273-df3e18a992bc';
+
+  let adminGetUserCalled = false;
+
+  analytics.cognito.send = async (cmd) => {
+    if (cmd.constructor.name === 'AdminGetUserCommand') {
+      adminGetUserCalled = true;
+      assert.strictEqual(cmd.input.Username, uuid);
+      return {
+        Username: uuid,
+        UserAttributes: [
+          { Name: 'sub', Value: uuid },
+          { Name: 'email', Value: 'direct_uuid@example.com' },
+        ],
+        UserCreateDate: new Date('2026-01-15T00:00:00Z'),
+      };
+    }
+    return {};
+  };
+
+  analytics.ddb.send = async (cmd) => {
+    if (cmd.constructor.name === 'BatchGetItemCommand') {
+      const tableName = Object.keys(cmd.input.RequestItems)[0];
+      return { Responses: { [tableName]: [] } };
+    }
+    if (cmd.constructor.name === 'QueryCommand') {
+      return { Items: [] };
+    }
+    return {};
+  };
+
+  try {
+    const res = await analytics.searchAdminUsers({
+      queryStringParameters: { q: uuid },
+      requestContext: {
+        authorizer: { claims: { email: 'vberkoz@gmail.com' } },
+      },
+    });
+
+    assert.strictEqual(res.statusCode, 200);
+    assert.strictEqual(adminGetUserCalled, true);
+
+    const body = JSON.parse(res.body);
+    assert.strictEqual(body.users.length, 1);
+    assert.strictEqual(body.users[0].id, uuid);
+    assert.strictEqual(body.users[0].email, 'direct_uuid@example.com');
+    assert.strictEqual(body.users[0].tier, 'free');
+    assert.strictEqual(body.users[0].quotaLimit, 25);
+    assert.strictEqual(body.nextCursor, null);
+  } finally {
+    analytics.cognito.send = origCognitoSend;
+    analytics.ddb.send = origDdbSend;
+  }
+});
+
+test('readAdminUserDossier joins all 5 data sources combined', async () => {
+  const origCognitoSend = analytics.cognito.send;
+  const origDdbSend = analytics.ddb.send;
+  const userId = 'c1f7b76e-3c2e-4b21-8273-df3e18a992bc';
+
+  analytics.cognito.send = async (cmd) => {
+    if (cmd.constructor.name === 'AdminGetUserCommand') {
+      assert.strictEqual(cmd.input.Username, userId);
+      return {
+        Username: userId,
+        UserAttributes: [
+          { Name: 'sub', Value: userId },
+          { Name: 'email', Value: 'customer@acme.com' },
+          { Name: 'email_verified', Value: 'true' },
+        ],
+        Enabled: true,
+        UserCreateDate: new Date('2026-04-12T14:22:00Z'),
+      };
+    }
+    return {};
+  };
+
+  analytics.ddb.send = async (cmd) => {
+    if (cmd.constructor.name === 'GetItemCommand') {
+      const key = cmd.input.Key.requestId.S;
+      if (key === `BILLING#${userId}`) {
+        return {
+          Item: {
+            tier: { S: 'starter' },
+            status: { S: 'active' },
+            plan: { S: 'RenderPDF Starter' },
+            provider: { S: 'paddle' },
+            manualOverride: { BOOL: false },
+            subscriptionId: { S: 'sub_01h6t8z' },
+            renewsAt: { S: '2026-10-12T14:22:00Z' },
+          },
+        };
+      }
+      if (key.startsWith(`USER_QUOTA#${userId}`)) {
+        return {
+          Item: {
+            used: { N: '412' },
+            limit: { N: '5000' },
+          },
+        };
+      }
+    }
+    if (cmd.constructor.name === 'QueryCommand') {
+      // Check if querying API keys or Recent Requests
+      if (cmd.input.TableName === process.env.API_KEYS_TABLE || cmd.input.KeyConditionExpression?.includes('APIKEY#')) {
+        return {
+          Items: [
+            {
+              keyId: { S: 'key_9f82d1c' },
+              name: { S: 'Production Backend' },
+              isActive: { BOOL: true },
+              createdAt: { N: '1712931720' },
+              lastUsed: { N: '1727289120' },
+            },
+          ],
+        };
+      }
+      // USAGE requests (via CustomerIdDateIndex or customer partition)
+      return {
+        Items: [
+          {
+            requestId: { S: 'req_8471b0' },
+            timestamp: { N: '1727289120' },
+            status: { S: 'success' },
+            errorType: { S: '' },
+            durationMs: { N: '482' },
+            size: { N: '184920' },
+          },
+        ],
+      };
+    }
+    return {};
+  };
+
+  try {
+    const event = {
+      resource: '/api/v1/admin/users/{userId}',
+      path: `/api/v1/admin/users/${userId}`,
+      pathParameters: { userId },
+      httpMethod: 'GET',
+      requestContext: {
+        authorizer: { claims: { 'cognito:groups': 'Admins' } },
+      },
+    };
+
+    const res = await analytics.handler(event);
+    assert.strictEqual(res.statusCode, 200);
+
+    const body = JSON.parse(res.body);
+
+    // 1. User
+    assert.deepStrictEqual(body.user, {
+      id: userId,
+      email: 'customer@acme.com',
+      emailVerified: true,
+      enabled: true,
+      createdAt: '2026-04-12T14:22:00.000Z',
+    });
+
+    // 2. Billing
+    assert.deepStrictEqual(body.billing, {
+      tier: 'starter',
+      status: 'active',
+      plan: 'RenderPDF Starter',
+      provider: 'paddle',
+      manualOverride: false,
+      subscriptionId: 'sub_01h6t8z',
+      renewsAt: '2026-10-12T14:22:00Z',
+    });
+
+    // 3. Quota
+    assert.strictEqual(body.quota.used, 412);
+    assert.strictEqual(body.quota.limit, 5000);
+    assert.strictEqual(body.quota.remaining, 4588);
+
+    // 4. API Keys
+    assert.strictEqual(body.apiKeys.length, 1);
+    assert.deepStrictEqual(body.apiKeys[0], {
+      keyId: 'key_9f82d1c',
+      name: 'Production Backend',
+      isActive: true,
+      createdAt: 1712931720,
+      lastUsed: 1727289120,
+    });
+
+    // 5. Recent Requests
+    assert.strictEqual(body.recentRequests.length, 1);
+    assert.deepStrictEqual(body.recentRequests[0], {
+      requestId: 'req_8471b0',
+      timestamp: 1727289120,
+      status: 'success',
+      errorType: '',
+      durationMs: 482,
+      size: 184920,
+    });
+  } finally {
+    analytics.cognito.send = origCognitoSend;
+    analytics.ddb.send = origDdbSend;
+  }
+});
+
+test('searchAdminUsers filters by tier and status in-memory', async () => {
+  const origCognitoSend = analytics.cognito.send;
+  const origDdbSend = analytics.ddb.send;
+
+  analytics.cognito.send = async () => {
+    return {
+      Users: [
+        {
+          Username: 'user-starter',
+          Attributes: [{ Name: 'sub', Value: 'user-starter' }, { Name: 'email', Value: 'starter@example.com' }],
+        },
+        {
+          Username: 'user-pro',
+          Attributes: [{ Name: 'sub', Value: 'user-pro' }, { Name: 'email', Value: 'pro@example.com' }],
+        },
+      ],
+    };
+  };
+
+  analytics.ddb.send = async (cmd) => {
+    if (cmd.constructor.name === 'BatchGetItemCommand') {
+      const tableName = Object.keys(cmd.input.RequestItems)[0];
+      return {
+        Responses: {
+          [tableName]: [
+            { requestId: { S: 'BILLING#user-starter' }, tier: { S: 'starter' }, status: { S: 'active' } },
+            { requestId: { S: 'BILLING#user-pro' }, tier: { S: 'pro' }, status: { S: 'past_due' } },
+          ],
+        },
+      };
+    }
+    return { Items: [] };
+  };
+
+  try {
+    const resStarter = await analytics.searchAdminUsers({
+      queryStringParameters: { tier: 'starter' },
+      requestContext: { authorizer: { claims: { 'cognito:groups': ['Admins'] } } },
+    });
+    const bodyStarter = JSON.parse(resStarter.body);
+    assert.strictEqual(bodyStarter.users.length, 1);
+    assert.strictEqual(bodyStarter.users[0].id, 'user-starter');
+
+    const resPastDue = await analytics.searchAdminUsers({
+      queryStringParameters: { status: 'past_due' },
+      requestContext: { authorizer: { claims: { 'cognito:groups': ['Admins'] } } },
+    });
+    const bodyPastDue = JSON.parse(resPastDue.body);
+    assert.strictEqual(bodyPastDue.users.length, 1);
+    assert.strictEqual(bodyPastDue.users[0].id, 'user-pro');
+  } finally {
+    analytics.cognito.send = origCognitoSend;
+    analytics.ddb.send = origDdbSend;
+  }
+});
+
+test('readAdminUserDossier returns 404 when user not found in Cognito', async () => {
+  const origCognitoSend = analytics.cognito.send;
+
+  analytics.cognito.send = async () => {
+    const err = new Error('User does not exist');
+    err.name = 'UserNotFoundException';
+    throw err;
+  };
+
+  try {
+    const res = await analytics.readAdminUserDossier(
+      { requestContext: { authorizer: { claims: { 'cognito:groups': ['Admins'] } } } },
+      'non-existent-user'
+    );
+    assert.strictEqual(res.statusCode, 404);
+    const body = JSON.parse(res.body);
+    assert.strictEqual(body.error, 'User not found');
+  } finally {
+    analytics.cognito.send = origCognitoSend;
+  }
+});
+
+test('handler correctly handles OPTIONS and 405 for /admin/users', async () => {
+  const optRes1 = await analytics.handler({
+    resource: '/api/v1/admin/users',
+    httpMethod: 'OPTIONS',
+  });
+  assert.strictEqual(optRes1.statusCode, 204);
+
+  const optRes2 = await analytics.handler({
+    resource: '/api/v1/admin/users/{userId}',
+    pathParameters: { userId: '123' },
+    httpMethod: 'OPTIONS',
+  });
+  assert.strictEqual(optRes2.statusCode, 204);
+
+  const postRes = await analytics.handler({
+    resource: '/api/v1/admin/users',
+    httpMethod: 'POST',
+    requestContext: { authorizer: { claims: { 'cognito:groups': ['Admins'] } } },
+  });
+  assert.strictEqual(postRes.statusCode, 405);
+});
+
+test('handler correctly routes admin/users via route query parameter override', async () => {
+  const optRes = await analytics.handler({
+    resource: '/api/v1/analytics',
+    queryStringParameters: { route: 'admin/users' },
+    httpMethod: 'OPTIONS',
+  });
+  assert.strictEqual(optRes.statusCode, 204);
+
+  const optResUser = await analytics.handler({
+    resource: '/api/v1/analytics',
+    queryStringParameters: { route: 'admin/users/user-123' },
+    httpMethod: 'OPTIONS',
+  });
+  assert.strictEqual(optResUser.statusCode, 204);
+});
+
+test('readAdminUserDossier resolves Google federated user by sub UUID', async () => {
+  const origCognitoSend = analytics.cognito.send;
+  const origDdbSend = analytics.ddb.send;
+  const targetSub = '8408c4f8-f0a1-704d-092d-6d17fb091fa8';
+  const federatedUsername = 'Google_107286376204740932967';
+
+  analytics.cognito.send = async (cmd) => {
+    if (cmd.constructor.name === 'ListUsersCommand') {
+      if (cmd.input?.Filter === `sub = "${targetSub}"`) {
+        return {
+          Users: [
+            {
+              Username: federatedUsername,
+              Attributes: [
+                { Name: 'sub', Value: targetSub },
+                { Name: 'email', Value: 'basilsergius@gmail.com' },
+                { Name: 'email_verified', Value: 'false' },
+              ],
+              Enabled: true,
+              UserCreateDate: new Date('2026-09-18T05:52:12Z'),
+            },
+          ],
+        };
+      }
+    }
+    const err = new Error('User not found');
+    err.name = 'UserNotFoundException';
+    throw err;
+  };
+
+  analytics.ddb.send = async (cmd) => {
+    if (cmd.constructor.name === 'GetItemCommand') {
+      const key = cmd.input.Key.requestId.S;
+      if (key === `BILLING#${targetSub}`) {
+        return {
+          Item: {
+            tier: { S: 'free' },
+            status: { S: 'active' },
+            plan: { S: 'Free' },
+            provider: { S: 'none' },
+          },
+        };
+      }
+      if (key.startsWith(`USER_QUOTA#${targetSub}`)) {
+        return { Item: { used: { N: '5' }, limit: { N: '25' } } };
+      }
+    }
+    return {};
+  };
+
+  try {
+    const res = await analytics.readAdminUserDossier(
+      { requestContext: { authorizer: { claims: { 'cognito:groups': ['Admins'] } } } },
+      targetSub
+    );
+    assert.strictEqual(res.statusCode, 200);
+    const body = JSON.parse(res.body);
+    assert.strictEqual(body.user.id, targetSub);
+    assert.strictEqual(body.user.email, 'basilsergius@gmail.com');
+    assert.strictEqual(body.billing.tier, 'free');
+    assert.strictEqual(body.quota.used, 5);
+  } finally {
+    analytics.cognito.send = origCognitoSend;
+    analytics.ddb.send = origDdbSend;
+  }
+});
+
+test('saveBillingWebhook ignores downgrade/cancel when manualOverride is true (Task 3.1)', async () => {
+  const origDdbSend = analytics.ddb.send;
+  const updates = [];
+
+  analytics.ddb.send = async (cmd) => {
+    if (cmd.constructor.name === 'GetItemCommand') {
+      const key = cmd.input.Key.requestId.S;
+      if (key === 'BILLING#user_vip') {
+        return {
+          Item: {
+            tier: { S: 'pro' },
+            status: { S: 'active' },
+            manualOverride: { BOOL: true },
+          },
+        };
+      }
+    }
+    if (cmd.constructor.name === 'UpdateItemCommand') {
+      updates.push(cmd);
+      return {};
+    }
+    return {};
+  };
+
+  try {
+    // 1. Canceled webhook should be ignored for VIP account
+    await analytics.saveBillingWebhook(
+      'user_vip',
+      'sub_vip',
+      { status: 'canceled' },
+      'evt_cancel_1',
+      new Date(),
+      'subscription.canceled'
+    );
+    assert.strictEqual(updates.length, 0, 'No UpdateItemCommand sent when manualOverride is active');
+
+    // 2. Past due webhook should also be ignored
+    await analytics.saveBillingWebhook(
+      'user_vip',
+      'sub_vip',
+      { status: 'past_due' },
+      'evt_pastdue_1',
+      new Date(),
+      'subscription.past_due'
+    );
+    assert.strictEqual(updates.length, 0, 'No UpdateItemCommand sent on past_due for VIP account');
+
+    // 3. Paused webhook should also be ignored
+    await analytics.saveBillingWebhook(
+      'user_vip',
+      'sub_vip',
+      { status: 'paused' },
+      'evt_paused_1',
+      new Date(),
+      'subscription.paused'
+    );
+    assert.strictEqual(updates.length, 0, 'No UpdateItemCommand sent on paused for VIP account');
+
+    // 4. Status = 'canceled' in attributes should be ignored even if eventType is generic
+    await analytics.saveBillingWebhook(
+      'user_vip',
+      'sub_vip',
+      { status: 'canceled' },
+      'evt_cancel_generic',
+      new Date(),
+      'subscription.updated'
+    );
+    assert.strictEqual(updates.length, 0, 'No UpdateItemCommand sent when attributes.status is canceled');
+
+    // 5. Legitimate paid upgrade clears manualOverride and adopts new paid tier
+    await analytics.saveBillingWebhook(
+      'user_vip',
+      'sub_vip_paid',
+      {
+        status: 'active',
+        customer_id: 'ctm_paid_1',
+        items: [{ price: { id: 'pri_pro_monthly' } }],
+        custom_data: { tier: 'pro' },
+      },
+      'evt_paid_upgrade',
+      new Date(),
+      'subscription.updated'
+    );
+    const billingUpdate = updates.find((cmd) => cmd.input?.Key?.requestId?.S === 'BILLING#user_vip');
+    assert.ok(billingUpdate, 'BILLING# update was sent for paid upgrade');
+    assert.strictEqual(billingUpdate.input.ExpressionAttributeValues[':manualOverride'].BOOL, false);
+  } finally {
+    analytics.ddb.send = origDdbSend;
+  }
+});
+
+test('saveBillingWebhook permits downgrade for standard user without manualOverride', async () => {
+  const origDdbSend = analytics.ddb.send;
+  const updates = [];
+
+  analytics.ddb.send = async (cmd) => {
+    if (cmd.constructor.name === 'GetItemCommand') {
+      const key = cmd.input.Key.requestId.S;
+      if (key === 'BILLING#user_standard') {
+        return {
+          Item: {
+            tier: { S: 'pro' },
+            status: { S: 'active' },
+            manualOverride: { BOOL: false },
+          },
+        };
+      }
+    }
+    if (cmd.constructor.name === 'UpdateItemCommand') {
+      updates.push(cmd);
+      return {};
+    }
+    return {};
+  };
+
+  try {
+    await analytics.saveBillingWebhook(
+      'user_standard',
+      'sub_std',
+      { status: 'canceled' },
+      'evt_cancel_2',
+      new Date(),
+      'subscription.canceled'
+    );
+    assert.ok(updates.length > 0, 'UpdateItemCommand was sent to record cancellation for standard user');
+  } finally {
+    analytics.ddb.send = origDdbSend;
+  }
+});
+
+test('handleAdminUserPlanOverride enforces auth, validates input, updates quota and audit trail (Task 3.2)', async () => {
+  const origDdbSend = analytics.ddb.send;
+  const origApigwSend = analytics.apigw.send;
+  const origApiKeysTable = process.env.API_KEYS_TABLE;
+  const origProUsagePlanId = process.env.PRO_USAGE_PLAN_ID;
+  process.env.API_KEYS_TABLE = 'ApiKeysTable';
+  process.env.PRO_USAGE_PLAN_ID = 'pro-plan-id';
+
+  const ddbCommands = [];
+  const apigwCommands = [];
+
+  analytics.ddb.send = async (cmd) => {
+    ddbCommands.push(cmd);
+    if (cmd.constructor.name === 'GetItemCommand') {
+      return {
+        Item: {
+          tier: { S: 'free' },
+          status: { S: 'active' },
+        },
+      };
+    }
+    if (cmd.constructor.name === 'QueryCommand') {
+      // Mock active API key for syncUserUsagePlans
+      return {
+        Items: [
+          {
+            PK: { S: 'USER#target_user_1' },
+            SK: { S: 'APIKEY#key_1' },
+            isActive: { BOOL: true },
+            apiGatewayKeyId: { S: 'ag_key_123' },
+          },
+        ],
+      };
+    }
+    return {};
+  };
+
+  analytics.apigw.send = async (cmd) => {
+    apigwCommands.push(cmd);
+    return {};
+  };
+
+  try {
+    // 1. Non-admin receives 403
+    const forbiddenRes = await analytics.handleAdminUserPlanOverride(
+      { requestContext: { authorizer: { claims: { 'cognito:groups': ['Users'] } } } },
+      'target_user_1'
+    );
+    assert.strictEqual(forbiddenRes.statusCode, 403);
+
+    // 2. Missing reason returns 400
+    const missingReasonRes = await analytics.handleAdminUserPlanOverride(
+      {
+        requestContext: { authorizer: { claims: { 'cognito:groups': ['Admins'], email: 'operator@renderpdf.com' } } },
+        body: JSON.stringify({ tier: 'pro', reason: '' }),
+      },
+      'target_user_1'
+    );
+    assert.strictEqual(missingReasonRes.statusCode, 400);
+
+    // 3. Valid admin plan change to Pro
+    const successRes = await analytics.handleAdminUserPlanOverride(
+      {
+        requestContext: { authorizer: { claims: { 'cognito:groups': ['Admins'], email: 'operator@renderpdf.com' } } },
+        body: JSON.stringify({
+          tier: 'pro',
+          manualOverride: true,
+          reason: 'VIP contract Q4',
+          customMonthlyQuota: 25000,
+        }),
+      },
+      'target_user_1'
+    );
+    assert.strictEqual(successRes.statusCode, 200);
+    const body = JSON.parse(successRes.body);
+    assert.strictEqual(body.success, true);
+    assert.strictEqual(body.tier, 'pro');
+    assert.strictEqual(body.manualOverride, true);
+    assert.strictEqual(body.quotaLimit, 25000);
+
+    // Verify BILLING# update
+    const billingUpdate = ddbCommands.find((c) => c.constructor.name === 'UpdateItemCommand' && c.input.Key.requestId.S === 'BILLING#target_user_1');
+    assert.ok(billingUpdate, 'BILLING# update sent');
+    assert.strictEqual(billingUpdate.input.ExpressionAttributeValues[':tier'].S, 'pro');
+    assert.strictEqual(billingUpdate.input.ExpressionAttributeValues[':manualOverride'].BOOL, true);
+    assert.strictEqual(billingUpdate.input.ExpressionAttributeValues[':admin'].S, 'operator@renderpdf.com');
+
+    // Verify USER_QUOTA# update
+    const quotaUpdate = ddbCommands.find((c) => c.constructor.name === 'UpdateItemCommand' && c.input.Key.requestId.S.startsWith('USER_QUOTA#target_user_1'));
+    assert.ok(quotaUpdate, 'USER_QUOTA# update sent');
+    assert.strictEqual(quotaUpdate.input.ExpressionAttributeValues[':limit'].N, '25000');
+
+    // Verify syncUserUsagePlans attached key to Pro usage plan in API Gateway
+    const createKeyCmd = apigwCommands.find((c) => c.constructor.name === 'CreateUsagePlanKeyCommand');
+    assert.ok(createKeyCmd, 'syncUserUsagePlans attached key to ProUsagePlan');
+    assert.strictEqual(createKeyCmd.input.UsagePlanId, 'pro-plan-id');
+    assert.strictEqual(createKeyCmd.input.KeyId, 'ag_key_123');
+
+    // Verify ADMIN_AUDIT# put
+    const auditPut = ddbCommands.find((c) => c.constructor.name === 'PutItemCommand' && c.input.Item.requestId.S.startsWith('ADMIN_AUDIT#'));
+    assert.ok(auditPut, 'ADMIN_AUDIT record written');
+    assert.strictEqual(auditPut.input.Item.action.S, 'PLAN_OVERRIDE');
+    assert.strictEqual(auditPut.input.Item.adminEmail.S, 'operator@renderpdf.com');
+    assert.strictEqual(auditPut.input.Item.targetUserId.S, 'target_user_1');
+    assert.strictEqual(auditPut.input.Item.reason.S, 'VIP contract Q4');
+  } finally {
+    analytics.ddb.send = origDdbSend;
+    analytics.apigw.send = origApigwSend;
+    process.env.API_KEYS_TABLE = origApiKeysTable;
+    process.env.PRO_USAGE_PLAN_ID = origProUsagePlanId;
+  }
+});
+
+test('handleAdminUserQuotaAdjust applies add_credits, set_limit, reset_usage and records audit', async () => {
+  const origDdbSend = analytics.ddb.send;
+  const ddbCommands = [];
+
+  analytics.ddb.send = async (cmd) => {
+    ddbCommands.push(cmd);
+    if (cmd.constructor.name === 'GetItemCommand') {
+      const key = cmd.input.Key.requestId.S;
+      if (key.startsWith('USER_QUOTA#')) {
+        return { Item: { used: { N: '200' }, limit: { N: '5000' } } };
+      }
+    }
+    return {};
+  };
+
+  try {
+    // 1. Non-admin receives 403
+    const forbiddenRes = await analytics.handleAdminUserQuotaAdjust(
+      { requestContext: { authorizer: { claims: { 'cognito:groups': ['Users'] } } } },
+      'target_user_2'
+    );
+    assert.strictEqual(forbiddenRes.statusCode, 403);
+
+    // 2. add_credits increases limit
+    const addRes = await analytics.handleAdminUserQuotaAdjust(
+      {
+        requestContext: { authorizer: { claims: { 'cognito:groups': ['Admins'], email: 'admin@renderpdf.com' } } },
+        body: JSON.stringify({
+          action: 'add_credits',
+          amount: 1000,
+          reason: 'Goodwill grant for webhook retry issue',
+        }),
+      },
+      'target_user_2'
+    );
+    assert.strictEqual(addRes.statusCode, 200);
+    const addBody = JSON.parse(addRes.body);
+    assert.strictEqual(addBody.success, true);
+    assert.strictEqual(addBody.limit, 6000);
+    assert.strictEqual(addBody.used, 200);
+    assert.strictEqual(addBody.remaining, 5800);
+
+    // 3. set_limit sets exact limit
+    const setRes = await analytics.handleAdminUserQuotaAdjust(
+      {
+        requestContext: { authorizer: { claims: { 'cognito:groups': ['Admins'], email: 'admin@renderpdf.com' } } },
+        body: JSON.stringify({
+          action: 'set_limit',
+          amount: 15000,
+          reason: 'Custom trial limit',
+        }),
+      },
+      'target_user_2'
+    );
+    assert.strictEqual(setRes.statusCode, 200);
+    const setBody = JSON.parse(setRes.body);
+    assert.strictEqual(setBody.limit, 15000);
+
+    // 4. reset_usage clears used count
+    const resetRes = await analytics.handleAdminUserQuotaAdjust(
+      {
+        requestContext: { authorizer: { claims: { 'cognito:groups': ['Admins'], email: 'admin@renderpdf.com' } } },
+        body: JSON.stringify({
+          action: 'reset_usage',
+          reason: 'Operator testing usage reset',
+        }),
+      },
+      'target_user_2'
+    );
+    assert.strictEqual(resetRes.statusCode, 200);
+    const resetBody = JSON.parse(resetRes.body);
+    assert.strictEqual(resetBody.used, 0);
+
+    // Verify audit logs were written for all actions
+    const auditLogs = ddbCommands.filter((c) => c.constructor.name === 'PutItemCommand' && c.input.Item.requestId.S.startsWith('ADMIN_AUDIT#'));
+    assert.strictEqual(auditLogs.length, 3, 'Audit log written for each quota adjustment');
+  } finally {
+    analytics.ddb.send = origDdbSend;
+  }
+});
+
+test('handler correctly routes POST /api/v1/admin/users/{userId}/plan and quota directly and via route override', async () => {
+  const origDdbSend = analytics.ddb.send;
+  analytics.ddb.send = async (cmd) => {
+    if (cmd.constructor.name === 'GetItemCommand') {
+      return { Item: { tier: { S: 'free' }, limit: { N: '25' }, used: { N: '0' } } };
+    }
+    return {};
+  };
+
+  try {
+    // 1. Direct POST /admin/users/{userId}/plan
+    const planRes = await analytics.handler({
+      resource: '/api/v1/admin/users/{userId}/plan',
+      path: '/api/v1/admin/users/user_abc/plan',
+      pathParameters: { userId: 'user_abc' },
+      httpMethod: 'POST',
+      requestContext: { authorizer: { claims: { 'cognito:groups': ['Admins'], email: 'admin@renderpdf.com' } } },
+      body: JSON.stringify({ tier: 'starter', reason: 'Upgraded by support' }),
+    });
+    assert.strictEqual(planRes.statusCode, 200);
+
+    // 2. Query override route=admin/users/user_abc/quota
+    const quotaRes = await analytics.handler({
+      resource: '/api/v1/analytics',
+      path: '/api/v1/analytics',
+      queryStringParameters: { route: 'admin/users/user_abc/quota' },
+      httpMethod: 'POST',
+      requestContext: { authorizer: { claims: { 'cognito:groups': ['Admins'], email: 'admin@renderpdf.com' } } },
+      body: JSON.stringify({ action: 'add_credits', amount: 500, reason: 'Support bonus' }),
+    });
+    assert.strictEqual(quotaRes.statusCode, 200);
+
+    // 3. OPTIONS for plan and quota sub-resources return 204
+    const optPlan = await analytics.handler({
+      resource: '/api/v1/admin/users/{userId}/plan',
+      httpMethod: 'OPTIONS',
+    });
+    assert.strictEqual(optPlan.statusCode, 204);
+
+    const optQuota = await analytics.handler({
+      resource: '/api/v1/admin/users/{userId}/quota',
+      httpMethod: 'OPTIONS',
+    });
+    assert.strictEqual(optQuota.statusCode, 204);
+  } finally {
+    analytics.ddb.send = origDdbSend;
+  }
+});
+
+test('recordAdminAudit writes immutable audit trail record with 365-day TTL (Task 4.1)', async () => {
+  const origDdbSend = analytics.ddb.send;
+  const ddbCommands = [];
+  analytics.ddb.send = async (cmd) => {
+    ddbCommands.push(cmd);
+    return {};
+  };
+
+  try {
+    const beforeSeconds = Math.floor(Date.now() / 1000);
+    const todayKey = new Date().toISOString().slice(0, 10);
+
+    await analytics.recordAdminAudit({
+      adminEmail: 'secops@renderpdf.com',
+      targetUserId: 'user_audit_test_123',
+      action: 'PLAN_OVERRIDE',
+      reason: 'Manual tier upgrade for enterprise pilot',
+      details: { previousTier: 'starter', newTier: 'enterprise' },
+    });
+
+    const afterSeconds = Math.floor(Date.now() / 1000);
+
+    assert.strictEqual(ddbCommands.length, 1);
+    const putCmd = ddbCommands[0];
+    assert.strictEqual(putCmd.constructor.name, 'PutItemCommand');
+    assert.strictEqual(putCmd.input.TableName, process.env.TABLE_NAME);
+
+    const item = putCmd.input.Item;
+    // Partition Key: ADMIN_AUDIT#YYYY-MM-DD
+    assert.strictEqual(item.requestId.S, `ADMIN_AUDIT#${todayKey}`);
+
+    // Sort Key: unix seconds
+    const itemTimestamp = Number(item.timestamp.N);
+    assert.ok(itemTimestamp >= beforeSeconds && itemTimestamp <= afterSeconds, 'Timestamp is current unix seconds');
+
+    // Entity type
+    assert.strictEqual(item.entityType.S, 'ADMIN_AUDIT');
+
+    // Audit ID
+    assert.ok(item.auditId.S && item.auditId.S.length > 0, 'AuditId is populated');
+
+    // Attributes
+    assert.strictEqual(item.adminEmail.S, 'secops@renderpdf.com');
+    assert.strictEqual(item.targetUserId.S, 'user_audit_test_123');
+    assert.strictEqual(item.action.S, 'PLAN_OVERRIDE');
+    assert.strictEqual(item.reason.S, 'Manual tier upgrade for enterprise pilot');
+    assert.deepStrictEqual(JSON.parse(item.details.S), { previousTier: 'starter', newTier: 'enterprise' });
+
+    // 365-day TTL: expiresAt = timestamp + 365 * 86400
+    const expiresAt = Number(item.expiresAt.N);
+    const expectedExpires = itemTimestamp + (365 * 86400);
+    assert.strictEqual(expiresAt, expectedExpires, 'Expires exactly 365 days after creation');
+
+    // Test with missing/default optional fields
+    ddbCommands.length = 0;
+    await analytics.recordAdminAudit({
+      action: 'KEY_REVOKE',
+    });
+
+    assert.strictEqual(ddbCommands.length, 1);
+    const defaultItem = ddbCommands[0].input.Item;
+    assert.strictEqual(defaultItem.adminEmail.S, 'unknown');
+    assert.strictEqual(defaultItem.targetUserId.S, '');
+    assert.strictEqual(defaultItem.action.S, 'KEY_REVOKE');
+    assert.strictEqual(defaultItem.reason.S, '');
+    assert.strictEqual(defaultItem.details.S, '{}');
+  } finally {
+    analytics.ddb.send = origDdbSend;
+  }
+});
+
+
+test('handleAdminUserStatus - disabling user calls AdminDisableUserCommand and deactivates keys (Task 4.2)', async () => {
+  const origDdbSend = analytics.ddb.send;
+  const origCognitoSend = analytics.cognito.send;
+  const ddbCommands = [];
+  const cognitoCommands = [];
+
+  analytics.ddb.send = async (cmd) => {
+    ddbCommands.push(cmd);
+    if (cmd.constructor.name === 'QueryCommand') {
+      return { Items: [{ PK: { S: 'USER#u1' }, SK: { S: 'APIKEY#k1' } }] };
+    }
+    return {};
+  };
+  analytics.cognito.send = async (cmd) => {
+    cognitoCommands.push(cmd);
+    return {};
+  };
+
+  const prevTable = process.env.API_KEYS_TABLE;
+  const prevPool = process.env.USER_POOL_ID;
+  try {
+    process.env.API_KEYS_TABLE = 'keys-table';
+    process.env.USER_POOL_ID = 'us-east-1_pool';
+
+    const adminRequest = {
+      httpMethod: 'POST',
+      path: '/api/v1/admin/users/u1/status',
+      requestContext: { authorizer: { claims: { email: 'admin@test.com', 'cognito:groups': 'Admins' } } },
+      body: JSON.stringify({ action: 'disable', reason: 'Fraudulent activity' }),
+    };
+
+    const res = await analytics.handleAdminUserStatus(adminRequest, 'u1');
+    assert.strictEqual(res.statusCode, 200);
+    const body = JSON.parse(res.body);
+    assert.strictEqual(body.success, true);
+    assert.strictEqual(body.action, 'disable');
+
+    // Cognito AdminDisableUserCommand was called
+    assert.strictEqual(cognitoCommands.length, 1);
+    assert.strictEqual(cognitoCommands[0].constructor.name, 'AdminDisableUserCommand');
+    assert.strictEqual(cognitoCommands[0].input.Username, 'u1');
+    assert.strictEqual(cognitoCommands[0].input.UserPoolId, 'us-east-1_pool');
+
+    // API key deactivated via UpdateItemCommand
+    const updateCmd = ddbCommands.find((c) => c.constructor.name === 'UpdateItemCommand');
+    assert.ok(updateCmd, 'UpdateItemCommand should be sent to deactivate key');
+    assert.strictEqual(updateCmd.input.Key.SK.S, 'APIKEY#k1');
+
+    // Audit written via PutItemCommand
+    const auditCmd = ddbCommands.find((c) => c.constructor.name === 'PutItemCommand');
+    assert.ok(auditCmd, 'PutItemCommand should be sent for audit record');
+    assert.strictEqual(auditCmd.input.Item.action.S, 'USER_SUSPEND');
+  } finally {
+    analytics.ddb.send = origDdbSend;
+    analytics.cognito.send = origCognitoSend;
+    if (prevTable === undefined) delete process.env.API_KEYS_TABLE; else process.env.API_KEYS_TABLE = prevTable;
+    if (prevPool === undefined) delete process.env.USER_POOL_ID; else process.env.USER_POOL_ID = prevPool;
+  }
+});
+
+test('handleAdminKeyRevoke - marks key inactive in DynamoDB and records audit (Task 4.2)', async () => {
+  const origDdbSend = analytics.ddb.send;
+  const origApigwSend = analytics.apigw.send;
+  const ddbCommands = [];
+  const apigwCommands = [];
+
+  analytics.ddb.send = async (cmd) => {
+    ddbCommands.push(cmd);
+    if (cmd.constructor.name === 'QueryCommand') {
+      return { Items: [{ PK: { S: 'USER#u1' }, SK: { S: 'APIKEY#k1' }, apiGatewayKeyId: { S: 'gw-key-id' } }] };
+    }
+    return {};
+  };
+  analytics.apigw.send = async (cmd) => {
+    apigwCommands.push(cmd);
+    return {};
+  };
+
+  const prevTable = process.env.API_KEYS_TABLE;
+  const prevPro = process.env.PRO_USAGE_PLAN_ID;
+  try {
+    process.env.API_KEYS_TABLE = 'keys-table';
+    process.env.PRO_USAGE_PLAN_ID = 'pro-plan';
+
+    const adminRequest = {
+      httpMethod: 'POST',
+      path: '/api/v1/admin/users/u1/keys/k1/revoke',
+      requestContext: { authorizer: { claims: { email: 'admin@test.com', 'cognito:groups': 'Admins' } } },
+      body: JSON.stringify({ reason: 'API key compromised' }),
+    };
+
+    const res = await analytics.handleAdminKeyRevoke(adminRequest, 'u1', 'k1');
+    assert.strictEqual(res.statusCode, 200);
+    const body = JSON.parse(res.body);
+    assert.strictEqual(body.success, true);
+    assert.strictEqual(body.keyId, 'k1');
+
+    // UpdateItemCommand marks key inactive
+    const updateCmd = ddbCommands.find((c) => c.constructor.name === 'UpdateItemCommand');
+    assert.ok(updateCmd, 'UpdateItemCommand should mark key isActive = false');
+    assert.strictEqual(updateCmd.input.Key.SK.S, 'APIKEY#k1');
+    assert.deepStrictEqual(updateCmd.input.ExpressionAttributeValues[':false'], { BOOL: false });
+
+    // DeleteUsagePlanKeyCommand removes key from API Gateway
+    assert.ok(apigwCommands.length > 0, 'DeleteUsagePlanKeyCommand should be called');
+    assert.strictEqual(apigwCommands[0].constructor.name, 'DeleteUsagePlanKeyCommand');
+    assert.strictEqual(apigwCommands[0].input.KeyId, 'gw-key-id');
+
+    // Audit written
+    const auditCmd = ddbCommands.find((c) => c.constructor.name === 'PutItemCommand');
+    assert.ok(auditCmd, 'PutItemCommand should record audit');
+    assert.strictEqual(auditCmd.input.Item.action.S, 'KEY_REVOKE');
+    assert.strictEqual(auditCmd.input.Item.reason.S, 'API key compromised');
+  } finally {
+    analytics.ddb.send = origDdbSend;
+    analytics.apigw.send = origApigwSend;
+    if (prevTable === undefined) delete process.env.API_KEYS_TABLE; else process.env.API_KEYS_TABLE = prevTable;
+    if (prevPro === undefined) delete process.env.PRO_USAGE_PLAN_ID; else process.env.PRO_USAGE_PLAN_ID = prevPro;
+  }
+});
+
+test('listAdminAuditLogs - queries audit partitions and returns sorted logs; non-admin gets 403 (Task 4.2)', async () => {
+  const origDdbSend = analytics.ddb.send;
+  const ddbCommands = [];
+
+  const fakeNow = Date.now();
+  const todayKey = new Date(fakeNow).toISOString().slice(0, 10);
+
+  analytics.ddb.send = async (cmd) => {
+    ddbCommands.push(cmd);
+    if (cmd.constructor.name === 'QueryCommand') {
+      return {
+        Items: [
+          {
+            requestId: { S: `ADMIN_AUDIT#${todayKey}` },
+            timestamp: { N: String(fakeNow - 1000) },
+            auditId: { S: 'audit-1' },
+            adminEmail: { S: 'admin@test.com' },
+            targetUserId: { S: 'u1' },
+            action: { S: 'USER_SUSPEND' },
+            reason: { S: 'Fraud' },
+            details: { S: '{"cognitoAction":"disable"}' },
+          },
+          {
+            requestId: { S: `ADMIN_AUDIT#${todayKey}` },
+            timestamp: { N: String(fakeNow - 2000) },
+            auditId: { S: 'audit-2' },
+            adminEmail: { S: 'admin@test.com' },
+            targetUserId: { S: 'u2' },
+            action: { S: 'KEY_REVOKE' },
+            reason: { S: 'Compromised' },
+            details: { S: '{}' },
+          },
+        ],
+      };
+    }
+    return {};
+  };
+
+  try {
+    // Non-admin caller receives 403
+    const anonRes = await analytics.listAdminAuditLogs({ httpMethod: 'GET' });
+    assert.strictEqual(anonRes.statusCode, 403);
+
+    const adminRequest = {
+      httpMethod: 'GET',
+      requestContext: { authorizer: { claims: { email: 'admin@test.com', 'cognito:groups': 'Admins' } } },
+      queryStringParameters: { days: '1', limit: '10' },
+    };
+    const res = await analytics.listAdminAuditLogs(adminRequest);
+    assert.strictEqual(res.statusCode, 200);
+    const body = JSON.parse(res.body);
+    assert.ok(Array.isArray(body.logs), 'logs should be an array');
+    assert.strictEqual(body.logs.length, 2);
+    // Sorted descending by timestamp
+    assert.ok(body.logs[0].timestamp >= body.logs[1].timestamp, 'logs should be sorted descending');
+    assert.strictEqual(body.logs[0].action, 'USER_SUSPEND');
+    assert.deepStrictEqual(body.logs[0].details, { cognitoAction: 'disable' });
+
+    // QueryCommand sent with ADMIN_AUDIT#<date> partition
+    const queryCmd = ddbCommands.find((c) => c.constructor.name === 'QueryCommand');
+    assert.ok(queryCmd, 'QueryCommand should be sent');
+    assert.ok(queryCmd.input.ExpressionAttributeValues[':pk'].S.startsWith('ADMIN_AUDIT#'), 'partition key should start with ADMIN_AUDIT#');
+  } finally {
+    analytics.ddb.send = origDdbSend;
+  }
+});
+
+
 
 
 

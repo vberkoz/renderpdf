@@ -5,8 +5,10 @@
  */
 
 import { checkAdminAuth, signOut } from './shared/auth.js';
+import { initPlanQuotaModals } from './features/plans/plans.js';
+import { initGovernanceModals } from './features/audit-logs/governance.js';
 
-const TABS = ['analytics', 'users', 'plans', 'audit-logs'];
+const TABS = ['analytics', 'users', 'plans', 'audit-logs', 'chats'];
 const DEFAULT_TAB = 'analytics';
 
 /**
@@ -71,7 +73,7 @@ async function switchTab(tabName) {
       activePane.innerHTML = `
         <div class="admin-error-banner" role="alert">
           <div class="admin-error-details">
-            <span class="admin-error-icon">⚠️</span>
+            <span class="admin-error-icon"><svg class="lucide lucide-alert-triangle" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
             <div>
               <h3 class="admin-error-title">Module Error</h3>
               <p class="admin-error-message">Could not load the Analytics tab module.</p>
@@ -80,7 +82,71 @@ async function switchTab(tabName) {
         </div>
       `;
     }
+  } else if (targetTab === 'users') {
+    try {
+      const { initUserDirectoryTab } = await import('./features/users/users.js');
+      await initUserDirectoryTab(activePane);
+    } catch (err) {
+      console.error('Failed to load Users module:', err);
+      activePane.innerHTML = `
+        <div class="admin-error-banner" role="alert">
+          <div class="admin-error-details">
+            <span class="admin-error-icon"><svg class="lucide lucide-alert-triangle" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
+            <div>
+              <h3 class="admin-error-title">Module Error</h3>
+              <p class="admin-error-message">Could not load the User Directory tab module.</p>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+  } else if (targetTab === 'audit-logs') {
+    try {
+      const { initGovernanceTab } = await import('./features/audit-logs/governance.js');
+      await initGovernanceTab(activePane);
+    } catch (err) {
+      console.error('Failed to load Governance module:', err);
+      activePane.innerHTML = `
+        <div class="admin-error-banner" role="alert">
+          <div class="admin-error-details">
+            <span class="admin-error-icon"><svg class="lucide lucide-alert-triangle" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
+            <div>
+              <h3 class="admin-error-title">Module Error</h3>
+              <p class="admin-error-message">Could not load the Audit Trail tab module.</p>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+  } else if (targetTab === 'chats') {
+    try {
+      const { initSupportChatTab } = await import('./features/support-chat/chat.js');
+      await initSupportChatTab(activePane);
+    } catch (err) {
+      console.error('Failed to load Support Chat module:', err);
+      activePane.innerHTML = `
+        <div class="admin-error-banner" role="alert">
+          <div class="admin-error-details">
+            <span class="admin-error-icon"><svg class="lucide lucide-alert-triangle" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
+            <div>
+              <h3 class="admin-error-title">Module Error</h3>
+              <p class="admin-error-message">Could not load the Support Chat tab module.</p>
+            </div>
+          </div>
+        </div>
+      `;
+    }
   }
+
+  // Stop polling when navigating away from chats
+  if (targetTab !== 'chats') {
+    try {
+      const { stopPolling } = await import('./features/support-chat/chat.js');
+      stopPolling();
+    } catch {}
+  }
+
+  window.customSelect?.init();
 }
 
 /**
@@ -117,6 +183,10 @@ export async function initAdminConsole() {
   if (logoutBtn) {
     logoutBtn.addEventListener('click', signOut);
   }
+
+  // Initialize plan, quota, and governance dialog listeners
+  initPlanQuotaModals();
+  initGovernanceModals();
 
   // Handle Tab Router
   window.addEventListener('hashchange', () => {

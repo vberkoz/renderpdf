@@ -126,6 +126,6 @@ Exports `initPlanQuotaModals()`:
 
 ## 6. Implementation Tasks
 
-- [ ] [Task 3.1: Paddle Webhook Conflict Guard](file:///Users/basilsergius/projects/renderpdf/dashboard/admin/features/plans/tasks/01-paddle-webhook-guard.md)
-- [ ] [Task 3.2: Plan Override & Quota Backend APIs](file:///Users/basilsergius/projects/renderpdf/dashboard/admin/features/plans/tasks/02-plan-quota-api.md)
-- [ ] [Task 3.3: Plan & Quota Management Modals UI](file:///Users/basilsergius/projects/renderpdf/dashboard/admin/features/plans/tasks/03-plan-quota-modals-ui.md)
+- [x] [Task 3.1: Paddle Webhook Conflict Guard](file:///Users/basilsergius/projects/renderpdf/dashboard/admin/features/plans/tasks/01-paddle-webhook-guard.md)
+- [x] [Task 3.2: Plan Override & Quota Backend APIs](file:///Users/basilsergius/projects/renderpdf/dashboard/admin/features/plans/tasks/02-plan-quota-api.md)
+- [x] [Task 3.3: Plan & Quota Management Modals UI](file:///Users/basilsergius/projects/renderpdf/dashboard/admin/features/plans/tasks/03-plan-quota-modals-ui.md)

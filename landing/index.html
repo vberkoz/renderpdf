@@ -73,7 +73,7 @@
                             <span class="counter-divider" aria-hidden="true">|</span>
                             <span class="counter-text"><strong id="uptimeVal">99.9%</strong> Reliability</span>
                             <span class="counter-divider" aria-hidden="true">|</span>
-                            <span class="counter-text">Live stats <span aria-hidden="true">↗</span></span>
+                            <span class="counter-text">Live stats <svg class="lucide lucide-arrow-up-right" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg></span>
                         </a>
                     </div>
                 </div>
@@ -93,9 +93,9 @@
   <span class="code-property">"options"</span>: <span class="code-muted">{</span> <span class="code-property">"format"</span>: <span class="code-string">"A4"</span> <span class="code-muted">}</span>
 <span class="code-muted">}</span></code></pre>
                     <div class="hero-result">
-                        <div class="hero-result-icon" aria-hidden="true">PDF</div>
+                        <div class="hero-result-icon" aria-hidden="true"><svg class="lucide lucide-file-text" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg></div>
                         <div><strong>invoice-2048.pdf</strong><span>Ready to download · 124 KB</span></div>
-                        <span class="hero-result-arrow" aria-hidden="true">↗</span>
+                        <span class="hero-result-arrow" aria-hidden="true"><svg class="lucide lucide-arrow-up-right" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg></span>
                     </div>
                 </div>
             </section>
@@ -394,6 +394,7 @@ Content-management handover and launch support</div></div></li>
                             </div>
                         </div>
                         <button type="submit" id="generateBtn" class="button button-primary generate-button">
+                            <svg class="lucide lucide-sparkles" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></svg>
                             <span id="generateBtnLabel">Render PDF</span>
                         </button>
                     </form>
@@ -404,28 +405,36 @@ Content-management handover and launch support</div></div></li>
 
             <section class="capabilities" aria-label="Service capabilities">
                 <article>
-                    <span class="capability-index">01</span>
+                    <div class="capability-icon-wrap" aria-hidden="true">
+                        <svg class="lucide lucide-terminal" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" x2="20" y1="19" y2="19"/></svg>
+                    </div>
                     <div>
                         <h2>REST API</h2>
                         <p>Send HTML, URLs, templates, or document packages through one endpoint.</p>
                     </div>
                 </article>
                 <article>
-                    <span class="capability-index">02</span>
+                    <div class="capability-icon-wrap" aria-hidden="true">
+                        <svg class="lucide lucide-cpu" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="16" height="16" x="4" y="4" rx="2"/><rect width="6" height="6" x="9" y="9" rx="1"/><path d="M15 2v2"/><path d="M15 20v2"/><path d="M2 15h2"/><path d="M2 9h2"/><path d="M20 15h2"/><path d="M20 9h2"/><path d="M9 2v2"/><path d="M9 20v2"/></svg>
+                    </div>
                     <div>
                         <h2>AWS-powered</h2>
                         <p>Run reliable rendering without managing browser workers or scaling infrastructure.</p>
                     </div>
                 </article>
                 <article>
-                    <span class="capability-index">03</span>
+                    <div class="capability-icon-wrap" aria-hidden="true">
+                        <svg class="lucide lucide-shield-check" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>
+                    </div>
                     <div>
                         <h2>Secure delivery &amp; encryption</h2>
                         <p>Protect confidential financial statements and contracts with AES-256 passwords and granular permissions.</p>
                     </div>
                 </article>
                 <article>
-                    <span class="capability-index">04</span>
+                    <div class="capability-icon-wrap" aria-hidden="true">
+                        <svg class="lucide lucide-monitor" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg>
+                    </div>
                     <div>
                         <h2>Browser-grade rendering</h2>
                         <p>Use modern HTML and CSS, rendered with Chromium to match your web output.</p>
@@ -457,14 +466,14 @@ Content-management handover and launch support</div></div></li>
                     <article class="pricing-card">
                         <p class="pricing-tier">Free</p>
                         <p class="pricing-price"><strong>$0 USD</strong><span>/ month</span></p>
-                        <p class="pricing-allowance">25 PDFs each month</p>
+                        <p class="pricing-allowance"><svg class="lucide lucide-check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg> 25 PDFs each month</p>
                         <a class="button" href="/app/">Create free account</a>
                     </article>
                     <article class="pricing-card" data-tier="starter">
                         <p class="pricing-tier">Starter</p>
                         <p class="pricing-price"><strong class="pricing-amount">$19 USD</strong><span class="pricing-period">/ month</span></p>
                         <p class="pricing-savings" hidden>Billed annually at $190/yr · <span class="savings-text">Saves $38</span></p>
-                        <p class="pricing-allowance">5,000 PDFs each month</p>
+                        <p class="pricing-allowance"><svg class="lucide lucide-check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg> 5,000 PDFs each month</p>
                         <p class="pricing-status">Billed monthly · Cancel anytime</p>
                         <a class="button" href="/app/">Create free account</a>
                     </article>
@@ -473,14 +482,14 @@ Content-management handover and launch support</div></div></li>
                         <p class="pricing-tier">Professional</p>
                         <p class="pricing-price"><strong class="pricing-amount">$49 USD</strong><span class="pricing-period">/ month</span></p>
                         <p class="pricing-savings" hidden>Billed annually at $490/yr · <span class="savings-text">Saves $98</span></p>
-                        <p class="pricing-allowance">20,000 PDFs each month</p>
+                        <p class="pricing-allowance"><svg class="lucide lucide-check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg> 20,000 PDFs each month</p>
                         <p class="pricing-status">Billed monthly · Cancel anytime</p>
                         <a class="button button-primary" href="/app/">Create free account</a>
                     </article>
                     <article class="pricing-card">
                         <p class="pricing-tier">Business</p>
                         <p class="pricing-price"><strong>Custom USD</strong><span> pricing</span></p>
-                        <p class="pricing-allowance">High-volume and tailored plans</p>
+                        <p class="pricing-allowance"><svg class="lucide lucide-check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg> High-volume and tailored plans</p>
                         <p class="pricing-status">Invoiced monthly or annually</p>
                         <a class="button" href="mailto:support@renderpdf.vberkoz.com?subject=RenderPDF%20Business%20Plan%20Inquiry">Contact sales</a>
                     </article>
@@ -1728,5 +1737,13 @@ Content-management handover and launch support</div></div></li>
         };
         loadLiveTelemetry();
     </script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script>
+        if (window.lucide) {
+            window.lucide.createIcons();
+        }
+    </script>
+    <link rel="stylesheet" href="chat-widget.css?v=4">
+    <script src="chat-widget.js?v=4" defer></script>
 </body>
 </html>

@@ -4,7 +4,7 @@
 | :--- | :--- |
 | **Task ID** | TASK-PLANS-03 |
 | **Feature** | [`features/plans/`](file:///Users/basilsergius/projects/renderpdf/dashboard/admin/features/plans/spec.md) |
-| **Status** | Ready for Implementation |
+| **Status** | Completed |
 | **Target Files** | `dashboard/admin/features/plans/plans.js`, `dashboard/admin/index.html` |
 | **Prerequisites** | Task 3.2 (`02-plan-quota-api.md`), `shared/ui.js` |
 

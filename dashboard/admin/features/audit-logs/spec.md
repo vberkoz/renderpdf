@@ -105,6 +105,6 @@ Exports `initGovernanceTab()`:
 
 ## 6. Implementation Tasks
 
-- [ ] [Task 4.1: Immutable Audit Trail Data Layer](file:///Users/basilsergius/projects/renderpdf/dashboard/admin/features/audit-logs/tasks/01-audit-trail-data-layer.md)
-- [ ] [Task 4.2: Governance APIs (Suspension & Key Revocation)](file:///Users/basilsergius/projects/renderpdf/dashboard/admin/features/audit-logs/tasks/02-governance-api.md)
-- [ ] [Task 4.3: Audit Trail Tab & Danger Zone UI](file:///Users/basilsergius/projects/renderpdf/dashboard/admin/features/audit-logs/tasks/03-governance-ui.md)
+- [x] [Task 4.1: Immutable Audit Trail Data Layer](file:///Users/basilsergius/projects/renderpdf/dashboard/admin/features/audit-logs/tasks/01-audit-trail-data-layer.md)
+- [x] [Task 4.2: Governance APIs (Suspension & Key Revocation)](file:///Users/basilsergius/projects/renderpdf/dashboard/admin/features/audit-logs/tasks/02-governance-api.md)
+- [x] [Task 4.3: Audit Trail Tab & Danger Zone UI](file:///Users/basilsergius/projects/renderpdf/dashboard/admin/features/audit-logs/tasks/03-governance-ui.md)

@@ -224,10 +224,10 @@ button:disabled, .button:disabled { opacity: .72; cursor: progress; }
   color: var(--muted); font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
 }
 .field-help, .dashboard-field small { color: var(--muted); font-size: .72rem; line-height: 1.45; }
-textarea {
+textarea:not(.rpdf-composer-input):not(#rpdf-chat-input) {
   width: 100%; border: 1px solid var(--line); border-radius: 12px; background: #fff; color: var(--text); padding: 11px 12px;
 }
-input:not([type="hidden"], [type="file"], [type="checkbox"], [type="radio"], [type="range"], [type="color"], [type="button"], [type="submit"], [type="reset"]),
+input:not([type="hidden"], [type="file"], [type="checkbox"], [type="radio"], [type="range"], [type="color"], [type="button"], [type="submit"], [type="reset"], .rpdf-email-input),
 select:not([multiple]), .dashboard-field input, .custom-select-trigger {
   width: 100%; border: 1px solid var(--line); border-radius: var(--control-radius); background: #fff; color: var(--text); padding: 11px 16px;
 }
@@ -236,8 +236,8 @@ select:not([multiple]), .dashboard-field input, .custom-select-trigger {
   min-height: 44px;
   padding-block: 0;
 }
-textarea { min-height: 156px; resize: vertical; line-height: 1.45; }
-textarea:focus, input:not([type="hidden"], [type="file"], [type="checkbox"], [type="radio"], [type="range"], [type="color"], [type="button"], [type="submit"], [type="reset"]):focus, select:not([multiple]):focus, .custom-select-trigger:focus-visible { border-color: #94a3b8; outline: 1px solid #cbd5e1; }
+textarea:not(.rpdf-composer-input):not(#rpdf-chat-input) { min-height: 156px; resize: vertical; line-height: 1.45; }
+textarea:not(.rpdf-composer-input):not(#rpdf-chat-input):focus, input:not([type="hidden"], [type="file"], [type="checkbox"], [type="radio"], [type="range"], [type="color"], [type="button"], [type="submit"], [type="reset"], .rpdf-email-input):focus, select:not([multiple]):focus, .custom-select-trigger:focus-visible { border-color: #94a3b8; outline: 1px solid #cbd5e1; }
 .preview-heading { padding: 0 2px; color: var(--muted); font-family: var(--font-mono); font-size: .68rem; }
 .html-preview, .paged-preview-frame, .template-preview-stage, .document-json-preview-stage { display: block; min-height: 360px; max-width: 100%; width: 100%; border: 1px solid var(--line); border-radius: 12px; background: #fff; }
 .playground-preview-wrap .html-preview { height: 450px; min-height: 450px; margin: 0; }
@@ -266,3 +266,21 @@ textarea:focus, input:not([type="hidden"], [type="file"], [type="checkbox"], [ty
 .pricing-price strong { color: var(--text); font-size: 2rem; letter-spacing: -.05em; }
 .pricing-card-featured { border-color: var(--line-strong); background: linear-gradient(180deg, #fff, #f8fafc); }
 .pricing-badge { color: var(--text) !important; font-family: var(--font-mono); font-size: .65rem !important; font-weight: 700; text-transform: uppercase; }
+
+/* Lucide Icons */
+.lucide {
+  width: 1em;
+  height: 1em;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+  vertical-align: -0.125em;
+  display: inline-block;
+  flex-shrink: 0;
+}
+.lucide-sm { width: 14px; height: 14px; }
+.lucide-md { width: 18px; height: 18px; }
+.lucide-lg { width: 24px; height: 24px; }
+

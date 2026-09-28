@@ -16,6 +16,7 @@ Operational guide for AI agents working in this repository.
   - `/Users/basilsergius/projects/renderpdf/docs/CONTRIBUTING.md`
 - Treat root deploy and infra files as shared coordination points:
   - `/Users/basilsergius/projects/renderpdf/deploy.sh`
+  - `/Users/basilsergius/projects/renderpdf/deploy_ui.sh`
   - `/Users/basilsergius/projects/renderpdf/deploy-landing.sh`
   - `/Users/basilsergius/projects/renderpdf/test-api.sh`
   - `/Users/basilsergius/projects/renderpdf/cloudformation.yaml`

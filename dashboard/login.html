@@ -36,7 +36,7 @@
 
             <section class="auth-card" aria-labelledby="sign-in-title">
                 <div class="auth-card-heading">
-                    <p class="auth-eyebrow">Account access</p>
+                    <p class="auth-eyebrow"><svg class="lucide lucide-lock" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Account access</p>
                     <h2 id="sign-in-title">Sign in to RenderPDF</h2>
                 </div>
 
@@ -53,7 +53,7 @@
                 <div class="auth-divider"><span>or</span></div>
 
                 <button id="emailLoginBtn" class="button button-secondary email-button" type="button">
-                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <svg class="lucide lucide-mail" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                         <rect x="2" y="4" width="20" height="16" rx="2"></rect>
                         <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path>
                     </svg>
@@ -62,10 +62,10 @@
 
                 <div class="auth-alternate-action">
                     <span>Need an account?</span>
-                    <button id="emailSignUpBtn" class="auth-text-link" type="button">Sign up with email</button>
+                    <button id="emailSignUpBtn" class="auth-text-link" type="button">Sign up with email <svg class="lucide lucide-arrow-right" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
                 </div>
 
-                <p class="auth-fineprint">Sign in with your Google account or email and password. Supports corporate email (Microsoft 365, Google Workspace, custom domains) and privacy providers (Proton, Fastmail).</p>
+                <p class="auth-fineprint"><svg class="lucide lucide-shield-check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg> Sign in with your Google account or email and password. Supports corporate email (Microsoft 365, Google Workspace, custom domains) and privacy providers (Proton, Fastmail).</p>
             </section>
         </main>
 
@@ -142,6 +142,12 @@
             button.setAttribute('aria-busy', 'true');
             window.location.href = `${COGNITO_DOMAIN}/signup?${emailAuthParams}`;
         });
+    </script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script>
+        if (window.lucide) {
+            window.lucide.createIcons();
+        }
     </script>
 </body>
 </html>

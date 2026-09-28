@@ -72,9 +72,14 @@ dashboard/admin/
     │   ├── spec.md                      # Feature Specification
     │   └── plans.js                     # Plan & Quota Modal Handlers
     │
-    └── audit-logs/                      # Route: /admin/audit-logs (Security & Audit Logging)
+    ├── audit-logs/                      # Route: /admin/audit-logs (Security & Audit Logging)
+    │   ├── spec.md                      # Feature Specification
+    │   └── governance.js                # Audit Log Table & Danger Zone Handlers
+    │
+    └── support-chat/                    # Route: /admin/chats (AI Chatbot & Support Inbox)
         ├── spec.md                      # Feature Specification
-        └── governance.js                # Audit Log Table & Danger Zone Handlers
+        ├── tasks/                       # Task Breakdown (01 to 04)
+        └── chat.js                      # Live Chat Inbox UI & Real-Time Polling
 ```
 
 ---
@@ -103,6 +108,11 @@ Each feature is documented in its dedicated specification file with isolated API
 * **Purpose**: Account suspension/activation in Cognito + key deactivation, compromised API key revocation, and immutable logging of all administrative actions to `ADMIN_AUDIT#YYYY-MM-DD` with a 365-day TTL.
 * **Endpoints**: `POST /api/v1/admin/users/{userId}/status`, `POST /api/v1/admin/users/{userId}/keys/{keyId}/revoke`, `GET /api/v1/admin/audit-logs`
 
+### [Feature: AI Support Chatbot & Admin Inbox (`/admin/chats`)](file:///Users/basilsergius/projects/renderpdf/dashboard/admin/features/support-chat/spec.md)
+* **Route / Folder**: `features/support-chat/`
+* **Purpose**: First-party serverless live chat widget and operator inbox. Powered by AWS Bedrock Nova Micro (`amazon.nova-micro-v1:0`) armed with the RenderPDF knowledge base. Performs autonomous Q&A for documentation and pricing while escalating high-value enterprise leads, complex bugs, and human requests via instant Amazon SES alerts to `OperationsAlertEmail` (`vberkoz@gmail.com`).
+* **Endpoints**: `POST /api/v1/chat`, `GET /api/v1/admin/chats`, `GET /api/v1/admin/chats/{id}`, `POST /api/v1/admin/chats/{id}/reply`, `POST /api/v1/admin/chats/{id}/status`
+
 ---
 
 ## 5. Sequential Implementation Roadmap
@@ -114,3 +124,4 @@ Each feature is documented in its dedicated specification file with isolated API
 | **3** | **`users`** | User search + Sliding drawer dossier | Search email returns user with active keys & logs |
 | **4** | **`plans`** | Plan overrides + `syncUserUsagePlans` + Paddle guard | Free user upgraded to Pro, key moved to `ProUsagePlan` |
 | **5** | **`audit-logs`** | User suspend + key revoke + `ADMIN_AUDIT` table | Action logged to audit table, user blocked |
+| **6** | **`support-chat`** | Nova Micro chat API + SES alerts + Admin inbox UI | Autonomous Q&A $<800\text{ms}$, escalation email received, operator reply verified |

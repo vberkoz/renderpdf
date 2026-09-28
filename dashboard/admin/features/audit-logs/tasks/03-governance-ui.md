@@ -4,7 +4,7 @@
 | :--- | :--- |
 | **Task ID** | TASK-AUDIT-03 |
 | **Feature** | [`features/audit-logs/`](file:///Users/basilsergius/projects/renderpdf/dashboard/admin/features/audit-logs/spec.md) |
-| **Status** | Ready for Implementation |
+| **Status** | Completed |
 | **Target Files** | `dashboard/admin/features/audit-logs/governance.js`, `dashboard/admin/index.html` |
 | **Prerequisites** | Task 4.2 (`02-governance-api.md`), `shared/ui.js` |
 

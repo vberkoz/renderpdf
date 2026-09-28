@@ -1,8 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -70,6 +73,41 @@ func sendSESEmail(ctx context.Context, toEmail, subject, htmlBody, textBody stri
 	}
 	_, err := sesClient.SendEmailWithContext(ctx, input)
 	return err
+}
+
+func sendTelegramAlert(ctx context.Context, text string) error {
+	token := strings.TrimSpace(os.Getenv("TELEGRAM_BOT_TOKEN"))
+	chatID := strings.TrimSpace(os.Getenv("TELEGRAM_CHAT_ID"))
+	if token == "" || chatID == "" {
+		return nil
+	}
+
+	payload := map[string]interface{}{
+		"chat_id":    chatID,
+		"text":       text,
+		"parse_mode": "HTML",
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "POST", fmt.Sprintf("https://api.telegram.org/bot%s/sendMessage", token), bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 400 {
+		return fmt.Errorf("telegram API returned status %d", resp.StatusCode)
+	}
+	return nil
 }
 
 func resolveCustomerEmail(ctx context.Context, customerID, directEmail string) string {
@@ -355,8 +393,10 @@ func maybeSendQuotaAlert(customerID, directEmail, quotaKey string, used, limit i
 				} else {
 					fmt.Printf("Sent 100%% quota alert email to %s (used %d of %d)\n", email, used, limit)
 				}
+				_ = sendTelegramAlert(ctx, fmt.Sprintf("🚨 <b>[RenderPDF Quota Exhausted]</b>\n\n👤 <b>Customer:</b> <code>%s</code> (%s)\n📊 <b>Usage:</b> %d / %d renders (100%%)\n👉 <a href=\"https://renderpdf.vberkoz.com/app/admin#users\">Open in Admin</a>", customerID, email, used, limit))
 			} else {
 				fmt.Printf("No email found to send 100%% quota alert for customer %s\n", customerID)
+				_ = sendTelegramAlert(ctx, fmt.Sprintf("🚨 <b>[RenderPDF Quota Exhausted]</b>\n\n👤 <b>Customer ID:</b> <code>%s</code>\n📊 <b>Usage:</b> %d / %d renders (100%%)\n👉 <a href=\"https://renderpdf.vberkoz.com/app/admin#users\">Open in Admin</a>", customerID, used, limit))
 			}
 		}
 		return

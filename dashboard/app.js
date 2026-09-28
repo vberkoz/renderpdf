@@ -520,6 +520,7 @@ function changePlan(plan) {
 
 let paddleInitialized = false;
 let currentBilling = { status: 'free', tier: 'free' };
+window.currentBilling = currentBilling;
 
 function loadPaddleScript() {
     if (window.Paddle) return Promise.resolve(window.Paddle);
@@ -1499,6 +1500,7 @@ function renderDashboard(data) {
     const usage = data.usage || {};
     const billing = data.billing || { status: 'free', plan: 'Free' };
     currentBilling = billing;
+    window.currentBilling = billing;
     document.getElementById('pdfsToday').textContent = String(usage.pdfsToday ?? 0);
     document.getElementById('monthlyUsage').textContent = `${usage.usedThisMonth ?? 0} of ${usage.quota ?? 0}`;
     document.getElementById('quotaDetail').textContent = `${usage.remaining ?? 0} PDFs remaining this month`;

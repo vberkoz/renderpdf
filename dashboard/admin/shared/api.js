@@ -27,20 +27,24 @@ export async function adminFetch(endpoint, options = {}) {
   let primaryUrl;
   let fallbackUrl;
 
+  const [cleanPath, queryString] = cleanEndpoint.split('?');
+
   if (endpoint.startsWith('http') || endpoint.startsWith('/api/')) {
     primaryUrl = endpoint;
-  } else if (cleanEndpoint.startsWith('/analytics')) {
+  } else if (cleanPath.startsWith('/analytics')) {
     primaryUrl = `${API_PREFIX}${cleanEndpoint}`;
     fallbackUrl = `${API_PREFIX}/admin${cleanEndpoint}`;
-  } else if (cleanEndpoint.startsWith('/admin/analytics')) {
+  } else if (cleanPath.startsWith('/admin/analytics')) {
     primaryUrl = `${API_PREFIX}${cleanEndpoint.replace('/admin', '')}`;
     fallbackUrl = `${API_PREFIX}${cleanEndpoint}`;
-  } else if (cleanEndpoint.startsWith('/admin/')) {
+  } else if (cleanPath.startsWith('/admin/')) {
     primaryUrl = `${API_PREFIX}${cleanEndpoint}`;
-    fallbackUrl = `${API_PREFIX}${cleanEndpoint.replace('/admin', '')}`;
+    const routeParam = encodeURIComponent(cleanPath.replace(/^\//, ''));
+    fallbackUrl = `${API_PREFIX}/analytics?route=${routeParam}${queryString ? `&${queryString}` : ''}`;
   } else {
     primaryUrl = `${API_PREFIX}/admin${cleanEndpoint}`;
-    fallbackUrl = `${API_PREFIX}${cleanEndpoint}`;
+    const routeParam = encodeURIComponent(`admin${cleanPath}`);
+    fallbackUrl = `${API_PREFIX}/analytics?route=${routeParam}${queryString ? `&${queryString}` : ''}`;
   }
 
   const candidateUrls = fallbackUrl ? [primaryUrl, fallbackUrl] : [primaryUrl];
@@ -72,11 +76,19 @@ export async function adminFetch(endpoint, options = {}) {
     }
     lastPayload = payload;
 
-    // AWS API Gateway returns 403 {"message":"Missing Authentication Token"} for unmapped routes
+    // AWS API Gateway returns 403 {"message":"Missing Authentication Token"} for unmapped routes,
+    // or {"message":"Invalid key=value pair (missing equal-sign) in Authorization header..."} when Bearer token is sent to an unmapped path
     const isUnmapped = response.status === 404 || 
-      (response.status === 403 && (payload?.message === 'Missing Authentication Token' || payload?.message === 'Forbidden'));
+      (response.status === 403 && (
+        payload?.message === 'Missing Authentication Token' || 
+        payload?.message === 'Forbidden' ||
+        (typeof payload?.message === 'string' && (
+          payload.message.includes('missing equal-sign') ||
+          payload.message.includes('Authorization header')
+        ))
+      ));
 
-    if (isUnmapped && candidateUrls.length > 1 && url === candidateUrls[0]) {
+    if (isUnmapped && candidateUrls.length > 1 && url !== candidateUrls[candidateUrls.length - 1]) {
       continue;
     }
 

@@ -4,7 +4,7 @@
 | :--- | :--- |
 | **Task ID** | TASK-USERS-02 |
 | **Feature** | [`features/users/`](file:///Users/basilsergius/projects/renderpdf/dashboard/admin/features/users/spec.md) |
-| **Status** | Ready for Implementation |
+| **Status** | Completed |
 | **Target Files** | `dashboard/admin/features/users/users.js`, `dashboard/admin/index.html` |
 | **Prerequisites** | Task 2.1 (`01-users-api.md`), `shared/api.js` |
 

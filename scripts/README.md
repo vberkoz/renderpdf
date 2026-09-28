@@ -13,13 +13,15 @@
 - `/Users/basilsergius/projects/renderpdf/scripts/verify-static-ui.js`
 - `/Users/basilsergius/projects/renderpdf/scripts/verify-deployed-api.sh`
 - `/Users/basilsergius/projects/renderpdf/scripts/deploy.sh`
+- `/Users/basilsergius/projects/renderpdf/scripts/deploy_ui.sh`
 - `/Users/basilsergius/projects/renderpdf/scripts/deploy-landing.sh`
 - `/Users/basilsergius/projects/renderpdf/scripts/test-api.sh`
 - `/Users/basilsergius/projects/renderpdf/scripts/test-template-docs.sh`
 
 ## Notes
 
-- Root `deploy.sh`, `deploy-landing.sh`, and `test-api.sh` remain thin compatibility wrappers.
+- Root `deploy.sh`, `deploy_ui.sh`, `deploy-landing.sh`, and `test-api.sh` remain thin compatibility wrappers.
+- `deploy_ui.sh` deploys all frontend UI surfaces (landing marketing site, docs, auth pages, client dashboard, and admin console) to S3 and invalidates CloudFront.
 - Verification entrypoints live in `scripts/verify-*.sh`.
 - `node scripts/verify-static-ui.js` validates local static HTML structure
   without deployment, network access, or AWS credentials.
