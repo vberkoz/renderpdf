@@ -1620,6 +1620,7 @@ Content-management handover and launch support</div></div></li>
             error.classList.add('hidden');
 
             try {
+                fetch(new URL('/api/v1/public-stats?event=trial_render_submitted', API_ORIGIN).toString(), { cache: 'no-store' }).catch(() => {});
                 const response = await fetch(TRIAL_RENDER_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -1637,6 +1638,7 @@ Content-management handover and launch support</div></div></li>
                 }
 
                 const data = await response.json();
+                fetch(new URL('/api/v1/public-stats?event=trial_render_succeeded', API_ORIGIN).toString(), { cache: 'no-store' }).catch(() => {});
                 result.innerHTML = `
                     <div>
                         <strong>PDF ready</strong>
@@ -1709,7 +1711,7 @@ Content-management handover and launch support</div></div></li>
 
         const loadLiveTelemetry = async () => {
             try {
-                const res = await fetch(new URL('/api/v1/public-stats', API_ORIGIN).toString(), { cache: 'no-store' });
+                const res = await fetch(new URL('/api/v1/public-stats?event=page_viewed', API_ORIGIN).toString(), { cache: 'no-store' });
                 if (!res.ok) return;
                 const stats = await res.json();
                 const speedEl = document.getElementById('renderSpeedVal');

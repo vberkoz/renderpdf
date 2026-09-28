@@ -332,13 +332,25 @@ Resources:
             };
           }
 
+          if (uri === '/app/admin') {
+            return {
+              statusCode: 301,
+              statusDescription: 'Moved Permanently',
+              headers: {
+                location: { value: '/app/admin/' + querySuffix(request.querystring) },
+                'cache-control': { value: 'no-store' }
+              }
+            };
+          }
+
           var routes = {
             '/app/login': true,
             '/app/callback': true,
             '/app/debug': true,
             '/app/create-render': '/app/index.html',
             '/app/create-render/': '/app/index.html',
-            '/app/stats': '/app/stats/index.html'
+            '/app/stats': '/app/stats/index.html',
+            '/app/admin/': '/app/admin/index.html'
           };
           if (routes[uri]) request.uri = routes[uri] === true ? uri + '.html' : routes[uri];
           return request;
@@ -778,6 +790,7 @@ Resources:
               - Effect: Allow
                 Action:
                   - 'dynamodb:GetItem'
+                  - 'dynamodb:BatchGetItem'
                   - 'dynamodb:PutItem'
                   - 'dynamodb:Query'
                   - 'dynamodb:TransactWriteItems'

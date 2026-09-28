@@ -2,8 +2,10 @@
 
 const crypto = require('node:crypto');
 const {
+  BatchGetItemCommand,
   DynamoDBClient,
   GetItemCommand,
+  PutItemCommand,
   QueryCommand,
   TransactWriteItemsCommand,
   UpdateItemCommand,
@@ -88,9 +90,14 @@ async function handler(event) {
     if (event.httpMethod === 'OPTIONS') return publicStatsResponse(204);
     return readPublicStats(event);
   }
+  if (path.endsWith('/admin/analytics') || path.includes('/admin/analytics')) {
+    if (event.httpMethod === 'OPTIONS') return response(204);
+    if (event.httpMethod === 'GET') return readAdminAnalytics(event);
+    return response(405, { error: 'Method not allowed' });
+  }
   switch (event.httpMethod) {
     case 'GET':
-      return readAnalytics(event);
+      return readAdminAnalytics(event);
     case 'POST':
       return saveAnalytics(event);
     case 'OPTIONS':
@@ -582,6 +589,88 @@ async function receivePaymentFailedWebhook(payload) {
   return response(200, { received: true });
 }
 
+function latencyBucket(durationMs) {
+  const d = Number(durationMs) || 0;
+  if (d < 400) return 'under_400ms';
+  if (d < 800) return '400ms_to_800ms';
+  if (d < 1500) return '800ms_to_1500ms';
+  return 'over_1500ms';
+}
+
+async function recordRenderRollup(status, durationMs, pdfBytes, plan, date) {
+  let dateKeyStr;
+  if (date instanceof Date) {
+    dateKeyStr = dateKey(date);
+  } else if (typeof date === 'string' && date) {
+    dateKeyStr = date.length === 10 ? date : dateKey(new Date(date));
+  } else {
+    dateKeyStr = dateKey(new Date());
+  }
+
+  const updateInput = {
+    TableName: TABLE_NAME,
+    Key: { requestId: { S: `ROLLUP#${dateKeyStr}` }, timestamp: { N: '0' } },
+    UpdateExpression: `
+      ADD rendering.totalRenders :one,
+          rendering.totalBytes :size,
+          rendering.totalDurationMs :duration,
+          #rendSuccess :succIncr,
+          #rendError :errIncr,
+          rendering.byPlan.#plan :one,
+          rendering.latencyBuckets.#latBucket :one
+    `,
+    ExpressionAttributeNames: {
+      '#rendSuccess': status === 'success' ? 'rendering.successes' : 'dummy_success',
+      '#rendError': status !== 'success' ? 'rendering.errors' : 'dummy_error',
+      '#plan': plan || 'unknown',
+      '#latBucket': latencyBucket(durationMs),
+    },
+    ExpressionAttributeValues: {
+      ':one': { N: '1' },
+      ':size': { N: String(pdfBytes || 0) },
+      ':duration': { N: String(durationMs || 0) },
+      ':succIncr': { N: status === 'success' ? '1' : '0' },
+      ':errIncr': { N: status !== 'success' ? '1' : '0' },
+    },
+  };
+
+  return ddb.send(new UpdateItemCommand(updateInput));
+}
+
+const EVENT_ROLLUP_TARGETS = {
+  page_viewed: 'acquisition.pageViews',
+  trial_render_submitted: 'acquisition.playgroundSubmits',
+  trial_render_succeeded: 'acquisition.playgroundSuccesses',
+  signup_started: 'activation.signupStarted',
+  signup_completed: 'activation.signupCompleted',
+  api_key_created: 'activation.apiKeysCreated',
+};
+
+async function recordEventRollup(eventName, date) {
+  const targetField = EVENT_ROLLUP_TARGETS[eventName];
+  if (!targetField) return null;
+
+  let dateKeyStr;
+  if (date instanceof Date) {
+    dateKeyStr = dateKey(date);
+  } else if (typeof date === 'string' && date) {
+    dateKeyStr = date.length === 10 ? date : dateKey(new Date(date));
+  } else {
+    dateKeyStr = dateKey(new Date());
+  }
+
+  const updateInput = {
+    TableName: TABLE_NAME,
+    Key: { requestId: { S: `ROLLUP#${dateKeyStr}` }, timestamp: { N: '0' } },
+    UpdateExpression: `ADD ${targetField} :one`,
+    ExpressionAttributeValues: {
+      ':one': { N: '1' },
+    },
+  };
+
+  return ddb.send(new UpdateItemCommand(updateInput));
+}
+
 async function saveAnalytics(request) {
   let event;
   try {
@@ -620,6 +709,9 @@ async function saveAnalytics(request) {
 
   try {
     await ddb.send(new PutItemCommand({ TableName: TABLE_NAME, Item: item }));
+    if (EVENT_ROLLUP_TARGETS[event.event]) {
+      await recordEventRollup(event.event, now);
+    }
   } catch (err) {
     console.error('Could not save analytics event', err);
     return response(500, { error: 'Could not save analytics event' });
@@ -627,131 +719,475 @@ async function saveAnalytics(request) {
   return response(202, { id: eventId });
 }
 
-async function readAnalytics(request) {
-  const email = String(request.requestContext?.authorizer?.claims?.email || '').trim().toLowerCase();
-  if (!email || email !== STATS_ALLOWED_EMAIL) {
-    return response(403, { error: 'Statistics access is restricted to the approved account' });
-  }
-  const days = parseDays(request.queryStringParameters?.days);
-  const now = new Date();
-  const from = new Date(now);
-  from.setUTCDate(from.getUTCDate() - (days - 1));
-  const today = dateKey(now);
-  const sevenDaysAgo = new Date(now);
-  sevenDaysAgo.setUTCDate(sevenDaysAgo.getUTCDate() - 6);
-  const summary = {
-    windowDays: days,
-    from: dateKey(from),
-    to: today,
-    requestsToday: 0,
-    requestsLast7Days: 0,
-    requestsLast30Days: 0,
-    totalRequests: 0,
-    totalBytes: 0,
-    trialRequests: 0,
-    authenticatedRequests: 0,
-    successRate: 0,
-    averageRenderMs: 0,
-    p95RenderMs: 0,
-    averagePdfBytes: 0,
-    errors: 0,
-    timeouts: 0,
-    signupEvents: 0,
-    trialToSignupRate: 0,
-    analyticsEvents: 0,
-    activeDays: 0,
-    byDay: [],
-    byEvent: {},
-    byPlan: {},
-    topApiKeys: [],
-    topCustomers: [],
-    byCountry: [],
-  };
-  const byDay = new Map();
-  const durations = [];
-  const apiKeys = new Map();
-  const customers = new Map();
-  const countries = new Map();
-  const signupCustomers = new Set();
-  let anonymousSignups = 0;
+function isAuthorizedAdmin(request) {
+  const claims = request?.requestContext?.authorizer?.claims;
+  if (!claims) return false;
 
-  for (let day = new Date(from); day <= now; day.setUTCDate(day.getUTCDate() + 1)) {
-    const date = dateKey(day);
-    const daySummary = { date, requests: 0, trialRequests: 0, apiRequests: 0, successes: 0, errors: 0, bytes: 0, events: 0 };
-    byDay.set(date, daySummary);
-    for (const prefix of ['ANALYTICS', 'USAGE']) {
-      let items;
-      try {
-        items = await queryDay(`${prefix}#${date}`);
-      } catch (err) {
-        console.error('Could not read analytics', err);
-        return response(500, { error: 'Could not read analytics' });
+  const groups = claims['cognito:groups'];
+  if (Array.isArray(groups) && groups.includes('Admins')) return true;
+  if (typeof groups === 'string') {
+    const list = groups.replace(/[\[\]"']/g, '').split(',').map((s) => s.trim());
+    if (list.includes('Admins')) return true;
+  }
+
+  const email = String(claims.email || '').trim().toLowerCase();
+  const allowedEmail = String(process.env.STATS_ALLOWED_EMAIL || STATS_ALLOWED_EMAIL || '').trim().toLowerCase();
+  if (email && allowedEmail && email === allowedEmail) return true;
+
+  return false;
+}
+
+function unwrap(val) {
+  if (val == null) return null;
+  if (typeof val !== 'object') return val;
+  if (Array.isArray(val)) return val.map(unwrap);
+
+  const keys = Object.keys(val);
+  if (keys.length === 1) {
+    const k = keys[0];
+    if (k === 'S') return val.S;
+    if (k === 'N') {
+      const num = Number(val.N);
+      return Number.isFinite(num) ? num : 0;
+    }
+    if (k === 'BOOL') return Boolean(val.BOOL);
+    if (k === 'NULL') return null;
+    if (k === 'M') return unwrap(val.M);
+    if (k === 'L') return val.L.map(unwrap);
+  }
+
+  const res = {};
+  for (const [k, v] of Object.entries(val)) {
+    res[k] = unwrap(v);
+  }
+  return res;
+}
+
+function roundOneDecimal(value) {
+  if (!Number.isFinite(value)) return 0;
+  return Math.round(value * 10) / 10;
+}
+
+function calculateAwsCost(totalRenders = 0, totalDurationMs = 0, totalBytes = 0) {
+  const lambdaCost = (totalDurationMs / 1000) * (2048 / 1024) * 0.0000166667 + (totalRenders * 0.20 / 1000000);
+  const s3Cost = (totalRenders * 0.005 / 1000) + ((totalBytes / 1e9) * 0.023);
+  return lambdaCost + s3Cost;
+}
+
+function calculateGrossMargin(attributedRevenue, awsCost) {
+  if (!attributedRevenue || attributedRevenue <= 0) return 0;
+  return ((attributedRevenue - awsCost) / attributedRevenue) * 100;
+}
+
+function calculateP95(latencyBuckets) {
+  if (!latencyBuckets) return 0;
+  const buckets = [
+    { key: 'under_400ms', min: 100, max: 400, midpoint: 250 },
+    { key: '400ms_to_800ms', min: 400, max: 800, midpoint: 600 },
+    { key: '800ms_to_1500ms', min: 800, max: 1500, midpoint: 1150 },
+    { key: 'over_1500ms', min: 1500, max: 2900, midpoint: 2200 },
+  ];
+
+  let total = 0;
+  for (const b of buckets) {
+    total += Number(latencyBuckets[b.key] || 0);
+  }
+  if (total === 0) return 0;
+
+  const target = 0.95 * total;
+  let cumulative = 0;
+
+  for (const b of buckets) {
+    const count = Number(latencyBuckets[b.key] || 0);
+    if (count <= 0) continue;
+    if (cumulative + count >= target) {
+      const rankInBucket = target - cumulative;
+      const fraction = rankInBucket / count;
+      return Math.round(b.min + fraction * (b.max - b.min));
+    }
+    cumulative += count;
+  }
+
+  return buckets[buckets.length - 1].midpoint;
+}
+
+function calculateMedianTtfc(ttfcBuckets) {
+  if (!ttfcBuckets) return 0;
+  const buckets = [
+    { key: 'under_5m', min: 0, max: 5 },
+    { key: '5m_to_30m', min: 5, max: 30 },
+    { key: '30m_to_2h', min: 30, max: 120 },
+    { key: 'over_2h', min: 120, max: 360 },
+  ];
+
+  let total = 0;
+  for (const b of buckets) {
+    total += Number(ttfcBuckets[b.key] || 0);
+  }
+  if (total === 0) return 0;
+
+  const target = 0.5 * total;
+  let cumulative = 0;
+
+  for (const b of buckets) {
+    const count = Number(ttfcBuckets[b.key] || 0);
+    if (count <= 0) continue;
+    if (cumulative + count >= target) {
+      const rank = target - cumulative;
+      const fraction = rank / count;
+      return roundOneDecimal(b.min + fraction * (b.max - b.min));
+    }
+    cumulative += count;
+  }
+
+  return 0;
+}
+
+async function aggregateDayData(dateStr, existingRollup = null) {
+  let usageItems = [];
+  let analyticsItems = [];
+
+  try {
+    [usageItems, analyticsItems] = await Promise.all([
+      queryDay(`USAGE#${dateStr}`).catch(() => []),
+      queryDay(`ANALYTICS#${dateStr}`).catch(() => []),
+    ]);
+  } catch (err) {
+    console.error(`Could not query day data for ${dateStr}:`, err);
+  }
+
+  if (usageItems.length === 0 && analyticsItems.length === 0) {
+    return existingRollup || null;
+  }
+
+  let totalRenders = 0;
+  let successes = 0;
+  let errors = 0;
+  let totalDurationMs = 0;
+  let totalBytes = 0;
+  let playgroundSubmits = 0;
+  let playgroundSuccesses = 0;
+  const byPlan = { trial: 0, free: 0, starter: 0, pro: 0 };
+  const latencyBuckets = {
+    under_400ms: 0,
+    '400ms_to_800ms': 0,
+    '800ms_to_1500ms': 0,
+    over_1500ms: 0,
+  };
+
+  for (const item of usageItems) {
+    const entityType = stringValue(item, 'entityType');
+    if (entityType === 'PDF_REQUEST' || !entityType) {
+      totalRenders++;
+      const status = stringValue(item, 'status') || 'success';
+      if (status === 'success') {
+        successes++;
+      } else {
+        errors++;
       }
-      for (const item of items) {
-        if (stringValue(item, 'entityType') === 'PDF_REQUEST') {
-          const status = stringValue(item, 'status') || 'success';
-          summary.requestsLast30Days++;
-          daySummary.requests++;
-          if (date === today) summary.requestsToday++;
-          if (day >= sevenDaysAgo) summary.requestsLast7Days++;
-          if (status === 'success') daySummary.successes++;
-          else {
-            daySummary.errors++;
-            summary.errors++;
-            if (status === 'timeout' || stringValue(item, 'errorType').includes('timeout')) summary.timeouts++;
-          }
-          if (stringValue(item, 'plan') === 'trial') {
-            summary.trialRequests++;
-            daySummary.trialRequests++;
-          } else {
-            summary.authenticatedRequests++;
-            daySummary.apiRequests++;
-          }
-          const size = numberValue(item, 'size');
-          if (size > 0) daySummary.bytes += size;
-          summary.totalBytes += size;
-          const duration = numberValue(item, 'renderDurationMs') || numberValue(item, 'durationMs');
-          if (duration > 0) durations.push(duration);
-          const plan = stringValue(item, 'plan') || 'unknown';
-          increment(summary.byPlan, plan);
-          increment(apiKeys, stringValue(item, 'apiKeyId'));
-          increment(customers, stringValue(item, 'customerId'));
-          increment(countries, stringValue(item, 'country'));
-        } else if (stringValue(item, 'entityType') === 'ANALYTICS') {
-          summary.analyticsEvents++;
-          daySummary.events++;
-          const eventName = stringValue(item, 'eventName');
-          if (eventName) increment(summary.byEvent, eventName);
-          if (eventName === 'api_key_created' || eventName === 'signup') {
-            const customer = stringValue(item, 'customerId');
-            if (customer) signupCustomers.add(customer);
-            else anonymousSignups++;
-          }
-        }
+
+      const plan = stringValue(item, 'plan') || 'free';
+      byPlan[plan] = (byPlan[plan] || 0) + 1;
+      if (plan === 'trial') {
+        playgroundSubmits++;
+        if (status === 'success') playgroundSuccesses++;
+      }
+
+      const duration = numberValue(item, 'renderDurationMs') || numberValue(item, 'durationMs');
+      if (duration > 0) {
+        totalDurationMs += duration;
+        const bucket = latencyBucket(duration);
+        latencyBuckets[bucket] = (latencyBuckets[bucket] || 0) + 1;
+      }
+
+      const size = numberValue(item, 'size');
+      if (size > 0) totalBytes += size;
+    }
+  }
+
+  let pageViews = 0;
+  let signupsCompleted = 0;
+  let apiKeysCreated = 0;
+
+  for (const item of analyticsItems) {
+    const eventName = stringValue(item, 'eventName');
+    if (eventName === 'page_viewed') pageViews++;
+    if (eventName === 'trial_render_submitted') playgroundSubmits++;
+    if (eventName === 'trial_render_succeeded') playgroundSuccesses++;
+    if (eventName === 'signup_completed' || eventName === 'signup') signupsCompleted++;
+    if (eventName === 'api_key_created') apiKeysCreated++;
+  }
+
+  const p95 = calculateP95(latencyBuckets);
+
+  const prevAcq = existingRollup?.acquisition || {};
+  const prevAct = existingRollup?.activation || {};
+  const prevRend = existingRollup?.rendering || {};
+
+  const merged = {
+    date: dateStr,
+    acquisition: {
+      pageViews: Math.max(pageViews, Number(prevAcq.pageViews || 0)),
+      playgroundSubmits: Math.max(playgroundSubmits, Number(prevAcq.playgroundSubmits || 0)),
+      playgroundSuccesses: Math.max(playgroundSuccesses, Number(prevAcq.playgroundSuccesses || 0)),
+    },
+    activation: {
+      signupsCompleted: Math.max(signupsCompleted, Number(prevAct.signupCompleted ?? prevAct.signupsCompleted ?? 0)),
+      apiKeysCreated: Math.max(apiKeysCreated, Number(prevAct.apiKeysCreated || 0)),
+      firstApiCalls: Math.max(Number(prevAct.firstApiCalls || 0), (apiKeysCreated > 0 && totalRenders > 0) ? 1 : 0),
+      ttfcBuckets: prevAct.ttfcBuckets || {
+        under_5m: 0,
+        '5m_to_30m': 0,
+        '30m_to_2h': 0,
+        over_2h: 0,
+      },
+    },
+    rendering: {
+      totalRenders: Math.max(totalRenders, Number(prevRend.totalRenders || 0)),
+      successes: Math.max(successes, Number(prevRend.successes || 0)),
+      errors: Math.max(errors, Number(prevRend.errors || 0)),
+      totalDurationMs: Math.max(totalDurationMs, Number(prevRend.totalDurationMs || 0)),
+      totalBytes: Math.max(totalBytes, Number(prevRend.totalBytes || 0)),
+      byPlan,
+      latencyBuckets: {
+        under_400ms: Math.max(latencyBuckets.under_400ms, Number(prevRend.latencyBuckets?.under_400ms || 0)),
+        '400ms_to_800ms': Math.max(latencyBuckets['400ms_to_800ms'], Number(prevRend.latencyBuckets?.['400ms_to_800ms'] || 0)),
+        '800ms_to_1500ms': Math.max(latencyBuckets['800ms_to_1500ms'], Number(prevRend.latencyBuckets?.['800ms_to_1500ms'] || 0)),
+        over_1500ms: Math.max(latencyBuckets.over_1500ms, Number(prevRend.latencyBuckets?.over_1500ms || 0)),
+      },
+      p95Ms: p95 || prevRend.p95Ms || 0,
+    },
+  };
+
+  if (existingRollup?.monetization) merged.monetization = existingRollup.monetization;
+  if (existingRollup?.revenueUsd) merged.revenueUsd = existingRollup.revenueUsd;
+  if (existingRollup?.summary) merged.summary = existingRollup.summary;
+
+  return merged;
+}
+
+async function readAdminAnalytics(request) {
+  if (!isAuthorizedAdmin(request)) {
+    return response(403, { error: 'Forbidden' });
+  }
+
+  const days = parseDays(request?.queryStringParameters?.days, 30);
+  const now = new Date();
+  const keys = [];
+  for (let i = 0; i < days; i++) {
+    const d = new Date(now);
+    d.setUTCDate(d.getUTCDate() - i);
+    keys.push({ requestId: { S: `ROLLUP#${dateKey(d)}` }, timestamp: { N: '0' } });
+  }
+
+  const tableName = process.env.TABLE_NAME || TABLE_NAME || 'RenderPdfTable';
+  let batchRes;
+  try {
+    batchRes = await ddb.send(new BatchGetItemCommand({
+      RequestItems: { [tableName]: { Keys: keys } },
+    }));
+  } catch (err) {
+    console.error('Could not read admin analytics', err);
+    return response(500, { error: 'Could not read analytics' });
+  }
+
+  const rawItems = batchRes?.Responses?.[tableName]
+    || (TABLE_NAME && batchRes?.Responses?.[TABLE_NAME])
+    || (batchRes?.Responses && Object.values(batchRes.Responses)[0])
+    || [];
+
+  const itemsMap = new Map();
+  for (const rawItem of rawItems) {
+    const unwrapped = unwrap(rawItem);
+    const dateStr = unwrapped.date || (unwrapped.requestId ? String(unwrapped.requestId).replace(/^ROLLUP#/, '') : '');
+    if (dateStr) {
+      itemsMap.set(dateStr, unwrapped);
+    }
+  }
+
+  const dates = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(now);
+    d.setUTCDate(d.getUTCDate() - i);
+    dates.push(dateKey(d));
+  }
+
+  const todayStr = dateKey(now);
+  const datesToAggregate = dates.filter((d) => !itemsMap.has(d) || d === todayStr);
+  if (datesToAggregate.length > 0) {
+    const aggregatedResults = await Promise.all(
+      datesToAggregate.map((d) => aggregateDayData(d, itemsMap.get(d)))
+    );
+
+    for (let i = 0; i < datesToAggregate.length; i++) {
+      const d = datesToAggregate[i];
+      const aggregated = aggregatedResults[i];
+      if (aggregated) {
+        itemsMap.set(d, aggregated);
       }
     }
   }
 
-  for (const day of byDay.values()) {
-    if (day.requests > 0 || day.events > 0) summary.activeDays++;
-    summary.byDay.push(day);
+  const dailyRollups = [];
+  let totalPageViews = 0;
+  let totalPlaygroundSubmits = 0;
+  let totalSignupsCompleted = 0;
+  let totalApiKeysCreated = 0;
+  let totalFirstApiCalls = 0;
+  let totalRenders = 0;
+  let totalSuccesses = 0;
+  let totalErrors = 0;
+  let totalDurationMs = 0;
+  let totalBytes = 0;
+  let totalAttributedRevenue = 0;
+  let totalAwsCost = 0;
+
+  const combinedLatencyBuckets = {
+    under_400ms: 0,
+    '400ms_to_800ms': 0,
+    '800ms_to_1500ms': 0,
+    over_1500ms: 0,
+  };
+
+  const combinedTtfcBuckets = {
+    under_5m: 0,
+    '5m_to_30m': 0,
+    '30m_to_2h': 0,
+    over_2h: 0,
+  };
+
+  for (const dateStr of dates) {
+    const item = itemsMap.get(dateStr) || {};
+    const acquisition = item.acquisition || {};
+    const activation = item.activation || {};
+    const monetization = item.monetization || {};
+    const rendering = item.rendering || {};
+
+    totalPageViews += Number(acquisition.pageViews || 0);
+    totalPlaygroundSubmits += Number(acquisition.playgroundSubmits || 0);
+    const signups = Number(activation.signupCompleted ?? activation.signupsCompleted ?? 0);
+    totalSignupsCompleted += signups;
+    totalApiKeysCreated += Number(activation.apiKeysCreated || 0);
+    totalFirstApiCalls += Number(activation.firstApiCalls || 0);
+
+    const ttfc = activation.ttfcBuckets || {};
+    combinedTtfcBuckets.under_5m += Number(ttfc.under_5m || 0);
+    combinedTtfcBuckets['5m_to_30m'] += Number(ttfc['5m_to_30m'] || 0);
+    combinedTtfcBuckets['30m_to_2h'] += Number(ttfc['30m_to_2h'] || 0);
+    combinedTtfcBuckets.over_2h += Number(ttfc.over_2h || 0);
+
+    const dayRenders = Number(rendering.totalRenders || 0);
+    const dayErrors = Number(rendering.errors || 0);
+    const daySuccesses = rendering.successes != null ? Number(rendering.successes) : Math.max(0, dayRenders - dayErrors);
+    const dayDurationMs = Number(rendering.totalDurationMs || 0);
+    const dayBytes = Number(rendering.totalBytes || 0);
+
+    totalRenders += dayRenders;
+    totalErrors += dayErrors;
+    totalSuccesses += daySuccesses;
+    totalDurationMs += dayDurationMs;
+    totalBytes += dayBytes;
+
+    const latBuckets = rendering.latencyBuckets || {};
+    combinedLatencyBuckets.under_400ms += Number(latBuckets.under_400ms || 0);
+    combinedLatencyBuckets['400ms_to_800ms'] += Number(latBuckets['400ms_to_800ms'] || 0);
+    combinedLatencyBuckets['800ms_to_1500ms'] += Number(latBuckets['800ms_to_1500ms'] || 0);
+    combinedLatencyBuckets.over_1500ms += Number(latBuckets.over_1500ms || 0);
+
+    const dayRevenue = Number(item.revenueUsd ?? monetization.revenueUsd ?? monetization.overageRevenueUsd ?? item.attributedRevenue ?? 0);
+    const dayAwsCost = item.estimatedAwsCostUsd != null
+      ? Number(item.estimatedAwsCostUsd)
+      : calculateAwsCost(dayRenders, dayDurationMs, dayBytes);
+    const dayMargin = item.marginPercent != null
+      ? Number(item.marginPercent)
+      : calculateGrossMargin(dayRevenue, dayAwsCost);
+    const dayP95 = item.p95Ms != null
+      ? Number(item.p95Ms)
+      : (rendering.p95Ms != null ? Number(rendering.p95Ms) : calculateP95(rendering.latencyBuckets));
+
+    totalAttributedRevenue += dayRevenue;
+    totalAwsCost += dayAwsCost;
+
+    dailyRollups.push({
+      date: dateStr,
+      renders: dayRenders,
+      errors: dayErrors,
+      revenueUsd: roundFloat(dayRevenue),
+      estimatedAwsCostUsd: roundFloat(dayAwsCost),
+      marginPercent: roundOneDecimal(dayMargin),
+      p95Ms: dayP95,
+    });
   }
-  summary.totalRequests = summary.requestsLast30Days;
-  summary.signupEvents = signupCustomers.size + anonymousSignups;
-  if (summary.requestsLast30Days > 0) summary.successRate = roundFloat((summary.requestsLast30Days - summary.errors) / summary.requestsLast30Days * 100);
-  if (durations.length > 0) {
-    durations.sort((a, b) => a - b);
-    summary.averageRenderMs = roundFloat(durations.reduce((total, value) => total + value, 0) / durations.length);
-    summary.p95RenderMs = durations[Math.floor((durations.length - 1) * 0.95)];
+
+  let latestItem = null;
+  for (let i = dates.length - 1; i >= 0; i--) {
+    const item = itemsMap.get(dates[i]);
+    if (item && Object.keys(item).length > 0) {
+      latestItem = item;
+      break;
+    }
   }
-  const successes = summary.requestsLast30Days - summary.errors;
-  if (successes > 0) summary.averagePdfBytes = roundFloat(summary.totalBytes / successes);
-  if (summary.trialRequests > 0) summary.trialToSignupRate = roundFloat(summary.signupEvents / summary.trialRequests * 100);
-  summary.topApiKeys = topRanks(apiKeys, 20);
-  summary.topCustomers = topRanks(customers, 20);
-  summary.byCountry = topRanks(countries, 20);
-  summary.byDay.sort((a, b) => a.date.localeCompare(b.date));
-  return response(200, summary);
+
+  const overallGrossMargin = totalAttributedRevenue > 0
+    ? calculateGrossMargin(totalAttributedRevenue, totalAwsCost)
+    : 0;
+
+  const costPerThousand = totalRenders > 0
+    ? (totalAwsCost / totalRenders) * 1000
+    : 0;
+
+  const summary = {
+    totalUsers: Number(latestItem?.summary?.totalUsers ?? latestItem?.totalUsers ?? latestItem?.monetization?.totalUsers ?? totalSignupsCompleted),
+    activeSubscriptions: Number(latestItem?.summary?.activeSubscriptions ?? latestItem?.activeSubscriptions ?? latestItem?.monetization?.activeSubscriptions ?? (latestItem?.monetization?.checkoutsCompleted || 0)),
+    mrrUsd: roundFloat(Number(latestItem?.summary?.mrrUsd ?? latestItem?.mrrUsd ?? latestItem?.monetization?.mrrUsd ?? totalAttributedRevenue)),
+    grossMarginPercent: roundOneDecimal(overallGrossMargin),
+    costPerThousandPdfsUsd: roundFloat(costPerThousand),
+  };
+
+  const funnel = {
+    pageViews: totalPageViews,
+    playgroundSubmits: totalPlaygroundSubmits,
+    playgroundActivationRate: totalPageViews > 0
+      ? roundOneDecimal((totalPlaygroundSubmits / totalPageViews) * 100)
+      : 0,
+    signupsCompleted: totalSignupsCompleted,
+    trialToSignupRate: totalPlaygroundSubmits > 0
+      ? roundOneDecimal((totalSignupsCompleted / totalPlaygroundSubmits) * 100)
+      : 0,
+    apiKeysCreated: totalApiKeysCreated,
+    signupToKeyRate: totalSignupsCompleted > 0
+      ? roundOneDecimal((totalApiKeysCreated / totalSignupsCompleted) * 100)
+      : 0,
+    firstApiCalls: totalFirstApiCalls,
+    ttfcMedianMinutes: calculateMedianTtfc(combinedTtfcBuckets),
+  };
+
+  const successRate = totalRenders > 0
+    ? roundFloat((totalSuccesses / totalRenders) * 100)
+    : 100.0;
+
+  const avgRenderMs = totalRenders > 0
+    ? Math.round(totalDurationMs / totalRenders)
+    : 0;
+
+  const rendering = {
+    totalRenders,
+    successRate,
+    averageRenderMs: avgRenderMs,
+    p95RenderMs: calculateP95(combinedLatencyBuckets),
+    latencyHistogram: combinedLatencyBuckets,
+  };
+
+  return response(200, {
+    summary,
+    funnel,
+    rendering,
+    dailyRollups,
+  });
+}
+
+async function readAnalytics(request) {
+  return readAdminAnalytics(request);
 }
 
 let publicStatsCache = null;
@@ -772,7 +1208,42 @@ function publicStatsResponse(statusCode, payload) {
   };
 }
 
-async function readPublicStats() {
+async function recordPublicEvent(eventName, request) {
+  if (!eventName || !EVENT_ROLLUP_TARGETS[eventName]) return;
+
+  const now = new Date();
+  const eventId = crypto.randomBytes(16).toString('hex');
+  const dateStr = dateKey(now);
+
+  const item = {
+    requestId: { S: `ANALYTICS#${eventId}` },
+    timestamp: { N: String(Math.floor(now.getTime() / 1000)) },
+    entityType: { S: 'ANALYTICS' },
+    eventName: { S: eventName },
+    GSI1PK: { S: `ANALYTICS#${dateStr}` },
+    GSI1SK: { S: `${String(BigInt(now.getTime()) * 1000000n).padStart(20, '0')}#${eventId}` },
+    expiresAt: { N: String(Math.floor((now.getTime() + ANALYTICS_TTL_DAYS * 86400000) / 1000)) },
+  };
+
+  const path = request?.path || request?.rawPath || '/';
+  if (path) item.path = { S: limitString(String(path), 256) };
+
+  try {
+    await ddb.send(new PutItemCommand({ TableName: TABLE_NAME, Item: item }));
+    await recordEventRollup(eventName, now);
+  } catch (err) {
+    console.error('Failed to record public analytics event', err);
+  }
+}
+
+async function readPublicStats(request) {
+  const eventParam = request?.queryStringParameters?.event;
+  if (eventParam && EVENT_ROLLUP_TARGETS[eventParam]) {
+    recordPublicEvent(eventParam, request).catch(console.error);
+  } else if (!request?.queryStringParameters || Object.keys(request.queryStringParameters).length === 0) {
+    recordPublicEvent('page_viewed', request).catch(console.error);
+  }
+
   const now = Date.now();
   if (publicStatsCache && (now - publicStatsCachedAt < PUBLIC_STATS_CACHE_TTL_MS)) {
     return publicStatsResponse(200, publicStatsCache);
@@ -1248,9 +1719,9 @@ function dateKey(date) {
   return date.toISOString().slice(0, 10);
 }
 
-function parseDays(value) {
+function parseDays(value, fallback = DEFAULT_DAYS) {
   const days = Number.parseInt(value, 10);
-  if (!Number.isFinite(days) || days < 1) return DEFAULT_DAYS;
+  if (!Number.isFinite(days) || days < 1) return fallback;
   return Math.min(days, MAX_DAYS);
 }
 
@@ -1300,4 +1771,19 @@ exports.syncUserUsagePlans = syncUserUsagePlans;
 exports.ddb = ddb;
 exports.apigw = apigw;
 exports.PADDLE_PRICES = PADDLE_PRICES;
+exports.latencyBucket = latencyBucket;
+exports.recordRenderRollup = recordRenderRollup;
+exports.recordEventRollup = recordEventRollup;
+exports.saveAnalytics = saveAnalytics;
+exports.EVENT_ROLLUP_TARGETS = EVENT_ROLLUP_TARGETS;
+exports.readAdminAnalytics = readAdminAnalytics;
+exports.readAnalytics = readAnalytics;
+exports.calculateAwsCost = calculateAwsCost;
+exports.calculateGrossMargin = calculateGrossMargin;
+exports.calculateP95 = calculateP95;
+exports.calculateMedianTtfc = calculateMedianTtfc;
+exports.isAuthorizedAdmin = isAuthorizedAdmin;
+exports.aggregateDayData = aggregateDayData;
+exports.recordPublicEvent = recordPublicEvent;
+exports.dateKey = dateKey;
 

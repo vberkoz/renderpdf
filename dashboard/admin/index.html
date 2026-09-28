@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="description" content="RenderPDF internal operator console, business intelligence, and unit economics.">
+    <title>RenderPDF | Admin Console</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <base href="/app/admin/">
+    <link href="/styles/base.css" rel="stylesheet">
+    <link href="admin.css?v=20260927-2" rel="stylesheet">
+    <script>
+        if (window.location.pathname === '/app/admin') {
+            window.history.replaceState(null, '', '/app/admin/' + window.location.search + window.location.hash);
+        }
+    </script>
+</head>
+<body class="admin-body">
+    <a class="skip-link" href="#main-content">Skip to main content</a>
+
+    <div class="admin-shell">
+        <!-- Topbar -->
+        <header class="admin-topbar" aria-label="RenderPDF Admin Console Header">
+            <a class="admin-topbar-brand" href="/app/admin" aria-label="RenderPDF Admin Console">
+                <span class="admin-brand-icon" aria-hidden="true">⌘</span>
+                <span class="admin-brand-title">RenderPDF</span>
+                <span class="admin-badge-internal">Admin</span>
+            </a>
+
+            <div class="admin-topbar-actions">
+                <div class="admin-operator-info">
+                    <span class="admin-operator-badge">
+                        <span class="admin-status-dot" aria-hidden="true"></span>
+                        <span id="admin-operator-email">Checking session...</span>
+                    </span>
+                </div>
+                <nav class="admin-nav-links" aria-label="Admin quick links">
+                    <a class="admin-nav-link" href="/app/">Customer Dashboard</a>
+                    <a class="admin-nav-link" href="/docs/api/">API Docs</a>
+                    <button id="admin-logout-btn" class="admin-btn-logout" type="button">Sign Out</button>
+                </nav>
+            </div>
+        </header>
+
+        <!-- Secondary Navigation Tabs -->
+        <nav id="admin-tab-nav" class="admin-tab-nav" role="tablist" aria-label="Admin console navigation">
+            <a id="tab-analytics" class="admin-tab-button active" href="#analytics" role="tab" aria-selected="true" aria-controls="analytics">Overview</a>
+            <a id="tab-users" class="admin-tab-button" href="#users" role="tab" aria-selected="false" aria-controls="users">Users</a>
+            <a id="tab-plans" class="admin-tab-button" href="#plans" role="tab" aria-selected="false" aria-controls="plans">Plans &amp; Quotas</a>
+            <a id="tab-audit-logs" class="admin-tab-button" href="#audit-logs" role="tab" aria-selected="false" aria-controls="audit-logs">Audit Logs</a>
+        </nav>
+
+        <!-- Main Content Area -->
+        <main id="main-content" class="admin-main" tabindex="-1">
+            <h1 class="visually-hidden" style="position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); border: 0;">RenderPDF Admin Console</h1>
+
+            <!-- 403 Forbidden State -->
+            <section id="admin-forbidden-state" class="admin-forbidden-container" hidden>
+                <div class="admin-forbidden-card">
+                    <div class="admin-forbidden-icon" aria-hidden="true">🔒</div>
+                    <h2 class="admin-forbidden-title">Access Restricted</h2>
+                    <p class="admin-forbidden-desc">
+                        Account <strong id="forbidden-user-email" class="admin-forbidden-email"></strong> does not have administrative privileges. Operator access requires Cognito <code style="color: var(--admin-purple-light);">Admins</code> group membership.
+                    </p>
+                    <div class="admin-forbidden-actions">
+                        <button id="forbidden-logout-btn" class="admin-btn admin-btn-retry" type="button">Sign Out</button>
+                        <a class="admin-btn admin-btn-secondary" href="/app/">Return to Dashboard</a>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Tab Panes Container -->
+            <div id="admin-tab-container">
+                <!-- Analytics / Overview Tab -->
+                <section id="analytics" class="admin-tab-pane" role="tabpanel" aria-labelledby="tab-analytics" tabindex="0">
+                    <!-- Populated dynamically by features/analytics/analytics.js -->
+                </section>
+
+                <!-- Users Tab -->
+                <section id="users" class="admin-tab-pane" role="tabpanel" aria-labelledby="tab-users" tabindex="0" hidden>
+                    <div class="admin-view-header">
+                        <div class="admin-view-title-group">
+                            <h2>User Directory</h2>
+                            <p class="admin-subtitle">Customer accounts, API keys, quota allocations, and operational dossiers.</p>
+                        </div>
+                    </div>
+                    <div class="admin-card admin-empty-state">
+                        <p>User Directory module under development (Task 2.2).</p>
+                    </div>
+                </section>
+
+                <!-- Plans Tab -->
+                <section id="plans" class="admin-tab-pane" role="tabpanel" aria-labelledby="tab-plans" tabindex="0" hidden>
+                    <div class="admin-view-header">
+                        <div class="admin-view-title-group">
+                            <h2>Plans &amp; Quota Overrides</h2>
+                            <p class="admin-subtitle">Manual plan tiers, API Gateway usage plan synchronization, and emergency render relief.</p>
+                        </div>
+                    </div>
+                    <div class="admin-card admin-empty-state">
+                        <p>Plan Management module under development (Task 3.2).</p>
+                    </div>
+                </section>
+
+                <!-- Audit Logs Tab -->
+                <section id="audit-logs" class="admin-tab-pane" role="tabpanel" aria-labelledby="tab-audit-logs" tabindex="0" hidden>
+                    <div class="admin-view-header">
+                        <div class="admin-view-title-group">
+                            <h2>Audit Trail &amp; Governance</h2>
+                            <p class="admin-subtitle">Immutable security log of all administrative actions, key revocations, and status mutations.</p>
+                        </div>
+                    </div>
+                    <div class="admin-card admin-empty-state">
+                        <p>Governance &amp; Audit Trail module under development (Task 4.3).</p>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modals Container (accessible dialogs from shared/ui.js) -->
+    <div id="admin-modal-container" aria-hidden="true"></div>
+
+    <script type="module" src="./admin.js?v=20260927-2"></script>
+</body>
+</html>

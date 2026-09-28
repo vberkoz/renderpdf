@@ -5,6 +5,9 @@
   "description": "RenderPDF analytics Lambda",
   "main": "index.js",
   "type": "commonjs",
+  "scripts": {
+    "test": "node --test index.test.js"
+  },
   "engines": {
     "node": ">=22"
   }
