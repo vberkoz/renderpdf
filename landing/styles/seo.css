@@ -153,8 +153,8 @@
 }
 
 .comparison-table th.highlight-col {
-  background: #edf4fc;
-  color: #123e72;
+  background: var(--blue-dim);
+  color: var(--blue-light);
 }
 
 .comparison-table td {
@@ -175,7 +175,7 @@
 }
 
 .comparison-table td.highlight-col {
-  background: #fbfdff;
+  background: rgba(59, 130, 246, 0.06);
   font-weight: 500;
   color: var(--text);
 }
@@ -186,8 +186,9 @@
   gap: 4px;
   padding: 2px 8px;
   border-radius: 4px;
-  background: #e6f6ec;
-  color: #136336;
+  background: var(--emerald-dim);
+  color: var(--emerald-light);
+  border: 1px solid rgba(16, 185, 129, 0.3);
   font-size: 0.75rem;
   font-weight: 600;
   font-family: var(--font-mono);
@@ -269,7 +270,7 @@
   font-family: var(--font-mono);
   font-size: 0.82rem;
   line-height: 1.55;
-  color: #243142;
+  color: var(--text);
 }
 
 .code-block code {

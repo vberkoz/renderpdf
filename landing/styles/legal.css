@@ -3,9 +3,9 @@
   display: grid;
   gap: 12px;
   padding: clamp(28px, 4vw, 44px);
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  background: var(--panel);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-lg);
+  background: var(--card-bg);
   box-shadow: var(--shadow);
 }
 
@@ -173,7 +173,7 @@
   height: 20px;
   flex: 0 0 auto;
   border-radius: 50%;
-  background: #6aa9ff;
+  background: var(--blue);
   color: #fff;
   display: grid;
   place-items: center;

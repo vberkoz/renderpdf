@@ -91,14 +91,11 @@ body.admin-body {
 .admin-brand-icon {
   width: 28px;
   height: 28px;
-  background: linear-gradient(135deg, var(--admin-blue), var(--admin-purple));
+  background: var(--brand-logo, url('/favicon.svg')) no-repeat center / contain;
   border-radius: var(--admin-radius-sm);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 700;
-  font-size: 14px;
-  color: #ffffff;
   box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
 }
 

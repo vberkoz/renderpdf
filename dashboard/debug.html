@@ -10,22 +10,25 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <link href="/styles/base.css" rel="stylesheet">
-    <link href="/styles/dashboard.css" rel="stylesheet">
+    <link href="/styles/dashboard.css?v=20260929-2" rel="stylesheet">
 
 </head>
 <body class="dashboard-page debug-page">
     <a class="skip-link" href="#main-content">Skip to main content</a>
     <div>
         <header class="dashboard-topbar">
-            <a class="dashboard-brand" href="/" aria-label="RenderPDF home">
-                <span class="dashboard-brand-mark" aria-hidden="true"></span>
-                RenderPDF
-            </a>
-            <nav id="debug-primary-navigation" class="dashboard-nav" data-carbon-header-nav aria-label="Primary navigation">
-                <a href="/app/">Dashboard</a>
-                <a href="/docs/api/">API docs</a>
-                <button id="clearSessionBtn" class="dashboard-logout" type="button">Clear session</button>
-            </nav>
+            <div class="dashboard-topbar-inner">
+                <a class="dashboard-brand" href="/" aria-label="RenderPDF home">
+                    <span class="dashboard-brand-icon" aria-hidden="true"></span>
+                    <span class="dashboard-brand-title">RenderPDF</span>
+                    <span class="dashboard-badge-app">Diagnostics</span>
+                </a>
+                <nav id="debug-primary-navigation" class="dashboard-marketing-nav dashboard-nav" data-carbon-header-nav aria-label="Primary navigation">
+                    <a href="/app/"><svg class="lucide lucide-layout-dashboard" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg> Dashboard</a>
+                    <a href="/docs/api/"><svg class="lucide lucide-book-open" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg> API docs</a>
+                    <button id="clearSessionBtn" class="dashboard-button dashboard-button-secondary" type="button"><svg class="lucide lucide-log-out" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg> Clear session</button>
+                </nav>
+            </div>
         </header>
 
         <main id="main-content" tabindex="-1">

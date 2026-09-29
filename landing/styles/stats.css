@@ -1,6 +1,6 @@
 .stats-shell,
-.stats-main { width: min(1180px, calc(100% - 40px)); margin: 0 auto; }
-.stats-main { display: grid; gap: 36px; padding: 48px 0 34px; }
+.stats-main { max-width: 1400px; width: 100%; margin: 0 auto; padding-left: 24px; padding-right: 24px; box-sizing: border-box; }
+.stats-main { display: grid; gap: 36px; padding: 48px 24px 34px; }
 .stats-topbar { padding-top: 24px; }
 .stats-header-actions { display: flex; align-items: center; gap: 18px; }
 .stats-nav { gap: 14px; }
@@ -34,14 +34,14 @@
 #dailyChart svg, #countries svg { display: block; width: 100%; height: auto; }
 .chart-grid { stroke: var(--line); }
 .chart-axis, .country-label, .country-count { fill: var(--muted); font-family: var(--font-mono); font-size: 11px; }
-.chart-bar-trial { fill: #b9d6ff; }
-.chart-bar-authenticated, .country-bar { fill: #6aa9ff; }
-.country-track { fill: #e5ebf1; }
+.chart-bar-trial { fill: var(--blue-dim); }
+.chart-bar-authenticated, .country-bar { fill: var(--blue); }
+.country-track { fill: var(--panel-strong); }
 .chart-legend { display: flex; gap: 14px; color: var(--muted); font-family: var(--font-mono); font-size: .72rem; }
 .chart-legend span { display: inline-flex; align-items: center; gap: 6px; }
 .chart-legend i { width: 10px; height: 10px; border-radius: 3px; }
-.chart-legend-trial { background: #b9d6ff; }
-.chart-legend-authenticated { background: #6aa9ff; }
+.chart-legend-trial { background: var(--blue-dim); }
+.chart-legend-authenticated { background: var(--blue); }
 #topApiKeys ol, #topCustomers ol { display: grid; margin: 0; padding: 0; list-style: none; }
 #topApiKeys li, #topCustomers li { padding: 10px 0; border-bottom: 1px solid var(--line); color: var(--muted); font-family: var(--font-mono); font-size: .7rem; }
 
