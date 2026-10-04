@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css" rel="stylesheet">
+    <link href="/styles/codemirror.min.css" rel="stylesheet">
     <link href="/styles/base.css" rel="stylesheet">
     <link href="/styles/dashboard.css?v=20260929-2" rel="stylesheet">
 
@@ -578,26 +578,15 @@
         </div>
     </dialog>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/xml/xml.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/javascript/javascript.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/css/css.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/htmlmixed/htmlmixed.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/markdown/markdown.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+    <script src="/vendor/codemirror.bundle.js" defer></script>
+    <script src="/vendor/marked.min.js" defer></script>
 
-    <script src="template-client.js"></script>
-    <script src="custom-select.js"></script>
-    <script src="features/create-render.js"></script>
-    <script src="features/keys.js"></script>
-    <script src="features/billing.js"></script>
-    <script src="app.js"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <script>
-        if (window.lucide) {
-            window.lucide.createIcons();
-        }
-    </script>
+    <script src="template-client.js" defer></script>
+    <script src="custom-select.js" defer></script>
+    <script src="features/create-render.js" defer></script>
+    <script src="features/keys.js" defer></script>
+    <script src="features/billing.js" defer></script>
+    <script src="app.js" defer></script>
     <link rel="stylesheet" href="chat-widget.css?v=4">
     <script src="chat-widget.js?v=4" defer></script>
 </body>

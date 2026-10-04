@@ -28,7 +28,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css" rel="stylesheet">
+    <link href="/styles/codemirror.min.css" rel="stylesheet">
     <link href="/styles/base.css" rel="stylesheet">
     <link href="/styles/landing.css" rel="stylesheet">
 
@@ -83,7 +83,7 @@
                         <span>render request</span>
                         <span class="hero-status">200 OK</span>
                     </div>
-                    <pre aria-label="Example render request"><code><span class="code-key">POST</span> /api/v1/render
+                    <pre aria-label="Example render request"><code class="nohighlight"><span class="code-key">POST</span> /api/v1/render
 
 <span class="code-muted">{</span>
   <span class="code-property">"source"</span>: <span class="code-muted">{</span>
@@ -373,23 +373,11 @@
 
 
 
-    <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.11.1/build/highlight.min.js"></script>
-    <script>if (window.hljs) window.hljs.highlightAll();</script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/xml/xml.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/javascript/javascript.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/css/css.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/htmlmixed/htmlmixed.min.js"></script>
-    <script src="/custom-select.js"></script>
-    <script src="/playground-templates.js"></script>
-    <script src="/landing.js"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <script>
-        if (window.lucide) {
-            window.lucide.createIcons();
-        }
-    </script>
-    <link rel="stylesheet" href="chat-widget.css?v=4">
-    <script src="chat-widget.js?v=4" defer></script>
+    <script src="/vendor/codemirror.bundle.js" defer></script>
+    <script src="/custom-select.js" defer></script>
+    <script src="/playground-templates.js" defer></script>
+    <script src="/landing.js" defer></script>
+    <link rel="stylesheet" href="/chat-widget.css?v=4">
+    <script src="/chat-widget.js?v=4" defer></script>
 </body>
 </html>

@@ -69,19 +69,110 @@
             <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data: https:; style-src 'unsafe-inline' https:; font-src data: https:; script-src 'unsafe-inline'">
             <style>html { overflow-x: hidden; overflow-y: auto; } body { margin: 0; transform-origin: top left; }</style>
             <script>
-              function fitPreviewToWidth() {
+              function parsePageDimensions() {
+                var css = '';
+                document.querySelectorAll('style').forEach(function(s) { css += ' ' + s.textContent; });
+                for (var i = 0; i < document.styleSheets.length; i++) {
+                  try {
+                    var rules = document.styleSheets[i].cssRules;
+                    for (var j = 0; j < rules.length; j++) css += ' ' + rules[j].cssText;
+                  } catch (_) {}
+                }
+                var match = css.match(/@page[^{]*\\{[^}]*\\bsize\\s*:\\s*([^;}]+)/i);
+                var val = (match ? match[1] : '').trim().toLowerCase();
+                var tokens = val.split(/\\s+/).filter(Boolean);
+
+                var MM_PER_INCH = 25.4;
+                var STANDARD_SIZES = {
+                  a4: { w: 210, h: 297 },
+                  letter: { w: 8.5 * MM_PER_INCH, h: 11 * MM_PER_INCH },
+                  legal: { w: 8.5 * MM_PER_INCH, h: 14 * MM_PER_INCH },
+                  a3: { w: 297, h: 420 },
+                  a5: { w: 148, h: 210 },
+                  ledger: { w: 11 * MM_PER_INCH, h: 17 * MM_PER_INCH }
+                };
+
+                var isLandscape = tokens.indexOf('landscape') !== -1;
+                var isPortrait = tokens.indexOf('portrait') !== -1;
+                var widthMm = 210;
+                var heightMm = 297;
+                var hasExplicitSize = false;
+
+                for (var i = 0; i < tokens.length; i++) {
+                  if (STANDARD_SIZES[tokens[i]]) {
+                    widthMm = STANDARD_SIZES[tokens[i]].w;
+                    heightMm = STANDARD_SIZES[tokens[i]].h;
+                    hasExplicitSize = true;
+                    break;
+                  }
+                }
+
+                if (!hasExplicitSize) {
+                  var lengths = tokens.filter(function(t) { return /^[\\d.]+(mm|in|cm|px|pt)$/.test(t); });
+                  if (lengths.length >= 2) {
+                    function toMm(str) {
+                      var num = parseFloat(str);
+                      if (str.indexOf('in') !== -1) return num * MM_PER_INCH;
+                      if (str.indexOf('cm') !== -1) return num * 10;
+                      if (str.indexOf('px') !== -1) return num * (MM_PER_INCH / 96);
+                      if (str.indexOf('pt') !== -1) return num * (MM_PER_INCH / 72);
+                      return num;
+                    }
+                    widthMm = toMm(lengths[0]);
+                    heightMm = toMm(lengths[1]);
+                    hasExplicitSize = true;
+                  }
+                }
+
+                if (isLandscape && widthMm < heightMm) {
+                  var tmp = widthMm;
+                  widthMm = heightMm;
+                  heightMm = tmp;
+                } else if (isPortrait && widthMm > heightMm) {
+                  var tmp2 = widthMm;
+                  widthMm = heightMm;
+                  heightMm = tmp2;
+                }
+
+                return {
+                  w: widthMm,
+                  h: heightMm,
+                  isLandscape: isLandscape || (widthMm > heightMm),
+                  hasExplicitSize: hasExplicitSize || isLandscape || isPortrait
+                };
+              }
+
+              function fitPreview() {
+                var page = parsePageDimensions();
+                if (page && page.w) {
+                  document.body.style.width = page.w + 'mm';
+                }
                 document.body.style.zoom = '1';
-                const availableWidth = document.documentElement.clientWidth;
-                const documentWidth = Math.max(document.documentElement.scrollWidth, document.body.scrollWidth);
-                if (availableWidth && documentWidth > availableWidth) {
-                  document.body.style.zoom = String(Math.max(0.2, availableWidth / documentWidth));
+                var availableWidth = document.documentElement.clientWidth;
+                var availableHeight = window.innerHeight || document.documentElement.clientHeight;
+                var docWidth = Math.max(document.documentElement.scrollWidth, document.body.scrollWidth);
+                var docHeight = Math.max(document.documentElement.scrollHeight, document.body.scrollHeight);
+                if (availableWidth > 0 && docWidth > 0) {
+                  var scaleW = availableWidth / docWidth;
+                  var scale = scaleW;
+                  if (page && page.isLandscape && availableHeight > 0 && docHeight > 0) {
+                    var scaleH = availableHeight / docHeight;
+                    scale = Math.min(scaleW, scaleH);
+                  }
+                  scale = Math.min(1, Math.max(0.1, scale));
+                  document.body.style.zoom = String(scale);
                 }
               }
+
+              window.addEventListener('DOMContentLoaded', fitPreview);
               window.addEventListener('load', () => {
-                fitPreviewToWidth();
-                window.setTimeout(fitPreviewToWidth, 120);
+                fitPreview();
+                window.setTimeout(fitPreview, 120);
               });
-              window.addEventListener('resize', fitPreviewToWidth);
+              window.addEventListener('resize', fitPreview);
+              if (document.fonts && document.fonts.ready) {
+                document.fonts.ready.then(fitPreview);
+              }
             <\/script>`;
 
         const previewHTML = (html) => {
@@ -181,8 +272,14 @@
                     }
 
                     if (!response.ok) {
-                        const payload = await response.json();
-                        throw new Error(payload.error || payload.message || 'Failed to generate PDF');
+                        let payload = {};
+                        try {
+                            payload = await response.json();
+                        } catch (_) {}
+                        const err = new Error(payload.error || payload.message || 'Failed to generate PDF');
+                        err.status = response.status;
+                        err.code = payload.code;
+                        throw err;
                     }
 
                     const data = await response.json();
@@ -196,7 +293,25 @@
                     `;
                     result.classList.remove('hidden');
                 } catch (err) {
-                    error.innerHTML = `<strong>Could not generate PDF</strong><span>${err.message}</span>`;
+                    const isLimitReached = err.status === 429 ||
+                        err.code === 'rate_limited' ||
+                        (err.message && err.message.toLowerCase().includes('trial limit')) ||
+                        (err.message && err.message.toLowerCase().includes('limit reached'));
+
+                    if (isLimitReached) {
+                        displayQuota(0);
+                        error.innerHTML = `
+                            <div>
+                                <strong>Daily trial limit reached</strong>
+                                <span>You have reached the limit of 3 free trial renders for today. Register or log in to continue rendering PDFs with 25 free documents every month.</span>
+                            </div>
+                            <div class="notice-actions">
+                                <a href="/app/" class="button button-primary">Register or log in</a>
+                            </div>
+                        `;
+                    } else {
+                        error.innerHTML = `<strong>Could not generate PDF</strong><span>${err.message}</span>`;
+                    }
                     error.classList.remove('hidden');
                 } finally {
                     btn.disabled = false;
@@ -278,9 +393,15 @@
         loadLiveTelemetry();
     }
 
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initLanding);
-    } else {
-        initLanding();
+    if (typeof document !== 'undefined') {
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initLanding);
+        } else {
+            initLanding();
+        }
+    }
+
+    if (typeof module !== 'undefined' && module.exports) {
+        module.exports = { initLanding };
     }
 })();

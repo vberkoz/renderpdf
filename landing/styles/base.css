@@ -801,6 +801,9 @@ textarea:not(.rpdf-composer-input):not(#rpdf-chat-input):focus, input:not([type=
 .result, .notice { display: grid; gap: 6px; padding: 12px; font-size: 13px; border-radius: var(--radius-sm); }
 .notice-success, .success { border: 1px solid rgba(16, 185, 129, 0.3); color: var(--emerald-light); background: var(--emerald-dim); }
 .notice-error, .error { border: 1px solid rgba(239, 68, 68, 0.3); color: var(--rose-light); background: var(--rose-dim); }
+.notice-actions { display: flex; align-items: center; gap: 10px; margin-top: 4px; }
+.notice-actions .button { font-size: 13px; height: 36px; min-height: 36px; padding: 0 16px; width: fit-content; text-decoration: none; }
+.notice-actions .button-primary:hover, .notice-actions .button-primary:focus-visible { color: #ffffff; }
 .hidden, [hidden] { display: none !important; }
 
 /* Lucide Icons */

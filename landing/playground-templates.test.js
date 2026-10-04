@@ -22,5 +22,23 @@ test('playground templates include all required presets', () => {
       /<!doctype html>/i,
       `Template ${name} should declare an HTML doctype`
     );
+    assert.match(
+      PLAYGROUND_TEMPLATES[name],
+      /@page\s*\{/i,
+      `Template ${name} should declare an @page rule`
+    );
   }
+});
+
+test('certificate and boarding pass declare landscape format', () => {
+  assert.match(
+    PLAYGROUND_TEMPLATES['certificate'],
+    /@page[^{]*\{[^}]*size\s*:\s*A4\s+landscape/i,
+    'Certificate should declare A4 landscape'
+  );
+  assert.match(
+    PLAYGROUND_TEMPLATES['boarding-pass'],
+    /@page[^{]*\{[^}]*size\s*:\s*A4\s+landscape/i,
+    'Boarding pass should declare A4 landscape'
+  );
 });
