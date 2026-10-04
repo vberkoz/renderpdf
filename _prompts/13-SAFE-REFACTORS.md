@@ -2,50 +2,36 @@
 
 ## Purpose
 
-- Support structural cleanup, naming cleanup, and internal refactors without changing product behavior.
-- Keep refactors within the repo’s documented ownership boundaries.
+- Guide structural cleanups, file reorganizations, and cross-cutting path refactors without behavioral regressions.
 
 ## Prerequisites
 
-- Complete `00-REPO-NAVIGATION.md` and `01-LOCAL-DEVELOPMENT.md`.
-- Read `/Users/basilsergius/projects/renderpdf/docs/AGENT-RULES.md`.
+- Complete `_prompts/00-REPO-NAVIGATION.md`.
+- Inherits baseline rules and idempotency requirements from `_prompts/INDEX.md`.
 
 ## Files/Folders In Scope
 
-- Any source, script, doc, or prompt path explicitly involved in the refactor
+- Target files, scripts, docs, and prompts involved in the refactoring task.
 
 ## Files/Folders Out Of Scope
 
-- Unrequested product changes
-- Data-destructive infrastructure rewrites
-- Replacing compatibility wrappers unless all callers are updated
+- Unsolicited behavioral or feature changes.
+- Destructive infra modifications.
 
 ## Implementation Task
 
-1. Make the smallest structural change that improves clarity.
-2. Prefer incremental moves over broad reorganization.
-3. Update all path-sensitive references in:
-   - `scripts/`
-   - `docs/`
-   - `_prompts/`
-4. Preserve current behavior, deployability, and root compatibility entrypoints unless the task explicitly changes them.
+1. Keep refactoring slices small, isolated, and incremental.
+2. Verify all path-sensitive references in `scripts/`, `infra/`, `docs/`, and `_prompts/`.
+3. Preserve backwards-compatible root wrappers and symlinks where required.
 
 ## Verification Steps
 
 ```bash
-cd /Users/basilsergius/projects/renderpdf && ./scripts/verify-shell.sh
-cd /Users/basilsergius/projects/renderpdf && rg -n "scripts/|infra/|_prompts/|doc-examples/" README.md AGENTS.md docs _prompts scripts
-```
-
-Then run the smallest affected area check:
-
-```bash
-cd /Users/basilsergius/projects/renderpdf && ./scripts/verify-api.sh
-cd /Users/basilsergius/projects/renderpdf && ./scripts/verify-auth.sh
-cd /Users/basilsergius/projects/renderpdf && ./scripts/verify-infra.sh
+./scripts/verify-all.sh
+git grep -n -E "scripts/|infra/|_prompts/|doc-examples/" README.md AGENTS.md docs _prompts scripts
 ```
 
 ## Stop Conditions
 
-- Stop if the refactor would leave duplicate deploy/test paths.
-- Stop if the refactor would strand undocumented compatibility wrappers or symlinks.
+- Inherits universal stop conditions from `_prompts/INDEX.md`.
+- Stop if refactoring creates orphaned paths, dead links, or dual sources of truth.

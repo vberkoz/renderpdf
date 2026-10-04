@@ -12,12 +12,14 @@ global.localStorage = {
 
 // Create a valid unexpired admin JWT
 const mockHeader = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
-const mockPayload = Buffer.from(JSON.stringify({
-  sub: 'admin-123',
-  email: 'vberkoz@gmail.com',
-  'cognito:groups': ['Admins'],
-  exp: Math.floor(Date.now() / 1000) + 3600,
-})).toString('base64url');
+const mockPayload = Buffer.from(
+  JSON.stringify({
+    sub: 'admin-123',
+    email: 'vberkoz@gmail.com',
+    'cognito:groups': ['Admins'],
+    exp: Math.floor(Date.now() / 1000) + 3600,
+  })
+).toString('base64url');
 const mockToken = `${mockHeader}.${mockPayload}.mockSignature`;
 mockStorage.set('id_token', mockToken);
 
@@ -35,7 +37,10 @@ global.window = {
   },
   removeEventListener: (type, cb) => {
     if (!windowListeners.has(type)) return;
-    windowListeners.set(type, windowListeners.get(type).filter((fn) => fn !== cb));
+    windowListeners.set(
+      type,
+      windowListeners.get(type).filter((fn) => fn !== cb)
+    );
   },
   setTimeout: global.setTimeout,
   clearTimeout: global.clearTimeout,
@@ -57,27 +62,41 @@ function createMockElement(tagName = 'div') {
     scrollTop: 0,
     scrollHeight: 100,
     focus() {},
-    hasAttribute(name) { return attributes.has(name); },
+    hasAttribute(name) {
+      return attributes.has(name);
+    },
     appendChild(child) {
       if (!this._children.includes(child)) this._children.push(child);
       child._parent = this;
       return child;
     },
-    get id() { return attributes.get('id') || ''; },
-    set id(val) { this.setAttribute('id', val); },
+    get id() {
+      return attributes.get('id') || '';
+    },
+    set id(val) {
+      this.setAttribute('id', val);
+    },
     classList: {
       _classes: new Set(),
-      add(...cls) { cls.forEach((c) => this._classes.add(c)); },
-      remove(...cls) { cls.forEach((c) => this._classes.delete(c)); },
+      add(...cls) {
+        cls.forEach((c) => this._classes.add(c));
+      },
+      remove(...cls) {
+        cls.forEach((c) => this._classes.delete(c));
+      },
       toggle(cls, force) {
         if (force === true) this._classes.add(cls);
         else if (force === false) this._classes.delete(cls);
         else if (this._classes.has(cls)) this._classes.delete(cls);
         else this._classes.add(cls);
       },
-      contains(cls) { return this._classes.has(cls); },
+      contains(cls) {
+        return this._classes.has(cls);
+      },
     },
-    getAttribute(name) { return attributes.get(name) ?? null; },
+    getAttribute(name) {
+      return attributes.get(name) ?? null;
+    },
     setAttribute(name, val) {
       attributes.set(name, String(val));
       if (name.startsWith('data-')) {
@@ -85,7 +104,9 @@ function createMockElement(tagName = 'div') {
         this.dataset[prop] = String(val);
       }
     },
-    removeAttribute(name) { attributes.delete(name); },
+    removeAttribute(name) {
+      attributes.delete(name);
+    },
     addEventListener(event, fn) {
       if (!listeners.has(event)) listeners.set(event, []);
       listeners.get(event).push(fn);
@@ -101,7 +122,8 @@ function createMockElement(tagName = 'div') {
     closest(selector) {
       let cur = this;
       while (cur) {
-        if (selector.startsWith('.') && cur.classList && cur.classList.contains(selector.slice(1))) return cur;
+        if (selector.startsWith('.') && cur.classList && cur.classList.contains(selector.slice(1)))
+          return cur;
         if (selector.startsWith('#') && cur.id === selector.slice(1)) return cur;
         if (selector.toLowerCase() === (cur.tagName || '').toLowerCase()) return cur;
         cur = cur._parent;
@@ -130,7 +152,7 @@ function createMockElement(tagName = 'div') {
       }
       recurse(this);
       return matches;
-    }
+    },
   };
 
   Object.defineProperty(el, 'innerHTML', {
@@ -155,7 +177,10 @@ function createMockElement(tagName = 'div') {
 
         const classMatch = attrsStr.match(/class=["']([^"']+)["']/);
         if (classMatch) {
-          classMatch[1].split(' ').filter(Boolean).forEach((c) => child.classList.add(c));
+          classMatch[1]
+            .split(' ')
+            .filter(Boolean)
+            .forEach((c) => child.classList.add(c));
         }
 
         const dataFilterMatch = attrsStr.match(/data-filter=["']([^"']+)["']/);
@@ -173,7 +198,7 @@ function createMockElement(tagName = 'div') {
         child.innerHTML = inner;
         this.appendChild(child);
       }
-    }
+    },
   });
 
   return el;
@@ -192,7 +217,7 @@ global.document = {
     return mockDocElements.get(id);
   },
   body: createMockElement('body'),
-  addEventListener: () => {}
+  addEventListener: () => {},
 };
 
 // Import module under test
@@ -206,7 +231,7 @@ const {
   renderChatMarkdown,
   updateEscalatedBadge,
   stopPolling,
-  CANNED_RESPONSES
+  CANNED_RESPONSES,
 } = await import('./chat.js');
 
 test('formatters format timestamps, escalation reasons, and markdown', () => {
@@ -215,7 +240,9 @@ test('formatters format timestamps, escalation reasons, and markdown', () => {
   assert.strictEqual(formatEscalationReason('billing_issue'), 'Billing Inquiry');
   assert.strictEqual(formatEscalationReason('explicit_request'), 'Human Requested');
 
-  const md = renderChatMarkdown('Check `options.password` and **docs** at [API](https://example.com)');
+  const md = renderChatMarkdown(
+    'Check `options.password` and **docs** at [API](https://example.com)'
+  );
   assert.ok(md.includes('<code>options.password</code>'));
   assert.ok(md.includes('<strong>docs</strong>'));
   assert.ok(md.includes('<a href="https://example.com"'));
@@ -232,7 +259,10 @@ test('renderChatShell populates search, filter chips, queue and workspace contai
   assert.ok(container.querySelector('#admin-chat-list'), 'Queue list container must exist');
   assert.ok(container.querySelector('#admin-chat-workspace'), 'Workspace container must exist');
   assert.ok(container.querySelector('[data-filter="all"]'), 'All filter chip must exist');
-  assert.ok(container.querySelector('[data-filter="escalated"]'), 'Escalated filter chip must exist');
+  assert.ok(
+    container.querySelector('[data-filter="escalated"]'),
+    'Escalated filter chip must exist'
+  );
 });
 
 test('renderChatList renders conversation cards with unread dot, tags, and status', () => {
@@ -246,7 +276,7 @@ test('renderChatList renders conversation cards with unread dot, tags, and statu
       lastMessage: 'Need 100k renders with custom SLA',
       unreadByAdmin: true,
       source: 'landing',
-      plan: 'starter'
+      plan: 'starter',
     },
     {
       sessionId: 'cs_resolved_2',
@@ -255,8 +285,8 @@ test('renderChatList renders conversation cards with unread dot, tags, and statu
       lastMessage: 'Thanks for the quick answer!',
       unreadByAdmin: false,
       source: 'dashboard',
-      plan: 'pro'
-    }
+      plan: 'pro',
+    },
   ];
 
   renderChatList(listEl, mockChats, 'cs_enterprise_1');
@@ -286,7 +316,7 @@ test('renderChatWorkspace renders transcript, meta badges, canned responses, and
         role: 'user',
         sender: 'visitor',
         content: 'Hi, what are volume rates for 150k PDFs/mo?',
-        timestamp: Date.now() - 60000
+        timestamp: Date.now() - 60000,
       },
       {
         messageId: 'msg_02',
@@ -294,21 +324,39 @@ test('renderChatWorkspace renders transcript, meta badges, canned responses, and
         sender: 'bot',
         content: 'RenderPDF offers volume pricing. I have notified our lead operator.',
         tokens: { input: 400, output: 50 },
-        timestamp: Date.now() - 30000
-      }
-    ]
+        timestamp: Date.now() - 30000,
+      },
+    ],
   };
 
   renderChatWorkspace(workspaceEl, chatData);
 
-  assert.ok(workspaceEl.innerHTML.includes('lead@enterprise.com'), 'Header must contain visitor email');
-  assert.ok(workspaceEl.innerHTML.includes('Inspect User Dossier'), 'Must include Inspect User Dossier button');
+  assert.ok(
+    workspaceEl.innerHTML.includes('lead@enterprise.com'),
+    'Header must contain visitor email'
+  );
+  assert.ok(
+    workspaceEl.innerHTML.includes('Inspect User Dossier'),
+    'Must include Inspect User Dossier button'
+  );
   assert.ok(workspaceEl.innerHTML.includes('Resolve Chat'), 'Must include Resolve Chat button');
-  assert.ok(workspaceEl.innerHTML.includes('Escalated to Operator'), 'Must display escalation event banner');
-  assert.ok(workspaceEl.innerHTML.includes('Nova Micro (AI)'), 'Assistant bubble must be labeled Nova Micro');
-  assert.ok(workspaceEl.innerHTML.includes('400 in / 50 out'), 'Token metric pill must be displayed');
+  assert.ok(
+    workspaceEl.innerHTML.includes('Escalated to Operator'),
+    'Must display escalation event banner'
+  );
+  assert.ok(
+    workspaceEl.innerHTML.includes('Nova Micro (AI)'),
+    'Assistant bubble must be labeled Nova Micro'
+  );
+  assert.ok(
+    workspaceEl.innerHTML.includes('400 in / 50 out'),
+    'Token metric pill must be displayed'
+  );
   assert.ok(workspaceEl.querySelector('#admin-chat-reply-input'), 'Reply textarea must exist');
-  assert.ok(workspaceEl.querySelector('#admin-chat-send-reply-btn'), 'Send reply button must exist');
+  assert.ok(
+    workspaceEl.querySelector('#admin-chat-send-reply-btn'),
+    'Send reply button must exist'
+  );
 });
 
 test('initSupportChatTab loads chats, binds events, and polls every 10 seconds', async () => {
@@ -331,9 +379,15 @@ test('initSupportChatTab loads chats, binds events, and polls every 10 seconds',
           customerId: 'user-777',
           plan: 'pro',
           messages: [
-            { messageId: 'm1', role: 'user', sender: 'visitor', content: 'Inquiring about SLA', timestamp: Date.now() }
-          ]
-        })
+            {
+              messageId: 'm1',
+              role: 'user',
+              sender: 'visitor',
+              content: 'Inquiring about SLA',
+              timestamp: Date.now(),
+            },
+          ],
+        }),
       };
     }
 
@@ -344,8 +398,8 @@ test('initSupportChatTab loads chats, binds events, and polls every 10 seconds',
         json: async () => ({
           success: true,
           messageId: 'msg_operator_01',
-          emailDispatched: true
-        })
+          emailDispatched: true,
+        }),
       };
     }
 
@@ -355,8 +409,8 @@ test('initSupportChatTab loads chats, binds events, and polls every 10 seconds',
         status: 200,
         json: async () => ({
           success: true,
-          status: 'resolved'
-        })
+          status: 'resolved',
+        }),
       };
     }
 
@@ -374,11 +428,11 @@ test('initSupportChatTab loads chats, binds events, and polls every 10 seconds',
             customerId: 'user-777',
             lastMessage: 'Inquiring about SLA',
             unreadByAdmin: true,
-            updatedAt: new Date().toISOString()
-          }
+            updatedAt: new Date().toISOString(),
+          },
         ],
-        nextCursor: null
-      })
+        nextCursor: null,
+      }),
     };
   };
 
@@ -423,7 +477,11 @@ test('initSupportChatTab loads chats, binds events, and polls every 10 seconds',
   // Test deep-link to dossier
   const inspectBtn = workspace.querySelector('#admin-chat-inspect-dossier-btn');
   inspectBtn.click();
-  assert.strictEqual(window.location.hash, '#users', 'Should switch hash to #users on inspect dossier');
+  assert.strictEqual(
+    window.location.hash,
+    '#users',
+    'Should switch hash to #users on inspect dossier'
+  );
 
   // Stop polling clean up
   stopPolling();

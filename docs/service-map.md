@@ -15,6 +15,8 @@
 - Tests:
   - `scripts/verify-api.sh`
   - `scripts/verify-deployed-api.sh`
+- Contracts:
+  - Refer to `docs/api-summary.md` first for core endpoint contracts. Consult `docs/openapi.yaml` only when inspecting deep schema definitions.
 - Package API:
   - `POST /api/v1/files/upload` returns a short-lived presigned ZIP upload URL.
   - `POST /api/v1/render` with an `upload` source renders an uploaded ZIP's
@@ -38,10 +40,11 @@
   - `auth/authorizer.go`
   - `auth/api-keys.go`
   - `auth/utils.go`
+  - `auth/account-linker/index.js` (Cognito trigger linking Google/email identities and migrating DynamoDB records)
 - Build/runtime entrypoints:
   - `auth/Dockerfile.authorizer`
   - `auth/Dockerfile.apikeys`
-  - `scripts/deploy.sh`
+  - Node.js 22 zip packaging in `scripts/deploy.sh`
 - Tests:
   - `scripts/verify-auth.sh`
 - Maintenance:

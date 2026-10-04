@@ -1,0 +1,1053 @@
+openapi: 3.1.0
+info:
+  title: RenderPDF API
+  description: |
+    Production serverless HTML-to-PDF generation service.
+    Converts HTML, Markdown, URLs, uploaded ZIP packages, and stored templates
+    into high-fidelity PDFs with custom formatting, AES-256 encryption, and webhooks.
+  version: 1.0.0
+  contact:
+    name: RenderPDF Support
+    email: support@renderpdf.vberkoz.com
+    url: https://renderpdf.vberkoz.com
+
+servers:
+  - url: https://renderpdf.vberkoz.com/api/v1
+    description: Production API
+
+security:
+  - BearerAuth: []
+
+tags:
+  - name: Trial
+    description: Anonymous rate-limited PDF rendering
+  - name: Render
+    description: Canonical authenticated PDF rendering
+  - name: Templates
+    description: Durable customer HTML templates
+  - name: Sources
+    description: Saved reusable document definitions
+  - name: Files
+    description: Rendered PDFs and uploaded package management
+  - name: Batches
+    description: Asynchronous bulk PDF generation
+  - name: API Keys
+    description: Bearer API key management
+  - name: Analytics
+    description: Usage tracking and analytics
+
+paths:
+  /trial/render:
+    post:
+      tags:
+        - Trial
+      summary: Render PDF without an API key (trial)
+      description: |
+        Anonymous rendering endpoint rate-limited by source IP (3 PDFs per UTC day).
+        Accepts up to 1 MB of HTML. Webhooks, custom fonts, and private uploads are not supported on trial.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TrialRenderRequest'
+      responses:
+        '200':
+          description: PDF rendered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RenderSuccessResponse'
+        '400':
+          description: Invalid request payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Trial rate limit exceeded (3 PDFs / day)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /trial/quota:
+    get:
+      tags:
+        - Trial
+      summary: Check remaining trial quota
+      description: Returns the remaining anonymous render quota for the caller's IP.
+      security: []
+      responses:
+        '200':
+          description: Quota details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrialQuotaResponse'
+
+  /render:
+    post:
+      tags:
+        - Render
+      summary: Render PDF (authenticated canonical endpoint)
+      description: |
+        The single authenticated render endpoint supporting inline HTML, Markdown,
+        stored templates, public URLs, uploaded ZIP packages, and saved sources.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CanonicalRenderRequest'
+      responses:
+        '200':
+          description: PDF generated and signed private URL returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RenderSuccessResponse'
+        '400':
+          description: Malformed JSON or unknown request attributes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Missing or invalid Bearer API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Monthly quota exhausted or invalid permissions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation error (e.g. unescaped data binding, disallowed CSS, invalid margin)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limit or concurrency exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal rendering or Chromium timeout failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /templates:
+    get:
+      tags:
+        - Templates
+      summary: List saved templates
+      responses:
+        '200':
+          description: List of owned templates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TemplateRecord'
+    post:
+      tags:
+        - Templates
+      summary: Create reusable template
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TemplateCreateInput'
+      responses:
+        '201':
+          description: Template created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateRecord'
+
+  /templates/{id}:
+    get:
+      tags:
+        - Templates
+      summary: Get template by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Template details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateRecord'
+        '404':
+          description: Template not found
+    put:
+      tags:
+        - Templates
+      summary: Update template
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TemplateCreateInput'
+      responses:
+        '200':
+          description: Template updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateRecord'
+    delete:
+      tags:
+        - Templates
+      summary: Delete template
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Template deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+
+  /sources:
+    get:
+      tags:
+        - Sources
+      summary: List saved document definitions
+      responses:
+        '200':
+          description: List of saved sources
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SourceRecord'
+    post:
+      tags:
+        - Sources
+      summary: Save reusable document definition
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SourceCreateInput'
+      responses:
+        '201':
+          description: Source saved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SourceRecord'
+
+  /sources/{id}:
+    get:
+      tags:
+        - Sources
+      summary: Get source definition
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Source definition
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SourceRecord'
+    put:
+      tags:
+        - Sources
+      summary: Update source definition
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SourceCreateInput'
+      responses:
+        '200':
+          description: Source updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SourceRecord'
+    delete:
+      tags:
+        - Sources
+      summary: Delete source definition
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Source deleted
+
+  /files:
+    get:
+      tags:
+        - Files
+      summary: List customer files (rendered PDFs, uploads, batch ZIPs)
+      responses:
+        '200':
+          description: List of files
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FileRecord'
+
+  /files/upload:
+    post:
+      tags:
+        - Files
+      summary: Request presigned ZIP package upload URL
+      description: |
+        Generates a 15-minute presigned S3 PUT URL for uploading HTML/CSS/asset ZIP archives.
+        The package can then be referenced in `/render` via `source.type: "upload"`.
+      responses:
+        '200':
+          description: Upload credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileUploadResponse'
+
+  /files/{id}:
+    get:
+      tags:
+        - Files
+      summary: Get file metadata
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: File metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileRecord'
+    delete:
+      tags:
+        - Files
+      summary: Delete file record and S3 object
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: File deleted
+
+  /files/{id}/download:
+    get:
+      tags:
+        - Files
+      summary: Get signed private download URL
+      description: Returns a 15-minute signed S3 download URL for the requested file.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Download URL
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  url:
+                    type: string
+                    format: uri
+                  expiresIn:
+                    type: integer
+                    example: 900
+
+  /batches:
+    get:
+      tags:
+        - Batches
+      summary: List asynchronous batch render jobs
+      responses:
+        '200':
+          description: List of batch jobs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BatchJobRecord'
+    post:
+      tags:
+        - Batches
+      summary: Submit asynchronous batch render job (1–99 items)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchCreateRequest'
+      responses:
+        '202':
+          description: Batch job accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchJobRecord'
+
+  /batches/{id}:
+    get:
+      tags:
+        - Batches
+      summary: Get batch job status
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Batch job details and item counts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchJobRecord'
+
+  /batches/{id}/items:
+    get:
+      tags:
+        - Batches
+      summary: List items for a batch job
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of batch items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BatchItemRecord'
+
+  /batches/{id}/cancel:
+    post:
+      tags:
+        - Batches
+      summary: Cancel remaining pending items in a batch job
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Cancellation initiated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchJobRecord'
+
+  /batches/{id}/download:
+    get:
+      tags:
+        - Batches
+      summary: Get presigned download URL for ZIP archive of batch PDFs
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Signed download URL for batch ZIP
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  downloadUrl:
+                    type: string
+                    format: uri
+
+  /api-keys:
+    get:
+      tags:
+        - API Keys
+      summary: List active API keys
+      responses:
+        '200':
+          description: List of API keys
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ApiKeyRecord'
+    post:
+      tags:
+        - API Keys
+      summary: Generate a new API key
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                  example: Production Backend
+      responses:
+        '201':
+          description: Created API key record
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiKeyCreatedResponse'
+
+  /api-keys/{id}:
+    delete:
+      tags:
+        - API Keys
+      summary: Revoke an API key
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Key revoked
+
+  /analytics:
+    get:
+      tags:
+        - Analytics
+      summary: Get aggregate PDF usage statistics
+      description: |
+        Returns aggregated PDF usage metrics, latency, and counts from the usage table.
+        Caller must be authorized with admin group or the configured StatsAllowedEmail.
+      responses:
+        '200':
+          description: Aggregate statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  totalRequests:
+                    type: integer
+                  totalBytes:
+                    type: integer
+                  periodDays:
+                    type: integer
+        '403':
+          description: Access denied (non-admin caller)
+    post:
+      tags:
+        - Analytics
+      summary: Record client analytics event
+      description: Persists customer journey and activation events with a 90-day TTL.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - eventName
+              properties:
+                eventName:
+                  type: string
+                  example: trial_render_click
+                metadata:
+                  type: object
+      responses:
+        '200':
+          description: Event recorded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      description: API Key passed as `Authorization: Bearer <API_KEY>`
+
+  schemas:
+    TrialRenderRequest:
+      type: object
+      required:
+        - html
+      properties:
+        html:
+          type: string
+          description: Raw HTML snippet or page to render (max 1 MB)
+          example: '<h1>Hello World</h1>'
+
+    TrialQuotaResponse:
+      type: object
+      required:
+        - limit
+        - remaining
+      properties:
+        limit:
+          type: integer
+          example: 3
+        remaining:
+          type: integer
+          example: 2
+
+    CanonicalRenderRequest:
+      type: object
+      required:
+        - version
+        - source
+      properties:
+        version:
+          type: string
+          enum: ['1']
+          description: Contract version (must be "1")
+          example: '1'
+        source:
+          $ref: '#/components/schemas/RenderSource'
+        css:
+          type: string
+          description: Custom CSS stylesheet (max 128 KiB). @page, @import, and external url() rejected.
+          example: 'body { font-family: Arial, sans-serif; }'
+        data:
+          type: object
+          description: Key-value bindings for {{path.to.value}} placeholders (max 256 KiB, max 10 depth)
+          additionalProperties: true
+        options:
+          $ref: '#/components/schemas/DocumentRenderOptions'
+        label:
+          type: string
+          maxLength: 120
+          description: Optional customer label for tracking in logs
+          example: 'Invoice #1042'
+        webhookUrl:
+          type: string
+          format: uri
+          description: HTTPS endpoint for asynchronous pdf.completed notification
+          example: 'https://webhook.site/uuid'
+        webhookSecret:
+          type: string
+          description: Secret key for HMAC SHA-256 header X-RenderPDF-Signature
+
+    RenderSource:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          enum: [html, markdown, template, url, upload, stored]
+        content:
+          type: string
+          description: Required when type is html or markdown
+          example: '<h1>{{title}}</h1>'
+        templateId:
+          type: string
+          description: Required when type is template
+          example: 'tmpl_01h...'
+        variables:
+          type: object
+          description: Template variables when type is template
+        url:
+          type: string
+          format: uri
+          description: Public HTTP/HTTPS URL when type is url
+          example: 'https://example.com/invoice'
+        uploadId:
+          type: string
+          description: Upload ID from /files/upload when type is upload
+        entrypoint:
+          type: string
+          description: Optional HTML entrypoint inside uploaded ZIP (default index.html)
+          example: 'index.html'
+        id:
+          type: string
+          description: Saved source ID when type is stored
+          example: 'src_01h...'
+
+    DocumentRenderOptions:
+      type: object
+      properties:
+        format:
+          type: string
+          enum: [A4, Letter, Legal]
+          default: A4
+        margin:
+          type: string
+          description: Margin in mm (0-50mm) or in (0-2in)
+          default: 18mm
+          example: '15mm'
+        displayHeaderFooter:
+          type: boolean
+          default: false
+        headerTemplate:
+          type: string
+          description: HTML template for print header (supports <span class="pageNumber"></span>)
+        footerTemplate:
+          type: string
+          description: HTML template for print footer
+        password:
+          type: string
+          description: User/Open password for AES-256 PDF encryption
+        ownerPassword:
+          type: string
+          description: Owner/Master password for AES-256 PDF encryption
+        permissions:
+          type: string
+          enum: [all, print, none]
+          default: all
+
+    RenderSuccessResponse:
+      type: object
+      required:
+        - requestId
+        - url
+        - size
+      properties:
+        requestId:
+          type: string
+          format: uuid
+          example: '4e292025-a13f-4e02-8a9c-0c4c47b59e31'
+        url:
+          type: string
+          format: uri
+          description: 15-minute signed S3 private download URL
+        size:
+          type: integer
+          description: Byte size of generated PDF
+          example: 48392
+
+    TemplateRecord:
+      type: object
+      required:
+        - id
+        - name
+        - createdAt
+      properties:
+        id:
+          type: string
+          example: 'tmpl_01h8q...'
+        name:
+          type: string
+          example: 'Standard Invoice'
+        type:
+          type: string
+          example: 'custom'
+        html:
+          type: string
+        css:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    TemplateCreateInput:
+      type: object
+      required:
+        - name
+        - html
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+          default: custom
+        html:
+          type: string
+        css:
+          type: string
+        options:
+          $ref: '#/components/schemas/DocumentRenderOptions'
+        defaultData:
+          type: object
+
+    SourceRecord:
+      type: object
+      required:
+        - sourceId
+        - name
+        - sourceType
+        - createdAt
+      properties:
+        sourceId:
+          type: string
+          example: 'src_01h...'
+        name:
+          type: string
+          example: 'Monthly Report Template'
+        sourceType:
+          type: string
+          enum: [html, markdown, template, upload]
+        createdAt:
+          type: string
+          format: date-time
+
+    SourceCreateInput:
+      type: object
+      required:
+        - name
+        - definition
+      properties:
+        name:
+          type: string
+        definition:
+          $ref: '#/components/schemas/CanonicalRenderRequest'
+
+    FileRecord:
+      type: object
+      required:
+        - fileId
+        - kind
+        - contentType
+        - sizeBytes
+        - createdAt
+      properties:
+        fileId:
+          type: string
+          example: 'file_01h...'
+        kind:
+          type: string
+          enum: [rendered_pdf, uploaded_package, batch_zip, source_definition]
+        contentType:
+          type: string
+          example: 'application/pdf'
+        sizeBytes:
+          type: integer
+          example: 52180
+        createdAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: integer
+
+    FileUploadResponse:
+      type: object
+      required:
+        - uploadId
+        - uploadUrl
+        - expiresIn
+      properties:
+        uploadId:
+          type: string
+          example: 'upload_01h...'
+        uploadUrl:
+          type: string
+          format: uri
+        expiresIn:
+          type: integer
+          example: 900
+
+    BatchCreateRequest:
+      type: object
+      required:
+        - version
+        - items
+      properties:
+        version:
+          type: string
+          enum: ['1']
+        source:
+          type: object
+          required:
+            - type
+            - id
+          properties:
+            type:
+              type: string
+              enum: [stored]
+            id:
+              type: string
+        items:
+          type: array
+          minItems: 1
+          maxItems: 99
+          items:
+            type: object
+            properties:
+              data:
+                type: object
+              definition:
+                $ref: '#/components/schemas/CanonicalRenderRequest'
+        options:
+          type: object
+          properties:
+            webhookUrl:
+              type: string
+              format: uri
+            webhookSecret:
+              type: string
+
+    BatchJobRecord:
+      type: object
+      required:
+        - jobId
+        - status
+        - itemCount
+        - queuedCount
+        - succeededCount
+        - failedCount
+      properties:
+        jobId:
+          type: string
+          example: 'job_01h...'
+        status:
+          type: string
+          enum: [queued, running, completed, completed_with_errors, cancelled, failed]
+        itemCount:
+          type: integer
+        queuedCount:
+          type: integer
+        succeededCount:
+          type: integer
+        failedCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+
+    BatchItemRecord:
+      type: object
+      required:
+        - itemId
+        - ordinal
+        - status
+      properties:
+        itemId:
+          type: string
+        ordinal:
+          type: integer
+        status:
+          type: string
+          enum: [queued, running, succeeded, failed, cancelled]
+        outputFileId:
+          type: string
+        errorCode:
+          type: string
+        errorMessage:
+          type: string
+
+    ApiKeyRecord:
+      type: object
+      required:
+        - id
+        - name
+        - createdAt
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        lastUsedAt:
+          type: string
+          format: date-time
+
+    ApiKeyCreatedResponse:
+      type: object
+      required:
+        - id
+        - key
+        - name
+      properties:
+        id:
+          type: string
+        key:
+          type: string
+          description: Full Bearer API key. Displayed only once upon creation.
+          example: 'rpdf_live_9a8b7c6d5e4f...'
+        name:
+          type: string
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          description: Human-readable error message
+          example: 'Invalid render request'
+        code:
+          type: string
+          description: Stable machine-readable error code
+          example: 'render_request_invalid'

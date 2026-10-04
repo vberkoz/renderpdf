@@ -1,0 +1,15 @@
+# AI Exclusion Rules (.aiignore)
+# Prevents LLM agents and indexing tools from indexing high-token, non-code artifacts.
+
+# 1. Binary files and archives
+doc-examples/*.zip
+landing/*.png
+landing/*.jpg
+
+# 2. Large static sample payloads and test fixtures
+doc-examples/*-data.json
+doc-examples/contract-multipage-data.json
+
+# 3. Generated build directories and local temporary caches
+dist/
+*.tmp

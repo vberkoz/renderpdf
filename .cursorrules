@@ -1,0 +1,22 @@
+# .cursorrules - RenderPDF
+
+Always consult AGENTS.md and docs/AGENT-RULES.md before modifying this codebase.
+
+## Fast Verification
+- Run `./scripts/verify-all.sh` to execute all offline test suites (Go, Node, Static UI, Shell, Infra syntax).
+
+## Core Rules
+- Do NOT edit generated local binaries: `api/renderpdf`, `auth/authorizer`, `auth/api-keys`. Always edit `.go` source files.
+- Canonical operational scripts live in `scripts/`. Root script files (`deploy.sh`, `test-api.sh`, etc.) are compatibility wrappers.
+- Do NOT create parallel root directories like `client/`, `frontend/`, or `iac/`. Maintain current folder boundaries:
+  - `api/` (PDF Lambda & batch workers)
+  - `auth/` (Authorizer, API key Lambdas, Cognito account-linker)
+  - `analytics/` (Node.js billing webhooks, rollups, admin API)
+  - `webhooks/` (SQS webhook delivery worker)
+  - `dashboard/` (Static dashboard app)
+  - `landing/` (Static marketing & docs)
+  - `infra/` (CloudFormation & deployment config)
+  - `scripts/` (Canonical shell scripts)
+- In sandboxed environments on macOS, inspect `docs/` using IDE file readers rather than shell directory listings (`ls docs`) to avoid TCC sandbox permission errors.
+- Consult `docs/openapi.yaml` for OpenAPI 3.1 request/response schemas and endpoints.
+- Root `jsconfig.json` and `dashboard/jsconfig.json` provide type-checking and IntelliSense.

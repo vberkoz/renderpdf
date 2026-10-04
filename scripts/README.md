@@ -6,6 +6,9 @@
 
 ## Current Contents
 
+- `/Users/basilsergius/projects/renderpdf/scripts/format-all.sh`
+- `/Users/basilsergius/projects/renderpdf/scripts/init-localstack.sh`
+- `/Users/basilsergius/projects/renderpdf/scripts/verify-all.sh`
 - `/Users/basilsergius/projects/renderpdf/scripts/verify-api.sh`
 - `/Users/basilsergius/projects/renderpdf/scripts/verify-auth.sh`
 - `/Users/basilsergius/projects/renderpdf/scripts/verify-infra.sh`
@@ -15,7 +18,9 @@
 - `/Users/basilsergius/projects/renderpdf/scripts/deploy.sh`
 - `/Users/basilsergius/projects/renderpdf/scripts/deploy_ui.sh`
 - `/Users/basilsergius/projects/renderpdf/scripts/deploy-landing.sh`
+- `/Users/basilsergius/projects/renderpdf/scripts/sync-api-keys.sh`
 - `/Users/basilsergius/projects/renderpdf/scripts/test-api.sh`
+- `/Users/basilsergius/projects/renderpdf/scripts/test-sources-files.sh`
 - `/Users/basilsergius/projects/renderpdf/scripts/test-template-docs.sh`
 
 ## Notes

@@ -279,7 +279,8 @@ export function getOrCreateGrantCreditsModal() {
     } else {
       if (amountGroup) amountGroup.style.display = 'block';
       if (amountInput) amountInput.setAttribute('required', '');
-      if (submitBtn) submitBtn.textContent = val === 'set_limit' ? 'Set Monthly Limit' : 'Grant Credits';
+      if (submitBtn)
+        submitBtn.textContent = val === 'set_limit' ? 'Set Monthly Limit' : 'Grant Credits';
     }
   });
 
@@ -303,7 +304,12 @@ export function getOrCreateGrantCreditsModal() {
  * Opens the Change Plan Modal for a given customer.
  */
 export function openChangePlanModal(arg1, arg2, arg3, arg4) {
-  const { userId, userEmail, currentTier, manualOverride } = parseChangePlanArgs(arg1, arg2, arg3, arg4);
+  const { userId, userEmail, currentTier, manualOverride } = parseChangePlanArgs(
+    arg1,
+    arg2,
+    arg3,
+    arg4
+  );
   if (!userId) {
     showToast('Cannot change plan: missing user ID', 'error');
     return;
@@ -326,7 +332,8 @@ export function openChangePlanModal(arg1, arg2, arg3, arg4) {
     errorEl.textContent = '';
   }
   if (overrideCheckbox) {
-    overrideCheckbox.checked = manualOverride || currentTier === 'enterprise' || currentTier === 'pro';
+    overrideCheckbox.checked =
+      manualOverride || currentTier === 'enterprise' || currentTier === 'pro';
   }
   if (customQuotaInput) {
     customQuotaInput.value = '';
@@ -353,7 +360,7 @@ export function openChangePlanModal(arg1, arg2, arg3, arg4) {
   radios.forEach((radio) => {
     radio.onchange = () => {
       radios.forEach((r) => {
-        r.checked = (r === radio);
+        r.checked = r === radio;
         const c = r.closest('.admin-plan-radio-card');
         if (c) c.classList.toggle('selected', r.checked);
       });
@@ -394,6 +401,8 @@ export function openChangePlanModal(arg1, arg2, arg3, arg4) {
 
     if (submitBtn) {
       submitBtn.disabled = true;
+      submitBtn.setAttribute('aria-busy', 'true');
+      submitBtn.classList.add('is-processing');
       submitBtn.textContent = 'Updating Plan...';
     }
 
@@ -415,7 +424,10 @@ export function openChangePlanModal(arg1, arg2, arg3, arg4) {
       });
 
       closeModal(modalEl);
-      showToast(`Plan updated to ${targetTier.toUpperCase()} for ${userEmail || userId}`, 'success');
+      showToast(
+        `Plan updated to ${targetTier.toUpperCase()} for ${userEmail || userId}`,
+        'success'
+      );
 
       // Dispatch user-updated event to reload open dossier drawer
       const updateEvt = new CustomEvent('user-updated', {
@@ -433,6 +445,8 @@ export function openChangePlanModal(arg1, arg2, arg3, arg4) {
       showToast(err.message || 'Failed to update plan', 'error');
       if (submitBtn) {
         submitBtn.disabled = false;
+        submitBtn.removeAttribute('aria-busy');
+        submitBtn.classList.remove('is-processing');
         submitBtn.textContent = 'Update Plan';
       }
     }
@@ -543,6 +557,8 @@ export function openGrantCreditsModal(arg1, arg2, arg3) {
 
     if (submitBtn) {
       submitBtn.disabled = true;
+      submitBtn.setAttribute('aria-busy', 'true');
+      submitBtn.classList.add('is-processing');
       submitBtn.textContent = 'Applying adjustment...';
     }
 
@@ -554,11 +570,12 @@ export function openGrantCreditsModal(arg1, arg2, arg3) {
 
       closeModal(modalEl);
 
-      const successMsg = action === 'add_credits'
-        ? `Granted +${payload.amount?.toLocaleString()} render credits to ${userEmail || userId}`
-        : action === 'set_limit'
-        ? `Set monthly limit to ${payload.amount?.toLocaleString()} for ${userEmail || userId}`
-        : `Reset usage to 0 for ${userEmail || userId}`;
+      const successMsg =
+        action === 'add_credits'
+          ? `Granted +${payload.amount?.toLocaleString()} render credits to ${userEmail || userId}`
+          : action === 'set_limit'
+            ? `Set monthly limit to ${payload.amount?.toLocaleString()} for ${userEmail || userId}`
+            : `Reset usage to 0 for ${userEmail || userId}`;
 
       showToast(successMsg, 'success');
 
@@ -578,6 +595,8 @@ export function openGrantCreditsModal(arg1, arg2, arg3) {
       showToast(err.message || 'Failed to adjust quota', 'error');
       if (submitBtn) {
         submitBtn.disabled = false;
+        submitBtn.removeAttribute('aria-busy');
+        submitBtn.classList.remove('is-processing');
         submitBtn.textContent = 'Grant Credits';
       }
     }

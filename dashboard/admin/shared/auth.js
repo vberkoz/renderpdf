@@ -15,9 +15,14 @@ export function decodeTokenPayload(token) {
   try {
     const encodedPayload = token.split('.')[1];
     const base64 = encodedPayload.replace(/-/g, '+').replace(/_/g, '/');
-    return JSON.parse(decodeURIComponent(atob(base64).split('').map((char) =>
-      `%${char.charCodeAt(0).toString(16).padStart(2, '0')}`
-    ).join('')));
+    return JSON.parse(
+      decodeURIComponent(
+        atob(base64)
+          .split('')
+          .map((char) => `%${char.charCodeAt(0).toString(16).padStart(2, '0')}`)
+          .join('')
+      )
+    );
   } catch {
     return null;
   }
@@ -52,7 +57,9 @@ export function checkAdminAuth() {
   }
 
   const payload = decodeTokenPayload(token);
-  const email = String(payload?.email || '').trim().toLowerCase();
+  const email = String(payload?.email || '')
+    .trim()
+    .toLowerCase();
   const groups = Array.isArray(payload?.['cognito:groups']) ? payload['cognito:groups'] : [];
   const isAdmin = groups.includes('Admins') || email === STATS_ALLOWED_EMAIL;
 
@@ -68,7 +75,8 @@ export function checkAdminAuth() {
  */
 export function startSignIn() {
   localStorage.setItem('post_login_redirect', '/app/admin');
-  const authUrl = `${COGNITO_DOMAIN}/oauth2/authorize?` +
+  const authUrl =
+    `${COGNITO_DOMAIN}/oauth2/authorize?` +
     `client_id=${COGNITO_CLIENT_ID}&` +
     'response_type=token&scope=email+openid+profile&' +
     `redirect_uri=${encodeURIComponent(COGNITO_REDIRECT_URI)}&identity_provider=Google`;

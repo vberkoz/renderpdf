@@ -138,11 +138,13 @@ async function resolveCustomerEmail(ddb, tableName, userId, fallbackEmail = '') 
   // 1. Check USER_PROFILE#<userId> in UsageTable
   if (ddb && tableName) {
     try {
-      const profile = await ddb.send(new GetItemCommand({
-        TableName: tableName,
-        Key: { requestId: { S: `USER_PROFILE#${userId}` }, timestamp: { N: '0' } },
-        ConsistentRead: true,
-      }));
+      const profile = await ddb.send(
+        new GetItemCommand({
+          TableName: tableName,
+          Key: { requestId: { S: `USER_PROFILE#${userId}` }, timestamp: { N: '0' } },
+          ConsistentRead: true,
+        })
+      );
       const email = profile?.Item?.customerEmail?.S;
       if (email && email.includes('@')) return email.trim();
     } catch (err) {
@@ -156,26 +158,31 @@ async function resolveCustomerEmail(ddb, tableName, userId, fallbackEmail = '') 
     try {
       const { AdminGetUserCommand } = require('@aws-sdk/client-cognito-identity-provider');
       const client = getCognitoClient();
-      const userRes = await client.send(new AdminGetUserCommand({
-        UserPoolId: userPoolId,
-        Username: userId,
-      }));
-      const emailAttr = userRes?.UserAttributes?.find(a => a.Name === 'email');
+      const userRes = await client.send(
+        new AdminGetUserCommand({
+          UserPoolId: userPoolId,
+          Username: userId,
+        })
+      );
+      const emailAttr = userRes?.UserAttributes?.find((a) => a.Name === 'email');
       if (emailAttr?.Value && emailAttr.Value.includes('@')) {
         const found = emailAttr.Value.trim();
         // Cache to USER_PROFILE
         if (ddb && tableName) {
           try {
-            await ddb.send(new UpdateItemCommand({
-              TableName: tableName,
-              Key: { requestId: { S: `USER_PROFILE#${userId}` }, timestamp: { N: '0' } },
-              UpdateExpression: 'SET customerEmail = :email, entityType = :entity, updatedAt = :now',
-              ExpressionAttributeValues: {
-                ':email': { S: found },
-                ':entity': { S: 'USER_PROFILE' },
-                ':now': { N: String(Math.floor(Date.now() / 1000)) },
-              },
-            }));
+            await ddb.send(
+              new UpdateItemCommand({
+                TableName: tableName,
+                Key: { requestId: { S: `USER_PROFILE#${userId}` }, timestamp: { N: '0' } },
+                UpdateExpression:
+                  'SET customerEmail = :email, entityType = :entity, updatedAt = :now',
+                ExpressionAttributeValues: {
+                  ':email': { S: found },
+                  ':entity': { S: 'USER_PROFILE' },
+                  ':now': { N: String(Math.floor(Date.now() / 1000)) },
+                },
+              })
+            );
           } catch {}
         }
         return found;
@@ -192,7 +199,12 @@ async function sendPaymentFailedAlert(ddb, tableName, userId, customerEmail) {
   const email = await resolveCustomerEmail(ddb, tableName, userId, customerEmail);
   if (!email) {
     console.warn(`No email found for past due user ${userId}; skipping email notification`);
-    await sendTelegramBillingAlert({ userId, customerEmail: null, eventType: 'subscription.past_due', reason: 'Missing email' }).catch(() => {});
+    await sendTelegramBillingAlert({
+      userId,
+      customerEmail: null,
+      eventType: 'subscription.past_due',
+      reason: 'Missing email',
+    }).catch(() => {});
     return { sent: false, reason: 'missing_email' };
   }
 
@@ -200,7 +212,11 @@ async function sendPaymentFailedAlert(ddb, tableName, userId, customerEmail) {
   try {
     const [sesRes, tgRes] = await Promise.allSettled([
       sendSESEmail({ to: email, subject, html, text }),
-      sendTelegramBillingAlert({ userId, customerEmail: email, eventType: 'subscription.past_due' }),
+      sendTelegramBillingAlert({
+        userId,
+        customerEmail: email,
+        eventType: 'subscription.past_due',
+      }),
     ]);
     console.log(`Payment failed alert email sent to ${email} (userId: ${userId})`);
     const emailSent = sesRes.status === 'fulfilled';
@@ -250,17 +266,19 @@ function buildChatEscalationEmail({ session, recentMessages }) {
   textLines.push('');
   textLines.push(`Open conversation in admin console:\n${adminChatUrl}`);
 
-  const htmlMessages = (recentMessages || []).map((msg) => {
-    const isUser = msg.role === 'user' || msg.sender === 'visitor';
-    const bg = isUser ? '#f1f5f9' : '#e0e7ff';
-    const roleName = isUser ? 'Visitor' : (msg.role === 'assistant' ? 'AI Assistant' : 'Operator');
-    return `
+  const htmlMessages = (recentMessages || [])
+    .map((msg) => {
+      const isUser = msg.role === 'user' || msg.sender === 'visitor';
+      const bg = isUser ? '#f1f5f9' : '#e0e7ff';
+      const roleName = isUser ? 'Visitor' : msg.role === 'assistant' ? 'AI Assistant' : 'Operator';
+      return `
       <div style="margin-bottom: 12px; padding: 10px 14px; background: ${bg}; border-radius: 8px;">
         <strong style="font-size: 12px; color: #475569; text-transform: uppercase;">${escapeHtml(roleName)}:</strong>
         <p style="margin: 4px 0 0 0; font-size: 14px; color: #0f172a; white-space: pre-wrap;">${escapeHtml(msg.content || '')}</p>
       </div>
     `;
-  }).join('');
+    })
+    .join('');
 
   const html = `<!DOCTYPE html>
 <html>
@@ -350,17 +368,19 @@ function formatChatEscalationTelegramMessage({ session, recentMessages }) {
   const sessionId = session?.sessionId || '';
   const adminChatUrl = `https://renderpdf.vberkoz.com/app/admin#chats?id=${encodeURIComponent(sessionId)}`;
 
-  const lastUserMsg = (recentMessages || [])
-    .filter((m) => m.role === 'user' || m.sender === 'visitor')
-    .pop()?.content || '(No message content)';
+  const lastUserMsg =
+    (recentMessages || []).filter((m) => m.role === 'user' || m.sender === 'visitor').pop()
+      ?.content || '(No message content)';
 
-  return `🚨 <b>[RenderPDF Chat Escalated]</b>\n\n` +
+  return (
+    `🚨 <b>[RenderPDF Chat Escalated]</b>\n\n` +
     `👤 <b>Visitor:</b> <code>${escapeHtml(visitor)}</code>\n` +
     `💼 <b>Plan:</b> ${escapeHtml(plan)}\n` +
     `🎯 <b>Reason:</b> <code>${escapeHtml(reason)}</code>\n` +
     `🆔 <b>Session:</b> <code>${escapeHtml(sessionId)}</code>\n\n` +
     `💬 <b>Last Message:</b>\n<i>"${escapeHtml(lastUserMsg)}"</i>\n\n` +
-    `👉 <a href="${adminChatUrl}">Open in Admin Inbox</a>`;
+    `👉 <a href="${adminChatUrl}">Open in Admin Inbox</a>`
+  );
 }
 
 async function sendTelegramChatEscalation({ session, recentMessages }) {
@@ -373,13 +393,16 @@ function formatErrorTelegramMessage({ context, error, details }) {
   const contextName = context || 'System';
   let detailsStr = '';
   if (details) {
-    const formattedDetails = typeof details === 'object' ? JSON.stringify(details, null, 2) : String(details);
+    const formattedDetails =
+      typeof details === 'object' ? JSON.stringify(details, null, 2) : String(details);
     detailsStr = `\n\n📋 <b>Details:</b>\n<code>${escapeHtml(formattedDetails)}</code>`;
   }
 
-  return `❌ <b>[RenderPDF Error: ${escapeHtml(contextName)}]</b>\n\n` +
+  return (
+    `❌ <b>[RenderPDF Error: ${escapeHtml(contextName)}]</b>\n\n` +
     `⚠️ <b>Error:</b> <code>${escapeHtml(errMessage)}</code>` +
-    detailsStr;
+    detailsStr
+  );
 }
 
 async function sendTelegramErrorAlert({ context, error, details }) {
@@ -391,11 +414,13 @@ function formatBillingAlertTelegramMessage({ userId, customerEmail, eventType, r
   const user = customerEmail || userId || 'Unknown user';
   const event = eventType || 'payment_failed';
 
-  return `💳 <b>[RenderPDF Billing Alert]</b>\n\n` +
+  return (
+    `💳 <b>[RenderPDF Billing Alert]</b>\n\n` +
     `👤 <b>Customer:</b> <code>${escapeHtml(user)}</code>\n` +
     `⚠️ <b>Event:</b> <code>${escapeHtml(event)}</code>\n` +
     (reason ? `📝 <b>Reason:</b> ${escapeHtml(reason)}\n\n` : '\n') +
-    `👉 <a href="https://renderpdf.vberkoz.com/app/admin#users">View in Admin Users</a>`;
+    `👉 <a href="https://renderpdf.vberkoz.com/app/admin#users">View in Admin Users</a>`
+  );
 }
 
 async function sendTelegramBillingAlert({ userId, customerEmail, eventType, reason }) {
@@ -406,7 +431,7 @@ async function sendTelegramBillingAlert({ userId, customerEmail, eventType, reas
 async function sendChatEscalationAlert({ session, recentMessages }) {
   const recipient = process.env.OPERATIONS_ALERT_EMAIL || 'vberkoz@gmail.com';
   const { subject, html, text } = buildChatEscalationEmail({ session, recentMessages });
-  
+
   const [sesOutcome, tgOutcome] = await Promise.allSettled([
     sendSESEmail({ to: recipient, subject, html, text }),
     sendTelegramChatEscalation({ session, recentMessages }),
@@ -414,7 +439,9 @@ async function sendChatEscalationAlert({ session, recentMessages }) {
 
   const emailSent = sesOutcome.status === 'fulfilled';
   if (emailSent) {
-    console.log(`Chat escalation alert email sent to ${recipient} (sessionId: ${session?.sessionId})`);
+    console.log(
+      `Chat escalation alert email sent to ${recipient} (sessionId: ${session?.sessionId})`
+    );
   } else {
     console.error(`Failed to send chat escalation alert to ${recipient}:`, sesOutcome.reason);
   }

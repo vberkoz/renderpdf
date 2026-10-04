@@ -6,42 +6,80 @@
     <meta name="description" content="Completing your secure RenderPDF sign-in.">
     <title>RenderPDF | Completing sign-in</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-    <style>
-        :root { color-scheme: light; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #17212b; background: #f7f9fb; }
-        * { box-sizing: border-box; }
-        body { min-width: 320px; min-height: 100vh; margin: 0; display: grid; place-items: center; padding: 24px; }
-        .handoff-card { width: min(100%, 420px); padding: 32px; border: 1px solid #dce3ea; border-radius: 16px; background: #fff; box-shadow: 0 12px 32px rgb(23 33 43 / 8%); text-align: center; }
-        h1 { margin: 0; font-size: 1.5rem; letter-spacing: -.02em; }
-        p { margin: 12px 0 0; color: #53616f; line-height: 1.5; }
-        .progress { width: 100%; height: 4px; margin: 28px 0 0; overflow: hidden; border-radius: 999px; background: #e2e8ef; }
-        .progress::before { content: ""; display: block; width: 40%; height: 100%; border-radius: inherit; background: #2563eb; animation: progress 1.1s ease-in-out infinite; }
-        .handoff-card[data-state="error"] .progress::before, .handoff-card[data-state="delayed"] .progress::before { display: none; }
-        .handoff-card[data-state="error"] .progress, .handoff-card[data-state="delayed"] .progress { background: #f1caca; }
-        .callback-icon { display: inline-flex; align-items: center; justify-content: center; width: 48px; height: 48px; border-radius: 50%; margin-bottom: 16px; background: #eff6ff; color: #2563eb; }
-        .callback-icon svg { width: 24px; height: 24px; }
-        .handoff-card[data-state="pending"] .callback-icon svg { animation: spin 1s linear infinite; }
-        .handoff-card[data-state="success"] .callback-icon { background: #ecfdf5; color: #10b981; }
-        .handoff-card[data-state="error"] .callback-icon { background: #fef2f2; color: #ef4444; }
-        .handoff-card[data-state="delayed"] .callback-icon { background: #fffbeb; color: #f59e0b; }
-        .recovery-action { display: inline-flex; align-items: center; gap: 8px; margin-top: 24px; padding: 10px 16px; border-radius: 999px; background: #17212b; color: #fff; font-weight: 600; text-decoration: none; }
-        .recovery-action:hover, .recovery-action:focus-visible { background: #2d3b48; }
-        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        @keyframes progress { 0% { transform: translateX(-100%); } 100% { transform: translateX(250%); } }
-        @media (prefers-reduced-motion: reduce) { .progress::before { animation: none; transform: translateX(75%); } }
-    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="/styles/base.css" rel="stylesheet">
+    <link href="/styles/auth.css" rel="stylesheet">
 </head>
-<body>
-    <main>
-        <section id="callbackCard" class="handoff-card" data-state="pending" aria-labelledby="statusTitle" aria-describedby="statusMessage" aria-live="polite">
-            <div id="callbackIcon" class="callback-icon" aria-hidden="true">
-                <svg class="lucide lucide-loader-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+<body class="auth-page callback-page">
+    <a class="skip-link" href="#main-content">Skip to main content</a>
+    <div class="auth-shell">
+        <div><header class="auth-topbar">
+            <a class="auth-brand" href="/" aria-label="RenderPDF home">
+                <span class="auth-brand-mark" aria-hidden="true"></span>
+                <span>RenderPDF</span>
+            </a>
+            <nav id="callback-primary-navigation" class="auth-nav" data-carbon-header-nav aria-label="Primary navigation">
+                <a href="/">Home</a>
+                <a href="/#pricing">Pricing</a>
+                <a href="/docs/api/">API docs</a>
+                <a href="/stats/">Stats</a>
+                <a href="/app/">Dashboard</a>
+                <a href="https://github.com/vberkoz/renderpdf">GitHub</a>
+            </nav>
+        </header></div>
+
+        <main id="main-content" class="callback-main" tabindex="-1">
+            <section id="callbackCard" class="handoff-card" data-state="pending" aria-labelledby="statusTitle" aria-describedby="statusMessage" aria-live="polite">
+                <div id="callbackIcon" class="callback-icon" aria-hidden="true">
+                    <svg class="lucide lucide-loader-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                </div>
+                <h1 id="statusTitle">Completing sign-in</h1>
+                <p id="statusMessage">Please wait while we verify your account response.</p>
+                <div class="progress" role="progressbar" aria-label="Sign-in progress" aria-valuetext="Completing sign-in" aria-busy="true"></div>
+                <a id="retryLink" class="recovery-action callback-action" href="/app/login" hidden><svg class="lucide lucide-arrow-left" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="19" x2="5" y1="12" y2="12"/><polyline points="12 19 5 12 12 5"/></svg> Return to sign in</a>
+                <p class="callback-fineprint">Authentication tokens stay in this browser and are used only to access your RenderPDF workspace.</p>
+            </section>
+        </main>
+
+        <footer class="auth-footer">
+            <div class="footer-top">
+                <div class="footer-brand-section">
+                    <div class="footer-brand">
+                        <span class="brand-mark" aria-hidden="true"></span>
+                        <span>RenderPDF</span>
+                    </div>
+                    <p class="footer-entity">RenderPDF Studio LLC</p>
+                    <p class="footer-address">131 Continental Dr, Suite 305, Newark, DE 19713, USA</p>
+                    <p class="footer-contact">Support: <a href="mailto:support@renderpdf.vberkoz.com">support@renderpdf.vberkoz.com</a></p>
+                </div>
+                <div class="footer-links-grid">
+                    <div class="footer-col">
+                        <span class="footer-col-title">Navigation</span>
+                        <nav aria-label="Footer navigation">
+                            <a href="/">Home</a>
+                            <a href="/#pricing">Pricing</a>
+                            <a href="/docs/api/">API docs</a>
+                            <a href="https://stats.uptimerobot.com/UNP4h7ipig" target="_blank" rel="noopener noreferrer">System status</a>
+                        </nav>
+                    </div>
+                    <div class="footer-col">
+                        <span class="footer-col-title">Legal &amp; Compliance</span>
+                        <nav aria-label="Legal navigation">
+                            <a href="/terms/">Terms of Service</a>
+                            <a href="/privacy/">Privacy Policy</a>
+                            <a href="/refund/">Refund Policy</a>
+                            <a href="/cancellation/">Cancellation</a>
+                        </nav>
+                    </div>
+                </div>
             </div>
-            <h1 id="statusTitle">Completing sign-in</h1>
-            <p id="statusMessage">Please wait while we verify your account response.</p>
-            <div class="progress" role="progressbar" aria-label="Sign-in progress" aria-valuetext="Completing sign-in" aria-busy="true"></div>
-            <a id="retryLink" class="recovery-action" href="/app/login" hidden><svg class="lucide lucide-arrow-left" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="19" x2="5" y1="12" y2="12"/><polyline points="12 19 5 12 12 5"/></svg> Return to sign in</a>
-        </section>
-    </main>
+            <div class="footer-bottom">
+                <p>&copy; 2026 RenderPDF Studio LLC. All rights reserved. Payments and subscriptions are securely managed by Paddle, our Merchant of Record.</p>
+            </div>
+        </footer>
+    </div>
 
     <script>
         const hash = window.location.hash.substring(1);
@@ -57,6 +95,11 @@
         const statusMessage = document.getElementById('statusMessage');
         const progress = document.querySelector('.progress');
         const retryLink = document.getElementById('retryLink');
+
+        retryLink.addEventListener('click', () => {
+            retryLink.classList.add('is-processing');
+            retryLink.setAttribute('aria-busy', 'true');
+        });
 
         const showFailure = (title, message) => {
             callbackCard.dataset.state = 'error';

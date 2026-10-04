@@ -14,12 +14,14 @@ test('admin.js guards non-admin accounts and reveals forbidden state', async () 
   mockStorage.clear();
   // Valid token for non-admin user
   const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
-  const payload = Buffer.from(JSON.stringify({
-    sub: 'user-regular-456',
-    email: 'regular-user@example.com',
-    'cognito:groups': ['Users'],
-    exp: Math.floor(Date.now() / 1000) + 3600,
-  })).toString('base64url');
+  const payload = Buffer.from(
+    JSON.stringify({
+      sub: 'user-regular-456',
+      email: 'regular-user@example.com',
+      'cognito:groups': ['Users'],
+      exp: Math.floor(Date.now() / 1000) + 3600,
+    })
+  ).toString('base64url');
   mockStorage.set('id_token', `${header}.${payload}.sig`);
 
   const elements = new Map();
@@ -29,10 +31,16 @@ test('admin.js guards non-admin accounts and reveals forbidden state', async () 
         id,
         hidden: false,
         textContent: '',
-        setAttribute(name) { if (name === 'hidden') this.hidden = true; },
-        removeAttribute(name) { if (name === 'hidden') this.hidden = false; },
+        setAttribute(name) {
+          if (name === 'hidden') this.hidden = true;
+        },
+        removeAttribute(name) {
+          if (name === 'hidden') this.hidden = false;
+        },
         addEventListener() {},
-        querySelectorAll() { return []; },
+        querySelectorAll() {
+          return [];
+        },
         classList: { toggle() {}, add() {}, remove() {} },
       });
     }
@@ -68,12 +76,14 @@ test('admin.js allows admin account and populates operator info', async () => {
   mockStorage.clear();
   // Valid token for admin user
   const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
-  const payload = Buffer.from(JSON.stringify({
-    sub: 'admin-789',
-    email: 'vberkoz@gmail.com',
-    'cognito:groups': ['Admins'],
-    exp: Math.floor(Date.now() / 1000) + 3600,
-  })).toString('base64url');
+  const payload = Buffer.from(
+    JSON.stringify({
+      sub: 'admin-789',
+      email: 'vberkoz@gmail.com',
+      'cognito:groups': ['Admins'],
+      exp: Math.floor(Date.now() / 1000) + 3600,
+    })
+  ).toString('base64url');
   mockStorage.set('id_token', `${header}.${payload}.sig`);
 
   const elements = new Map();
@@ -83,11 +93,19 @@ test('admin.js allows admin account and populates operator info', async () => {
         id,
         hidden: false,
         textContent: '',
-        setAttribute(name) { if (name === 'hidden') this.hidden = true; },
-        removeAttribute(name) { if (name === 'hidden') this.hidden = false; },
+        setAttribute(name) {
+          if (name === 'hidden') this.hidden = true;
+        },
+        removeAttribute(name) {
+          if (name === 'hidden') this.hidden = false;
+        },
         addEventListener() {},
-        querySelector() { return null; },
-        querySelectorAll() { return []; },
+        querySelector() {
+          return null;
+        },
+        querySelectorAll() {
+          return [];
+        },
         classList: { toggle() {}, add() {}, remove() {} },
       });
     }
@@ -110,7 +128,12 @@ test('admin.js allows admin account and populates operator info', async () => {
     ok: true,
     status: 200,
     json: async () => ({
-      summary: { mrrUsd: 1000, grossMarginPercent: 90, costPerThousandPdfsUsd: 0.2, activeSubscriptions: 10 },
+      summary: {
+        mrrUsd: 1000,
+        grossMarginPercent: 90,
+        costPerThousandPdfsUsd: 0.2,
+        activeSubscriptions: 10,
+      },
       funnel: {},
       rendering: {},
       dailyRollups: [],

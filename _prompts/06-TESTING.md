@@ -2,48 +2,37 @@
 
 ## Purpose
 
-- Maintain the real verification flows that exist in this repo.
-- Keep test discovery consistent via `scripts/verify-*.sh` and `docs/VERIFICATION.md`.
+- Maintain and run test automation and verification wrappers across the repository.
 
 ## Prerequisites
 
-- Complete `01-LOCAL-DEVELOPMENT.md`.
-- Read `/Users/basilsergius/projects/renderpdf/docs/VERIFICATION.md`.
+- Read `docs/VERIFICATION.md` if reviewing verification matrix details.
+- Inherits baseline rules and idempotency requirements from `_prompts/INDEX.md`.
 
 ## Files/Folders In Scope
 
-- `/Users/basilsergius/projects/renderpdf/scripts/test-api.sh`
-- `/Users/basilsergius/projects/renderpdf/scripts/verify-*.sh`
-- `/Users/basilsergius/projects/renderpdf/doc-examples/`
-- `/Users/basilsergius/projects/renderpdf/docs/VERIFICATION.md`
+- `scripts/verify-*.sh`
+- `scripts/test-api.sh`
+- `docs/VERIFICATION.md`
 
 ## Files/Folders Out Of Scope
 
-- Fake or placeholder tests
-- Uncommitted local-only checklists that should live in docs
+- Application source code edits outside of test additions.
+- Mock scripts or speculative test frameworks.
 
 ## Implementation Task
 
-1. Prefer thin wrappers around real verification commands.
-2. Keep deployed smoke testing in `scripts/test-api.sh`.
-3. Keep discovery and copy-paste instructions in `docs/VERIFICATION.md`.
-4. If coverage is missing, document the gap instead of inventing a test.
+1. Maintain existing verification wrappers in `scripts/`.
+2. Keep `docs/VERIFICATION.md` updated with exact command-line steps.
+3. If an automated test does not exist for an area, document the gap instead of inventing artificial passes.
 
 ## Verification Steps
 
 ```bash
-cd /Users/basilsergius/projects/renderpdf && ./scripts/verify-shell.sh
-cd /Users/basilsergius/projects/renderpdf && ./scripts/verify-api.sh
-cd /Users/basilsergius/projects/renderpdf && ./scripts/verify-auth.sh
-```
-
-Optional, AWS-backed:
-
-```bash
-cd /Users/basilsergius/projects/renderpdf && ./scripts/verify-infra.sh
-cd /Users/basilsergius/projects/renderpdf && ./scripts/verify-deployed-api.sh
+./scripts/verify-all.sh
 ```
 
 ## Stop Conditions
 
-- Stop if the task asks for automated coverage that the repo does not currently support; document it in `docs/VERIFICATION.md`.
+- Inherits universal stop conditions from `_prompts/INDEX.md`.
+- Stop if test commands attempt live external API calls during offline test runs.

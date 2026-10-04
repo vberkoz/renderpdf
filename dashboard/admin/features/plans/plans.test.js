@@ -35,7 +35,10 @@ function createMockElement(tagName = 'div') {
       attributes.set(name, String(val));
       if (name === 'class') {
         classListSet.clear();
-        String(val).split(/\s+/).filter(Boolean).forEach((c) => classListSet.add(c));
+        String(val)
+          .split(/\s+/)
+          .filter(Boolean)
+          .forEach((c) => classListSet.add(c));
       }
       if (name === 'hidden') el.hidden = true;
     },
@@ -49,18 +52,25 @@ function createMockElement(tagName = 'div') {
     },
 
     classList: {
-      add(...classes) { classes.forEach((c) => classListSet.add(c)); },
-      remove(...classes) { classes.forEach((c) => classListSet.delete(c)); },
+      add(...classes) {
+        classes.forEach((c) => classListSet.add(c));
+      },
+      remove(...classes) {
+        classes.forEach((c) => classListSet.delete(c));
+      },
       toggle(c, force) {
         if (force === undefined) {
-          if (classListSet.has(c)) classListSet.delete(c); else classListSet.add(c);
+          if (classListSet.has(c)) classListSet.delete(c);
+          else classListSet.add(c);
         } else if (force) {
           classListSet.add(c);
         } else {
           classListSet.delete(c);
         }
       },
-      contains(c) { return classListSet.has(c); },
+      contains(c) {
+        return classListSet.has(c);
+      },
     },
 
     addEventListener(event, fn) {
@@ -69,7 +79,10 @@ function createMockElement(tagName = 'div') {
     },
     removeEventListener(event, fn) {
       if (!listeners.has(event)) return;
-      listeners.set(event, listeners.get(event).filter((f) => f !== fn));
+      listeners.set(
+        event,
+        listeners.get(event).filter((f) => f !== fn)
+      );
     },
     dispatchEvent(event) {
       const fns = listeners.get(event.type) || [];
@@ -246,7 +259,10 @@ global.document = {
   },
   removeEventListener(event, fn) {
     if (!docListeners.has(event)) return;
-    docListeners.set(event, docListeners.get(event).filter((f) => f !== fn));
+    docListeners.set(
+      event,
+      docListeners.get(event).filter((f) => f !== fn)
+    );
   },
 };
 
@@ -257,24 +273,32 @@ global.window = {
   },
   removeEventListener(event, fn) {
     if (!windowListeners.has(event)) return;
-    windowListeners.set(event, windowListeners.get(event).filter((f) => f !== fn));
+    windowListeners.set(
+      event,
+      windowListeners.get(event).filter((f) => f !== fn)
+    );
   },
   dispatchEvent(event) {
     const fns = windowListeners.get(event.type) || [];
     fns.forEach((fn) => fn(event));
     return true;
   },
-  setTimeout(fn) { fn(); return 1; },
+  setTimeout(fn) {
+    fn();
+    return 1;
+  },
 };
 
 function setupAdminToken() {
   const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
-  const payload = Buffer.from(JSON.stringify({
-    sub: 'admin-user-123',
-    email: 'admin@renderpdf.com',
-    'cognito:groups': ['Admins'],
-    exp: Math.floor(Date.now() / 1000) + 3600,
-  })).toString('base64url');
+  const payload = Buffer.from(
+    JSON.stringify({
+      sub: 'admin-user-123',
+      email: 'admin@renderpdf.com',
+      'cognito:groups': ['Admins'],
+      exp: Math.floor(Date.now() / 1000) + 3600,
+    })
+  ).toString('base64url');
   mockStorage.set('id_token', `${header}.${payload}.sig`);
 }
 
@@ -298,7 +322,11 @@ test('initPlanQuotaModals registers window event listeners and handles open-chan
   });
 
   const modal = getOrCreateChangePlanModal();
-  assert.strictEqual(modal.hasAttribute('hidden'), false, 'Modal should be visible (hidden attribute removed)');
+  assert.strictEqual(
+    modal.hasAttribute('hidden'),
+    false,
+    'Modal should be visible (hidden attribute removed)'
+  );
 
   const subtitle = modal.querySelector('#change-plan-modal-subtitle');
   assert.ok(subtitle.textContent.includes('cust1@acme.com'), 'Subtitle contains customer email');
@@ -347,7 +375,12 @@ test('openChangePlanModal blocks submission without reason and dispatches user-u
   // 1. Submit without reason -> blocked
   reasonInput.value = '   ';
   let prevented = false;
-  form.dispatchEvent({ type: 'submit', preventDefault: () => { prevented = true; } });
+  form.dispatchEvent({
+    type: 'submit',
+    preventDefault: () => {
+      prevented = true;
+    },
+  });
   assert.strictEqual(prevented, true);
   assert.strictEqual(fetchCalls.length, 0, 'No API call when reason is empty');
   assert.strictEqual(errorEl.hasAttribute('hidden'), false, 'Validation error displayed');
@@ -360,10 +393,17 @@ test('openChangePlanModal blocks submission without reason and dispatches user-u
   await new Promise((r) => setTimeout(r, 10));
 
   assert.strictEqual(fetchCalls.length, 1, 'API call dispatched');
-  assert.ok(fetchCalls[0].url.includes('/admin/users/user_cust_2/plan'), 'Correct plan endpoint target');
+  assert.ok(
+    fetchCalls[0].url.includes('/admin/users/user_cust_2/plan'),
+    'Correct plan endpoint target'
+  );
   assert.strictEqual(fetchCalls[0].body.tier, 'pro');
   assert.strictEqual(fetchCalls[0].body.reason, 'Special enterprise promotional contract');
-  assert.strictEqual(modal.hasAttribute('hidden'), true, 'Modal closed after successful submission');
+  assert.strictEqual(
+    modal.hasAttribute('hidden'),
+    true,
+    'Modal closed after successful submission'
+  );
 
   // Verify user-updated event was dispatched to auto-refresh the customer dossier
   const updateEvt = dispatchedWindowEvents.find((e) => e.type === 'user-updated');
@@ -426,7 +466,10 @@ test('openGrantCreditsModal displays balance, validates amount/reason, and submi
   await new Promise((r) => setTimeout(r, 10));
 
   assert.strictEqual(fetchCalls.length, 1, 'API call dispatched');
-  assert.ok(fetchCalls[0].url.includes('/admin/users/user_cust_3/quota'), 'Targeted quota endpoint');
+  assert.ok(
+    fetchCalls[0].url.includes('/admin/users/user_cust_3/quota'),
+    'Targeted quota endpoint'
+  );
   assert.strictEqual(fetchCalls[0].body.action, 'add_credits');
   assert.strictEqual(fetchCalls[0].body.amount, 2500);
   assert.strictEqual(fetchCalls[0].body.reason, 'Goodwill credit for support ticket #1209');

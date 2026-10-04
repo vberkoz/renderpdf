@@ -42,15 +42,17 @@ export function formatDate(val) {
   try {
     const d = typeof val === 'number' ? new Date(val > 1e11 ? val : val * 1000) : new Date(val);
     if (isNaN(d.getTime())) return String(val);
-    return d.toLocaleString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-      timeZone: 'UTC',
-    }) + ' UTC';
+    return (
+      d.toLocaleString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+        timeZone: 'UTC',
+      }) + ' UTC'
+    );
   } catch {
     return String(val);
   }
@@ -74,7 +76,13 @@ export function formatBytes(bytes) {
  * @param {object} params
  * @returns {Promise<{ users: Array, nextCursor: string|null }>}
  */
-export async function fetchUsers({ query = '', tier = 'all', status = 'all', limit = 25, cursor = null } = {}) {
+export async function fetchUsers({
+  query = '',
+  tier = 'all',
+  status = 'all',
+  limit = 25,
+  cursor = null,
+} = {}) {
   const params = new URLSearchParams();
   if (query) params.set('q', query);
   if (tier && tier !== 'all') params.set('tier', tier);
@@ -198,25 +206,38 @@ function renderTableRows(tbody, users) {
     return;
   }
 
-  tbody.innerHTML = users.map((user) => {
-    const tier = String(user.tier || 'free').toLowerCase();
-    const status = String(user.status || 'active').toLowerCase();
-    const quotaUsed = Number(user.quotaUsed) || 0;
-    const quotaLimit = Number(user.quotaLimit) || 25;
-    const pct = quotaLimit > 0 ? Math.round((quotaUsed / quotaLimit) * 100) : 0;
-    const clampedPct = Math.min(100, Math.max(0, pct));
-    const progressClass = pct >= 100 ? 'progress-danger' : (pct >= 80 ? 'progress-warning' : 'progress-normal');
+  tbody.innerHTML = users
+    .map((user) => {
+      const tier = String(user.tier || 'free').toLowerCase();
+      const status = String(user.status || 'active').toLowerCase();
+      const quotaUsed = Number(user.quotaUsed) || 0;
+      const quotaLimit = Number(user.quotaLimit) || 25;
+      const pct = quotaLimit > 0 ? Math.round((quotaUsed / quotaLimit) * 100) : 0;
+      const clampedPct = Math.min(100, Math.max(0, pct));
+      const progressClass =
+        pct >= 100 ? 'progress-danger' : pct >= 80 ? 'progress-warning' : 'progress-normal';
 
-    const tierClass = tier === 'starter' ? 'badge-starter' : (tier === 'pro' ? 'badge-pro' : 'badge-free');
-    const tierLabel = tier.charAt(0).toUpperCase() + tier.slice(1);
+      const tierClass =
+        tier === 'starter' ? 'badge-starter' : tier === 'pro' ? 'badge-pro' : 'badge-free';
+      const tierLabel = tier.charAt(0).toUpperCase() + tier.slice(1);
 
-    const statusClass = status === 'active' ? 'badge-status-active' : (status === 'past_due' ? 'badge-status-past-due' : 'badge-status-canceled');
-    const statusLabel = status === 'past_due' ? 'Past Due' : (status.charAt(0).toUpperCase() + status.slice(1));
+      const statusClass =
+        status === 'active'
+          ? 'badge-status-active'
+          : status === 'past_due'
+            ? 'badge-status-past-due'
+            : 'badge-status-canceled';
+      const statusLabel =
+        status === 'past_due' ? 'Past Due' : status.charAt(0).toUpperCase() + status.slice(1);
 
-    const createdStr = user.createdAt ? user.createdAt.slice(0, 10) : '—';
-    const userIdSnippet = user.id ? (user.id.length > 8 ? `${user.id.slice(0, 8)}…` : user.id) : '—';
+      const createdStr = user.createdAt ? user.createdAt.slice(0, 10) : '—';
+      const userIdSnippet = user.id
+        ? user.id.length > 8
+          ? `${user.id.slice(0, 8)}…`
+          : user.id
+        : '—';
 
-    return `
+      return `
       <tr data-user-id="${escapeHtml(user.id)}">
         <td>
           <div class="admin-user-cell">
@@ -257,7 +278,8 @@ function renderTableRows(tbody, users) {
         </td>
       </tr>
     `;
-  }).join('');
+    })
+    .join('');
 }
 
 /**
@@ -474,8 +496,15 @@ export async function initUserDirectoryTab(containerElement) {
   if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
     window.addEventListener('user-updated', (e) => {
       const updatedUserId = e.detail?.userId;
-      const drawer = typeof document !== 'undefined' ? document.getElementById('admin-user-dossier-drawer') : null;
-      if (drawer && !drawer.hasAttribute('hidden') && drawer.dataset?.currentUserId === updatedUserId) {
+      const drawer =
+        typeof document !== 'undefined'
+          ? document.getElementById('admin-user-dossier-drawer')
+          : null;
+      if (
+        drawer &&
+        !drawer.hasAttribute('hidden') &&
+        drawer.dataset?.currentUserId === updatedUserId
+      ) {
         openUserDossier(updatedUserId).catch(() => {});
       }
     });
@@ -541,7 +570,10 @@ export function getOrCreateDrawerElement() {
   if (!drawer._listenersBound) {
     drawer._listenersBound = true;
     drawer.addEventListener('click', (e) => {
-      if (e.target === drawer || (e.target.classList && e.target.classList.contains('admin-drawer-backdrop'))) {
+      if (
+        e.target === drawer ||
+        (e.target.classList && e.target.classList.contains('admin-drawer-backdrop'))
+      ) {
         closeModal(drawer);
       }
     });
@@ -640,16 +672,18 @@ export function renderDossierContent(bodyEl, data) {
         <div class="admin-dossier-field">
           <span class="admin-dossier-label">Billing Provider</span>
           <span class="admin-dossier-value" id="dossier-val-provider">
-            ${billing.provider === 'paddle' ? 'Paddle Billing' : (billing.provider === 'manual' ? 'Manual Operator Grant' : 'None')}
+            ${billing.provider === 'paddle' ? 'Paddle Billing' : billing.provider === 'manual' ? 'Manual Operator Grant' : 'None'}
           </span>
         </div>
         <div class="admin-dossier-field">
           <span class="admin-dossier-label">${billing.endsAt ? 'Access Ends At' : 'Next Renewal'}</span>
           <span class="admin-dossier-value" id="dossier-val-renewal">
-            ${billing.renewsAt ? formatDate(billing.renewsAt) : (billing.endsAt ? formatDate(billing.endsAt) : 'N/A')}
+            ${billing.renewsAt ? formatDate(billing.renewsAt) : billing.endsAt ? formatDate(billing.endsAt) : 'N/A'}
           </span>
         </div>
-        ${billing.subscriptionId ? `
+        ${
+          billing.subscriptionId
+            ? `
           <div class="admin-dossier-field full-width">
             <span class="admin-dossier-label">Paddle Subscription ID</span>
             <span class="admin-dossier-value">
@@ -657,7 +691,9 @@ export function renderDossierContent(bodyEl, data) {
               <button type="button" class="admin-btn-icon-copy" data-copy="${escapeHtml(billing.subscriptionId)}" title="Copy Subscription ID" aria-label="Copy Subscription ID"><svg class="lucide lucide-copy" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg></button>
             </span>
           </div>
-        ` : ''}
+        `
+            : ''
+        }
       </div>
       <div class="admin-dossier-actions">
         <button
@@ -698,7 +734,7 @@ export function renderDossierContent(bodyEl, data) {
       </div>
       <div style="font-size: 12px; color: var(--admin-muted); display: flex; justify-content: space-between;">
         <span>Remaining: <strong style="color: var(--admin-text);">${formatCount(quota.remaining != null ? quota.remaining : Math.max(0, quotaLimit - quotaUsed))}</strong></span>
-        <span>${quotaPct >= 100 ? '<svg class="lucide lucide-alert-triangle" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-1px;margin-right:3px;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Quota limit reached' : (quotaPct >= 80 ? '<svg class="lucide lucide-alert-triangle" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-1px;margin-right:3px;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Approaching quota limit' : '<svg class="lucide lucide-check-circle-2" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-1px;margin-right:3px;"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>Usage within plan')}</span>
+        <span>${quotaPct >= 100 ? '<svg class="lucide lucide-alert-triangle" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-1px;margin-right:3px;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Quota limit reached' : quotaPct >= 80 ? '<svg class="lucide lucide-alert-triangle" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-1px;margin-right:3px;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Approaching quota limit' : '<svg class="lucide lucide-check-circle-2" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-1px;margin-right:3px;"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>Usage within plan'}</span>
       </div>
       <div class="admin-dossier-actions">
         <button
@@ -721,9 +757,12 @@ export function renderDossierContent(bodyEl, data) {
           <span>Active API Keys (${apiKeys.length})</span>
         </h3>
       </div>
-      ${apiKeys.length === 0 ? `
+      ${
+        apiKeys.length === 0
+          ? `
         <p class="admin-dossier-empty">No API keys created for this customer.</p>
-      ` : `
+      `
+          : `
         <div class="admin-dossier-table-wrapper">
           <table class="admin-dossier-table">
             <thead>
@@ -737,7 +776,9 @@ export function renderDossierContent(bodyEl, data) {
               </tr>
             </thead>
             <tbody>
-              ${apiKeys.map((key) => `
+              ${apiKeys
+                .map(
+                  (key) => `
                 <tr>
                   <td><code class="admin-dossier-code">${escapeHtml(key.keyId ? key.keyId.slice(0, 12) + '…' : '—')}</code></td>
                   <td>${escapeHtml(key.name || 'API Key')}</td>
@@ -749,7 +790,9 @@ export function renderDossierContent(bodyEl, data) {
                   <td>${formatDate(key.createdAt)}</td>
                   <td>${key.lastUsed ? formatDate(key.lastUsed) : '<span class="admin-text-dim">Never</span>'}</td>
                   <td style="text-align: right;">
-                    ${key.isActive ? `
+                    ${
+                      key.isActive
+                        ? `
                       <button
                         type="button"
                         class="admin-btn-danger-outline admin-btn-revoke-key"
@@ -760,14 +803,19 @@ export function renderDossierContent(bodyEl, data) {
                       >
                         Revoke
                       </button>
-                    ` : '<span class="admin-text-dim">Revoked</span>'}
+                    `
+                        : '<span class="admin-text-dim">Revoked</span>'
+                    }
                   </td>
                 </tr>
-              `).join('')}
+              `
+                )
+                .join('')}
             </tbody>
           </table>
         </div>
-      `}
+      `
+      }
     </div>
 
     <!-- Card E: Recent Telemetry -->
@@ -778,9 +826,12 @@ export function renderDossierContent(bodyEl, data) {
           <span>Recent Render Telemetry (${recentRequests.length})</span>
         </h3>
       </div>
-      ${recentRequests.length === 0 ? `
+      ${
+        recentRequests.length === 0
+          ? `
         <p class="admin-dossier-empty">No render activity recorded in the telemetry window.</p>
-      ` : `
+      `
+          : `
         <div class="admin-dossier-table-wrapper">
           <table class="admin-dossier-table">
             <thead>
@@ -793,7 +844,9 @@ export function renderDossierContent(bodyEl, data) {
               </tr>
             </thead>
             <tbody>
-              ${recentRequests.map((req) => `
+              ${recentRequests
+                .map(
+                  (req) => `
                 <tr>
                   <td>${formatDate(req.timestamp)}</td>
                   <td>
@@ -807,11 +860,14 @@ export function renderDossierContent(bodyEl, data) {
                     ${req.errorType ? `<span style="color: var(--admin-rose-light); font-family: var(--admin-font-mono); font-size: 11px;">${escapeHtml(req.errorType)}</span>` : '<span class="admin-text-dim">—</span>'}
                   </td>
                 </tr>
-              `).join('')}
+              `
+                )
+                .join('')}
             </tbody>
           </table>
         </div>
-      `}
+      `
+      }
     </div>
 
     <!-- Card F: Danger Zone -->
@@ -823,9 +879,11 @@ export function renderDossierContent(bodyEl, data) {
         </h3>
       </div>
       <p class="admin-danger-text">
-        ${user.enabled
-          ? 'Suspending this customer terminates all active sessions, revokes API render authorization, and prevents dashboard sign-in.'
-          : 'This customer account is currently suspended and blocked from all API and dashboard operations.'}
+        ${
+          user.enabled
+            ? 'Suspending this customer terminates all active sessions, revokes API render authorization, and prevents dashboard sign-in.'
+            : 'This customer account is currently suspended and blocked from all API and dashboard operations.'
+        }
       </p>
       <div class="admin-dossier-actions">
         <button
@@ -878,7 +936,11 @@ export function attachDossierActionListeners(drawerEl, data) {
         manualOverride: billing.manualOverride,
       };
       const evt = new CustomEvent('open-change-plan', { bubbles: true, composed: true, detail });
-      const evtAdmin = new CustomEvent('admin-open-change-plan', { bubbles: true, composed: true, detail });
+      const evtAdmin = new CustomEvent('admin-open-change-plan', {
+        bubbles: true,
+        composed: true,
+        detail,
+      });
       drawerEl.dispatchEvent(evt);
       if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
         window.dispatchEvent(evt);
@@ -897,7 +959,11 @@ export function attachDossierActionListeners(drawerEl, data) {
         currentQuota: quota,
       };
       const evt = new CustomEvent('open-grant-credits', { bubbles: true, composed: true, detail });
-      const evtAdmin = new CustomEvent('admin-open-grant-credits', { bubbles: true, composed: true, detail });
+      const evtAdmin = new CustomEvent('admin-open-grant-credits', {
+        bubbles: true,
+        composed: true,
+        detail,
+      });
       drawerEl.dispatchEvent(evt);
       if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
         window.dispatchEvent(evt);
@@ -918,7 +984,11 @@ export function attachDossierActionListeners(drawerEl, data) {
         keyName,
       };
       const evt = new CustomEvent('open-revoke-key', { bubbles: true, composed: true, detail });
-      const evtAdmin = new CustomEvent('admin-open-revoke-key', { bubbles: true, composed: true, detail });
+      const evtAdmin = new CustomEvent('admin-open-revoke-key', {
+        bubbles: true,
+        composed: true,
+        detail,
+      });
       drawerEl.dispatchEvent(evt);
       if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
         window.dispatchEvent(evt);
@@ -938,7 +1008,11 @@ export function attachDossierActionListeners(drawerEl, data) {
         enabled: user.enabled,
       };
       const evt = new CustomEvent('open-suspend-user', { bubbles: true, composed: true, detail });
-      const evtAdmin = new CustomEvent('admin-open-suspend-user', { bubbles: true, composed: true, detail });
+      const evtAdmin = new CustomEvent('admin-open-suspend-user', {
+        bubbles: true,
+        composed: true,
+        detail,
+      });
       drawerEl.dispatchEvent(evt);
       if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
         window.dispatchEvent(evt);
@@ -1011,7 +1085,8 @@ export async function openUserDossier(userId) {
  * Closes the active user dossier drawer.
  */
 export function closeUserDossier() {
-  const drawer = typeof document !== 'undefined' ? document.getElementById('admin-user-dossier-drawer') : null;
+  const drawer =
+    typeof document !== 'undefined' ? document.getElementById('admin-user-dossier-drawer') : null;
   if (drawer) {
     closeModal(drawer);
   }

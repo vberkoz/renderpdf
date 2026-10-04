@@ -12,12 +12,14 @@ global.localStorage = {
 
 // Create a valid unexpired admin JWT
 const mockHeader = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
-const mockPayload = Buffer.from(JSON.stringify({
-  sub: 'admin-123',
-  email: 'vberkoz@gmail.com',
-  'cognito:groups': ['Admins'],
-  exp: Math.floor(Date.now() / 1000) + 3600,
-})).toString('base64url');
+const mockPayload = Buffer.from(
+  JSON.stringify({
+    sub: 'admin-123',
+    email: 'vberkoz@gmail.com',
+    'cognito:groups': ['Admins'],
+    exp: Math.floor(Date.now() / 1000) + 3600,
+  })
+).toString('base64url');
 const mockToken = `${mockHeader}.${mockPayload}.mockSignature`;
 mockStorage.set('id_token', mockToken);
 
@@ -32,19 +34,31 @@ function createMockElement(tagName = 'div') {
     attributes,
     classList: {
       _classes: new Set(),
-      add(cls) { this._classes.add(cls); },
-      remove(cls) { this._classes.delete(cls); },
+      add(cls) {
+        this._classes.add(cls);
+      },
+      remove(cls) {
+        this._classes.delete(cls);
+      },
       toggle(cls, force) {
         if (force === true) this._classes.add(cls);
         else if (force === false) this._classes.delete(cls);
         else if (this._classes.has(cls)) this._classes.delete(cls);
         else this._classes.add(cls);
       },
-      contains(cls) { return this._classes.has(cls); }
+      contains(cls) {
+        return this._classes.has(cls);
+      },
     },
-    getAttribute(name) { return attributes.get(name) ?? null; },
-    setAttribute(name, val) { attributes.set(name, String(val)); },
-    removeAttribute(name) { attributes.delete(name); },
+    getAttribute(name) {
+      return attributes.get(name) ?? null;
+    },
+    setAttribute(name, val) {
+      attributes.set(name, String(val));
+    },
+    removeAttribute(name) {
+      attributes.delete(name);
+    },
     addEventListener(event, cb) {
       if (!listeners.has(event)) listeners.set(event, []);
       listeners.get(event).push(cb);
@@ -54,7 +68,9 @@ function createMockElement(tagName = 'div') {
       const cbs = listeners.get(type) || [];
       for (const cb of cbs) cb(event);
     },
-    get innerHTML() { return innerHtml; },
+    get innerHTML() {
+      return innerHtml;
+    },
     set innerHTML(val) {
       innerHtml = val;
     },
@@ -63,7 +79,7 @@ function createMockElement(tagName = 'div') {
     },
     querySelectorAll(selector) {
       return findAllSelectors(this, selector);
-    }
+    },
   };
 
   return el;
@@ -86,7 +102,10 @@ function parseMockElements(html) {
     while ((attrMatch = attrRegex.exec(rawAttrs)) !== null) {
       el.setAttribute(attrMatch[1], attrMatch[2] ?? '');
       if (attrMatch[1] === 'class') {
-        (attrMatch[2] || '').split(/\s+/).filter(Boolean).forEach(c => el.classList.add(c));
+        (attrMatch[2] || '')
+          .split(/\s+/)
+          .filter(Boolean)
+          .forEach((c) => el.classList.add(c));
       }
     }
     elements.push(el);
@@ -103,20 +122,20 @@ function findAllSelectors(parent, selector) {
   const parsed = parseMockElements(parent.innerHTML);
   if (selector.startsWith('#')) {
     const id = selector.slice(1);
-    return parsed.filter(e => e.getAttribute('id') === id);
+    return parsed.filter((e) => e.getAttribute('id') === id);
   }
   if (selector.startsWith('.')) {
     const cls = selector.slice(1);
-    return parsed.filter(e => e.classList.contains(cls));
+    return parsed.filter((e) => e.classList.contains(cls));
   }
-  return parsed.filter(e => e.tagName.toLowerCase() === selector.toLowerCase());
+  return parsed.filter((e) => e.tagName.toLowerCase() === selector.toLowerCase());
 }
 
 const sampleAnalyticsResponse = {
   summary: {
     totalUsers: 1420,
     activeSubscriptions: 84,
-    mrrUsd: 3456.00,
+    mrrUsd: 3456.0,
     grossMarginPercent: 89.4,
     costPerThousandPdfsUsd: 0.26,
   },
@@ -148,7 +167,7 @@ const sampleAnalyticsResponse = {
       date: '2026-09-27',
       renders: 14200,
       errors: 18,
-      revenueUsd: 115.20,
+      revenueUsd: 115.2,
       estimatedAwsCostUsd: 3.69,
       marginPercent: 96.8,
       p95Ms: 690,
@@ -157,7 +176,7 @@ const sampleAnalyticsResponse = {
       date: '2026-09-26',
       renders: 13900,
       errors: 0,
-      revenueUsd: 110.00,
+      revenueUsd: 110.0,
       estimatedAwsCostUsd: 3.55,
       marginPercent: 96.7,
       p95Ms: 675,
@@ -207,10 +226,16 @@ test('initAnalyticsTab fetches /analytics?days=30 and renders complete UI', asyn
   assert.ok(html.includes('4.2m'), 'Should render TTFC median minutes');
 
   // 4. Latency Distribution check: 4 buckets and KPIs
-  assert.ok(html.includes('&lt; 400 ms') || html.includes('< 400 ms'), 'Should render < 400 ms bucket');
+  assert.ok(
+    html.includes('&lt; 400 ms') || html.includes('< 400 ms'),
+    'Should render < 400 ms bucket'
+  );
   assert.ok(html.includes('400 – 800 ms'), 'Should render 400-800ms bucket');
   assert.ok(html.includes('800 – 1500 ms'), 'Should render 800-1500ms bucket');
-  assert.ok(html.includes('&gt; 1500 ms') || html.includes('> 1500 ms'), 'Should render > 1500 ms bucket');
+  assert.ok(
+    html.includes('&gt; 1500 ms') || html.includes('> 1500 ms'),
+    'Should render > 1500 ms bucket'
+  );
   assert.ok(html.includes('720 ms'), 'Should render P95 latency');
   assert.ok(html.includes('480 ms'), 'Should render average render latency');
   assert.ok(html.includes('99.87%'), 'Should render success rate');
@@ -281,5 +306,8 @@ test('adminFetch seamlessly falls back from /api/v1/analytics to /api/v1/admin/a
     '/api/v1/analytics?days=30',
     '/api/v1/admin/analytics?days=30',
   ]);
-  assert.ok(container.innerHTML.includes('$3,456.00'), 'Should render data retrieved via fallback URL');
+  assert.ok(
+    container.innerHTML.includes('$3,456.00'),
+    'Should render data retrieved via fallback URL'
+  );
 });

@@ -23,7 +23,11 @@
             </a>
             <nav id="auth-primary-navigation" class="auth-nav" data-carbon-header-nav aria-label="Primary navigation">
                 <a href="/">Home</a>
+                <a href="/#pricing">Pricing</a>
                 <a href="/docs/api/">API docs</a>
+                <a href="/stats/">Stats</a>
+                <a href="/app/">Dashboard</a>
+                <a href="https://github.com/vberkoz/renderpdf">GitHub</a>
             </nav>
         </header></div>
 
@@ -140,14 +144,10 @@
             const button = document.getElementById('emailSignUpBtn');
             button.disabled = true;
             button.setAttribute('aria-busy', 'true');
+            button.classList.add('is-processing');
+            button.textContent = 'Redirecting…';
             window.location.href = `${COGNITO_DOMAIN}/signup?${emailAuthParams}`;
         });
-    </script>
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <script>
-        if (window.lucide) {
-            window.lucide.createIcons();
-        }
     </script>
 </body>
 </html>

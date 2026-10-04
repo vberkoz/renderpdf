@@ -7,13 +7,39 @@ const Module = require('node:module');
 const originalRequire = Module.prototype.require;
 Module.prototype.require = function (id, ...args) {
   if (id === '@aws-sdk/client-dynamodb') {
-    class MockDynamoDBClient { send() {} }
-    class BatchGetItemCommand { constructor(input) { this.input = input; } }
-    class GetItemCommand { constructor(input) { this.input = input; } }
-    class UpdateItemCommand { constructor(input) { this.input = input; } }
-    class PutItemCommand { constructor(input) { this.input = input; } }
-    class QueryCommand { constructor(input) { this.input = input; } }
-    class TransactWriteItemsCommand { constructor(input) { this.input = input; } }
+    class MockDynamoDBClient {
+      send() {}
+    }
+    class BatchGetItemCommand {
+      constructor(input) {
+        this.input = input;
+      }
+    }
+    class GetItemCommand {
+      constructor(input) {
+        this.input = input;
+      }
+    }
+    class UpdateItemCommand {
+      constructor(input) {
+        this.input = input;
+      }
+    }
+    class PutItemCommand {
+      constructor(input) {
+        this.input = input;
+      }
+    }
+    class QueryCommand {
+      constructor(input) {
+        this.input = input;
+      }
+    }
+    class TransactWriteItemsCommand {
+      constructor(input) {
+        this.input = input;
+      }
+    }
     return {
       BatchGetItemCommand,
       DynamoDBClient: MockDynamoDBClient,
@@ -25,17 +51,31 @@ Module.prototype.require = function (id, ...args) {
     };
   }
   if (id === '@aws-sdk/client-ses') {
-    class MockSESClient { send() {} }
-    class SendEmailCommand { constructor(input) { this.input = input; } }
+    class MockSESClient {
+      send() {}
+    }
+    class SendEmailCommand {
+      constructor(input) {
+        this.input = input;
+      }
+    }
     return { SESClient: MockSESClient, SendEmailCommand };
   }
   if (id === '@aws-sdk/client-cognito-identity-provider') {
-    class MockCognitoClient { send() {} }
-    class AdminGetUserCommand { constructor(input) { this.input = input; } }
+    class MockCognitoClient {
+      send() {}
+    }
+    class AdminGetUserCommand {
+      constructor(input) {
+        this.input = input;
+      }
+    }
     return { CognitoIdentityProviderClient: MockCognitoClient, AdminGetUserCommand };
   }
   if (id === '@aws-sdk/client-api-gateway') {
-    class MockAPIGatewayClient { send() {} }
+    class MockAPIGatewayClient {
+      send() {}
+    }
     return { APIGatewayClient: MockAPIGatewayClient };
   }
   return originalRequire.apply(this, [id, ...args]);
@@ -130,9 +170,7 @@ test('sendChatEscalationAlert dispatches to Telegram and SES concurrently', asyn
       visitorEmail: 'lead@startup.co',
       escalationReason: 'partnership_inquiry',
     },
-    recentMessages: [
-      { role: 'user', content: 'Interested in partnering with RenderPDF.' },
-    ],
+    recentMessages: [{ role: 'user', content: 'Interested in partnering with RenderPDF.' }],
   });
 
   assert.equal(res.sent, true);

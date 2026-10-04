@@ -14,9 +14,29 @@ Verification index for this repository.
   - smoke test exists through `scripts/test-api.sh`
   - authenticated persistence integration test exists through `scripts/test-sources-files.sh`
 - `analytics/`
-  - Node.js syntax and container build validation should run from the analytics folder.
+  - 82 Node.js unit tests exist covering Paddle billing, quotas, Telegram alerts, and admin APIs (`cd analytics && npm test`).
+- `dashboard/`
+  - 7 Node.js unit tests exist covering chat-widget and template-client (`node --test dashboard/*.test.js`).
+- `webhooks/`
+  - Node.js syntax and handler validation exist (`node --check webhooks/index.js`).
 
 ## Standard Verification Commands
+
+### All Local Suites (Fast Offline)
+
+```bash
+cd /Users/basilsergius/projects/renderpdf && ./scripts/verify-all.sh
+```
+
+Runs all fast, offline checks across the entire repository in <5s without requiring network access, AWS credentials, or deployed infrastructure:
+- Shell syntax checks (`verify-shell.sh`)
+- API Go tests (`verify-api.sh`)
+- Auth Go tests (`verify-auth.sh`)
+- Analytics Node.js tests (`cd analytics && npm test`)
+- Dashboard Node.js tests (`node --test dashboard/*.test.js`)
+- Webhook & account-linker Node syntax checks
+- Static UI consistency checks (`verify-static-ui.js`)
+- CloudFormation local structural validation (`verify-infra.sh`)
 
 ### API
 
@@ -167,7 +187,13 @@ cd /Users/basilsergius/projects/renderpdf && ./scripts/verify-auth.sh
 
 ### Analytics
 
-- Run:
+- Run unit tests (82 tests covering billing webhooks, quotas, Telegram alerts, and admin analytics):
+
+```bash
+cd /Users/basilsergius/projects/renderpdf/analytics && npm test
+```
+
+- Run syntax check:
 
 ```bash
 cd /Users/basilsergius/projects/renderpdf/analytics && node --check index.js
@@ -191,7 +217,13 @@ cd /Users/basilsergius/projects/renderpdf/webhooks && node --check index.js
 
 ### How To Test `dashboard/`
 
-- Run the local structural check first:
+- Run unit tests (chat-widget and template-client):
+
+```bash
+cd /Users/basilsergius/projects/renderpdf && node --test dashboard/*.test.js
+```
+
+- Run the local structural check:
 
 ```bash
 cd /Users/basilsergius/projects/renderpdf && node scripts/verify-static-ui.js
@@ -263,16 +295,17 @@ cd /Users/basilsergius/projects/renderpdf && ./scripts/verify-shell.sh
 ## Missing Coverage
 
 - `dashboard/`
-  - no automated UI or auth-flow test script
+  - unit tests exist in `dashboard/*.test.js`; browser-level end-to-end user session automation (e.g. Playwright) is not yet configured
 - `landing/`
-  - no browser-based page-level verification script
+  - structural and link checks exist in `verify-static-ui.js`; browser-based end-to-end visual regression script is not yet configured
 - `auth/`
-  - no committed end-to-end auth verification script such as `test-auth.sh`
+  - unit and authorizer tests exist in `auth/`; no committed end-to-end auth verification script such as `test-auth.sh`
 - full system
-  - no single committed script that verifies auth plus dashboard plus landing end-to-end
+  - no single committed script that verifies live auth plus dashboard plus landing end-to-end against deployed production
 
 ## Canonical Verification Script Names
 
+- `/Users/basilsergius/projects/renderpdf/scripts/verify-all.sh`
 - `/Users/basilsergius/projects/renderpdf/scripts/verify-api.sh`
 - `/Users/basilsergius/projects/renderpdf/scripts/verify-auth.sh`
 - `/Users/basilsergius/projects/renderpdf/scripts/verify-infra.sh`

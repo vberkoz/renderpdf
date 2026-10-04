@@ -138,7 +138,7 @@ function buildFunnelSteps(funnelData = {}, summaryData = {}) {
       count: visitors,
       stepRate: 100,
       prevCount: visitors,
-      desc: 'Landing page sessions'
+      desc: 'Landing page sessions',
     },
     {
       num: 2,
@@ -146,7 +146,7 @@ function buildFunnelSteps(funnelData = {}, summaryData = {}) {
       count: playground,
       stepRate: visitors > 0 ? (playground / visitors) * 100 : 0,
       prevCount: visitors,
-      desc: 'Interactive demo executions'
+      desc: 'Interactive demo executions',
     },
     {
       num: 3,
@@ -154,7 +154,7 @@ function buildFunnelSteps(funnelData = {}, summaryData = {}) {
       count: signups,
       stepRate: playground > 0 ? (signups / playground) * 100 : 0,
       prevCount: playground,
-      desc: 'Cognito accounts registered'
+      desc: 'Cognito accounts registered',
     },
     {
       num: 4,
@@ -162,7 +162,7 @@ function buildFunnelSteps(funnelData = {}, summaryData = {}) {
       count: keys,
       stepRate: signups > 0 ? (keys / signups) * 100 : 0,
       prevCount: signups,
-      desc: 'Developer credentials issued'
+      desc: 'Developer credentials issued',
     },
     {
       num: 5,
@@ -170,23 +170,24 @@ function buildFunnelSteps(funnelData = {}, summaryData = {}) {
       count: firstCalls,
       stepRate: keys > 0 ? (firstCalls / keys) * 100 : 0,
       prevCount: keys,
-      desc: 'Live PDF generation initiated'
+      desc: 'Live PDF generation initiated',
     },
     {
       num: 6,
       name: 'Paid Upgrade',
       count: paid,
-      stepRate: firstCalls > 0 ? (paid / firstCalls) * 100 : (signups > 0 ? (paid / signups) * 100 : 0),
+      stepRate:
+        firstCalls > 0 ? (paid / firstCalls) * 100 : signups > 0 ? (paid / signups) * 100 : 0,
       prevCount: firstCalls,
-      desc: 'Active paying subscriptions'
-    }
+      desc: 'Active paying subscriptions',
+    },
   ];
 
-  const maxVal = Math.max(...steps.map(s => s.count), 1);
-  return steps.map(step => ({
+  const maxVal = Math.max(...steps.map((s) => s.count), 1);
+  return steps.map((step) => ({
     ...step,
     barWidth: Math.max(2, (step.count / maxVal) * 100),
-    overallRate: visitors > 0 ? (step.count / visitors) * 100 : 0
+    overallRate: visitors > 0 ? (step.count / visitors) * 100 : 0,
   }));
 }
 
@@ -202,9 +203,9 @@ function buildLatencyDistribution(rendering = {}) {
   const to1500 = Number(buckets['800ms_to_1500ms']) || 0;
   const over1500 = Number(buckets.over_1500ms) || 0;
 
-  const total = (under400 + to800 + to1500 + over1500) || Number(rendering.totalRenders) || 0;
+  const total = under400 + to800 + to1500 + over1500 || Number(rendering.totalRenders) || 0;
 
-  const calcPct = (cnt) => total > 0 ? ((cnt / total) * 100) : 0;
+  const calcPct = (cnt) => (total > 0 ? (cnt / total) * 100 : 0);
 
   return {
     total,
@@ -216,7 +217,7 @@ function buildLatencyDistribution(rendering = {}) {
         count: under400,
         pct: calcPct(under400),
         dotClass: 'dot-under-400',
-        segClass: 'seg-under-400'
+        segClass: 'seg-under-400',
       },
       {
         id: '400_800',
@@ -225,7 +226,7 @@ function buildLatencyDistribution(rendering = {}) {
         count: to800,
         pct: calcPct(to800),
         dotClass: 'dot-400-800',
-        segClass: 'seg-400-800'
+        segClass: 'seg-400-800',
       },
       {
         id: '800_1500',
@@ -234,7 +235,7 @@ function buildLatencyDistribution(rendering = {}) {
         count: to1500,
         pct: calcPct(to1500),
         dotClass: 'dot-800-1500',
-        segClass: 'seg-800-1500'
+        segClass: 'seg-800-1500',
       },
       {
         id: 'over_1500',
@@ -243,9 +244,9 @@ function buildLatencyDistribution(rendering = {}) {
         count: over1500,
         pct: calcPct(over1500),
         dotClass: 'dot-over-1500',
-        segClass: 'seg-over-1500'
-      }
-    ]
+        segClass: 'seg-over-1500',
+      },
+    ],
   };
 }
 
@@ -285,7 +286,9 @@ function renderAnalyticsView(container, data, currentDays, onRangeChange, onRefr
   const ttfcMinutes = funnel.ttfcMedianMinutes != null ? `${funnel.ttfcMedianMinutes}m` : 'N/A';
 
   // Sort daily rollups descending by date (newest first)
-  const sortedRollups = [...dailyRollups].sort((a, b) => String(b.date).localeCompare(String(a.date)));
+  const sortedRollups = [...dailyRollups].sort((a, b) =>
+    String(b.date).localeCompare(String(a.date))
+  );
 
   container.innerHTML = `
     <!-- Header & Controls -->
@@ -364,7 +367,9 @@ function renderAnalyticsView(container, data, currentDays, onRangeChange, onRefr
         </div>
 
         <div class="admin-funnel-list" aria-label="Funnel conversion steps">
-          ${funnelSteps.map(step => `
+          ${funnelSteps
+            .map(
+              (step) => `
             <div class="admin-funnel-step" data-step="${step.num}">
               <div class="admin-funnel-step-header">
                 <span class="admin-funnel-step-name">
@@ -380,7 +385,9 @@ function renderAnalyticsView(container, data, currentDays, onRangeChange, onRefr
                 <div class="admin-funnel-bar-fill" style="width: ${step.barWidth.toFixed(1)}%;"></div>
               </div>
             </div>
-          `).join('')}
+          `
+            )
+            .join('')}
         </div>
 
         <!-- Onboarding Velocity (TTFC) Card Footer -->
@@ -426,14 +433,20 @@ function renderAnalyticsView(container, data, currentDays, onRangeChange, onRefr
 
         <!-- Segmented Distribution Bar -->
         <div class="admin-latency-stacked-bar" title="Latency distribution segments" role="progressbar" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100">
-          ${latency.buckets.map(b => `
+          ${latency.buckets
+            .map(
+              (b) => `
             <div class="admin-latency-seg ${b.segClass}" style="width: ${b.pct.toFixed(2)}%;" title="${escapeHtml(b.label)}: ${b.pct.toFixed(1)}%"></div>
-          `).join('')}
+          `
+            )
+            .join('')}
         </div>
 
         <!-- Bucket breakdown list -->
         <div class="admin-latency-buckets-list">
-          ${latency.buckets.map(b => `
+          ${latency.buckets
+            .map(
+              (b) => `
             <div class="admin-latency-bucket-row" data-bucket="${b.id}">
               <div class="admin-latency-bucket-info">
                 <span class="admin-latency-bucket-label">
@@ -450,7 +463,9 @@ function renderAnalyticsView(container, data, currentDays, onRangeChange, onRefr
                 <div class="admin-latency-bucket-fill ${b.segClass}" style="width: ${b.pct.toFixed(1)}%;"></div>
               </div>
             </div>
-          `).join('')}
+          `
+            )
+            .join('')}
         </div>
       </section>
     </div>
@@ -478,14 +493,18 @@ function renderAnalyticsView(container, data, currentDays, onRangeChange, onRefr
             </tr>
           </thead>
           <tbody>
-            ${sortedRollups.length === 0 ? `
+            ${
+              sortedRollups.length === 0
+                ? `
               <tr>
                 <td colspan="7" class="admin-empty-state">No daily rollup records found for the selected period.</td>
               </tr>
-            ` : sortedRollups.map(row => {
-              const rowMargin = Number(row.marginPercent) || 0;
-              const errors = Number(row.errors) || 0;
-              return `
+            `
+                : sortedRollups
+                    .map((row) => {
+                      const rowMargin = Number(row.marginPercent) || 0;
+                      const errors = Number(row.errors) || 0;
+                      return `
                 <tr>
                   <td class="admin-col-date">${escapeHtml(row.date)}</td>
                   <td class="admin-col-num">${escapeHtml(formatCount(row.renders))}</td>
@@ -502,7 +521,9 @@ function renderAnalyticsView(container, data, currentDays, onRangeChange, onRefr
                   <td class="admin-col-num">${escapeHtml(row.p95Ms || 0)} ms</td>
                 </tr>
               `;
-            }).join('')}
+                    })
+                    .join('')
+            }
           </tbody>
         </table>
       </div>
@@ -511,7 +532,7 @@ function renderAnalyticsView(container, data, currentDays, onRangeChange, onRefr
 
   // Attach controls event handlers
   const pillBtns = container.querySelectorAll('.admin-pill-btn');
-  pillBtns.forEach(btn => {
+  pillBtns.forEach((btn) => {
     btn.addEventListener('click', () => {
       const days = Number(btn.getAttribute('data-days')) || 30;
       if (days !== currentDays) {

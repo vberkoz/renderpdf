@@ -416,6 +416,8 @@
       if (isSending) return;
       isSending = true;
       sendBtn.disabled = true;
+      sendBtn.classList.add('is-processing');
+      sendBtn.setAttribute('aria-busy', 'true');
 
       // Append user message
       const userMsg = {
@@ -487,6 +489,8 @@
         appendMessageDOM(errorMsg);
       } finally {
         isSending = false;
+        sendBtn.classList.remove('is-processing');
+        sendBtn.removeAttribute('aria-busy');
         sendBtn.disabled = !inputEl.value.trim();
         scrollToBottom();
       }

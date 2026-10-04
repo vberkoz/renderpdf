@@ -11,67 +11,6 @@
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <link href="/styles/base.css" rel="stylesheet">
     <link href="/styles/stats.css" rel="stylesheet">
-    <style>
-        .stats-controls {
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            justify-content: space-between;
-            gap: 12px 20px;
-            padding: 14px 0;
-            border-top: 1px solid var(--line);
-            border-bottom: 1px solid var(--line);
-        }
-        .stats-control-details {
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            gap: 8px 20px;
-            color: var(--muted);
-            font-size: .8rem;
-        }
-        .stats-control-details p { margin: 0; }
-        .stats-control-details strong { color: var(--text); }
-        .stats-live-pill {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            padding: 2px 8px;
-            border-radius: 9999px;
-            background: #ecfdf5;
-            color: #065f46;
-            font-family: var(--font-mono);
-            font-size: .72rem;
-            font-weight: 600;
-        }
-        .stats-live-dot {
-            width: 6px;
-            height: 6px;
-            border-radius: 50%;
-            background: #10b981;
-            box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.25);
-        }
-        .stats-controls .button { flex: 0 0 auto; }
-        .stats-cta {
-            display: grid;
-            gap: 16px;
-            padding: 32px;
-            border: 1px solid var(--line);
-            border-radius: 16px;
-            background: var(--panel, #ffffff);
-            margin-top: 10px;
-        }
-        .stats-cta h2 { margin: 0; font-size: 1.35rem; letter-spacing: -.03em; }
-        .stats-cta p { margin: 0; color: var(--muted); max-width: 58ch; font-size: .95rem; }
-        .stats-cta-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 4px; }
-        @media (max-width: 560px) {
-            .stats-controls { align-items: stretch; }
-            .stats-control-details { display: grid; gap: 5px; }
-            .stats-controls .button { width: 100%; }
-            .stats-cta { padding: 22px; }
-            .stats-cta-actions .button { width: 100%; }
-        }
-    </style>
 </head>
 <body class="stats-page">
     <a class="skip-link" href="#main-content">Skip to main content</a>
@@ -85,6 +24,7 @@
                     <a href="/docs/api/">API docs</a>
                     <a href="/stats/" aria-current="page">Stats</a>
                     <a href="/app/">Dashboard</a>
+                    <a href="https://github.com/vberkoz/renderpdf">GitHub</a>
                 </nav>
             </div>
         </header>
@@ -187,14 +127,42 @@
             </section>
 
             <footer class="footer">
-                <p>RenderPDF / Built for developers shipping documents.</p>
-                <nav aria-label="Footer navigation">
-                    <a href="/docs/api/">Documentation</a>
-                    <a href="/stats/" aria-current="page">Live stats</a>
-                    <a href="/app/">API keys</a>
-                    <a href="https://stats.uptimerobot.com/UNP4h7ipig" target="_blank" rel="noopener noreferrer">System status</a>
-                    <a href="https://vberkoz.com/">vberkoz.com</a>
-                </nav>
+                <div class="footer-top">
+                    <div class="footer-brand-section">
+                        <div class="footer-brand">
+                            <span class="brand-mark" aria-hidden="true"></span>
+                            <span>RenderPDF</span>
+                        </div>
+                        <p class="footer-entity">RenderPDF Studio LLC</p>
+                        <p class="footer-address">131 Continental Dr, Suite 305, Newark, DE 19713, USA</p>
+                        <p class="footer-contact">Support: <a href="mailto:support@renderpdf.vberkoz.com">support@renderpdf.vberkoz.com</a></p>
+                    </div>
+                    <div class="footer-links-grid">
+                        <div class="footer-col">
+                            <span class="footer-col-title">Product</span>
+                            <nav aria-label="Product navigation">
+                                <a href="/">Home</a>
+                                <a href="/#pricing">Pricing</a>
+                                <a href="/docs/api/">API docs</a>
+                                <a href="/stats/" aria-current="page">Stats</a>
+                                <a href="/app/">Dashboard</a>
+                                <a href="https://stats.uptimerobot.com/UNP4h7ipig" target="_blank" rel="noopener noreferrer">System status</a>
+                            </nav>
+                        </div>
+                        <div class="footer-col">
+                            <span class="footer-col-title">Legal &amp; Compliance</span>
+                            <nav aria-label="Legal navigation">
+                                <a href="/terms/">Terms of Service</a>
+                                <a href="/privacy/">Privacy Policy</a>
+                                <a href="/refund/">Refund Policy</a>
+                                <a href="/cancellation/">Cancellation</a>
+                            </nav>
+                        </div>
+                    </div>
+                </div>
+                <div class="footer-bottom">
+                    <p>&copy; 2026 RenderPDF Studio LLC. All rights reserved. Payments and subscriptions are securely managed by Paddle, our Merchant of Record.</p>
+                </div>
             </footer>
         </main>
     </div>
@@ -331,6 +299,7 @@
         async function loadPublicStats() {
             refreshBtn.disabled = true;
             refreshBtn.setAttribute('aria-busy', 'true');
+            refreshBtn.classList.add('is-processing');
             try {
                 const response = await fetch(PUBLIC_STATS_URL, { cache: 'no-store' });
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -369,17 +338,12 @@
             } finally {
                 refreshBtn.disabled = false;
                 refreshBtn.removeAttribute('aria-busy');
+                refreshBtn.classList.remove('is-processing');
             }
         }
 
         refreshBtn.addEventListener('click', loadPublicStats);
         loadPublicStats();
-    </script>
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <script>
-        if (window.lucide) {
-            window.lucide.createIcons();
-        }
     </script>
 </body>
 </html>

@@ -7,8 +7,8 @@
 
 ## Prerequisites
 
-- List the prompts or docs that must be read first.
-- Include any required verification or environment assumptions.
+- Read prerequisite module(s) or module-specific documentation only if strictly necessary.
+- Inherits baseline rules and idempotency requirements from `_prompts/INDEX.md`.
 
 ## Files/Folders In Scope
 
@@ -17,26 +17,21 @@
 ## Files/Folders Out Of Scope
 
 - List adjacent areas that should not be changed from this prompt.
-- Explicitly call out generated artifacts, wrappers, secrets, or compatibility paths if needed.
+- Generated binaries (`api/renderpdf`, `auth/authorizer`, `auth/api-keys`) and untracked secrets are universally out of scope.
 
 ## Implementation Task
 
-1. Detect current state first.
-2. Prefer extending existing canonical files over creating parallel ones.
-3. Keep the work idempotent:
-   - safe to rerun
-   - safe to stop and resume
-   - safe to compare against existing state
-4. Document missing coverage or missing files instead of inventing them.
+1. Focus exclusively on the files in scope.
+2. Extend existing canonical code; avoid parallel implementations or second sources of truth.
+3. Keep the work idempotent and minimal to reduce context overhead.
 
 ## Verification Steps
 
 ```bash
-# Add copy-pasteable commands that already exist or that this module creates.
+# Add copy-pasteable canonical verification commands (e.g. ./scripts/verify-*.sh)
 ```
 
 ## Stop Conditions
 
-- Stop when the task crosses the declared scope.
-- Stop when the requested change would create a second source of truth.
-- Stop when verification is impossible with the current repo state; document the gap clearly.
+- Inherits universal stop conditions from `_prompts/INDEX.md`.
+- Add module-specific boundary conditions here.

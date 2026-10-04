@@ -44,4 +44,3 @@ func resolveUsagePlanID(tier, freeID, starterID, proID string) string {
 	}
 	return proID
 }
-

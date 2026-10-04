@@ -47,7 +47,7 @@ class MockElement {
           if (self.classList.contains(c)) self.classList.remove(c);
           else self.classList.add(c);
         }
-      }
+      },
     };
   }
 
@@ -168,8 +168,14 @@ class MockElement {
       for (const child of node.children) {
         let match = false;
         if (selector.startsWith('#') && child.id === selector.substring(1)) match = true;
-        if (selector.startsWith('.') && child.classList.contains(selector.substring(1))) match = true;
-        if (!selector.startsWith('#') && !selector.startsWith('.') && child.tagName.toLowerCase() === selector.toLowerCase()) match = true;
+        if (selector.startsWith('.') && child.classList.contains(selector.substring(1)))
+          match = true;
+        if (
+          !selector.startsWith('#') &&
+          !selector.startsWith('.') &&
+          child.tagName.toLowerCase() === selector.toLowerCase()
+        )
+          match = true;
         if (match) results.push(child);
         search(child);
       }
@@ -212,7 +218,7 @@ function createTestEnvironment(options = {}) {
     },
     querySelectorAll: (selector) => body.querySelectorAll(selector),
     querySelector: (selector) => body.querySelector(selector),
-    addEventListener: () => {}
+    addEventListener: () => {},
   };
 
   const storage = new Map();
@@ -220,7 +226,7 @@ function createTestEnvironment(options = {}) {
     getItem: (k) => storage.get(k) || null,
     setItem: (k, v) => storage.set(k, String(v)),
     removeItem: (k) => storage.delete(k),
-    clear: () => storage.clear()
+    clear: () => storage.clear(),
   };
 
   const localStore = new Map();
@@ -228,7 +234,7 @@ function createTestEnvironment(options = {}) {
     getItem: (k) => localStore.get(k) || null,
     setItem: (k, v) => localStore.set(k, String(v)),
     removeItem: (k) => localStore.delete(k),
-    clear: () => localStore.clear()
+    clear: () => localStore.clear(),
   };
 
   if (options.idToken) {
@@ -248,8 +254,8 @@ function createTestEnvironment(options = {}) {
         sessionId: 'test_session',
         reply: 'Hello from RenderPDF AI!',
         escalated: false,
-        requiresEmail: false
-      })
+        requiresEmail: false,
+      }),
     };
   };
 
@@ -259,7 +265,7 @@ function createTestEnvironment(options = {}) {
       href: options.url || 'https://renderpdf.vberkoz.com/app/?view=overview',
       pathname: options.pathname || '/app/',
       protocol: 'https:',
-      origin: 'https://renderpdf.vberkoz.com'
+      origin: 'https://renderpdf.vberkoz.com',
     },
     sessionStorage,
     localStorage,
@@ -275,7 +281,7 @@ function createTestEnvironment(options = {}) {
       }
     },
     currentBilling: options.currentBilling || null,
-    setTimeout: (fn) => fn()
+    setTimeout: (fn) => fn(),
   };
   window.window = window;
   window.globalThis = window;
@@ -342,16 +348,18 @@ test('toggleChat opens and closes window via trigger, close button, and window A
 
 test('extracts authenticated identity and billing tier into visitorContext', () => {
   const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
-  const payload = Buffer.from(JSON.stringify({
-    sub: 'cognito-sub-1234',
-    email: 'client@fintech.com'
-  })).toString('base64url');
+  const payload = Buffer.from(
+    JSON.stringify({
+      sub: 'cognito-sub-1234',
+      email: 'client@fintech.com',
+    })
+  ).toString('base64url');
   const idToken = `${header}.${payload}.sig`;
 
   const { window } = createTestEnvironment({
     idToken,
     pathname: '/app/',
-    currentBilling: { status: 'active', tier: 'starter' }
+    currentBilling: { status: 'active', tier: 'starter' },
   });
 
   const ctx = window.RenderPDFChat.getContext();
@@ -382,12 +390,13 @@ test('sends user message to API and handles markdown formatting in bot reply', a
         status: 200,
         json: async () => ({
           sessionId: postedPayload.sessionId,
-          reply: 'To set margins use `options.margin`: \n```json\n{"top": "20mm"}\n```\nSee **options** at [API](https://renderpdf.vberkoz.com/docs/api/).',
+          reply:
+            'To set margins use `options.margin`: \n```json\n{"top": "20mm"}\n```\nSee **options** at [API](https://renderpdf.vberkoz.com/docs/api/).',
           escalated: false,
-          requiresEmail: false
-        })
+          requiresEmail: false,
+        }),
       };
-    }
+    },
   });
 
   const input = document.getElementById('rpdf-chat-input');
@@ -406,10 +415,22 @@ test('sends user message to API and handles markdown formatting in bot reply', a
 
   const messages = document.getElementById('rpdf-chat-messages');
   const lastBubble = messages.children[messages.children.length - 1].children[0];
-  assert.ok(lastBubble.innerHTML.includes('<code>options.margin</code>'), 'Inline code must be rendered');
-  assert.ok(lastBubble.innerHTML.includes('<pre><code>{&quot;top&quot;: &quot;20mm&quot;}</code></pre>'), 'Code blocks must be preserved with HTML escaping');
-  assert.ok(lastBubble.innerHTML.includes('<strong>options</strong>'), 'Bold text must be rendered in strong tag');
-  assert.ok(lastBubble.innerHTML.includes('<a href="https://renderpdf.vberkoz.com/docs/api/"'), 'Links must be rendered with href');
+  assert.ok(
+    lastBubble.innerHTML.includes('<code>options.margin</code>'),
+    'Inline code must be rendered'
+  );
+  assert.ok(
+    lastBubble.innerHTML.includes('<pre><code>{&quot;top&quot;: &quot;20mm&quot;}</code></pre>'),
+    'Code blocks must be preserved with HTML escaping'
+  );
+  assert.ok(
+    lastBubble.innerHTML.includes('<strong>options</strong>'),
+    'Bold text must be rendered in strong tag'
+  );
+  assert.ok(
+    lastBubble.innerHTML.includes('<a href="https://renderpdf.vberkoz.com/docs/api/"'),
+    'Links must be rendered with href'
+  );
 });
 
 test('handles escalated conversation and shows inline email banner when requiresEmail is true', async () => {
@@ -421,9 +442,9 @@ test('handles escalated conversation and shows inline email banner when requires
         sessionId: 'test_session',
         reply: 'We have escalated your inquiry to our engineering team.',
         escalated: true,
-        requiresEmail: true
-      })
-    })
+        requiresEmail: true,
+      }),
+    }),
   });
 
   const input = document.getElementById('rpdf-chat-input');

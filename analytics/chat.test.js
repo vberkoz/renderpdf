@@ -10,12 +10,36 @@ Module.prototype.require = function (id, ...args) {
     class MockDynamoDBClient {
       send() {}
     }
-    class BatchGetItemCommand { constructor(input) { this.input = input; } }
-    class GetItemCommand { constructor(input) { this.input = input; } }
-    class UpdateItemCommand { constructor(input) { this.input = input; } }
-    class PutItemCommand { constructor(input) { this.input = input; } }
-    class QueryCommand { constructor(input) { this.input = input; } }
-    class TransactWriteItemsCommand { constructor(input) { this.input = input; } }
+    class BatchGetItemCommand {
+      constructor(input) {
+        this.input = input;
+      }
+    }
+    class GetItemCommand {
+      constructor(input) {
+        this.input = input;
+      }
+    }
+    class UpdateItemCommand {
+      constructor(input) {
+        this.input = input;
+      }
+    }
+    class PutItemCommand {
+      constructor(input) {
+        this.input = input;
+      }
+    }
+    class QueryCommand {
+      constructor(input) {
+        this.input = input;
+      }
+    }
+    class TransactWriteItemsCommand {
+      constructor(input) {
+        this.input = input;
+      }
+    }
     return {
       BatchGetItemCommand,
       DynamoDBClient: MockDynamoDBClient,
@@ -30,7 +54,11 @@ Module.prototype.require = function (id, ...args) {
     class MockBedrockRuntimeClient {
       send() {}
     }
-    class ConverseCommand { constructor(input) { this.input = input; } }
+    class ConverseCommand {
+      constructor(input) {
+        this.input = input;
+      }
+    }
     return {
       BedrockRuntimeClient: MockBedrockRuntimeClient,
       ConverseCommand,
@@ -40,7 +68,11 @@ Module.prototype.require = function (id, ...args) {
     class MockSESClient {
       send() {}
     }
-    class SendEmailCommand { constructor(input) { this.input = input; } }
+    class SendEmailCommand {
+      constructor(input) {
+        this.input = input;
+      }
+    }
     return {
       SESClient: MockSESClient,
       SendEmailCommand,
@@ -50,10 +82,26 @@ Module.prototype.require = function (id, ...args) {
     class MockCognitoClient {
       send() {}
     }
-    class AdminGetUserCommand { constructor(input) { this.input = input; } }
-    class AdminDisableUserCommand { constructor(input) { this.input = input; } }
-    class AdminEnableUserCommand { constructor(input) { this.input = input; } }
-    class ListUsersCommand { constructor(input) { this.input = input; } }
+    class AdminGetUserCommand {
+      constructor(input) {
+        this.input = input;
+      }
+    }
+    class AdminDisableUserCommand {
+      constructor(input) {
+        this.input = input;
+      }
+    }
+    class AdminEnableUserCommand {
+      constructor(input) {
+        this.input = input;
+      }
+    }
+    class ListUsersCommand {
+      constructor(input) {
+        this.input = input;
+      }
+    }
     return {
       CognitoIdentityProviderClient: MockCognitoClient,
       AdminGetUserCommand,
@@ -66,8 +114,16 @@ Module.prototype.require = function (id, ...args) {
     class MockAPIGatewayClient {
       send() {}
     }
-    class CreateUsagePlanKeyCommand { constructor(input) { this.input = input; } }
-    class DeleteUsagePlanKeyCommand { constructor(input) { this.input = input; } }
+    class CreateUsagePlanKeyCommand {
+      constructor(input) {
+        this.input = input;
+      }
+    }
+    class DeleteUsagePlanKeyCommand {
+      constructor(input) {
+        this.input = input;
+      }
+    }
     return {
       APIGatewayClient: MockAPIGatewayClient,
       CreateUsagePlanKeyCommand,
@@ -101,8 +157,14 @@ test('buildSystemPrompt includes RenderPDF knowledge modules, decision tags, and
   // Decision protocol instructions
   assert.ok(prompt.includes('[DECISION: ANSWER]'));
   assert.ok(prompt.includes('[DECISION: ESCALATE]'));
-  assert.ok(prompt.includes('[ESCALATION_REASON: high_value_lead | complex_bug | billing_issue | explicit_request]'));
-  assert.ok(prompt.includes('What is the best email address for our lead operator to reach you at?'));
+  assert.ok(
+    prompt.includes(
+      '[ESCALATION_REASON: high_value_lead | complex_bug | billing_issue | explicit_request]'
+    )
+  );
+  assert.ok(
+    prompt.includes('What is the best email address for our lead operator to reach you at?')
+  );
 
   // Visitor context section
   assert.ok(prompt.includes('alex@startup.io'));
@@ -188,10 +250,15 @@ test('handleChatMessage answers technical questions with [DECISION: ANSWER], str
   assert.ok(bedrockCmd.input.system[0].text.includes('RenderPDF Knowledge Base'));
   assert.equal(bedrockCmd.input.messages.length, 1);
   assert.equal(bedrockCmd.input.messages[0].role, 'user');
-  assert.equal(bedrockCmd.input.messages[0].content[0].text, 'How do I configure page margins and paper format?');
+  assert.equal(
+    bedrockCmd.input.messages[0].content[0].text,
+    'How do I configure page margins and paper format?'
+  );
 
   // Verify DynamoDB persistence: 1 Query + 3 Puts (Session + User msg + Bot msg)
-  const putCommands = capturedDdbCommands.filter((c) => c.constructor.name === 'PutItemCommand' || c.input?.Item);
+  const putCommands = capturedDdbCommands.filter(
+    (c) => c.constructor.name === 'PutItemCommand' || c.input?.Item
+  );
   assert.equal(putCommands.length, 3);
 
   // 1. Session item (timestamp 0)
@@ -350,7 +417,9 @@ test('handleChatMessage includes recent session history in Bedrock converse comm
       return {
         output: {
           message: {
-            content: [{ text: '[DECISION: ANSWER] Yes, `options.password` uses AES-256 encryption.' }],
+            content: [
+              { text: '[DECISION: ANSWER] Yes, `options.password` uses AES-256 encryption.' },
+            ],
           },
         },
       };
@@ -384,7 +453,9 @@ test('handleChatMessage includes recent session history in Bedrock converse comm
               timestamp: { N: '1727520001000' },
               entityType: { S: 'CHAT_MESSAGE' },
               role: { S: 'assistant' },
-              content: { S: 'Yes! RenderPDF supports AES-256 PDF encryption via options.password.' },
+              content: {
+                S: 'Yes! RenderPDF supports AES-256 PDF encryption via options.password.',
+              },
             },
           ],
         };
@@ -411,7 +482,10 @@ test('handleChatMessage includes recent session history in Bedrock converse comm
   assert.equal(capturedMessages[0].role, 'user');
   assert.equal(capturedMessages[0].content[0].text, 'Can I password protect PDFs?');
   assert.equal(capturedMessages[1].role, 'assistant');
-  assert.equal(capturedMessages[1].content[0].text, 'Yes! RenderPDF supports AES-256 PDF encryption via options.password.');
+  assert.equal(
+    capturedMessages[1].content[0].text,
+    'Yes! RenderPDF supports AES-256 PDF encryption via options.password.'
+  );
   assert.equal(capturedMessages[2].role, 'user');
   assert.equal(capturedMessages[2].content[0].text, 'What encryption standard is used?');
 });
@@ -601,29 +675,38 @@ test('admin endpoints return 403 Forbidden for non-admin callers', async () => {
   assert.equal(resList.statusCode, 403);
 
   // 2. GET /api/v1/admin/chats/{sessionId}
-  const resTranscript = await chat.getAdminChatTranscript({
-    ...nonAdminContext,
-    httpMethod: 'GET',
-    path: '/api/v1/admin/chats/cs_test',
-  }, 'cs_test');
+  const resTranscript = await chat.getAdminChatTranscript(
+    {
+      ...nonAdminContext,
+      httpMethod: 'GET',
+      path: '/api/v1/admin/chats/cs_test',
+    },
+    'cs_test'
+  );
   assert.equal(resTranscript.statusCode, 403);
 
   // 3. POST /api/v1/admin/chats/{sessionId}/reply
-  const resReply = await chat.postAdminChatReply({
-    ...nonAdminContext,
-    httpMethod: 'POST',
-    path: '/api/v1/admin/chats/cs_test/reply',
-    body: JSON.stringify({ message: 'Hello' }),
-  }, 'cs_test');
+  const resReply = await chat.postAdminChatReply(
+    {
+      ...nonAdminContext,
+      httpMethod: 'POST',
+      path: '/api/v1/admin/chats/cs_test/reply',
+      body: JSON.stringify({ message: 'Hello' }),
+    },
+    'cs_test'
+  );
   assert.equal(resReply.statusCode, 403);
 
   // 4. POST /api/v1/admin/chats/{sessionId}/status
-  const resStatus = await chat.updateAdminChatStatus({
-    ...nonAdminContext,
-    httpMethod: 'POST',
-    path: '/api/v1/admin/chats/cs_test/status',
-    body: JSON.stringify({ status: 'resolved' }),
-  }, 'cs_test');
+  const resStatus = await chat.updateAdminChatStatus(
+    {
+      ...nonAdminContext,
+      httpMethod: 'POST',
+      path: '/api/v1/admin/chats/cs_test/status',
+      body: JSON.stringify({ status: 'resolved' }),
+    },
+    'cs_test'
+  );
   assert.equal(resStatus.statusCode, 403);
 });
 
@@ -766,7 +849,9 @@ test('getAdminChatTranscript returns transcript and updates unreadByAdmin to fal
   assert.equal(payload.messages[1].sender, 'bot');
 
   // Verify unreadByAdmin update command was executed
-  const updateCmd = capturedDdbCommands.find((c) => c.input?.UpdateExpression?.includes('unreadByAdmin'));
+  const updateCmd = capturedDdbCommands.find((c) =>
+    c.input?.UpdateExpression?.includes('unreadByAdmin')
+  );
   assert.ok(updateCmd, 'Should issue update to clear unreadByAdmin');
   assert.equal(updateCmd.input.ExpressionAttributeValues[':f'].BOOL, false);
 });
@@ -809,7 +894,8 @@ test('postAdminChatReply appends operator message to DynamoDB and sends email wh
     path: '/api/v1/admin/chats/cs_reply_test/reply',
     pathParameters: { sessionId: 'cs_reply_test' },
     body: JSON.stringify({
-      message: 'Hi! This is Basil from RenderPDF. We can offer you custom pricing at $350/mo for 200k documents.',
+      message:
+        'Hi! This is Basil from RenderPDF. We can offer you custom pricing at $350/mo for 200k documents.',
       sendEmail: true,
     }),
   };
@@ -830,7 +916,9 @@ test('postAdminChatReply appends operator message to DynamoDB and sends email wh
   assert.ok(putMsg.input.Item.content.S.includes('custom pricing'));
 
   // 2. Verify session metadata updatedAt and messageCount were updated
-  const updateSession = capturedDdbCommands.find((c) => c.input?.UpdateExpression?.includes('messageCount'));
+  const updateSession = capturedDdbCommands.find((c) =>
+    c.input?.UpdateExpression?.includes('messageCount')
+  );
   assert.ok(updateSession);
 
   // 3. Verify SES email was dispatched to customer
@@ -864,7 +952,9 @@ test('updateAdminChatStatus updates status and GSI1PK in DynamoDB', async () => 
   assert.equal(payload.status, 'resolved');
 
   // Verify DynamoDB UpdateItemCommand
-  const updateCmd = capturedDdbCommands.find((c) => c.input?.UpdateExpression?.includes('#st = :st'));
+  const updateCmd = capturedDdbCommands.find((c) =>
+    c.input?.UpdateExpression?.includes('#st = :st')
+  );
   assert.ok(updateCmd);
   assert.equal(updateCmd.input.ExpressionAttributeValues[':st'].S, 'resolved');
   assert.equal(updateCmd.input.ExpressionAttributeValues[':gpk'].S, 'CHAT_STATUS#resolved');
@@ -1010,7 +1100,9 @@ test('handleChatMessage deterministically intercepts partnership inquiries and e
   assert.equal(payload.decision, '[DECISION: ESCALATE]');
   assert.equal(payload.requiresEmail, true);
   assert.ok(payload.reply.includes('founder and lead engineer (Basil)'));
-  assert.ok(payload.reply.includes('What is the best email address for our lead operator to reach you at?'));
+  assert.ok(
+    payload.reply.includes('What is the best email address for our lead operator to reach you at?')
+  );
 
   // Ensure hallucinated sales instructions were NOT shown to user
   assert.ok(!payload.reply.includes('reach out to our sales team'));
@@ -1063,5 +1155,3 @@ test('handleChatMessage with known email confirms routing to Basil without re-as
   assert.ok(payload.reply.includes('partner@agency.com'));
   assert.ok(payload.reply.includes('Basil'));
 });
-
-

@@ -2,64 +2,37 @@
 
 ## Purpose
 
-- Build accurate repo context before changing code.
-- Identify the canonical locations for source, infra, scripts, docs, and prompts.
-- Prevent edits to generated artifacts or compatibility wrappers by mistake.
+- Build accurate repo orientation before changing code.
+- Identify canonical locations for source, infra, scripts, docs, and prompts.
 
 ## Prerequisites
 
-- Read:
-  - `/Users/basilsergius/projects/renderpdf/README.md`
-  - `/Users/basilsergius/projects/renderpdf/AGENTS.md`
-  - `/Users/basilsergius/projects/renderpdf/docs/AGENT-RULES.md`
-  - `/Users/basilsergius/projects/renderpdf/docs/ARCHITECTURE.md`
-  - `/Users/basilsergius/projects/renderpdf/docs/VERIFICATION.md`
+- Read `AGENTS.md`.
+- Inherits baseline rules and idempotency requirements from `_prompts/INDEX.md`.
 
 ## Files/Folders In Scope
 
-- `/Users/basilsergius/projects/renderpdf/api/`
-- `/Users/basilsergius/projects/renderpdf/auth/`
-- `/Users/basilsergius/projects/renderpdf/dashboard/`
-- `/Users/basilsergius/projects/renderpdf/landing/`
-- `/Users/basilsergius/projects/renderpdf/doc-examples/`
-- `/Users/basilsergius/projects/renderpdf/infra/`
-- `/Users/basilsergius/projects/renderpdf/scripts/`
-- `/Users/basilsergius/projects/renderpdf/docs/`
-- `/Users/basilsergius/projects/renderpdf/_prompts/`
+- Repo layout inspection across canonical directories: `api/`, `auth/`, `dashboard/`, `landing/`, `infra/`, `scripts/`, `docs/`, `_prompts/`.
 
 ## Files/Folders Out Of Scope
 
-- Generated local binaries:
-  - Local binaries (`api/renderpdf`, `auth/authorizer`, and `auth/api-keys`)
-    are ignored generated artifacts, not source files.
-- Environment-local secrets/config unless the task is explicitly deployment-related:
-  - `/Users/basilsergius/projects/renderpdf/parameters.json`
+- Source code edits in functional subdirectories.
+- Generated binaries (`api/renderpdf`, `auth/authorizer`, `auth/api-keys`) and local parameters (`parameters.json`).
 
 ## Implementation Task
 
-1. Identify the target responsibility:
-   - PDF generation backend
-   - auth backend
-   - dashboard UI
-   - landing UI
-   - infrastructure
-   - scripts
-   - docs
-   - prompts
-2. Confirm the canonical edit location.
-3. Check whether root files are wrappers or compatibility symlinks before editing them.
-4. Search for path-sensitive references in scripts, docs, and prompts.
-5. Record assumptions instead of inventing missing behavior.
+1. Confirm canonical directories before proposing changes.
+2. Check whether root scripts/templates are wrappers or compatibility symlinks before editing.
+3. Keep module references pointing directly to target files without loading unnecessary documentation.
 
 ## Verification Steps
 
 ```bash
-cd /Users/basilsergius/projects/renderpdf && find . -maxdepth 1 -mindepth 1 | sort
-cd /Users/basilsergius/projects/renderpdf && rg -n "scripts/|infra/|doc-examples/|_prompts/" README.md AGENTS.md docs _prompts
+git grep -n -E "scripts/|infra/|docs/" _prompts
+find . -maxdepth 1 -mindepth 1 | sort
 ```
 
 ## Stop Conditions
 
-- Stop if the task would create a second source of truth for deploy, test, or infra behavior.
-- Stop if the only candidate file is a generated local binary.
-- Stop if the required ownership boundary is unclear after reading the docs; document the ambiguity first.
+- Inherits universal stop conditions from `_prompts/INDEX.md`.
+- Stop if the task would create duplicate entrypoints or bypass canonical directory structure.

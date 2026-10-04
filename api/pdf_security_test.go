@@ -179,4 +179,3 @@ func TestApplyPDFSecurityPermissionsNone(t *testing.T) {
 		t.Fatalf("expected validation with user password to succeed, got: %v", err)
 	}
 }
-

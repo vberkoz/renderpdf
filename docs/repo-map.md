@@ -3,9 +3,13 @@
 ## Top Level
 
 - `api/`
-  - PDF generation service source.
+  - PDF generation and batch processing service source.
 - `auth/`
-  - API key authorizer and API key management service source.
+  - API key authorizer, API key management Lambda, and Cognito `account-linker/` trigger.
+- `analytics/`
+  - Node.js analytics aggregation, Paddle billing webhooks, and admin console API.
+- `webhooks/`
+  - SQS customer webhook worker Lambda delivering `pdf.completed` notifications.
 - `dashboard/`
   - Authenticated static frontend.
 - `landing/`
@@ -17,7 +21,7 @@
 - `scripts/`
   - Canonical deploy and verification scripts.
 - `docs/`
-  - Repo navigation, architecture, verification, and agent rules.
+  - Repo navigation, architecture, verification, openapi.yaml specification, and agent rules.
 - `_prompts/`
   - Productized AI workflow modules.
 
@@ -33,6 +37,8 @@
   - Symlink to `infra/cloudformation.yaml`
 - `parameters.json.example`
   - Symlink to `infra/parameters.json.example`
+- `.env.test.example`
+  - Mock environment variables for local/offline testing
 
 ## Read First
 
@@ -41,5 +47,7 @@
 - `docs/ARCHITECTURE.md`
 - `docs/VERIFICATION.md`
 - `docs/AGENT-RULES.md`
+- `docs/testing-and-mocking.md`
+  - Local verification, in-process mocking, and macOS sandbox guidance.
 - `docs/operations.md`
   - Budget-alert and external-uptime operating runbook.

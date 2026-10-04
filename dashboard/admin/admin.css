@@ -154,6 +154,7 @@ body.admin-body {
 
 .admin-nav-links {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 12px;
 }
@@ -169,11 +170,18 @@ body.admin-body {
   align-items: center;
   gap: 6px;
   transition: all 0.15s ease;
+  border: 1px solid transparent;
 }
 
 .admin-nav-link:hover {
   color: var(--admin-text);
   background: var(--admin-panel);
+}
+
+.admin-nav-link[aria-current="page"] {
+  color: var(--admin-purple-light);
+  background: var(--admin-purple-dim);
+  border-color: rgba(139, 92, 246, 0.3);
 }
 
 .admin-btn-logout {
@@ -328,6 +336,43 @@ body.admin-body {
   cursor: pointer;
   transition: all 0.15s ease;
   border: 1px solid transparent;
+}
+
+.admin-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.admin-btn.is-processing,
+.admin-btn[aria-busy="true"] {
+  position: relative;
+  pointer-events: none;
+  opacity: 0.88;
+}
+
+.admin-btn.is-processing::before,
+.admin-btn[aria-busy="true"]::before {
+  content: "";
+  display: inline-block;
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: button-spin 0.65s linear infinite;
+  margin-right: 2px;
+}
+
+.admin-btn-secondary.is-processing::before,
+.admin-btn-secondary[aria-busy="true"]::before {
+  border-color: rgba(148, 163, 184, 0.25);
+  border-top-color: var(--admin-blue-light, var(--blue-light));
+}
+
+.admin-btn.is-processing > svg,
+.admin-btn[aria-busy="true"] > svg {
+  display: none;
 }
 
 .admin-btn-secondary {

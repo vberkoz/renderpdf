@@ -94,5 +94,13 @@
   {
     "ParameterKey": "SesRegion",
     "ParameterValue": "us-east-1"
+  },
+  {
+    "ParameterKey": "TelegramBotToken",
+    "ParameterValue": "YOUR_TELEGRAM_BOT_TOKEN"
+  },
+  {
+    "ParameterKey": "TelegramChatId",
+    "ParameterValue": "YOUR_TELEGRAM_CHAT_ID"
   }
 ]

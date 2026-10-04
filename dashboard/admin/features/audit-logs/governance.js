@@ -25,7 +25,10 @@ export async function initGovernanceTab(containerElement) {
   if (!containerElement) return;
 
   // Replace static placeholder with real structure if not yet initialized in this container
-  if (!containerElement.querySelector('.admin-users-toolbar') && !containerElement.querySelector('.admin-audit-toolbar')) {
+  if (
+    !containerElement.querySelector('.admin-users-toolbar') &&
+    !containerElement.querySelector('.admin-audit-toolbar')
+  ) {
     containerElement.innerHTML = `
       <div class="admin-view-header">
         <div class="admin-view-title-group">
@@ -131,7 +134,12 @@ export async function initGovernanceTab(containerElement) {
         const user = (l.targetUserId || '').toLowerCase();
         const reason = (l.reason || '').toLowerCase();
         const act = (l.action || '').toLowerCase();
-        return email.includes(query) || user.includes(query) || reason.includes(query) || act.includes(query);
+        return (
+          email.includes(query) ||
+          user.includes(query) ||
+          reason.includes(query) ||
+          act.includes(query)
+        );
       });
     }
 
@@ -144,7 +152,8 @@ export async function initGovernanceTab(containerElement) {
 
   async function loadAuditLogs() {
     if (!tableRegion) return;
-    tableRegion.innerHTML = '<div class="admin-loading-spinner" style="text-align:center;padding:40px;color:var(--admin-muted);">Loading audit trail…</div>';
+    tableRegion.innerHTML =
+      '<div class="admin-loading-spinner" style="text-align:center;padding:40px;color:var(--admin-muted);">Loading audit trail…</div>';
 
     const days = daysFilter ? daysFilter.value || '30' : '30';
     try {
@@ -213,15 +222,19 @@ function renderAuditTable(region, logs) {
     KEY_REVOKE: 'admin-badge-orange',
   };
 
-  const rows = logs.map((entry) => {
-    const ts = entry.timestamp ? new Date(entry.timestamp) : null;
-    const absTime = ts ? ts.toISOString().replace('T', ' ').slice(0, 19) + ' UTC' : '—';
-    const relTime = ts ? formatRelativeTime(ts) : '—';
-    const badgeClass = ACTION_BADGE_CLASS[entry.action] || 'admin-badge-grey';
-    const detailStr = entry.details && typeof entry.details === 'object'
-      ? Object.entries(entry.details).map(([k, v]) => `${k}: ${v}`).join('; ')
-      : '';
-    return `
+  const rows = logs
+    .map((entry) => {
+      const ts = entry.timestamp ? new Date(entry.timestamp) : null;
+      const absTime = ts ? ts.toISOString().replace('T', ' ').slice(0, 19) + ' UTC' : '—';
+      const relTime = ts ? formatRelativeTime(ts) : '—';
+      const badgeClass = ACTION_BADGE_CLASS[entry.action] || 'admin-badge-grey';
+      const detailStr =
+        entry.details && typeof entry.details === 'object'
+          ? Object.entries(entry.details)
+              .map(([k, v]) => `${k}: ${v}`)
+              .join('; ')
+          : '';
+      return `
       <tr>
         <td class="admin-audit-ts" title="${escHtml(absTime)}">${escHtml(relTime)}</td>
         <td class="admin-audit-admin">${escHtml(entry.adminEmail || '—')}</td>
@@ -231,7 +244,8 @@ function renderAuditTable(region, logs) {
         <td class="admin-audit-detail" title="${escHtml(detailStr)}">${escHtml(detailStr || '—')}</td>
       </tr>
     `;
-  }).join('');
+    })
+    .join('');
 
   region.innerHTML = `
     <div class="admin-table-container">
@@ -278,8 +292,8 @@ export function openSuspendUserModal(userId, userEmail, actionType = 'disable') 
   if (heading) heading.textContent = isSuspend ? '⛔ Suspend Account' : '✅ Activate Account';
   if (warning) {
     warning.textContent = isSuspend
-      ? 'This will immediately disable the user\'s Cognito login and deactivate all API keys. Active integrations will fail with 401.'
-      : 'This will re-enable the user\'s Cognito login. API keys remain deactivated and must be manually re-enabled.';
+      ? "This will immediately disable the user's Cognito login and deactivate all API keys. Active integrations will fail with 401."
+      : "This will re-enable the user's Cognito login. API keys remain deactivated and must be manually re-enabled.";
   }
   if (confirmPrompt) {
     confirmPrompt.textContent = isSuspend
@@ -292,7 +306,10 @@ export function openSuspendUserModal(userId, userEmail, actionType = 'disable') 
   }
   if (confirmInput) confirmInput.value = '';
   if (reasonInput) reasonInput.value = '';
-  if (errorEl) { errorEl.textContent = ''; errorEl.setAttribute('hidden', ''); }
+  if (errorEl) {
+    errorEl.textContent = '';
+    errorEl.setAttribute('hidden', '');
+  }
 
   // Wire form handler via onsubmit (re-assignable, no clone needed)
   const form = modal.querySelector('#suspend-modal-form');
@@ -302,22 +319,34 @@ export function openSuspendUserModal(userId, userEmail, actionType = 'disable') 
       const confirmVal = (modal.querySelector('#suspend-confirm-input')?.value || '').trim();
       const reason = (modal.querySelector('#suspend-reason-input')?.value || '').trim();
       const errEl = modal.querySelector('#suspend-modal-error');
-      const expectedTokens = isSuspend
-        ? [userEmail, 'SUSPEND']
-        : [userEmail, 'ACTIVATE'];
+      const expectedTokens = isSuspend ? [userEmail, 'SUSPEND'] : [userEmail, 'ACTIVATE'];
 
       if (!expectedTokens.includes(confirmVal)) {
-        if (errEl) { errEl.textContent = `Confirmation text does not match. Type "${userEmail}" or ${isSuspend ? 'SUSPEND' : 'ACTIVATE'}.`; errEl.removeAttribute('hidden'); }
+        if (errEl) {
+          errEl.textContent = `Confirmation text does not match. Type "${userEmail}" or ${isSuspend ? 'SUSPEND' : 'ACTIVATE'}.`;
+          errEl.removeAttribute('hidden');
+        }
         return;
       }
       if (!reason) {
-        if (errEl) { errEl.textContent = 'A reason is required for the audit trail.'; errEl.removeAttribute('hidden'); }
+        if (errEl) {
+          errEl.textContent = 'A reason is required for the audit trail.';
+          errEl.removeAttribute('hidden');
+        }
         return;
       }
 
       const submitBtnEl = modal.querySelector('#suspend-submit-btn');
-      if (submitBtnEl) { submitBtnEl.disabled = true; submitBtnEl.textContent = 'Processing…'; }
-      if (errEl) { errEl.textContent = ''; errEl.setAttribute('hidden', ''); }
+      if (submitBtnEl) {
+        submitBtnEl.disabled = true;
+        submitBtnEl.setAttribute('aria-busy', 'true');
+        submitBtnEl.classList.add('is-processing');
+        submitBtnEl.textContent = 'Processing…';
+      }
+      if (errEl) {
+        errEl.textContent = '';
+        errEl.setAttribute('hidden', '');
+      }
 
       try {
         await adminFetch(`/admin/users/${userId}/status`, {
@@ -331,8 +360,16 @@ export function openSuspendUserModal(userId, userEmail, actionType = 'disable') 
         );
         document.dispatchEvent(new CustomEvent('user-updated', { detail: { userId } }));
       } catch (err) {
-        if (errEl) { errEl.textContent = err.message || 'Request failed. Please try again.'; errEl.removeAttribute('hidden'); }
-        if (submitBtnEl) { submitBtnEl.disabled = false; submitBtnEl.textContent = isSuspend ? 'Suspend Account' : 'Activate Account'; }
+        if (errEl) {
+          errEl.textContent = err.message || 'Request failed. Please try again.';
+          errEl.removeAttribute('hidden');
+        }
+        if (submitBtnEl) {
+          submitBtnEl.disabled = false;
+          submitBtnEl.removeAttribute('aria-busy');
+          submitBtnEl.classList.remove('is-processing');
+          submitBtnEl.textContent = isSuspend ? 'Suspend Account' : 'Activate Account';
+        }
       }
     };
   }
@@ -344,7 +381,9 @@ export function openSuspendUserModal(userId, userEmail, actionType = 'disable') 
   }
   const backdrop = modal.querySelector('.admin-modal-backdrop');
   if (backdrop) {
-    backdrop.onclick = (e) => { if (e.target === backdrop) closeModal(modal); };
+    backdrop.onclick = (e) => {
+      if (e.target === backdrop) closeModal(modal);
+    };
   }
 
   openModal(modal);
@@ -369,7 +408,10 @@ export function openRevokeKeyModal(userId, keyId, keyName) {
   if (heading) heading.textContent = `🔑 Revoke API Key`;
   if (keyDisplay) keyDisplay.textContent = keyName || keyId;
   if (reasonInput) reasonInput.value = '';
-  if (errorEl) { errorEl.textContent = ''; errorEl.setAttribute('hidden', ''); }
+  if (errorEl) {
+    errorEl.textContent = '';
+    errorEl.setAttribute('hidden', '');
+  }
 
   const form = modal.querySelector('#revoke-modal-form');
   if (form) {
@@ -379,13 +421,24 @@ export function openRevokeKeyModal(userId, keyId, keyName) {
       const errEl = modal.querySelector('#revoke-modal-error');
 
       if (!reason) {
-        if (errEl) { errEl.textContent = 'A reason is required for the audit trail.'; errEl.removeAttribute('hidden'); }
+        if (errEl) {
+          errEl.textContent = 'A reason is required for the audit trail.';
+          errEl.removeAttribute('hidden');
+        }
         return;
       }
 
       const submitBtnEl = modal.querySelector('#revoke-submit-btn');
-      if (submitBtnEl) { submitBtnEl.disabled = true; submitBtnEl.textContent = 'Revoking…'; }
-      if (errEl) { errEl.textContent = ''; errEl.setAttribute('hidden', ''); }
+      if (submitBtnEl) {
+        submitBtnEl.disabled = true;
+        submitBtnEl.setAttribute('aria-busy', 'true');
+        submitBtnEl.classList.add('is-processing');
+        submitBtnEl.textContent = 'Revoking…';
+      }
+      if (errEl) {
+        errEl.textContent = '';
+        errEl.setAttribute('hidden', '');
+      }
 
       try {
         await adminFetch(`/admin/users/${userId}/keys/${keyId}/revoke`, {
@@ -396,8 +449,16 @@ export function openRevokeKeyModal(userId, keyId, keyName) {
         showToast(`API key "${keyName || keyId}" has been revoked.`, 'warning');
         document.dispatchEvent(new CustomEvent('user-updated', { detail: { userId } }));
       } catch (err) {
-        if (errEl) { errEl.textContent = err.message || 'Request failed. Please try again.'; errEl.removeAttribute('hidden'); }
-        if (submitBtnEl) { submitBtnEl.disabled = false; submitBtnEl.textContent = 'Revoke Key'; }
+        if (errEl) {
+          errEl.textContent = err.message || 'Request failed. Please try again.';
+          errEl.removeAttribute('hidden');
+        }
+        if (submitBtnEl) {
+          submitBtnEl.disabled = false;
+          submitBtnEl.removeAttribute('aria-busy');
+          submitBtnEl.classList.remove('is-processing');
+          submitBtnEl.textContent = 'Revoke Key';
+        }
       }
     };
   }
@@ -408,7 +469,9 @@ export function openRevokeKeyModal(userId, keyId, keyName) {
   }
   const backdrop = modal.querySelector('.admin-modal-backdrop');
   if (backdrop) {
-    backdrop.onclick = (e) => { if (e.target === backdrop) closeModal(modal); };
+    backdrop.onclick = (e) => {
+      if (e.target === backdrop) closeModal(modal);
+    };
   }
 
   openModal(modal);
@@ -575,4 +638,3 @@ export function initGovernanceModals() {
     window.addEventListener('admin-open-revoke-key', handleRevoke);
   }
 }
-

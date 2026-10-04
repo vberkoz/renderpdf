@@ -12,10 +12,14 @@ let activePollTimer = null;
 // Canned response snippets for quick operator replies
 export const CANNED_RESPONSES = {
   docs: 'You can explore our full API documentation, parameter references, and language examples at https://renderpdf.vberkoz.com/docs/api/.',
-  enterprise: 'RenderPDF offers dedicated enterprise concurrency, 99.99% custom SLA terms, and tailored volume pricing for scale exceeding 50,000 PDFs/month. Would you like to schedule a quick call, or should I email our enterprise agreement details?',
-  margins: 'You can configure page margins and formats in your render request payload:\n```json\n{\n  "source": { "type": "html", "html": "..." },\n  "options": {\n    "format": "A4",\n    "margin": { "top": "20mm", "bottom": "20mm", "left": "15mm", "right": "15mm" },\n    "printBackground": true\n  }\n}\n```',
-  security: 'RenderPDF supports AES-256 PDF encryption. You can set `options.password` for the open password, `options.ownerPassword` for administrative access, and `options.permissions` to "print", "all", or "none" to restrict printing and copying.',
-  investigating: 'Thank you for reporting this issue. Our engineering team has received the transcript and is investigating the rendering logs. We will follow up shortly.'
+  enterprise:
+    'RenderPDF offers dedicated enterprise concurrency, 99.99% custom SLA terms, and tailored volume pricing for scale exceeding 50,000 PDFs/month. Would you like to schedule a quick call, or should I email our enterprise agreement details?',
+  margins:
+    'You can configure page margins and formats in your render request payload:\n```json\n{\n  "source": { "type": "html", "html": "..." },\n  "options": {\n    "format": "A4",\n    "margin": { "top": "20mm", "bottom": "20mm", "left": "15mm", "right": "15mm" },\n    "printBackground": true\n  }\n}\n```',
+  security:
+    'RenderPDF supports AES-256 PDF encryption. You can set `options.password` for the open password, `options.ownerPassword` for administrative access, and `options.permissions` to "print", "all", or "none" to restrict printing and copying.',
+  investigating:
+    'Thank you for reporting this issue. Our engineering team has received the transcript and is investigating the rendering logs. We will follow up shortly.',
 };
 
 /**
@@ -43,7 +47,7 @@ export function renderChatMarkdown(text) {
   const safeText = escapeHtml(text);
 
   const codeBlocks = [];
-  let formatted = safeText.replace(/```(?:[a-zA-Z0-9_-]+)?\n?([\s\S]*?)```/g, function(_, code) {
+  let formatted = safeText.replace(/```(?:[a-zA-Z0-9_-]+)?\n?([\s\S]*?)```/g, function (_, code) {
     const id = '___CODEBLOCK_' + codeBlocks.length + '___';
     codeBlocks.push('<pre><code>' + code.trim() + '</code></pre>');
     return id;
@@ -51,11 +55,14 @@ export function renderChatMarkdown(text) {
 
   formatted = formatted.replace(/`([^`\n]+)`/g, '<code>$1</code>');
   formatted = formatted.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-  formatted = formatted.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+  formatted = formatted.replace(
+    /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
+    '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>'
+  );
   formatted = formatted.replace(/(?:^|\n)[*-]\s+(.+)/g, '<br>&bull; $1');
   formatted = formatted.replace(/\n/g, '<br>');
 
-  codeBlocks.forEach(function(block, index) {
+  codeBlocks.forEach(function (block, index) {
     formatted = formatted.replace('___CODEBLOCK_' + index + '___', block);
   });
 
@@ -98,11 +105,16 @@ export function formatTimestamp(val) {
  */
 export function formatEscalationReason(reason) {
   switch (reason) {
-    case 'high_value_lead': return 'Enterprise Lead';
-    case 'complex_bug': return 'Bug Report';
-    case 'billing_issue': return 'Billing Inquiry';
-    case 'explicit_request': return 'Human Requested';
-    default: return reason ? reason.replace(/_/g, ' ') : 'Escalated';
+    case 'high_value_lead':
+      return 'Enterprise Lead';
+    case 'complex_bug':
+      return 'Bug Report';
+    case 'billing_issue':
+      return 'Billing Inquiry';
+    case 'explicit_request':
+      return 'Human Requested';
+    default:
+      return reason ? reason.replace(/_/g, ' ') : 'Escalated';
   }
 }
 
@@ -140,7 +152,7 @@ export async function fetchChatTranscript(sessionId) {
 export async function sendOperatorReply(sessionId, { message, sendEmail = true }) {
   return await adminFetch(`/admin/chats/${encodeURIComponent(sessionId)}/reply`, {
     method: 'POST',
-    body: JSON.stringify({ message, sendEmail })
+    body: JSON.stringify({ message, sendEmail }),
   });
 }
 
@@ -153,7 +165,7 @@ export async function sendOperatorReply(sessionId, { message, sendEmail = true }
 export async function updateChatStatus(sessionId, status) {
   return await adminFetch(`/admin/chats/${encodeURIComponent(sessionId)}/status`, {
     method: 'POST',
-    body: JSON.stringify({ status })
+    body: JSON.stringify({ status }),
   });
 }
 
@@ -260,14 +272,16 @@ export function renderChatList(listEl, chats, selectedSessionId) {
     return;
   }
 
-  listEl.innerHTML = chats.map((chat) => {
-    const isSelected = chat.sessionId === selectedSessionId;
-    const isUnread = Boolean(chat.unreadByAdmin);
-    const isEscalated = chat.status === 'escalated';
-    const displayUser = chat.visitorEmail || chat.customerId || `#${chat.sessionId.substring(0, 10)}`;
-    const timeAgo = formatTimestamp(chat.updatedAt || chat.createdAt);
+  listEl.innerHTML = chats
+    .map((chat) => {
+      const isSelected = chat.sessionId === selectedSessionId;
+      const isUnread = Boolean(chat.unreadByAdmin);
+      const isEscalated = chat.status === 'escalated';
+      const displayUser =
+        chat.visitorEmail || chat.customerId || `#${chat.sessionId.substring(0, 10)}`;
+      const timeAgo = formatTimestamp(chat.updatedAt || chat.createdAt);
 
-    return `
+      return `
       <article
         class="admin-chat-card ${isSelected ? 'is-selected' : ''}"
         role="listitem"
@@ -292,13 +306,14 @@ export function renderChatList(listEl, chats, selectedSessionId) {
             <span class="admin-chat-source-tag">${escapeHtml(chat.source || 'landing')}</span>
             ${chat.plan && chat.plan !== 'anonymous' ? `<span class="admin-badge-plan admin-badge-${escapeHtml(chat.plan)}">${escapeHtml(chat.plan)}</span>` : ''}
           </div>
-          <span class="admin-badge-status admin-badge-${chat.status === 'resolved' ? 'active' : (isEscalated ? 'canceled' : 'trialing')}">
+          <span class="admin-badge-status admin-badge-${chat.status === 'resolved' ? 'active' : isEscalated ? 'canceled' : 'trialing'}">
             ${escapeHtml(chat.status || 'active')}
           </span>
         </div>
       </article>
     `;
-  }).join('');
+    })
+    .join('');
 }
 
 /**
@@ -340,7 +355,9 @@ export function renderChatWorkspace(workspaceEl, chat) {
       </div>
 
       <div class="admin-chat-workspace-actions">
-        ${chat.customerId || chat.visitorEmail ? `
+        ${
+          chat.customerId || chat.visitorEmail
+            ? `
           <button
             type="button"
             id="admin-chat-inspect-dossier-btn"
@@ -350,7 +367,9 @@ export function renderChatWorkspace(workspaceEl, chat) {
           >
             Inspect User Dossier
           </button>
-        ` : ''}
+        `
+            : ''
+        }
         <button
           type="button"
           id="admin-chat-status-toggle-btn"
@@ -364,21 +383,34 @@ export function renderChatWorkspace(workspaceEl, chat) {
 
     <!-- Transcript Stream -->
     <div id="admin-chat-transcript" class="admin-chat-transcript" role="log" aria-live="polite">
-      ${isEscalated ? `
+      ${
+        isEscalated
+          ? `
         <div class="admin-transcript-system-event">
           <span><svg class="lucide lucide-alert-triangle" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
           <span>Escalated to Operator &middot; Reason: <strong>${escapeHtml(formatEscalationReason(chat.escalationReason))}</strong></span>
         </div>
-      ` : ''}
+      `
+          : ''
+      }
 
-      ${messages.map((m) => {
-        const isOperator = m.sender === 'operator';
-        const isAssistant = m.sender === 'bot' || m.role === 'assistant';
-        const roleClass = isOperator ? 'is-operator' : (isAssistant ? 'is-assistant' : 'is-visitor');
-        const roleLabel = isOperator ? 'Operator (Human)' : (isAssistant ? 'Nova Micro (AI)' : 'Visitor');
-        const timeStr = formatTimestamp(m.timestamp);
+      ${messages
+        .map((m) => {
+          const isOperator = m.sender === 'operator';
+          const isAssistant = m.sender === 'bot' || m.role === 'assistant';
+          const roleClass = isOperator
+            ? 'is-operator'
+            : isAssistant
+              ? 'is-assistant'
+              : 'is-visitor';
+          const roleLabel = isOperator
+            ? 'Operator (Human)'
+            : isAssistant
+              ? 'Nova Micro (AI)'
+              : 'Visitor';
+          const timeStr = formatTimestamp(m.timestamp);
 
-        return `
+          return `
           <div class="admin-transcript-bubble-row ${roleClass}">
             <div class="admin-transcript-sender-info">
               <strong>${escapeHtml(roleLabel)}</strong>
@@ -390,7 +422,8 @@ export function renderChatWorkspace(workspaceEl, chat) {
             </div>
           </div>
         `;
-      }).join('')}
+        })
+        .join('')}
     </div>
 
     <!-- Operator Reply Bar -->
@@ -462,7 +495,7 @@ export async function initSupportChatTab(containerElement) {
     filteredChats: [],
     selectedSessionId: null,
     selectedChat: null,
-    isSending: false
+    isSending: false,
   };
 
   // Check URL query parameters for deep-linked session ID (e.g. from SES email link: #chats?id=cs_...)
@@ -498,7 +531,8 @@ export async function initSupportChatTab(containerElement) {
         const id = (chat.sessionId || '').toLowerCase();
         const customerId = (chat.customerId || '').toLowerCase();
         const msg = (chat.lastMessage || chat.summary || '').toLowerCase();
-        const match = email.includes(q) || id.includes(q) || customerId.includes(q) || msg.includes(q);
+        const match =
+          email.includes(q) || id.includes(q) || customerId.includes(q) || msg.includes(q);
         if (!match) return false;
       }
       return true;
@@ -624,6 +658,8 @@ export async function initSupportChatTab(containerElement) {
         if (!state.selectedSessionId) return;
         const newStatus = statusBtn.getAttribute('data-status') || 'resolved';
         statusBtn.disabled = true;
+        statusBtn.setAttribute('aria-busy', 'true');
+        statusBtn.classList.add('is-processing');
         statusBtn.textContent = 'Updating...';
 
         try {
@@ -641,6 +677,8 @@ export async function initSupportChatTab(containerElement) {
         } catch (err) {
           showToast(`Failed to update status: ${err.message}`, 'error');
           statusBtn.disabled = false;
+          statusBtn.removeAttribute('aria-busy');
+          statusBtn.classList.remove('is-processing');
         }
       });
     }
@@ -676,6 +714,8 @@ export async function initSupportChatTab(containerElement) {
       state.isSending = true;
       if (sendBtn) {
         sendBtn.disabled = true;
+        sendBtn.setAttribute('aria-busy', 'true');
+        sendBtn.classList.add('is-processing');
         sendBtn.textContent = 'Sending...';
       }
 
@@ -684,7 +724,7 @@ export async function initSupportChatTab(containerElement) {
       try {
         const res = await sendOperatorReply(state.selectedSessionId, {
           message: text,
-          sendEmail: shouldSendEmail
+          sendEmail: shouldSendEmail,
         });
 
         // Append operator message to workspace transcript
@@ -693,7 +733,7 @@ export async function initSupportChatTab(containerElement) {
           role: 'assistant',
           sender: 'operator',
           content: text,
-          timestamp: Date.now()
+          timestamp: Date.now(),
         };
 
         if (state.selectedChat) {
@@ -711,13 +751,19 @@ export async function initSupportChatTab(containerElement) {
           applyFilters();
         }
 
-        showToast(res.emailDispatched ? 'Reply sent & email copy dispatched' : 'Reply posted to conversation');
+        showToast(
+          res.emailDispatched
+            ? 'Reply sent & email copy dispatched'
+            : 'Reply posted to conversation'
+        );
       } catch (err) {
         showToast(`Failed to send reply: ${err.message}`, 'error');
       } finally {
         state.isSending = false;
         if (sendBtn) {
           sendBtn.disabled = false;
+          sendBtn.removeAttribute('aria-busy');
+          sendBtn.classList.remove('is-processing');
           sendBtn.textContent = 'Send Reply';
         }
       }

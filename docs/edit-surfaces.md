@@ -1,74 +1,20 @@
 # edit-surfaces.md
 
-## Ownership Boundaries
+Quick lookup matrix mapping repository components to their safe canonical edit paths, primary files, and verification scripts.
 
-- `api/`
-  - PDF generation only.
-- `auth/`
-  - API key validation and key CRUD only.
-- `dashboard/`
-  - Authenticated frontend only.
-- `landing/`
-  - Public frontend only.
-- `infra/`
-  - CloudFormation and deploy-time config only.
-- `scripts/`
-  - Deploy and verification entrypoints only.
-- `_prompts/`
-  - Agent workflow instructions only.
+| Component / Subsystem | Primary Edit Surfaces (Safe) | Never Touch / Anti-patterns | Verification Script |
+| :--- | :--- | :--- | :--- |
+| **PDF Generation API** | `api/main.go`<br>`api/main_test.go`<br>`api/Dockerfile` | `api/renderpdf` (binary)<br>creating root backend folders | `./scripts/verify-api.sh` |
+| **Auth & Key Management** | `auth/authorizer.go`<br>`auth/api-keys.go`<br>`auth/utils.go`<br>`auth/utils_test.go`<br>`auth/account-linker/index.js` | `auth/authorizer` (binary)<br>`auth/api-keys` (binary)<br>mixing build tags | `./scripts/verify-auth.sh` |
+| **Analytics & Webhooks** | `analytics/index.js`<br>`analytics/index.test.js`<br>`webhooks/index.js` | modifying dependencies without running tests | `(cd analytics && npm test)`<br>`node --check webhooks/index.js` |
+| **Authenticated Dashboard** | `dashboard/index.html`<br>`dashboard/login.html`<br>`dashboard/callback.html`<br>`dashboard/app.js` | creating bundled frameworks (`client/`, `ui/`)<br>breaking Cognito URLs | `node --test dashboard/*.test.js`<br>`node scripts/verify-static-ui.js` |
+| **Public Landing & Demo** | `landing/index.html` | adding build/bundler pipelines<br>breaking embedded fetch demo | `node scripts/verify-static-ui.js` |
+| **Infrastructure (IaC)** | `infra/cloudformation.yaml`<br>`infra/parameters.json.example` | root `cloudformation.yaml` directly<br>`parameters.json` directly | `./scripts/verify-infra.sh` |
+| **Operational Scripts** | `scripts/*.sh`<br>`scripts/README.md` | non-wrapper scripts at root<br>unanchored directory changes | `./scripts/verify-shell.sh` |
+| **Workflow Prompts** | `_prompts/NN-NAME.md`<br>`_prompts/INDEX.md`<br>`_prompts/README.md` | out-of-order numbering<br>referencing nonexistent files | `rg -n "NN-\|INDEX" _prompts` |
+| **HTML Test Fixtures** | `doc-examples/*.html` | root-level test fixtures | manual / render verification |
 
-## Common Change Recipes
-
-### Add API Endpoint
-
-- Check:
-  - `api/main.go`
-  - `infra/cloudformation.yaml`
-  - `scripts/deploy.sh`
-- Verify:
-  - `./scripts/verify-api.sh`
-  - `./scripts/verify-infra.sh`
-  - optional: `./scripts/verify-deployed-api.sh`
-
-### Update Auth Flow
-
-- Check:
-  - `auth/authorizer.go`
-  - `auth/api-keys.go`
-  - `infra/cloudformation.yaml`
-  - `dashboard/login.html`
-  - `dashboard/callback.html`
-  - `dashboard/app.js`
-- Verify:
-  - `./scripts/verify-auth.sh`
-  - `./scripts/verify-infra.sh`
-  - manual dashboard/auth flow from `docs/VERIFICATION.md`
-
-### Edit Dashboard Page
-
-- Check:
-  - `dashboard/index.html`
-  - `dashboard/login.html`
-  - `dashboard/callback.html`
-  - `dashboard/app.js`
-- Verify:
-  - manual dashboard checks from `docs/VERIFICATION.md`
-
-### Change Landing Content
-
-- Check:
-  - `landing/index.html`
-- Verify:
-  - manual landing checks from `docs/VERIFICATION.md`
-
-
-## Use Existing Files Instead Of Creating New Ones
-
-- Deploy behavior:
-  - update `scripts/deploy.sh` or `scripts/deploy-landing.sh`
-- Verification behavior:
-  - update `scripts/verify-*.sh` or `docs/VERIFICATION.md`
-- Infra behavior:
-  - update `infra/cloudformation.yaml`
-- Agent workflow:
-  - update `_prompts/` and `docs/AGENT-RULES.md`
+> [!TIP]
+> Run `./scripts/verify-all.sh` to run the complete suite of offline checks across all surfaces in one command.
+> For detailed step-by-step recipes on modifying these areas, see `docs/change-recipes.md`.
+> For repository placement rules and forbidden patterns, see `docs/AGENT-RULES.md`.

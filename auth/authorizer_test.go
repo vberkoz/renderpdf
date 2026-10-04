@@ -78,4 +78,3 @@ func TestGetUserBillingTierDefault(t *testing.T) {
 		t.Fatalf("getUserBillingTier(\"\") = %q, want \"free\"", tier)
 	}
 }
-

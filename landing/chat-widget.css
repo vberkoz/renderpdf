@@ -680,6 +680,34 @@
   cursor: not-allowed;
 }
 
+.rpdf-send-btn.is-processing,
+.rpdf-send-btn[aria-busy="true"] {
+  opacity: 0.85;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.rpdf-send-btn.is-processing svg,
+.rpdf-send-btn[aria-busy="true"] svg {
+  display: none;
+}
+
+.rpdf-send-btn.is-processing::after,
+.rpdf-send-btn[aria-busy="true"]::after {
+  content: "";
+  display: block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: rpdf-button-spin 0.65s linear infinite;
+}
+
+@keyframes rpdf-button-spin {
+  to { transform: rotate(360deg); }
+}
+
 .rpdf-send-btn svg {
   width: 16px;
   height: 16px;

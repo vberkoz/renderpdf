@@ -12,12 +12,14 @@ global.localStorage = {
 
 // Create a valid unexpired admin JWT
 const mockHeader = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
-const mockPayload = Buffer.from(JSON.stringify({
-  sub: 'admin-123',
-  email: 'vberkoz@gmail.com',
-  'cognito:groups': ['Admins'],
-  exp: Math.floor(Date.now() / 1000) + 3600,
-})).toString('base64url');
+const mockPayload = Buffer.from(
+  JSON.stringify({
+    sub: 'admin-123',
+    email: 'vberkoz@gmail.com',
+    'cognito:groups': ['Admins'],
+    exp: Math.floor(Date.now() / 1000) + 3600,
+  })
+).toString('base64url');
 const mockToken = `${mockHeader}.${mockPayload}.mockSignature`;
 mockStorage.set('id_token', mockToken);
 
@@ -47,7 +49,10 @@ global.window = {
   },
   removeEventListener: (type, cb) => {
     if (!windowListeners.has(type)) return;
-    windowListeners.set(type, windowListeners.get(type).filter((fn) => fn !== cb));
+    windowListeners.set(
+      type,
+      windowListeners.get(type).filter((fn) => fn !== cb)
+    );
   },
   setTimeout: global.setTimeout,
   clearTimeout: global.clearTimeout,
@@ -92,17 +97,25 @@ function createMockElement(tagName = 'div') {
     },
     classList: {
       _classes: new Set(),
-      add(cls) { this._classes.add(cls); },
-      remove(cls) { this._classes.delete(cls); },
+      add(cls) {
+        this._classes.add(cls);
+      },
+      remove(cls) {
+        this._classes.delete(cls);
+      },
       toggle(cls, force) {
         if (force === true) this._classes.add(cls);
         else if (force === false) this._classes.delete(cls);
         else if (this._classes.has(cls)) this._classes.delete(cls);
         else this._classes.add(cls);
       },
-      contains(cls) { return this._classes.has(cls); },
+      contains(cls) {
+        return this._classes.has(cls);
+      },
     },
-    getAttribute(name) { return attributes.get(name) ?? null; },
+    getAttribute(name) {
+      return attributes.get(name) ?? null;
+    },
     setAttribute(name, val) {
       attributes.set(name, String(val));
       if (name.startsWith('data-')) {
@@ -131,7 +144,10 @@ function createMockElement(tagName = 'div') {
     },
     removeEventListener(event, cb) {
       if (!listeners.has(event)) return;
-      listeners.set(event, listeners.get(event).filter((fn) => fn !== cb));
+      listeners.set(
+        event,
+        listeners.get(event).filter((fn) => fn !== cb)
+      );
     },
     dispatchEvent(event) {
       const type = typeof event === 'string' ? event : event.type;
@@ -165,7 +181,7 @@ function createMockElement(tagName = 'div') {
     },
     get textContent() {
       if (this._children && this._children.length > 0) {
-        return this._children.map((c) => c.isText ? c.text : (c.textContent || '')).join('');
+        return this._children.map((c) => (c.isText ? c.text : c.textContent || '')).join('');
       }
       return innerHtml;
     },
@@ -253,7 +269,10 @@ function parseMockElements(html) {
         const attrVal = attrMatch[2] ?? '';
         el.setAttribute(attrName, attrVal);
         if (attrName === 'class') {
-          attrVal.split(/\s+/).filter(Boolean).forEach((c) => el.classList.add(c));
+          attrVal
+            .split(/\s+/)
+            .filter(Boolean)
+            .forEach((c) => el.classList.add(c));
         }
         if (attrName === 'value') {
           el.value = attrVal;
@@ -285,7 +304,10 @@ function findSelector(parent, selector) {
 
 function findAllSelectors(parent, selector) {
   if (selector.includes(',')) {
-    const parts = selector.split(',').map((s) => s.trim()).filter(Boolean);
+    const parts = selector
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
     const set = new Set();
     for (const part of parts) {
       for (const el of findAllSelectors(parent, part)) {
@@ -330,7 +352,10 @@ global.document = {
   },
   removeEventListener: (type, cb) => {
     if (!documentListeners.has(type)) return;
-    documentListeners.set(type, documentListeners.get(type).filter((fn) => fn !== cb));
+    documentListeners.set(
+      type,
+      documentListeners.get(type).filter((fn) => fn !== cb)
+    );
   },
   dispatchEvent: (event) => {
     const type = typeof event === 'string' ? event : event.type;
@@ -480,11 +505,17 @@ test('initUserDirectoryTab renders toolbar, table, badges, and progress bar', as
   assert.ok(html.includes('badge-starter'), 'Starter tier badge rendered');
   assert.ok(html.includes('badge-pro'), 'Pro tier badge rendered');
   assert.ok(html.includes('badge-free'), 'Free tier badge rendered');
-  assert.ok(html.includes('admin-tier-override'), 'Manual override asterisk rendered for overridden user');
+  assert.ok(
+    html.includes('admin-tier-override'),
+    'Manual override asterisk rendered for overridden user'
+  );
 
   // 5. Status badges
   assert.ok(html.includes('badge-status-active'), 'Active status badge rendered');
-  assert.ok(html.includes('badge-status-past-due') || html.includes('badge-status-past_due'), 'Past Due badge rendered');
+  assert.ok(
+    html.includes('badge-status-past-due') || html.includes('badge-status-past_due'),
+    'Past Due badge rendered'
+  );
   assert.ok(html.includes('badge-status-canceled'), 'Canceled badge rendered');
 
   // 6. Quota progress bar
@@ -498,7 +529,10 @@ test('initUserDirectoryTab renders toolbar, table, badges, and progress bar', as
 
   // 8. Inspect action buttons
   assert.ok(html.includes('admin-btn-inspect'), 'Inspect action button rendered');
-  assert.ok(html.includes('data-user-id="c1f7b76e-3c2e-4b21-8273-df3e18a992bc"'), 'data-user-id attribute set on Inspect button');
+  assert.ok(
+    html.includes('data-user-id="c1f7b76e-3c2e-4b21-8273-df3e18a992bc"'),
+    'data-user-id attribute set on Inspect button'
+  );
 
   // 9. Pagination controls
   assert.ok(html.includes('Showing <strong>3</strong> users'), 'Shows 3 users count');
@@ -538,7 +572,9 @@ test('typing in search bar triggers API request after 300ms debounce', async () 
 
   // Now the debounced search request must have been dispatched
   assert.strictEqual(fetchCalls.length, 2);
-  assert.ok(fetchCalls[1].includes('q=alice%40example.com') || fetchCalls[1].includes('q=alice@example.com'));
+  assert.ok(
+    fetchCalls[1].includes('q=alice%40example.com') || fetchCalls[1].includes('q=alice@example.com')
+  );
 });
 
 test('clicking dropdown filter immediately refilters the table', async () => {
@@ -757,7 +793,10 @@ test('openUserDossier fetches user dossier from API and renders all 6 sub-panels
   assert.ok(html.includes('2026'), 'Created date rendered');
 
   // Card B: Plan & Billing
-  assert.ok(html.includes('Plan &amp; Billing') || html.includes('Plan & Billing'), 'Card B title rendered');
+  assert.ok(
+    html.includes('Plan &amp; Billing') || html.includes('Plan & Billing'),
+    'Card B title rendered'
+  );
   assert.ok(html.includes('RenderPDF Starter'), 'Plan name rendered');
   assert.ok(html.includes('badge-starter'), 'Starter tier badge rendered');
   assert.ok(html.includes('Paddle Billing'), 'Provider rendered');
@@ -774,7 +813,10 @@ test('openUserDossier fetches user dossier from API and renders all 6 sub-panels
   // Card D: API Keys
   assert.ok(html.includes('Active API Keys (2)'), 'Card D title rendered');
   assert.ok(html.includes('Production Backend'), 'Key 1 name rendered');
-  assert.ok(html.includes('key_9f82d1c3a4…') || html.includes('key_9f82d1c3a4'), 'Key 1 masked ID rendered');
+  assert.ok(
+    html.includes('key_9f82d1c3a4…') || html.includes('key_9f82d1c3a4'),
+    'Key 1 masked ID rendered'
+  );
   assert.ok(html.includes('Legacy Staging Key'), 'Key 2 name rendered');
   assert.ok(html.includes('Revoke'), 'Revoke button rendered for active key');
 
@@ -782,12 +824,18 @@ test('openUserDossier fetches user dossier from API and renders all 6 sub-panels
   assert.ok(html.includes('Recent Render Telemetry (2)'), 'Card E title rendered');
   assert.ok(html.includes('200 OK'), 'Success status rendered');
   assert.ok(html.includes('482 ms'), 'Duration rendered');
-  assert.ok(html.includes('180.6 KB') || html.includes('184.9 KB') || html.includes('KB'), 'Size rendered');
+  assert.ok(
+    html.includes('180.6 KB') || html.includes('184.9 KB') || html.includes('KB'),
+    'Size rendered'
+  );
   assert.ok(html.includes('NavigationTimeout'), 'Error type rendered for failed request');
 
   // Card F: Danger Zone
   assert.ok(html.includes('Danger Zone'), 'Card F title rendered');
-  assert.ok(html.includes('id="admin-dossier-suspend-user-btn"'), 'Suspend Account button rendered');
+  assert.ok(
+    html.includes('id="admin-dossier-suspend-user-btn"'),
+    'Suspend Account button rendered'
+  );
 });
 
 test('drawer keyboard focus trap and Escape key closes drawer and restores focus', async () => {
@@ -821,7 +869,11 @@ test('drawer keyboard focus trap and Escape key closes drawer and restores focus
   assert.strictEqual(drawer.hasAttribute('hidden'), true, 'Drawer closed after Escape');
 
   // Focus should be restored to Inspect button
-  assert.strictEqual(global.document.activeElement, mockInspectBtn, 'Focus restored to Inspect button');
+  assert.strictEqual(
+    global.document.activeElement,
+    mockInspectBtn,
+    'Focus restored to Inspect button'
+  );
 });
 
 test('backdrop click and close button close the drawer', async () => {
@@ -964,7 +1016,8 @@ test('adminFetch seamlessly falls back from /api/v1/admin/users to /api/v1/analy
         ok: false,
         status: 403,
         json: async () => ({
-          message: "Invalid key=value pair (missing equal-sign) in Authorization header (hashed with SHA-256 and encoded with Base64): '...'"
+          message:
+            "Invalid key=value pair (missing equal-sign) in Authorization header (hashed with SHA-256 and encoded with Base64): '...'",
         }),
       };
     }
@@ -985,7 +1038,7 @@ test('adminFetch seamlessly falls back from /api/v1/admin/users to /api/v1/analy
             quotaMonth: '2026-09',
             activeKeys: 1,
             createdAt: '2026-09-01T12:00:00Z',
-          }
+          },
         ],
         nextCursor: null,
       }),

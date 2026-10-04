@@ -2,49 +2,37 @@
 
 ## Purpose
 
-- Guide auth-related verification without overstating current automation.
-- Keep auth testing aligned with the real coverage documented in `docs/VERIFICATION.md`.
+- Verify authentication flows, authorizer logic, and API key workflows against documented test coverage.
 
 ## Prerequisites
 
-- Complete `09-AUTH-LAMBDA.md`, `10-DASHBOARD.md`, and `11-AUTH-DEPLOYMENT.md`.
-- Read `/Users/basilsergius/projects/renderpdf/docs/VERIFICATION.md`.
+- Read `docs/VERIFICATION.md` if reviewing auth test coverage.
+- Inherits baseline rules and idempotency requirements from `_prompts/INDEX.md`.
 
 ## Files/Folders In Scope
 
-- `/Users/basilsergius/projects/renderpdf/docs/VERIFICATION.md`
-- `/Users/basilsergius/projects/renderpdf/scripts/verify-auth.sh`
-- `/Users/basilsergius/projects/renderpdf/scripts/verify-deployed-api.sh`
-- `/Users/basilsergius/projects/renderpdf/dashboard/`
+- `scripts/verify-auth.sh`
+- `auth/utils_test.go`
+- `docs/VERIFICATION.md`
 
 ## Files/Folders Out Of Scope
 
-- Invented `test-auth.sh` or `test-dashboard.sh` scripts unless the task explicitly asks to author them
-- Claims of automated auth coverage that do not exist
+- Modifying auth production logic unless fixing failing tests.
+- Inventing uncommitted mock scripts.
 
 ## Implementation Task
 
-1. Run the real automated auth-related checks that exist today.
-2. Use manual checklists for dashboard/OAuth flow where automation is missing.
-3. If new auth coverage is requested, add it under `scripts/` and document it in `docs/VERIFICATION.md`.
+1. Run canonical auth verification suites.
+2. Verify authorizer and API key token hashing via Go unit tests.
+3. Document any newly identified testing gaps in `docs/VERIFICATION.md`.
 
 ## Verification Steps
 
-Automated:
-
 ```bash
-cd /Users/basilsergius/projects/renderpdf && ./scripts/verify-auth.sh
-cd /Users/basilsergius/projects/renderpdf && ./scripts/verify-deployed-api.sh
+./scripts/verify-auth.sh
 ```
-
-Manual dashboard/auth checks:
-
-- login redirect starts correctly
-- callback stores tokens and redirects
-- key generation works
-- key revoke works
-- valid API key can call the deployed API
 
 ## Stop Conditions
 
-- Stop if the task expects committed auth E2E scripts that are not present; document the missing coverage instead.
+- Inherits universal stop conditions from `_prompts/INDEX.md`.
+- Stop if testing requires live AWS credentials during an offline verification run.

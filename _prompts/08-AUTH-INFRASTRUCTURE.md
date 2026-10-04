@@ -2,44 +2,37 @@
 
 ## Purpose
 
-- Maintain Cognito, API-key storage, and authorizer-related infrastructure in the canonical CloudFormation template.
+- Maintain Cognito user pool, API-key DynamoDB tables, and authorizer infra configurations.
 
 ## Prerequisites
 
-- Complete `03-INFRASTRUCTURE.md`.
-- Read `/Users/basilsergius/projects/renderpdf/auth/README.md`.
+- Read `auth/README.md` if reviewing auth architecture requirements.
+- Inherits baseline rules and idempotency requirements from `_prompts/INDEX.md`.
 
 ## Files/Folders In Scope
 
-- `/Users/basilsergius/projects/renderpdf/infra/cloudformation.yaml`
-- `/Users/basilsergius/projects/renderpdf/infra/parameters.json.example`
+- `infra/cloudformation.yaml`
+- `infra/parameters.json.example`
 
 ## Files/Folders Out Of Scope
 
-- `auth/` Lambda implementation details
-- dashboard static page code
-- secret values in `parameters.json` unless explicitly requested
+- Go Lambda code under `auth/`.
+- Frontend dashboard assets.
+- Production secrets in `parameters.json`.
 
 ## Implementation Task
 
-1. Keep auth infra changes in `infra/cloudformation.yaml`.
-2. Preserve the current Cognito + Google OAuth + API-key table pattern unless the task explicitly changes it.
-3. Keep stack outputs aligned with downstream scripts and docs.
-4. Prefer updating the existing authorizer/API-key resource chain over creating a parallel auth system.
+1. Keep Cognito User Pool, Client, and Authorizer definitions in `infra/cloudformation.yaml`.
+2. Maintain DynamoDB schema definitions for API keys and quotas.
+3. Ensure stack outputs remain stable for frontend and authorizer consumers.
 
 ## Verification Steps
 
 ```bash
-cd /Users/basilsergius/projects/renderpdf && ./scripts/verify-infra.sh
-```
-
-Optional, AWS-backed:
-
-```bash
-aws cognito-idp describe-user-pool --user-pool-id <pool-id>
+./scripts/verify-infra.sh
 ```
 
 ## Stop Conditions
 
-- Stop if the task requires writing real OAuth secrets into tracked files.
-- Stop if the change would replace the current auth model rather than updating it.
+- Inherits universal stop conditions from `_prompts/INDEX.md`.
+- Stop if changes modify OAuth callback URLs without updating both CloudFormation and dashboard configurations.

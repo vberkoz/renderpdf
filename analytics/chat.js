@@ -20,10 +20,14 @@ try {
   ({ BedrockRuntimeClient, ConverseCommand } = require('@aws-sdk/client-bedrock-runtime'));
 } catch {
   BedrockRuntimeClient = class MockBedrockClient {
-    async send() { return {}; }
+    async send() {
+      return {};
+    }
   };
   ConverseCommand = class MockConverseCommand {
-    constructor(input) { this.input = input; }
+    constructor(input) {
+      this.input = input;
+    }
   };
 }
 
@@ -32,8 +36,10 @@ const BEDROCK_MODEL_ID = process.env.BEDROCK_MODEL_ID || 'amazon.nova-micro-v1:0
 const BEDROCK_REGION = process.env.BEDROCK_REGION || process.env.AWS_REGION || 'us-east-1';
 const CHAT_TTL_SECONDS = 30 * 86400; // 30-day TTL
 
-const OUT_OF_SCOPE_REGEX = /\b(partner(?:ship|s)?|partner\s*program|reseller|affiliate|sponsor(?:ship)?|invest(?:or|ment|ing)?|acquisition|custom\s*contract|sales\s*rep)\b/i;
-const HALLUCINATION_REGEX = /\b(reach out to our sales|contact our sales|sales team at|email our sales|renderpdf\.com|partner program|partner section)\b/i;
+const OUT_OF_SCOPE_REGEX =
+  /\b(partner(?:ship|s)?|partner\s*program|reseller|affiliate|sponsor(?:ship)?|invest(?:or|ment|ing)?|acquisition|custom\s*contract|sales\s*rep)\b/i;
+const HALLUCINATION_REGEX =
+  /\b(reach out to our sales|contact our sales|sales team at|email our sales|renderpdf\.com|partner program|partner section)\b/i;
 
 let customBedrockClient = null;
 let customDdbClient = null;
@@ -256,7 +262,11 @@ function parseModelResponse(text) {
 
   const isEscalate = /\[DECISION:\s*ESCALATE\]/i.test(cleaned);
   const reasonMatch = cleaned.match(/\[ESCALATION_REASON:\s*([a-zA-Z0-9_]+)\]/i);
-  const escalationReason = reasonMatch ? reasonMatch[1].toLowerCase() : (isEscalate ? 'explicit_request' : null);
+  const escalationReason = reasonMatch
+    ? reasonMatch[1].toLowerCase()
+    : isEscalate
+      ? 'explicit_request'
+      : null;
 
   let cleanReply = cleaned
     .replace(/\[DECISION:\s*[^\]]+\]/gi, '')
@@ -264,7 +274,10 @@ function parseModelResponse(text) {
     .trim();
 
   // Normalize any hallucinated bare renderpdf.com domains to canonical renderpdf.vberkoz.com
-  cleanReply = cleanReply.replace(/https?:\/\/(?:www\.)?renderpdf\.com(?!\.vberkoz)/gi, 'https://renderpdf.vberkoz.com');
+  cleanReply = cleanReply.replace(
+    /https?:\/\/(?:www\.)?renderpdf\.com(?!\.vberkoz)/gi,
+    'https://renderpdf.vberkoz.com'
+  );
 
   return {
     decision: isEscalate ? '[DECISION: ESCALATE]' : '[DECISION: ANSWER]',
@@ -326,10 +339,12 @@ function unmarshalMessage(item) {
     content: item.content?.S || '',
     timestamp: item.timestamp?.N ? Number.parseInt(item.timestamp.N, 10) : 0,
     escalated: item.escalated?.BOOL ?? false,
-    tokens: item.tokens?.M ? {
-      input: Number.parseInt(item.tokens.M.input?.N || '0', 10),
-      output: Number.parseInt(item.tokens.M.output?.N || '0', 10),
-    } : null,
+    tokens: item.tokens?.M
+      ? {
+          input: Number.parseInt(item.tokens.M.input?.N || '0', 10),
+          output: Number.parseInt(item.tokens.M.output?.N || '0', 10),
+        }
+      : null,
   };
 }
 
@@ -338,14 +353,16 @@ async function fetchSessionHistory(sessionId) {
   const ddb = getDdbClient();
 
   try {
-    const res = await ddb.send(new QueryCommand({
-      TableName: TABLE_NAME,
-      KeyConditionExpression: 'requestId = :rid',
-      ExpressionAttributeValues: {
-        ':rid': { S: `CHAT#${sessionId}` },
-      },
-      ScanIndexForward: true,
-    }));
+    const res = await ddb.send(
+      new QueryCommand({
+        TableName: TABLE_NAME,
+        KeyConditionExpression: 'requestId = :rid',
+        ExpressionAttributeValues: {
+          ':rid': { S: `CHAT#${sessionId}` },
+        },
+        ScanIndexForward: true,
+      })
+    );
 
     const items = res?.Items || [];
     let session = null;
@@ -415,12 +432,22 @@ async function persistChatTurn({
   const nowIso = now.toISOString();
   const expiresAt = Math.floor(nowEpochMs / 1000) + CHAT_TTL_SECONDS;
 
-  const visitorEmail = visitorContext.email || extractEmailFromText(userMessage) || existingSession?.visitorEmail || null;
+  const visitorEmail =
+    visitorContext.email ||
+    extractEmailFromText(userMessage) ||
+    existingSession?.visitorEmail ||
+    null;
   const customerId = visitorContext.userId || existingSession?.customerId || null;
   const plan = visitorContext.plan || existingSession?.plan || 'anonymous';
-  const source = visitorContext.source || (visitorContext.url ? 'landing' : (existingSession?.source || 'landing'));
+  const source =
+    visitorContext.source ||
+    (visitorContext.url ? 'landing' : existingSession?.source || 'landing');
 
-  const status = escalated ? 'escalated' : (existingSession?.status === 'escalated' ? 'escalated' : 'active');
+  const status = escalated
+    ? 'escalated'
+    : existingSession?.status === 'escalated'
+      ? 'escalated'
+      : 'active';
   const finalEscalationReason = escalationReason || existingSession?.escalationReason || null;
   const messageCount = (previousMessages?.length || 0) + 2;
 
@@ -446,7 +473,8 @@ async function persistChatTurn({
   if (visitorEmail) sessionItem.visitorEmail = { S: visitorEmail };
   if (customerId) sessionItem.customerId = { S: customerId };
   if (finalEscalationReason) sessionItem.escalationReason = { S: finalEscalationReason };
-  if (status === 'escalated') sessionItem.escalatedAt = { S: existingSession?.escalatedAt || nowIso };
+  if (status === 'escalated')
+    sessionItem.escalatedAt = { S: existingSession?.escalatedAt || nowIso };
 
   // 2. User Message Item (SK = userTimestamp)
   const userMsgId = 'msg_' + crypto.randomUUID().replace(/-/g, '').slice(0, 12);
@@ -519,16 +547,20 @@ async function handleChatMessage(event) {
     body = event;
   }
 
-  const message = (body.message && typeof body.message === 'string') ? body.message.trim() : '';
+  const message = body.message && typeof body.message === 'string' ? body.message.trim() : '';
   if (!message) {
     return chatResponse(400, { error: 'Message is required' });
   }
 
-  const sessionId = (body.sessionId && String(body.sessionId).trim()) || ('cs_' + crypto.randomUUID().replace(/-/g, '').slice(0, 16));
-  const visitorContext = (body.visitorContext && typeof body.visitorContext === 'object') ? body.visitorContext : {};
+  const sessionId =
+    (body.sessionId && String(body.sessionId).trim()) ||
+    'cs_' + crypto.randomUUID().replace(/-/g, '').slice(0, 16);
+  const visitorContext =
+    body.visitorContext && typeof body.visitorContext === 'object' ? body.visitorContext : {};
 
   // 1. Fetch recent history from DynamoDB
-  const { session: existingSession, messages: historyMessages } = await fetchSessionHistory(sessionId);
+  const { session: existingSession, messages: historyMessages } =
+    await fetchSessionHistory(sessionId);
 
   // 2. Prepare Bedrock Converse payload
   const systemPrompt = buildSystemPrompt({ visitorContext });
@@ -561,7 +593,8 @@ async function handleChatMessage(event) {
       details: { sessionId, message: message.slice(0, 150) },
     }).catch(() => {});
     // Graceful fallback if Bedrock call fails
-    rawOutputText = '[DECISION: ESCALATE] [ESCALATION_REASON: complex_bug] I am having trouble processing your request right now. I have notified our engineering team. What is the best email address for our lead operator to reach you at?';
+    rawOutputText =
+      '[DECISION: ESCALATE] [ESCALATION_REASON: complex_bug] I am having trouble processing your request right now. I have notified our engineering team. What is the best email address for our lead operator to reach you at?';
   }
 
   // 4. Parse model response & decision tags
@@ -570,7 +603,8 @@ async function handleChatMessage(event) {
   // Deterministic guardrails: detect out-of-scope business inquiries or hallucinated sales advice
   const isOutOfScope = OUT_OF_SCOPE_REGEX.test(message);
   const isHallucinatedSales = HALLUCINATION_REGEX.test(parsed.reply);
-  const effectiveEmail = visitorContext.email || extractEmailFromText(message) || existingSession?.visitorEmail || null;
+  const effectiveEmail =
+    visitorContext.email || extractEmailFromText(message) || existingSession?.visitorEmail || null;
 
   if (!parsed.escalated && (isOutOfScope || isHallucinatedSales)) {
     parsed.escalated = true;
@@ -613,7 +647,9 @@ async function handleChatMessage(event) {
       visitorEmail: effectiveEmail || null,
       customerId: visitorContext.userId || existingSession?.customerId || null,
       plan: visitorContext.plan || existingSession?.plan || 'anonymous',
-      source: visitorContext.source || (visitorContext.url ? 'landing' : (existingSession?.source || 'landing')),
+      source:
+        visitorContext.source ||
+        (visitorContext.url ? 'landing' : existingSession?.source || 'landing'),
       sourceIp: event?.requestContext?.identity?.sourceIp || null,
     };
     const recentMessages = [
@@ -648,12 +684,19 @@ function isAuthorizedAdmin(request) {
   const groups = claims['cognito:groups'];
   if (Array.isArray(groups) && groups.includes('Admins')) return true;
   if (typeof groups === 'string') {
-    const list = groups.replace(/[\[\]"']/g, '').split(',').map((s) => s.trim());
+    const list = groups
+      .replace(/[\[\]"']/g, '')
+      .split(',')
+      .map((s) => s.trim());
     if (list.includes('Admins')) return true;
   }
 
-  const email = String(claims.email || '').trim().toLowerCase();
-  const allowedEmail = String(process.env.STATS_ALLOWED_EMAIL || 'vberkoz@gmail.com').trim().toLowerCase();
+  const email = String(claims.email || '')
+    .trim()
+    .toLowerCase();
+  const allowedEmail = String(process.env.STATS_ALLOWED_EMAIL || 'vberkoz@gmail.com')
+    .trim()
+    .toLowerCase();
   if (email && allowedEmail && email === allowedEmail) return true;
 
   return false;
@@ -668,7 +711,9 @@ async function listAdminChats(event) {
   }
 
   const qs = event?.queryStringParameters || {};
-  const statusParam = String(qs.status || 'all').toLowerCase().trim();
+  const statusParam = String(qs.status || 'all')
+    .toLowerCase()
+    .trim();
   const limitParam = Math.min(Math.max(Number.parseInt(qs.limit, 10) || 50, 1), 100);
 
   const ddb = getDdbClient();
@@ -683,19 +728,23 @@ async function listAdminChats(event) {
 
     if (statusParam === 'all') {
       const queries = validStatuses.map((st) =>
-        ddb.send(new QueryCommand({
-          TableName: TABLE_NAME,
-          IndexName: 'AnalyticsDateIndex',
-          KeyConditionExpression: 'GSI1PK = :pk',
-          ExpressionAttributeValues: {
-            ':pk': { S: `CHAT_STATUS#${st}` },
-          },
-          ScanIndexForward: false,
-          Limit: limitParam,
-        })).catch((err) => {
-          console.warn(`Failed to query chats for status ${st}:`, err);
-          return { Items: [] };
-        })
+        ddb
+          .send(
+            new QueryCommand({
+              TableName: TABLE_NAME,
+              IndexName: 'AnalyticsDateIndex',
+              KeyConditionExpression: 'GSI1PK = :pk',
+              ExpressionAttributeValues: {
+                ':pk': { S: `CHAT_STATUS#${st}` },
+              },
+              ScanIndexForward: false,
+              Limit: limitParam,
+            })
+          )
+          .catch((err) => {
+            console.warn(`Failed to query chats for status ${st}:`, err);
+            return { Items: [] };
+          })
       );
 
       const results = await Promise.all(queries);
@@ -705,19 +754,25 @@ async function listAdminChats(event) {
         }
       }
     } else if (validStatuses.includes(statusParam)) {
-      const res = await ddb.send(new QueryCommand({
-        TableName: TABLE_NAME,
-        IndexName: 'AnalyticsDateIndex',
-        KeyConditionExpression: 'GSI1PK = :pk',
-        ExpressionAttributeValues: {
-          ':pk': { S: `CHAT_STATUS#${statusParam}` },
-        },
-        ScanIndexForward: false,
-        Limit: limitParam,
-      }));
+      const res = await ddb.send(
+        new QueryCommand({
+          TableName: TABLE_NAME,
+          IndexName: 'AnalyticsDateIndex',
+          KeyConditionExpression: 'GSI1PK = :pk',
+          ExpressionAttributeValues: {
+            ':pk': { S: `CHAT_STATUS#${statusParam}` },
+          },
+          ScanIndexForward: false,
+          Limit: limitParam,
+        })
+      );
       items = res?.Items || [];
     } else {
-      return chatResponse(400, { error: 'Invalid status filter. Allowed: all, escalated, active, resolved' }, 'admin');
+      return chatResponse(
+        400,
+        { error: 'Invalid status filter. Allowed: all, escalated, active, resolved' },
+        'admin'
+      );
     }
 
     const chats = items.map(unmarshalSession).filter(Boolean);
@@ -758,10 +813,15 @@ async function getAdminChatTranscript(event, explicitSessionId) {
   }
 
   const routeParam = event?.queryStringParameters?.route || '';
-  const routePath = routeParam ? (routeParam.startsWith('/') ? routeParam : `/${routeParam}`) : (event?.path || event?.resource || '');
+  const routePath = routeParam
+    ? routeParam.startsWith('/')
+      ? routeParam
+      : `/${routeParam}`
+    : event?.path || event?.resource || '';
   const match = routePath.match(/\/(?:admin\/)?chats\/([^/?#]+)$/);
   const sessionIdParam = explicitSessionId || event?.pathParameters?.sessionId;
-  const sessionId = (sessionIdParam && sessionIdParam !== '{sessionId}') ? sessionIdParam : (match ? match[1] : null);
+  const sessionId =
+    sessionIdParam && sessionIdParam !== '{sessionId}' ? sessionIdParam : match ? match[1] : null;
 
   if (!sessionId || sessionId === 'chats') {
     return chatResponse(400, { error: 'sessionId is required' }, 'admin');
@@ -769,14 +829,16 @@ async function getAdminChatTranscript(event, explicitSessionId) {
 
   const ddb = getDdbClient();
   try {
-    const res = await ddb.send(new QueryCommand({
-      TableName: TABLE_NAME,
-      KeyConditionExpression: 'requestId = :rid',
-      ExpressionAttributeValues: {
-        ':rid': { S: `CHAT#${sessionId}` },
-      },
-      ScanIndexForward: true,
-    }));
+    const res = await ddb.send(
+      new QueryCommand({
+        TableName: TABLE_NAME,
+        KeyConditionExpression: 'requestId = :rid',
+        ExpressionAttributeValues: {
+          ':rid': { S: `CHAT#${sessionId}` },
+        },
+        ScanIndexForward: true,
+      })
+    );
 
     const items = res?.Items || [];
     if (!items.length) {
@@ -799,36 +861,44 @@ async function getAdminChatTranscript(event, explicitSessionId) {
 
     if (session.unreadByAdmin) {
       session.unreadByAdmin = false;
-      ddb.send(new UpdateItemCommand({
-        TableName: TABLE_NAME,
-        Key: {
-          requestId: { S: `CHAT#${sessionId}` },
-          timestamp: { N: '0' },
-        },
-        UpdateExpression: 'SET unreadByAdmin = :f',
-        ExpressionAttributeValues: {
-          ':f': { BOOL: false },
-        },
-      })).catch((err) => console.warn('Failed to update unreadByAdmin flag:', err));
+      ddb
+        .send(
+          new UpdateItemCommand({
+            TableName: TABLE_NAME,
+            Key: {
+              requestId: { S: `CHAT#${sessionId}` },
+              timestamp: { N: '0' },
+            },
+            UpdateExpression: 'SET unreadByAdmin = :f',
+            ExpressionAttributeValues: {
+              ':f': { BOOL: false },
+            },
+          })
+        )
+        .catch((err) => console.warn('Failed to update unreadByAdmin flag:', err));
     }
 
-    return chatResponse(200, {
-      sessionId: session.sessionId,
-      status: session.status,
-      escalationReason: session.escalationReason,
-      visitorEmail: session.visitorEmail,
-      customerId: session.customerId,
-      plan: session.plan,
-      source: session.source,
-      unreadByAdmin: false,
-      messages: messages.map((m) => ({
-        messageId: m.messageId,
-        role: m.role,
-        sender: m.sender,
-        content: m.content,
-        timestamp: m.timestamp,
-      })),
-    }, 'admin');
+    return chatResponse(
+      200,
+      {
+        sessionId: session.sessionId,
+        status: session.status,
+        escalationReason: session.escalationReason,
+        visitorEmail: session.visitorEmail,
+        customerId: session.customerId,
+        plan: session.plan,
+        source: session.source,
+        unreadByAdmin: false,
+        messages: messages.map((m) => ({
+          messageId: m.messageId,
+          role: m.role,
+          sender: m.sender,
+          content: m.content,
+          timestamp: m.timestamp,
+        })),
+      },
+      'admin'
+    );
   } catch (err) {
     console.error('Failed to get chat transcript:', err);
     return chatResponse(500, { error: 'Failed to get chat transcript' }, 'admin');
@@ -845,10 +915,15 @@ async function postAdminChatReply(event, explicitSessionId) {
   }
 
   const routeParam = event?.queryStringParameters?.route || '';
-  const routePath = routeParam ? (routeParam.startsWith('/') ? routeParam : `/${routeParam}`) : (event?.path || event?.resource || '');
+  const routePath = routeParam
+    ? routeParam.startsWith('/')
+      ? routeParam
+      : `/${routeParam}`
+    : event?.path || event?.resource || '';
   const match = routePath.match(/\/(?:admin\/)?chats\/([^/?#]+)\/reply$/);
   const sessionIdParam = explicitSessionId || event?.pathParameters?.sessionId;
-  const sessionId = (sessionIdParam && sessionIdParam !== '{sessionId}') ? sessionIdParam : (match ? match[1] : null);
+  const sessionId =
+    sessionIdParam && sessionIdParam !== '{sessionId}' ? sessionIdParam : match ? match[1] : null;
 
   if (!sessionId || sessionId === 'chats') {
     return chatResponse(400, { error: 'sessionId is required' }, 'admin');
@@ -856,7 +931,11 @@ async function postAdminChatReply(event, explicitSessionId) {
 
   let body = {};
   if (typeof event.body === 'string') {
-    try { body = JSON.parse(event.body); } catch { return chatResponse(400, { error: 'Invalid JSON body' }, 'admin'); }
+    try {
+      body = JSON.parse(event.body);
+    } catch {
+      return chatResponse(400, { error: 'Invalid JSON body' }, 'admin');
+    }
   } else if (event.body && typeof event.body === 'object') {
     body = event.body;
   }
@@ -869,13 +948,15 @@ async function postAdminChatReply(event, explicitSessionId) {
   const ddb = getDdbClient();
 
   // 1. Get session metadata to verify existence and get visitorEmail
-  const sessionRes = await ddb.send(new GetItemCommand({
-    TableName: TABLE_NAME,
-    Key: {
-      requestId: { S: `CHAT#${sessionId}` },
-      timestamp: { N: '0' },
-    },
-  }));
+  const sessionRes = await ddb.send(
+    new GetItemCommand({
+      TableName: TABLE_NAME,
+      Key: {
+        requestId: { S: `CHAT#${sessionId}` },
+        timestamp: { N: '0' },
+      },
+    })
+  );
 
   if (!sessionRes?.Item) {
     return chatResponse(404, { error: 'Chat session not found' }, 'admin');
@@ -900,24 +981,28 @@ async function postAdminChatReply(event, explicitSessionId) {
     expiresAt: { N: String(expiresAt) },
   };
 
-  await ddb.send(new PutItemCommand({
-    TableName: TABLE_NAME,
-    Item: operatorMsgItem,
-  }));
+  await ddb.send(
+    new PutItemCommand({
+      TableName: TABLE_NAME,
+      Item: operatorMsgItem,
+    })
+  );
 
   // 3. Update session metadata (updatedAt, GSI1SK, messageCount)
-  await ddb.send(new UpdateItemCommand({
-    TableName: TABLE_NAME,
-    Key: {
-      requestId: { S: `CHAT#${sessionId}` },
-      timestamp: { N: '0' },
-    },
-    UpdateExpression: 'SET updatedAt = :now, GSI1SK = :now, messageCount = messageCount + :one',
-    ExpressionAttributeValues: {
-      ':now': { S: nowIso },
-      ':one': { N: '1' },
-    },
-  }));
+  await ddb.send(
+    new UpdateItemCommand({
+      TableName: TABLE_NAME,
+      Key: {
+        requestId: { S: `CHAT#${sessionId}` },
+        timestamp: { N: '0' },
+      },
+      UpdateExpression: 'SET updatedAt = :now, GSI1SK = :now, messageCount = messageCount + :one',
+      ExpressionAttributeValues: {
+        ':now': { S: nowIso },
+        ':one': { N: '1' },
+      },
+    })
+  );
 
   // 4. Optionally dispatch email copy via SES if sendEmail is true
   let emailDispatched = false;
@@ -934,11 +1019,15 @@ async function postAdminChatReply(event, explicitSessionId) {
     }
   }
 
-  return chatResponse(200, {
-    success: true,
-    messageId,
-    emailDispatched,
-  }, 'admin');
+  return chatResponse(
+    200,
+    {
+      success: true,
+      messageId,
+      emailDispatched,
+    },
+    'admin'
+  );
 }
 
 /**
@@ -951,10 +1040,15 @@ async function updateAdminChatStatus(event, explicitSessionId) {
   }
 
   const routeParam = event?.queryStringParameters?.route || '';
-  const routePath = routeParam ? (routeParam.startsWith('/') ? routeParam : `/${routeParam}`) : (event?.path || event?.resource || '');
+  const routePath = routeParam
+    ? routeParam.startsWith('/')
+      ? routeParam
+      : `/${routeParam}`
+    : event?.path || event?.resource || '';
   const match = routePath.match(/\/(?:admin\/)?chats\/([^/?#]+)\/status$/);
   const sessionIdParam = explicitSessionId || event?.pathParameters?.sessionId;
-  const sessionId = (sessionIdParam && sessionIdParam !== '{sessionId}') ? sessionIdParam : (match ? match[1] : null);
+  const sessionId =
+    sessionIdParam && sessionIdParam !== '{sessionId}' ? sessionIdParam : match ? match[1] : null;
 
   if (!sessionId || sessionId === 'chats') {
     return chatResponse(400, { error: 'sessionId is required' }, 'admin');
@@ -962,15 +1056,25 @@ async function updateAdminChatStatus(event, explicitSessionId) {
 
   let body = {};
   if (typeof event.body === 'string') {
-    try { body = JSON.parse(event.body); } catch { return chatResponse(400, { error: 'Invalid JSON body' }, 'admin'); }
+    try {
+      body = JSON.parse(event.body);
+    } catch {
+      return chatResponse(400, { error: 'Invalid JSON body' }, 'admin');
+    }
   } else if (event.body && typeof event.body === 'object') {
     body = event.body;
   }
 
-  const status = String(body.status || '').toLowerCase().trim();
+  const status = String(body.status || '')
+    .toLowerCase()
+    .trim();
   const validStatuses = ['active', 'escalated', 'resolved'];
   if (!validStatuses.includes(status)) {
-    return chatResponse(400, { error: 'Invalid status. Allowed values: active, escalated, resolved' }, 'admin');
+    return chatResponse(
+      400,
+      { error: 'Invalid status. Allowed values: active, escalated, resolved' },
+      'admin'
+    );
   }
 
   const ddb = getDdbClient();
@@ -992,18 +1096,20 @@ async function updateAdminChatStatus(event, explicitSessionId) {
   }
 
   try {
-    await ddb.send(new UpdateItemCommand({
-      TableName: TABLE_NAME,
-      Key: {
-        requestId: { S: `CHAT#${sessionId}` },
-        timestamp: { N: '0' },
-      },
-      UpdateExpression: updateExpr,
-      ExpressionAttributeNames: {
-        '#st': 'status',
-      },
-      ExpressionAttributeValues: exprValues,
-    }));
+    await ddb.send(
+      new UpdateItemCommand({
+        TableName: TABLE_NAME,
+        Key: {
+          requestId: { S: `CHAT#${sessionId}` },
+          timestamp: { N: '0' },
+        },
+        UpdateExpression: updateExpr,
+        ExpressionAttributeNames: {
+          '#st': 'status',
+        },
+        ExpressionAttributeValues: exprValues,
+      })
+    );
 
     return chatResponse(200, { success: true, status }, 'admin');
   } catch (err) {

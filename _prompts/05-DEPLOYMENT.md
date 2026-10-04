@@ -2,47 +2,36 @@
 
 ## Purpose
 
-- Maintain the canonical deployment scripts without fragmenting deploy behavior.
-- Keep root wrappers and canonical script paths in sync.
+- Maintain and update canonical deployment scripts without fragmenting deployment behavior.
 
 ## Prerequisites
 
-- Complete `03-INFRASTRUCTURE.md` and `04-LAMBDA-FUNCTION.md`.
-- Read `/Users/basilsergius/projects/renderpdf/scripts/README.md`.
+- Read `scripts/README.md` if reviewing script environment flags.
+- Inherits baseline rules and idempotency requirements from `_prompts/INDEX.md`.
 
 ## Files/Folders In Scope
 
-- `/Users/basilsergius/projects/renderpdf/scripts/deploy.sh`
-- `/Users/basilsergius/projects/renderpdf/scripts/deploy-landing.sh`
-- Root wrappers only if needed:
-  - `/Users/basilsergius/projects/renderpdf/deploy.sh`
-  - `/Users/basilsergius/projects/renderpdf/deploy-landing.sh`
+- `scripts/deploy.sh`
+- `scripts/deploy-landing.sh`
 
 ## Files/Folders Out Of Scope
 
-- New duplicate deploy scripts
-- One-off operator notes that belong in docs instead
+- Application logic in Go or JavaScript.
+- Creating ad-hoc parallel deploy scripts.
 
 ## Implementation Task
 
-1. Modify canonical scripts in `scripts/`.
-2. Keep wrapper scripts at root as thin pass-through entrypoints.
-3. Preserve script behavior that resolves paths from script location instead of caller cwd.
-4. Avoid creating parallel deploy flows for the same target.
+1. Maintain deployment logic in `scripts/`.
+2. Ensure scripts compute paths relative to `BASH_SOURCE` rather than caller `pwd`.
+3. Preserve compatibility symlinks or root entrypoints (`deploy.sh`, `deploy-landing.sh`).
 
 ## Verification Steps
 
 ```bash
-cd /Users/basilsergius/projects/renderpdf && ./scripts/verify-shell.sh
-```
-
-Optional deployed verification:
-
-```bash
-cd /Users/basilsergius/projects/renderpdf && ./scripts/deploy.sh
+./scripts/verify-shell.sh
 ```
 
 ## Stop Conditions
 
-- Stop if the change would create a second deploy path for the same resource set.
-- Stop if the change would require destructive AWS actions that were not explicitly requested.
+- Inherits universal stop conditions from `_prompts/INDEX.md`.
+- Stop if changes introduce unapproved destructive deployment actions.

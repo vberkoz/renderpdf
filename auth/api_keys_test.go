@@ -115,4 +115,3 @@ func TestGetUserBillingTierFallback(t *testing.T) {
 		t.Fatalf("getUserBillingTier(\"\") = %q, want \"free\"", tier)
 	}
 }
-

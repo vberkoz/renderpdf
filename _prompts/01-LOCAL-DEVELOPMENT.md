@@ -2,52 +2,40 @@
 
 ## Purpose
 
-- Establish the minimum local context needed to work safely without deploying.
-- Normalize how agents discover runnable tests and validation commands.
+- Establish minimum local validation commands to develop safely without deploying.
 
 ## Prerequisites
 
-- Complete `00-REPO-NAVIGATION.md`.
-- Read `/Users/basilsergius/projects/renderpdf/docs/VERIFICATION.md`.
+- Complete `_prompts/00-REPO-NAVIGATION.md`.
+- Read `docs/VERIFICATION.md` only if command recipes are needed.
+- Inherits baseline rules and idempotency requirements from `_prompts/INDEX.md`.
 
 ## Files/Folders In Scope
 
-- `/Users/basilsergius/projects/renderpdf/api/`
-- `/Users/basilsergius/projects/renderpdf/auth/`
-- `/Users/basilsergius/projects/renderpdf/scripts/`
-- `/Users/basilsergius/projects/renderpdf/doc-examples/`
-- `/Users/basilsergius/projects/renderpdf/infra/`
+- `scripts/verify-*.sh`
 
 ## Files/Folders Out Of Scope
 
-- Cloud deployment changes
-- DNS, Cognito, or AWS console-only changes
-- Frontend asset redesign work
+- Cloud deployment scripts or AWS live infrastructure modifications.
+- Service implementation code.
 
 ## Implementation Task
 
-1. Identify which local verification paths exist today.
+1. Identify local verification commands relevant to the task slice.
 2. Prefer the canonical verification wrappers under `scripts/verify-*.sh`.
-3. Use package tests for Go services.
-4. Use template validation for CloudFormation.
-5. Use the deployed smoke test only when the task depends on deployed behavior.
+3. Use package unit tests for Go services and local validation scripts for infra/web.
 
 ## Verification Steps
 
 ```bash
-cd /Users/basilsergius/projects/renderpdf && ./scripts/verify-api.sh
-cd /Users/basilsergius/projects/renderpdf && ./scripts/verify-auth.sh
-cd /Users/basilsergius/projects/renderpdf && ./scripts/verify-shell.sh
-```
-
-Optional, AWS-backed:
-
-```bash
-cd /Users/basilsergius/projects/renderpdf && ./scripts/verify-infra.sh
-cd /Users/basilsergius/projects/renderpdf && ./scripts/verify-deployed-api.sh
+./scripts/verify-all.sh
+# Or targeted test wrappers:
+./scripts/verify-api.sh
+./scripts/verify-auth.sh
+./scripts/verify-shell.sh
 ```
 
 ## Stop Conditions
 
-- Stop if a requested verification flow does not exist; document the gap instead of inventing a fake test.
-- Stop if a task requires deployed AWS state but only local verification is available.
+- Inherits universal stop conditions from `_prompts/INDEX.md`.
+- Stop if a requested verification flow does not exist; document the gap instead of inventing a mock test.

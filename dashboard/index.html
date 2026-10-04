@@ -9,9 +9,9 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css" rel="stylesheet">
     <link href="/styles/base.css" rel="stylesheet">
     <link href="/styles/dashboard.css?v=20260929-2" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css" rel="stylesheet">
 
 
     <script>
@@ -31,7 +31,12 @@
                     <span class="dashboard-badge-app">Dashboard</span>
                 </a>
                 <nav class="dashboard-marketing-nav dashboard-nav" aria-label="Marketing and account links">
-                    <button id="topbarQuickstartBtn" class="dashboard-nav-link-btn" type="button"><svg class="lucide lucide-zap" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Quickstart</button><a href="/docs/api/"><svg class="lucide lucide-book-open" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg> API docs</a><a href="/#pricing"><svg class="lucide lucide-tag" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z"/><circle cx="7" cy="7" r=".5" fill="currentColor"/></svg> Pricing</a><a id="logoutBtn" href="/app/login"><svg class="lucide lucide-log-out" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg> Sign out</a>
+                    <a href="/">Home</a>
+                    <a href="/#pricing">Pricing</a>
+                    <a href="/docs/api/">API docs</a>
+                    <a href="/stats/">Stats</a>
+                    <a href="/app/" aria-current="page">Dashboard</a>
+                    <a href="https://github.com/vberkoz/renderpdf">GitHub</a>
                 </nav>
             </div>
         </header>
@@ -53,11 +58,30 @@
                         <a href="/app/?view=keys" data-dashboard-nav="keys"><svg class="lucide lucide-key-round" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/></svg> API Keys</a>
                         <a href="/app/?view=billing" data-dashboard-nav="billing"><svg class="lucide lucide-credit-card" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg> Billing</a>
                     </div>
+                    <div class="dashboard-sidebar-card sidebar-quickstart-card">
+                        <div class="sidebar-quickstart-header">
+                            <span class="sidebar-quickstart-title"><svg class="lucide lucide-zap" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Quickstart</span>
+                        </div>
+                        <p class="sidebar-quickstart-text">Code snippets with your live API key.</p>
+                        <button id="sidebarQuickstartBtn" class="sidebar-quickstart-btn" type="button">
+                            <span>Open guide</span>
+                            <svg class="lucide lucide-arrow-right" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                        </button>
+                    </div>
+                    <div class="dashboard-nav-group dashboard-nav-group-logout">
+                        <a id="logoutBtn" href="/app/login"><svg class="lucide lucide-log-out" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg> Sign out</a>
+                    </div>
                 </nav>
             </aside>
 
             <details class="dashboard-mobile-navigation">
-                <summary>Navigate dashboard</summary>
+                <summary>
+                    <span class="mobile-nav-prompt">
+                        <svg class="lucide lucide-menu" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
+                        <span>Navigate dashboard</span>
+                    </span>
+                    <span id="dashboardMobileCurrentView" class="mobile-nav-current-badge">Home</span>
+                </summary>
                 <nav class="dashboard-app-nav" aria-label="Dashboard navigation">
                     <a href="/app/?view=overview" data-dashboard-nav="overview"><svg class="lucide lucide-layout-dashboard" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg> Home</a>
                     <a href="/app/?view=create-render" data-dashboard-nav="create-render"><svg class="lucide lucide-file-plus-2" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 22h14a2 2 0 0 0 2-2V7l-5-5H6a2 2 0 0 0-2 2v4"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M3 15h6"/><path d="M6 12v6"/></svg> Create PDF</a>
@@ -72,6 +96,19 @@
                         <p>Account</p>
                         <a href="/app/?view=keys" data-dashboard-nav="keys"><svg class="lucide lucide-key-round" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/></svg> API Keys</a>
                         <a href="/app/?view=billing" data-dashboard-nav="billing"><svg class="lucide lucide-credit-card" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg> Billing</a>
+                    </div>
+                    <div class="dashboard-sidebar-card sidebar-quickstart-card">
+                        <div class="sidebar-quickstart-header">
+                            <span class="sidebar-quickstart-title"><svg class="lucide lucide-zap" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Quickstart</span>
+                        </div>
+                        <p class="sidebar-quickstart-text">Code snippets with your live API key.</p>
+                        <button id="mobileQuickstartBtn" class="sidebar-quickstart-btn" type="button">
+                            <span>Open guide</span>
+                            <svg class="lucide lucide-arrow-right" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                        </button>
+                    </div>
+                    <div class="dashboard-nav-group dashboard-nav-group-logout">
+                        <a id="mobileLogoutBtn" href="/app/login"><svg class="lucide lucide-log-out" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg> Sign out</a>
                     </div>
                 </nav>
             </details>
@@ -550,12 +587,10 @@
     <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
 
     <script src="template-client.js"></script>
-
-
-
-
-
     <script src="custom-select.js"></script>
+    <script src="features/create-render.js"></script>
+    <script src="features/keys.js"></script>
+    <script src="features/billing.js"></script>
     <script src="app.js"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script>

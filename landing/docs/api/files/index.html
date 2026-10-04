@@ -23,7 +23,9 @@
             </a>
             <nav id="docs-primary-navigation" class="topnav" data-carbon-header-nav aria-label="Primary navigation">
                 <a href="/">Home</a>
+                <a href="/#pricing">Pricing</a>
                 <a href="/docs/api/" aria-current="page">API docs</a>
+                <a href="/stats/">Stats</a>
                 <a href="/app/">Dashboard</a>
                 <a href="https://github.com/vberkoz/renderpdf">GitHub</a>
             </nav>
@@ -145,55 +147,6 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.11.1/build/highlight.min.js"></script>
-    <script>
-        if (window.hljs) window.hljs.highlightAll();
-
-        async function copyCode(button) {
-            const target = document.getElementById(button.dataset.copyTarget);
-            if (!target) return;
-
-            const originalLabel = button.textContent;
-            const text = target.textContent;
-            button.disabled = true;
-            button.classList.remove('is-copied', 'is-copy-error');
-
-            try {
-                if (navigator.clipboard?.writeText) {
-                    await navigator.clipboard.writeText(text);
-                } else {
-                    const selection = window.getSelection();
-                    const range = document.createRange();
-                    range.selectNodeContents(target);
-                    selection.removeAllRanges();
-                    selection.addRange(range);
-                    document.execCommand('copy');
-                    selection.removeAllRanges();
-                }
-                button.textContent = 'Copied';
-                button.classList.add('is-copied');
-            } catch {
-                button.textContent = 'Select text';
-                button.classList.add('is-copy-error');
-            } finally {
-                window.setTimeout(() => {
-                    button.textContent = originalLabel;
-                    button.classList.remove('is-copied', 'is-copy-error');
-                    button.disabled = false;
-                }, 1600);
-            }
-        }
-
-        document.querySelectorAll('.copy-button').forEach((button) => {
-            button.addEventListener('click', () => copyCode(button));
-        });
-
-        const sidebarGroups = [...document.querySelectorAll('.sidebar-group')];
-        sidebarGroups.forEach((group) => {
-            group.addEventListener('toggle', () => {
-                if (!group.open) return;
-                sidebarGroups.forEach((otherGroup) => { if (otherGroup !== group) otherGroup.open = false; });
-            });
-        });
-    </script>
+    <script src="/docs.js"></script>
 </body>
 </html>

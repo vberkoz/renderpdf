@@ -2,59 +2,39 @@
 
 ## Purpose
 
-- Establish the product and architecture constraints before making implementation changes.
-- Keep later prompts aligned with the intended service boundaries.
+- Define product and architecture boundaries before making implementation changes.
 
 ## Prerequisites
 
-- Complete `00-REPO-NAVIGATION.md`.
-- Read `/Users/basilsergius/projects/renderpdf/docs/ARCHITECTURE.md`.
+- Read `docs/ARCHITECTURE.md` only if high-level service contracts are in question.
+- Inherits baseline rules and idempotency requirements from `_prompts/INDEX.md`.
 
 ## Files/Folders In Scope
 
-- `/Users/basilsergius/projects/renderpdf/api/`
-- `/Users/basilsergius/projects/renderpdf/auth/`
-- `/Users/basilsergius/projects/renderpdf/dashboard/`
-- `/Users/basilsergius/projects/renderpdf/landing/`
-- `/Users/basilsergius/projects/renderpdf/infra/`
-- `/Users/basilsergius/projects/renderpdf/scripts/`
+- Service architecture decisions across `api/`, `auth/`, `dashboard/`, `landing/`, and `infra/`.
 
 ## Files/Folders Out Of Scope
 
-- Unrequested product pivots
-- New frameworks or large platform migrations
-- Alternative deployment systems outside CloudFormation
+- Framework migrations or unrequested architectural pivots.
+- Third-party deployment solutions outside CloudFormation.
 
 ## Implementation Task
 
-Use these repo rules as fixed constraints unless the user explicitly asks to change them:
-
-- Backend language: Go
-- PDF generation runtime: AWS Lambda
-- API layer: API Gateway
-- Storage: S3
-- Data store: DynamoDB
-- Infrastructure: CloudFormation
-- Auth: Cognito + Google OAuth + API keys
-- Frontends: static HTML/CSS/JS in `dashboard/` and `landing/`
-
-Maintain these behavior boundaries:
-
-- `api/` owns HTML-to-PDF generation.
-- `auth/` owns API-key validation and API-key CRUD.
-- `dashboard/` owns authenticated UI behavior.
-- `landing/` owns public demo/marketing behavior.
-- `infra/` owns deploy-time infrastructure definitions.
-- `scripts/` owns operational entrypoints.
+Maintain strict service boundaries:
+- `api/`: Go PDF-rendering Lambda via headless Chrome.
+- `auth/`: Go Lambda API-key management and authorizer, plus Cognito triggers.
+- `dashboard/`: Static HTML/JS authenticated user dashboard.
+- `landing/`: Static HTML/CSS marketing and interactive preview.
+- `infra/`: CloudFormation templates in `infra/`.
+- `scripts/`: Operational automation and verification entrypoints.
 
 ## Verification Steps
 
 ```bash
-cd /Users/basilsergius/projects/renderpdf && sed -n '1,220p' docs/ARCHITECTURE.md
-cd /Users/basilsergius/projects/renderpdf && sed -n '1,220p' AGENTS.md
+./scripts/verify-all.sh
 ```
 
 ## Stop Conditions
 
-- Stop if the requested change conflicts with the ownership boundaries above.
-- Stop if the task would silently introduce a second deployment system or frontend stack.
+- Inherits universal stop conditions from `_prompts/INDEX.md`.
+- Stop if the task crosses service responsibilities without explicit alignment.

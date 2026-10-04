@@ -36,7 +36,10 @@ function createMockElement(tagName = 'div') {
       attributes.set(name, String(val));
       if (name === 'class') {
         classListSet.clear();
-        String(val).split(/\s+/).filter(Boolean).forEach((c) => classListSet.add(c));
+        String(val)
+          .split(/\s+/)
+          .filter(Boolean)
+          .forEach((c) => classListSet.add(c));
       }
       if (name === 'hidden') el.hidden = true;
     },
@@ -50,18 +53,25 @@ function createMockElement(tagName = 'div') {
     },
 
     classList: {
-      add(...classes) { classes.forEach((c) => classListSet.add(c)); },
-      remove(...classes) { classes.forEach((c) => classListSet.delete(c)); },
+      add(...classes) {
+        classes.forEach((c) => classListSet.add(c));
+      },
+      remove(...classes) {
+        classes.forEach((c) => classListSet.delete(c));
+      },
       toggle(c, force) {
         if (force === undefined) {
-          if (classListSet.has(c)) classListSet.delete(c); else classListSet.add(c);
+          if (classListSet.has(c)) classListSet.delete(c);
+          else classListSet.add(c);
         } else if (force) {
           classListSet.add(c);
         } else {
           classListSet.delete(c);
         }
       },
-      contains(c) { return classListSet.has(c); },
+      contains(c) {
+        return classListSet.has(c);
+      },
     },
 
     addEventListener(event, fn) {
@@ -70,7 +80,10 @@ function createMockElement(tagName = 'div') {
     },
     removeEventListener(event, fn) {
       if (!listeners.has(event)) return;
-      listeners.set(event, listeners.get(event).filter((f) => f !== fn));
+      listeners.set(
+        event,
+        listeners.get(event).filter((f) => f !== fn)
+      );
     },
     dispatchEvent(event) {
       const fns = listeners.get(event.type) || [];
@@ -100,10 +113,16 @@ function createMockElement(tagName = 'div') {
       return oldChild;
     },
 
-    focus() { global.document.activeElement = el; },
+    focus() {
+      global.document.activeElement = el;
+    },
 
-    querySelector(selector) { return findSelector(el, selector); },
-    querySelectorAll(selector) { return findAllSelectors(el, selector); },
+    querySelector(selector) {
+      return findSelector(el, selector);
+    },
+    querySelectorAll(selector) {
+      return findAllSelectors(el, selector);
+    },
     closest(selector) {
       let cur = el;
       while (cur) {
@@ -122,14 +141,18 @@ function createMockElement(tagName = 'div') {
       children.length = 0;
     },
 
-    get innerHTML() { return el._innerHTML || ''; },
+    get innerHTML() {
+      return el._innerHTML || '';
+    },
     set innerHTML(html) {
       el._innerHTML = html;
       el.children.length = 0;
       parseSimpleHtml(html, el);
     },
 
-    get parentNode() { return el._parent || null; },
+    get parentNode() {
+      return el._parent || null;
+    },
     cloneNode(deep) {
       const clone = createMockElement(tagName);
       clone._innerHTML = el._innerHTML;
@@ -221,14 +244,19 @@ global.document = {
     }
     return findSelector(global.document.body, `#${id}`) || null;
   },
-  createElement(tag) { return createMockElement(tag); },
+  createElement(tag) {
+    return createMockElement(tag);
+  },
   addEventListener(event, fn) {
     if (!docListeners.has(event)) docListeners.set(event, []);
     docListeners.get(event).push(fn);
   },
   removeEventListener(event, fn) {
     if (!docListeners.has(event)) return;
-    docListeners.set(event, docListeners.get(event).filter((f) => f !== fn));
+    docListeners.set(
+      event,
+      docListeners.get(event).filter((f) => f !== fn)
+    );
   },
   dispatchEvent(event) {
     const fns = docListeners.get(event.type) || [];
@@ -244,14 +272,20 @@ global.window = {
   },
   removeEventListener(event, fn) {
     if (!windowListeners.has(event)) return;
-    windowListeners.set(event, windowListeners.get(event).filter((f) => f !== fn));
+    windowListeners.set(
+      event,
+      windowListeners.get(event).filter((f) => f !== fn)
+    );
   },
   dispatchEvent(event) {
     const fns = windowListeners.get(event.type) || [];
     fns.forEach((fn) => fn(event));
     return true;
   },
-  setTimeout(fn) { fn(); return 1; },
+  setTimeout(fn) {
+    fn();
+    return 1;
+  },
 };
 
 global.CustomEvent = class CustomEvent {
@@ -265,12 +299,14 @@ global.CustomEvent = class CustomEvent {
 
 function setupAdminToken() {
   const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
-  const payload = Buffer.from(JSON.stringify({
-    sub: 'admin-user-123',
-    email: 'admin@renderpdf.com',
-    'cognito:groups': ['Admins'],
-    exp: Math.floor(Date.now() / 1000) + 3600,
-  })).toString('base64url');
+  const payload = Buffer.from(
+    JSON.stringify({
+      sub: 'admin-user-123',
+      email: 'admin@renderpdf.com',
+      'cognito:groups': ['Admins'],
+      exp: Math.floor(Date.now() / 1000) + 3600,
+    })
+  ).toString('base64url');
   mockStorage.set('id_token', `${header}.${payload}.sig`);
 }
 
@@ -387,7 +423,11 @@ test('openSuspendUserModal requires email confirmation and reason before submitt
   liveForm.dispatchEvent({ type: 'submit', preventDefault: () => {} });
   await new Promise((r) => setTimeout(r, 20));
 
-  assert.strictEqual(fetchCalls.length, 1, 'API call dispatched with valid confirmation and reason');
+  assert.strictEqual(
+    fetchCalls.length,
+    1,
+    'API call dispatched with valid confirmation and reason'
+  );
   assert.ok(fetchCalls[0].url.includes('/users/user-123/status'), 'Correct status endpoint');
   assert.strictEqual(fetchCalls[0].body.action, 'disable');
   assert.strictEqual(fetchCalls[0].body.reason, 'Confirmed fraudulent pattern');
@@ -437,7 +477,10 @@ test('openRevokeKeyModal requires reason, calls revoke endpoint, dispatches user
   await new Promise((r) => setTimeout(r, 20));
 
   assert.strictEqual(fetchCalls.length, 1, 'API call dispatched with valid reason');
-  assert.ok(fetchCalls[0].url.includes('/users/user-456/keys/key-789/revoke'), 'Correct revoke endpoint');
+  assert.ok(
+    fetchCalls[0].url.includes('/users/user-456/keys/key-789/revoke'),
+    'Correct revoke endpoint'
+  );
   assert.strictEqual(fetchCalls[0].body.reason, 'Key found in public GitHub repo');
 
   // user-updated event dispatched on document
@@ -544,4 +587,3 @@ test('initGovernanceTab filters audit records via action dropdown and search inp
   assert.ok(!tableRegion.innerHTML.includes('user-suspicious-1'));
   assert.ok(tableRegion.innerHTML.includes('user-vip-2'));
 });
-

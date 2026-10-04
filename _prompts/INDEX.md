@@ -64,25 +64,27 @@ Main entrypoint for the AI workflow modules in this repository.
 - Safe repo refactors:
   - `13-SAFE-REFACTORS.md`
 
-## Idempotent Usage Rules
+## Global Rules & Stop Conditions
 
+All prompt modules inherit these non-negotiable boundaries from `INDEX.md` and `TEMPLATE-MODULE.md`:
+
+### Idempotent Usage Rules
 - Detect current state before creating new files.
 - Prefer editing canonical files over creating parallel ones.
 - Use the verification commands that actually exist in `scripts/` and `docs/VERIFICATION.md`.
 - If a test or script does not exist, document the gap instead of inventing it.
-- Stop when a task crosses ownership boundaries without clear approval.
+- Never edit generated binaries (`api/renderpdf`, `auth/authorizer`, `auth/api-keys`). Edit `.go` source files.
+
+### Universal Stop Conditions
+- Stop immediately when a task crosses the declared scope or ownership boundaries without explicit approval.
+- Stop if the change would create a second source of truth for deployment, test, or infra behavior.
+- Stop if the change would recreate data-bearing resources or perform unrequested destructive cloud actions.
+- Stop if the task requires writing real secrets or OAuth credentials into tracked repository files.
+- Stop if automated coverage does not exist for a requested check; document the gap in `docs/VERIFICATION.md`.
 
 ## Template For New Modules
 
-- Start from:
-  - `/Users/basilsergius/projects/renderpdf/_prompts/TEMPLATE-MODULE.md`
-- Keep the filename format:
-  - `NN-NAME.md`
-- Include:
-  - purpose
-  - prerequisites
-  - files/folders in scope
-  - files/folders out of scope
-  - implementation task
-  - verification steps
-  - stop conditions
+- Template definition: `_prompts/TEMPLATE-MODULE.md`
+- Filename format: `NN-NAME.md`
+- Include: purpose, module prerequisites, files/folders in scope, files/folders out of scope, implementation task, verification steps, and module-specific stop conditions.
+

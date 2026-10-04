@@ -119,6 +119,15 @@ Parameters:
     Type: String
     Default: 'us-east-1'
     Description: AWS region used for Amazon SES transactional email dispatch
+  TelegramBotToken:
+    Type: String
+    NoEcho: true
+    Default: ''
+    Description: Telegram bot token for real-time operational, billing, and error alerts
+  TelegramChatId:
+    Type: String
+    Default: ''
+    Description: Telegram chat ID destination for operational, billing, and error alerts
 
 Resources:
   OperationsAlertsTopic:
@@ -448,7 +457,52 @@ Resources:
       TTL: 300
       ResourceRecords:
         - !Sub '"forward-email=support:${SupportFeedbackEmail},*:${SupportFeedbackEmail}"'
-        - '"v=spf1 a mx include:spf.forwardemail.net -all"'
+        - '"v=spf1 a mx include:spf.forwardemail.net include:amazonses.com -all"'
+
+  LandingDmarcRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Sub '_dmarc.${LandingDomain}'
+      Type: TXT
+      TTL: 300
+      ResourceRecords:
+        - '"v=DMARC1; p=quarantine; rua=mailto:support@renderpdf.vberkoz.com"'
+
+  LandingEmailIdentity:
+    Type: AWS::SES::EmailIdentity
+    Properties:
+      EmailIdentity: !Ref LandingDomain
+
+  LandingDkimRecord1:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !GetAtt LandingEmailIdentity.DkimDNSTokenName1
+      Type: CNAME
+      TTL: 300
+      ResourceRecords:
+        - !GetAtt LandingEmailIdentity.DkimDNSTokenValue1
+
+  LandingDkimRecord2:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !GetAtt LandingEmailIdentity.DkimDNSTokenName2
+      Type: CNAME
+      TTL: 300
+      ResourceRecords:
+        - !GetAtt LandingEmailIdentity.DkimDNSTokenValue2
+
+  LandingDkimRecord3:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !GetAtt LandingEmailIdentity.DkimDNSTokenName3
+      Type: CNAME
+      TTL: 300
+      ResourceRecords:
+        - !GetAtt LandingEmailIdentity.DkimDNSTokenValue3
 
   PdfBucket:
     Type: AWS::S3::Bucket
@@ -657,10 +711,15 @@ Resources:
 
   UserPoolV2:
     Type: AWS::Cognito::UserPool
+    DependsOn: LandingEmailIdentity
     Properties:
       UserPoolName: !Sub '${AppName}-users-v2'
       AutoVerifiedAttributes:
         - email
+      EmailConfiguration:
+        EmailSendingAccount: DEVELOPER
+        SourceArn: !Sub 'arn:aws:ses:${AWS::Region}:${AWS::AccountId}:identity/${LandingDomain}'
+        From: !Ref NotificationFromEmail
       Policies:
         PasswordPolicy:
           MinimumLength: 8
@@ -1133,6 +1192,9 @@ Resources:
           NOTIFICATION_FROM_EMAIL: !Ref NotificationFromEmail
           SES_REGION: !Ref SesRegion
           USER_POOL_ID: !Ref UserPoolV2
+          OPERATIONS_ALERT_EMAIL: !Ref OperationsAlertEmail
+          TELEGRAM_BOT_TOKEN: !Ref TelegramBotToken
+          TELEGRAM_CHAT_ID: !Ref TelegramChatId
 
   RestApi:
     Type: AWS::ApiGateway::RestApi

@@ -6,4 +6,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 cd "${ROOT_DIR}"
-bash -n deploy.sh deploy_ui.sh deploy-landing.sh test-api.sh scripts/deploy.sh scripts/deploy_ui.sh scripts/deploy-landing.sh scripts/test-api.sh scripts/test-template-docs.sh scripts/verify-api.sh scripts/verify-auth.sh scripts/verify-infra.sh scripts/verify-shell.sh scripts/verify-deployed-api.sh
+bash -n deploy.sh deploy_ui.sh deploy-landing.sh test-api.sh \
+  scripts/deploy.sh scripts/deploy_ui.sh scripts/deploy-landing.sh \
+  scripts/format-all.sh scripts/init-localstack.sh scripts/sync-api-keys.sh \
+  scripts/test-api.sh scripts/test-sources-files.sh scripts/test-template-docs.sh \
+  scripts/verify-all.sh scripts/verify-api.sh scripts/verify-auth.sh scripts/verify-infra.sh \
+  scripts/verify-shell.sh scripts/verify-deployed-api.sh

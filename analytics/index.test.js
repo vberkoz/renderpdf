@@ -8,12 +8,36 @@ Module.prototype.require = function (id, ...args) {
     class MockDynamoDBClient {
       send() {}
     }
-    class BatchGetItemCommand { constructor(input) { this.input = input; } }
-    class GetItemCommand { constructor(input) { this.input = input; } }
-    class UpdateItemCommand { constructor(input) { this.input = input; } }
-    class PutItemCommand { constructor(input) { this.input = input; } }
-    class QueryCommand { constructor(input) { this.input = input; } }
-    class TransactWriteItemsCommand { constructor(input) { this.input = input; } }
+    class BatchGetItemCommand {
+      constructor(input) {
+        this.input = input;
+      }
+    }
+    class GetItemCommand {
+      constructor(input) {
+        this.input = input;
+      }
+    }
+    class UpdateItemCommand {
+      constructor(input) {
+        this.input = input;
+      }
+    }
+    class PutItemCommand {
+      constructor(input) {
+        this.input = input;
+      }
+    }
+    class QueryCommand {
+      constructor(input) {
+        this.input = input;
+      }
+    }
+    class TransactWriteItemsCommand {
+      constructor(input) {
+        this.input = input;
+      }
+    }
     return {
       BatchGetItemCommand,
       DynamoDBClient: MockDynamoDBClient,
@@ -28,7 +52,11 @@ Module.prototype.require = function (id, ...args) {
     class MockSESClient {
       send() {}
     }
-    class SendEmailCommand { constructor(input) { this.input = input; } }
+    class SendEmailCommand {
+      constructor(input) {
+        this.input = input;
+      }
+    }
     return {
       SESClient: MockSESClient,
       SendEmailCommand,
@@ -38,10 +66,26 @@ Module.prototype.require = function (id, ...args) {
     class MockCognitoClient {
       send() {}
     }
-    class AdminGetUserCommand { constructor(input) { this.input = input; } }
-    class AdminDisableUserCommand { constructor(input) { this.input = input; } }
-    class AdminEnableUserCommand { constructor(input) { this.input = input; } }
-    class ListUsersCommand { constructor(input) { this.input = input; } }
+    class AdminGetUserCommand {
+      constructor(input) {
+        this.input = input;
+      }
+    }
+    class AdminDisableUserCommand {
+      constructor(input) {
+        this.input = input;
+      }
+    }
+    class AdminEnableUserCommand {
+      constructor(input) {
+        this.input = input;
+      }
+    }
+    class ListUsersCommand {
+      constructor(input) {
+        this.input = input;
+      }
+    }
     return {
       CognitoIdentityProviderClient: MockCognitoClient,
       AdminGetUserCommand,
@@ -54,8 +98,16 @@ Module.prototype.require = function (id, ...args) {
     class MockAPIGatewayClient {
       send() {}
     }
-    class CreateUsagePlanKeyCommand { constructor(input) { this.input = input; } }
-    class DeleteUsagePlanKeyCommand { constructor(input) { this.input = input; } }
+    class CreateUsagePlanKeyCommand {
+      constructor(input) {
+        this.input = input;
+      }
+    }
+    class DeleteUsagePlanKeyCommand {
+      constructor(input) {
+        this.input = input;
+      }
+    }
     return {
       APIGatewayClient: MockAPIGatewayClient,
       CreateUsagePlanKeyCommand,
@@ -66,7 +118,11 @@ Module.prototype.require = function (id, ...args) {
     class MockBedrockRuntimeClient {
       send() {}
     }
-    class ConverseCommand { constructor(input) { this.input = input; } }
+    class ConverseCommand {
+      constructor(input) {
+        this.input = input;
+      }
+    }
     return {
       BedrockRuntimeClient: MockBedrockRuntimeClient,
       ConverseCommand,
@@ -115,7 +171,14 @@ test('subscription.created upgrades free user quota to Starter tier (5,000)', as
     const eventId = 'evt-1';
     const occurredAt = new Date('2026-09-16T12:00:00Z');
 
-    await analytics.saveBillingWebhook(userId, subscriptionId, attributes, eventId, occurredAt, 'subscription.created');
+    await analytics.saveBillingWebhook(
+      userId,
+      subscriptionId,
+      attributes,
+      eventId,
+      occurredAt,
+      'subscription.created'
+    );
 
     // Expected commands:
     // 1: GetItem (BILLING#user-test-1)
@@ -132,7 +195,10 @@ test('subscription.created upgrades free user quota to Starter tier (5,000)', as
     assert.strictEqual(quotaUpdate.input.Key.requestId.S, 'USER_QUOTA#user-test-1#2026-09');
     assert.strictEqual(quotaUpdate.input.ExpressionAttributeValues[':limit'].N, '5000');
     assert.strictEqual(quotaUpdate.input.ExpressionAttributeValues[':entity'].S, 'USER_QUOTA');
-    assert.strictEqual(quotaUpdate.input.UpdateExpression, 'SET #limit = :limit, entityType = :entity, expiresAt = :expiresAt, #used = if_not_exists(#used, :zero)');
+    assert.strictEqual(
+      quotaUpdate.input.UpdateExpression,
+      'SET #limit = :limit, entityType = :entity, expiresAt = :expiresAt, #used = if_not_exists(#used, :zero)'
+    );
   } finally {
     analytics.ddb.send = originalSend;
   }
@@ -175,7 +241,14 @@ test('subscription.updated preserves purchased overage credits upon upgrade', as
     const eventId = 'evt-2';
     const occurredAt = new Date('2026-09-16T12:00:00Z');
 
-    await analytics.saveBillingWebhook(userId, subscriptionId, attributes, eventId, occurredAt, 'subscription.updated');
+    await analytics.saveBillingWebhook(
+      userId,
+      subscriptionId,
+      attributes,
+      eventId,
+      occurredAt,
+      'subscription.updated'
+    );
 
     const quotaUpdate = commands[3];
     assert.strictEqual(quotaUpdate.input.Key.requestId.S, 'USER_QUOTA#user-test-2#2026-09');
@@ -228,7 +301,14 @@ test('subscription.activated upgrades to Pro tier (20,000)', async () => {
     const eventId = 'evt-3';
     const occurredAt = new Date('2026-09-16T12:00:00Z');
 
-    await analytics.saveBillingWebhook(userId, subscriptionId, attributes, eventId, occurredAt, 'subscription.activated');
+    await analytics.saveBillingWebhook(
+      userId,
+      subscriptionId,
+      attributes,
+      eventId,
+      occurredAt,
+      'subscription.activated'
+    );
 
     const quotaUpdate = commands[3];
     assert.strictEqual(quotaUpdate.input.Key.requestId.S, 'USER_QUOTA#user-test-3#2026-09');
@@ -259,7 +339,14 @@ test('subscription.canceled does not upgrade quota', async () => {
     const eventId = 'evt-4';
     const occurredAt = new Date('2026-09-16T12:00:00Z');
 
-    await analytics.saveBillingWebhook(userId, subscriptionId, attributes, eventId, occurredAt, 'subscription.canceled');
+    await analytics.saveBillingWebhook(
+      userId,
+      subscriptionId,
+      attributes,
+      eventId,
+      occurredAt,
+      'subscription.canceled'
+    );
 
     // Only GetItem(BILLING) and UpdateItem(BILLING)
     assert.strictEqual(commands.length, 2);
@@ -310,7 +397,14 @@ test('upgrading Starter with overage to Pro preserves overage credits (21,000)',
     const eventId = 'evt-5';
     const occurredAt = new Date('2026-09-16T12:00:00Z');
 
-    await analytics.saveBillingWebhook(userId, subscriptionId, attributes, eventId, occurredAt, 'subscription.updated');
+    await analytics.saveBillingWebhook(
+      userId,
+      subscriptionId,
+      attributes,
+      eventId,
+      occurredAt,
+      'subscription.updated'
+    );
 
     const quotaUpdate = commands[3];
     assert.strictEqual(quotaUpdate.input.Key.requestId.S, 'USER_QUOTA#user-test-5#2026-09');
@@ -345,7 +439,14 @@ test('subscription.created creates quota record when none exists yet', async () 
     const eventId = 'evt-6';
     const occurredAt = new Date('2026-09-16T12:00:00Z');
 
-    await analytics.saveBillingWebhook(userId, subscriptionId, attributes, eventId, occurredAt, 'subscription.created');
+    await analytics.saveBillingWebhook(
+      userId,
+      subscriptionId,
+      attributes,
+      eventId,
+      occurredAt,
+      'subscription.created'
+    );
 
     const quotaUpdate = commands[3];
     assert.strictEqual(quotaUpdate.input.Key.requestId.S, 'USER_QUOTA#user-test-6#2026-09');
@@ -382,7 +483,14 @@ test('duplicate webhook with older or identical event does not update quota', as
 
     await assert.rejects(
       async () => {
-        await analytics.saveBillingWebhook(userId, subscriptionId, attributes, eventId, occurredAt, 'subscription.created');
+        await analytics.saveBillingWebhook(
+          userId,
+          subscriptionId,
+          attributes,
+          eventId,
+          occurredAt,
+          'subscription.created'
+        );
       },
       { name: 'ConditionalCheckFailedException' }
     );
@@ -445,9 +553,7 @@ test('tierFromAttributes resolves Pro tier when item name contains Pro', () => {
   process.env.PADDLE_PRO_PRICE_ID = 'pri_pro_456';
 
   const tier = analytics.tierFromAttributes({
-    items: [
-      { price: { product: { name: 'RenderPDF Pro' } } },
-    ],
+    items: [{ price: { product: { name: 'RenderPDF Pro' } } }],
   });
   assert.strictEqual(tier, 'pro');
 });
@@ -552,7 +658,14 @@ test('direct sync does not use condition expression that could reject synchronou
     const eventId = `sync-${Date.now()}`;
     const occurredAt = new Date();
 
-    await analytics.saveBillingWebhook(userId, subscriptionId, attributes, eventId, occurredAt, 'subscription.updated');
+    await analytics.saveBillingWebhook(
+      userId,
+      subscriptionId,
+      attributes,
+      eventId,
+      occurredAt,
+      'subscription.updated'
+    );
 
     const billingUpdate = commands[1];
     assert.strictEqual(billingUpdate.input.ConditionExpression, undefined);
@@ -642,7 +755,14 @@ test('subscription.created with starter_annual upgrades quota to Starter tier (5
     const eventId = 'evt-annual-1';
     const occurredAt = new Date('2026-09-16T12:00:00Z');
 
-    await analytics.saveBillingWebhook(userId, subscriptionId, attributes, eventId, occurredAt, 'subscription.created');
+    await analytics.saveBillingWebhook(
+      userId,
+      subscriptionId,
+      attributes,
+      eventId,
+      occurredAt,
+      'subscription.created'
+    );
 
     assert.strictEqual(commands.length, 4);
 
@@ -650,7 +770,10 @@ test('subscription.created with starter_annual upgrades quota to Starter tier (5
     assert.strictEqual(billingUpdate.input.Key.requestId.S, 'BILLING#user-test-annual-1');
     assert.strictEqual(billingUpdate.input.ExpressionAttributeValues[':tier'].S, 'starter');
     assert.strictEqual(billingUpdate.input.ExpressionAttributeValues[':interval'].S, 'year');
-    assert.strictEqual(billingUpdate.input.ExpressionAttributeValues[':plan'].S, 'RenderPDF Starter (Annual)');
+    assert.strictEqual(
+      billingUpdate.input.ExpressionAttributeValues[':plan'].S,
+      'RenderPDF Starter (Annual)'
+    );
 
     const quotaUpdate = commands[3];
     assert.strictEqual(quotaUpdate.input.Key.requestId.S, 'USER_QUOTA#user-test-annual-1#2026-09');
@@ -686,14 +809,24 @@ test('subscription.created with pro_annual upgrades quota to Pro tier (20,000)',
     const eventId = 'evt-annual-2';
     const occurredAt = new Date('2026-09-16T12:00:00Z');
 
-    await analytics.saveBillingWebhook(userId, subscriptionId, attributes, eventId, occurredAt, 'subscription.created');
+    await analytics.saveBillingWebhook(
+      userId,
+      subscriptionId,
+      attributes,
+      eventId,
+      occurredAt,
+      'subscription.created'
+    );
 
     assert.strictEqual(commands.length, 4);
 
     const billingUpdate = commands[1];
     assert.strictEqual(billingUpdate.input.ExpressionAttributeValues[':tier'].S, 'pro');
     assert.strictEqual(billingUpdate.input.ExpressionAttributeValues[':interval'].S, 'year');
-    assert.strictEqual(billingUpdate.input.ExpressionAttributeValues[':plan'].S, 'RenderPDF Professional (Annual)');
+    assert.strictEqual(
+      billingUpdate.input.ExpressionAttributeValues[':plan'].S,
+      'RenderPDF Professional (Annual)'
+    );
 
     const quotaUpdate = commands[3];
     assert.strictEqual(quotaUpdate.input.ExpressionAttributeValues[':limit'].N, '20000');
@@ -861,7 +994,8 @@ test('buildPaymentFailedEmail formats email with prompt and quick link to update
   const { subject, html, text } = notifications.buildPaymentFailedEmail('billing@example.com');
 
   assert.ok(subject.includes('Payment failed'));
-  const prompt = 'Please update your payment method promptly to prevent your API access from being suspended.';
+  const prompt =
+    'Please update your payment method promptly to prevent your API access from being suspended.';
   assert.ok(text.includes(prompt));
   assert.ok(html.includes('update your payment method promptly'));
   assert.ok(text.includes('https://renderpdf.vberkoz.com/app/#billing'));
@@ -917,7 +1051,9 @@ test('subscription.past_due triggers payment failed alert email via SES', async 
 
     // Verify pastDueAlertSentAt was updated in DynamoDB
     const alertUpdate = commands.find(
-      (c) => c.constructor.name === 'UpdateItemCommand' && c.input.UpdateExpression === 'SET pastDueAlertSentAt = :now'
+      (c) =>
+        c.constructor.name === 'UpdateItemCommand' &&
+        c.input.UpdateExpression === 'SET pastDueAlertSentAt = :now'
     );
     assert.ok(alertUpdate, 'expected pastDueAlertSentAt update command');
     assert.strictEqual(alertUpdate.input.Key.requestId.S, 'BILLING#user_past_due_1');
@@ -1058,7 +1194,7 @@ test('syncUserUsagePlans migrates active keys between usage plans', async () => 
   try {
     await analytics.syncUserUsagePlans('user_plan_test', 'pro');
     assert.ok(apigwCommands.length > 0);
-    const createCmd = apigwCommands.find(c => c.constructor.name === 'CreateUsagePlanKeyCommand');
+    const createCmd = apigwCommands.find((c) => c.constructor.name === 'CreateUsagePlanKeyCommand');
     assert.ok(createCmd);
     assert.strictEqual(createCmd.input.UsagePlanId, 'pro-plan-id');
     assert.strictEqual(createCmd.input.KeyId, 'agw_key_1');
@@ -1492,7 +1628,7 @@ test('readAdminAnalytics parses funnels, unit economics, latency, and daily roll
     // Summary assertions
     assert.strictEqual(body.summary.totalUsers, 1420);
     assert.strictEqual(body.summary.activeSubscriptions, 84);
-    assert.strictEqual(body.summary.mrrUsd, 3456.00);
+    assert.strictEqual(body.summary.mrrUsd, 3456.0);
     assert.ok(body.summary.grossMarginPercent > 90);
     assert.ok(body.summary.costPerThousandPdfsUsd > 0);
 
@@ -1581,8 +1717,8 @@ test('financial math helpers calculate AWS cost and gross margin correctly', () 
   const bytes = 1000000000; // 1 GB
   const cost = analytics.calculateAwsCost(renders, durationMs, bytes);
 
-  const expectedLambda = (5000000 / 1000) * 2 * 0.0000166667 + (10000 * 0.20 / 1000000);
-  const expectedS3 = (10000 * 0.005 / 1000) + ((1000000000 / 1e9) * 0.023);
+  const expectedLambda = (5000000 / 1000) * 2 * 0.0000166667 + (10000 * 0.2) / 1000000;
+  const expectedS3 = (10000 * 0.005) / 1000 + (1000000000 / 1e9) * 0.023;
   const expectedTotal = expectedLambda + expectedS3;
   assert.ok(Math.abs(cost - expectedTotal) < 0.00001);
 
@@ -1929,7 +2065,10 @@ test('readAdminUserDossier joins all 5 data sources combined', async () => {
     }
     if (cmd.constructor.name === 'QueryCommand') {
       // Check if querying API keys or Recent Requests
-      if (cmd.input.TableName === process.env.API_KEYS_TABLE || cmd.input.KeyConditionExpression?.includes('APIKEY#')) {
+      if (
+        cmd.input.TableName === process.env.API_KEYS_TABLE ||
+        cmd.input.KeyConditionExpression?.includes('APIKEY#')
+      ) {
         return {
           Items: [
             {
@@ -2035,11 +2174,17 @@ test('searchAdminUsers filters by tier and status in-memory', async () => {
       Users: [
         {
           Username: 'user-starter',
-          Attributes: [{ Name: 'sub', Value: 'user-starter' }, { Name: 'email', Value: 'starter@example.com' }],
+          Attributes: [
+            { Name: 'sub', Value: 'user-starter' },
+            { Name: 'email', Value: 'starter@example.com' },
+          ],
         },
         {
           Username: 'user-pro',
-          Attributes: [{ Name: 'sub', Value: 'user-pro' }, { Name: 'email', Value: 'pro@example.com' }],
+          Attributes: [
+            { Name: 'sub', Value: 'user-pro' },
+            { Name: 'email', Value: 'pro@example.com' },
+          ],
         },
       ],
     };
@@ -2051,7 +2196,11 @@ test('searchAdminUsers filters by tier and status in-memory', async () => {
       return {
         Responses: {
           [tableName]: [
-            { requestId: { S: 'BILLING#user-starter' }, tier: { S: 'starter' }, status: { S: 'active' } },
+            {
+              requestId: { S: 'BILLING#user-starter' },
+              tier: { S: 'starter' },
+              status: { S: 'active' },
+            },
             { requestId: { S: 'BILLING#user-pro' }, tier: { S: 'pro' }, status: { S: 'past_due' } },
           ],
         },
@@ -2243,7 +2392,11 @@ test('saveBillingWebhook ignores downgrade/cancel when manualOverride is true (T
       new Date(),
       'subscription.canceled'
     );
-    assert.strictEqual(updates.length, 0, 'No UpdateItemCommand sent when manualOverride is active');
+    assert.strictEqual(
+      updates.length,
+      0,
+      'No UpdateItemCommand sent when manualOverride is active'
+    );
 
     // 2. Past due webhook should also be ignored
     await analytics.saveBillingWebhook(
@@ -2276,7 +2429,11 @@ test('saveBillingWebhook ignores downgrade/cancel when manualOverride is true (T
       new Date(),
       'subscription.updated'
     );
-    assert.strictEqual(updates.length, 0, 'No UpdateItemCommand sent when attributes.status is canceled');
+    assert.strictEqual(
+      updates.length,
+      0,
+      'No UpdateItemCommand sent when attributes.status is canceled'
+    );
 
     // 5. Legitimate paid upgrade clears manualOverride and adopts new paid tier
     await analytics.saveBillingWebhook(
@@ -2292,9 +2449,14 @@ test('saveBillingWebhook ignores downgrade/cancel when manualOverride is true (T
       new Date(),
       'subscription.updated'
     );
-    const billingUpdate = updates.find((cmd) => cmd.input?.Key?.requestId?.S === 'BILLING#user_vip');
+    const billingUpdate = updates.find(
+      (cmd) => cmd.input?.Key?.requestId?.S === 'BILLING#user_vip'
+    );
     assert.ok(billingUpdate, 'BILLING# update was sent for paid upgrade');
-    assert.strictEqual(billingUpdate.input.ExpressionAttributeValues[':manualOverride'].BOOL, false);
+    assert.strictEqual(
+      billingUpdate.input.ExpressionAttributeValues[':manualOverride'].BOOL,
+      false
+    );
   } finally {
     analytics.ddb.send = origDdbSend;
   }
@@ -2333,7 +2495,10 @@ test('saveBillingWebhook permits downgrade for standard user without manualOverr
       new Date(),
       'subscription.canceled'
     );
-    assert.ok(updates.length > 0, 'UpdateItemCommand was sent to record cancellation for standard user');
+    assert.ok(
+      updates.length > 0,
+      'UpdateItemCommand was sent to record cancellation for standard user'
+    );
   } finally {
     analytics.ddb.send = origDdbSend;
   }
@@ -2392,7 +2557,9 @@ test('handleAdminUserPlanOverride enforces auth, validates input, updates quota 
     // 2. Missing reason returns 400
     const missingReasonRes = await analytics.handleAdminUserPlanOverride(
       {
-        requestContext: { authorizer: { claims: { 'cognito:groups': ['Admins'], email: 'operator@renderpdf.com' } } },
+        requestContext: {
+          authorizer: { claims: { 'cognito:groups': ['Admins'], email: 'operator@renderpdf.com' } },
+        },
         body: JSON.stringify({ tier: 'pro', reason: '' }),
       },
       'target_user_1'
@@ -2402,7 +2569,9 @@ test('handleAdminUserPlanOverride enforces auth, validates input, updates quota 
     // 3. Valid admin plan change to Pro
     const successRes = await analytics.handleAdminUserPlanOverride(
       {
-        requestContext: { authorizer: { claims: { 'cognito:groups': ['Admins'], email: 'operator@renderpdf.com' } } },
+        requestContext: {
+          authorizer: { claims: { 'cognito:groups': ['Admins'], email: 'operator@renderpdf.com' } },
+        },
         body: JSON.stringify({
           tier: 'pro',
           manualOverride: true,
@@ -2420,25 +2589,42 @@ test('handleAdminUserPlanOverride enforces auth, validates input, updates quota 
     assert.strictEqual(body.quotaLimit, 25000);
 
     // Verify BILLING# update
-    const billingUpdate = ddbCommands.find((c) => c.constructor.name === 'UpdateItemCommand' && c.input.Key.requestId.S === 'BILLING#target_user_1');
+    const billingUpdate = ddbCommands.find(
+      (c) =>
+        c.constructor.name === 'UpdateItemCommand' &&
+        c.input.Key.requestId.S === 'BILLING#target_user_1'
+    );
     assert.ok(billingUpdate, 'BILLING# update sent');
     assert.strictEqual(billingUpdate.input.ExpressionAttributeValues[':tier'].S, 'pro');
     assert.strictEqual(billingUpdate.input.ExpressionAttributeValues[':manualOverride'].BOOL, true);
-    assert.strictEqual(billingUpdate.input.ExpressionAttributeValues[':admin'].S, 'operator@renderpdf.com');
+    assert.strictEqual(
+      billingUpdate.input.ExpressionAttributeValues[':admin'].S,
+      'operator@renderpdf.com'
+    );
 
     // Verify USER_QUOTA# update
-    const quotaUpdate = ddbCommands.find((c) => c.constructor.name === 'UpdateItemCommand' && c.input.Key.requestId.S.startsWith('USER_QUOTA#target_user_1'));
+    const quotaUpdate = ddbCommands.find(
+      (c) =>
+        c.constructor.name === 'UpdateItemCommand' &&
+        c.input.Key.requestId.S.startsWith('USER_QUOTA#target_user_1')
+    );
     assert.ok(quotaUpdate, 'USER_QUOTA# update sent');
     assert.strictEqual(quotaUpdate.input.ExpressionAttributeValues[':limit'].N, '25000');
 
     // Verify syncUserUsagePlans attached key to Pro usage plan in API Gateway
-    const createKeyCmd = apigwCommands.find((c) => c.constructor.name === 'CreateUsagePlanKeyCommand');
+    const createKeyCmd = apigwCommands.find(
+      (c) => c.constructor.name === 'CreateUsagePlanKeyCommand'
+    );
     assert.ok(createKeyCmd, 'syncUserUsagePlans attached key to ProUsagePlan');
     assert.strictEqual(createKeyCmd.input.UsagePlanId, 'pro-plan-id');
     assert.strictEqual(createKeyCmd.input.KeyId, 'ag_key_123');
 
     // Verify ADMIN_AUDIT# put
-    const auditPut = ddbCommands.find((c) => c.constructor.name === 'PutItemCommand' && c.input.Item.requestId.S.startsWith('ADMIN_AUDIT#'));
+    const auditPut = ddbCommands.find(
+      (c) =>
+        c.constructor.name === 'PutItemCommand' &&
+        c.input.Item.requestId.S.startsWith('ADMIN_AUDIT#')
+    );
     assert.ok(auditPut, 'ADMIN_AUDIT record written');
     assert.strictEqual(auditPut.input.Item.action.S, 'PLAN_OVERRIDE');
     assert.strictEqual(auditPut.input.Item.adminEmail.S, 'operator@renderpdf.com');
@@ -2478,7 +2664,9 @@ test('handleAdminUserQuotaAdjust applies add_credits, set_limit, reset_usage and
     // 2. add_credits increases limit
     const addRes = await analytics.handleAdminUserQuotaAdjust(
       {
-        requestContext: { authorizer: { claims: { 'cognito:groups': ['Admins'], email: 'admin@renderpdf.com' } } },
+        requestContext: {
+          authorizer: { claims: { 'cognito:groups': ['Admins'], email: 'admin@renderpdf.com' } },
+        },
         body: JSON.stringify({
           action: 'add_credits',
           amount: 1000,
@@ -2497,7 +2685,9 @@ test('handleAdminUserQuotaAdjust applies add_credits, set_limit, reset_usage and
     // 3. set_limit sets exact limit
     const setRes = await analytics.handleAdminUserQuotaAdjust(
       {
-        requestContext: { authorizer: { claims: { 'cognito:groups': ['Admins'], email: 'admin@renderpdf.com' } } },
+        requestContext: {
+          authorizer: { claims: { 'cognito:groups': ['Admins'], email: 'admin@renderpdf.com' } },
+        },
         body: JSON.stringify({
           action: 'set_limit',
           amount: 15000,
@@ -2513,7 +2703,9 @@ test('handleAdminUserQuotaAdjust applies add_credits, set_limit, reset_usage and
     // 4. reset_usage clears used count
     const resetRes = await analytics.handleAdminUserQuotaAdjust(
       {
-        requestContext: { authorizer: { claims: { 'cognito:groups': ['Admins'], email: 'admin@renderpdf.com' } } },
+        requestContext: {
+          authorizer: { claims: { 'cognito:groups': ['Admins'], email: 'admin@renderpdf.com' } },
+        },
         body: JSON.stringify({
           action: 'reset_usage',
           reason: 'Operator testing usage reset',
@@ -2526,7 +2718,11 @@ test('handleAdminUserQuotaAdjust applies add_credits, set_limit, reset_usage and
     assert.strictEqual(resetBody.used, 0);
 
     // Verify audit logs were written for all actions
-    const auditLogs = ddbCommands.filter((c) => c.constructor.name === 'PutItemCommand' && c.input.Item.requestId.S.startsWith('ADMIN_AUDIT#'));
+    const auditLogs = ddbCommands.filter(
+      (c) =>
+        c.constructor.name === 'PutItemCommand' &&
+        c.input.Item.requestId.S.startsWith('ADMIN_AUDIT#')
+    );
     assert.strictEqual(auditLogs.length, 3, 'Audit log written for each quota adjustment');
   } finally {
     analytics.ddb.send = origDdbSend;
@@ -2549,7 +2745,9 @@ test('handler correctly routes POST /api/v1/admin/users/{userId}/plan and quota 
       path: '/api/v1/admin/users/user_abc/plan',
       pathParameters: { userId: 'user_abc' },
       httpMethod: 'POST',
-      requestContext: { authorizer: { claims: { 'cognito:groups': ['Admins'], email: 'admin@renderpdf.com' } } },
+      requestContext: {
+        authorizer: { claims: { 'cognito:groups': ['Admins'], email: 'admin@renderpdf.com' } },
+      },
       body: JSON.stringify({ tier: 'starter', reason: 'Upgraded by support' }),
     });
     assert.strictEqual(planRes.statusCode, 200);
@@ -2560,7 +2758,9 @@ test('handler correctly routes POST /api/v1/admin/users/{userId}/plan and quota 
       path: '/api/v1/analytics',
       queryStringParameters: { route: 'admin/users/user_abc/quota' },
       httpMethod: 'POST',
-      requestContext: { authorizer: { claims: { 'cognito:groups': ['Admins'], email: 'admin@renderpdf.com' } } },
+      requestContext: {
+        authorizer: { claims: { 'cognito:groups': ['Admins'], email: 'admin@renderpdf.com' } },
+      },
       body: JSON.stringify({ action: 'add_credits', amount: 500, reason: 'Support bonus' }),
     });
     assert.strictEqual(quotaRes.statusCode, 200);
@@ -2615,7 +2815,10 @@ test('recordAdminAudit writes immutable audit trail record with 365-day TTL (Tas
 
     // Sort Key: unix seconds
     const itemTimestamp = Number(item.timestamp.N);
-    assert.ok(itemTimestamp >= beforeSeconds && itemTimestamp <= afterSeconds, 'Timestamp is current unix seconds');
+    assert.ok(
+      itemTimestamp >= beforeSeconds && itemTimestamp <= afterSeconds,
+      'Timestamp is current unix seconds'
+    );
 
     // Entity type
     assert.strictEqual(item.entityType.S, 'ADMIN_AUDIT');
@@ -2628,11 +2831,14 @@ test('recordAdminAudit writes immutable audit trail record with 365-day TTL (Tas
     assert.strictEqual(item.targetUserId.S, 'user_audit_test_123');
     assert.strictEqual(item.action.S, 'PLAN_OVERRIDE');
     assert.strictEqual(item.reason.S, 'Manual tier upgrade for enterprise pilot');
-    assert.deepStrictEqual(JSON.parse(item.details.S), { previousTier: 'starter', newTier: 'enterprise' });
+    assert.deepStrictEqual(JSON.parse(item.details.S), {
+      previousTier: 'starter',
+      newTier: 'enterprise',
+    });
 
     // 365-day TTL: expiresAt = timestamp + 365 * 86400
     const expiresAt = Number(item.expiresAt.N);
-    const expectedExpires = itemTimestamp + (365 * 86400);
+    const expectedExpires = itemTimestamp + 365 * 86400;
     assert.strictEqual(expiresAt, expectedExpires, 'Expires exactly 365 days after creation');
 
     // Test with missing/default optional fields
@@ -2652,7 +2858,6 @@ test('recordAdminAudit writes immutable audit trail record with 365-day TTL (Tas
     analytics.ddb.send = origDdbSend;
   }
 });
-
 
 test('handleAdminUserStatus - disabling user calls AdminDisableUserCommand and deactivates keys (Task 4.2)', async () => {
   const origDdbSend = analytics.ddb.send;
@@ -2681,7 +2886,9 @@ test('handleAdminUserStatus - disabling user calls AdminDisableUserCommand and d
     const adminRequest = {
       httpMethod: 'POST',
       path: '/api/v1/admin/users/u1/status',
-      requestContext: { authorizer: { claims: { email: 'admin@test.com', 'cognito:groups': 'Admins' } } },
+      requestContext: {
+        authorizer: { claims: { email: 'admin@test.com', 'cognito:groups': 'Admins' } },
+      },
       body: JSON.stringify({ action: 'disable', reason: 'Fraudulent activity' }),
     };
 
@@ -2709,8 +2916,10 @@ test('handleAdminUserStatus - disabling user calls AdminDisableUserCommand and d
   } finally {
     analytics.ddb.send = origDdbSend;
     analytics.cognito.send = origCognitoSend;
-    if (prevTable === undefined) delete process.env.API_KEYS_TABLE; else process.env.API_KEYS_TABLE = prevTable;
-    if (prevPool === undefined) delete process.env.USER_POOL_ID; else process.env.USER_POOL_ID = prevPool;
+    if (prevTable === undefined) delete process.env.API_KEYS_TABLE;
+    else process.env.API_KEYS_TABLE = prevTable;
+    if (prevPool === undefined) delete process.env.USER_POOL_ID;
+    else process.env.USER_POOL_ID = prevPool;
   }
 });
 
@@ -2723,7 +2932,11 @@ test('handleAdminKeyRevoke - marks key inactive in DynamoDB and records audit (T
   analytics.ddb.send = async (cmd) => {
     ddbCommands.push(cmd);
     if (cmd.constructor.name === 'QueryCommand') {
-      return { Items: [{ PK: { S: 'USER#u1' }, SK: { S: 'APIKEY#k1' }, apiGatewayKeyId: { S: 'gw-key-id' } }] };
+      return {
+        Items: [
+          { PK: { S: 'USER#u1' }, SK: { S: 'APIKEY#k1' }, apiGatewayKeyId: { S: 'gw-key-id' } },
+        ],
+      };
     }
     return {};
   };
@@ -2741,7 +2954,9 @@ test('handleAdminKeyRevoke - marks key inactive in DynamoDB and records audit (T
     const adminRequest = {
       httpMethod: 'POST',
       path: '/api/v1/admin/users/u1/keys/k1/revoke',
-      requestContext: { authorizer: { claims: { email: 'admin@test.com', 'cognito:groups': 'Admins' } } },
+      requestContext: {
+        authorizer: { claims: { email: 'admin@test.com', 'cognito:groups': 'Admins' } },
+      },
       body: JSON.stringify({ reason: 'API key compromised' }),
     };
 
@@ -2770,8 +2985,10 @@ test('handleAdminKeyRevoke - marks key inactive in DynamoDB and records audit (T
   } finally {
     analytics.ddb.send = origDdbSend;
     analytics.apigw.send = origApigwSend;
-    if (prevTable === undefined) delete process.env.API_KEYS_TABLE; else process.env.API_KEYS_TABLE = prevTable;
-    if (prevPro === undefined) delete process.env.PRO_USAGE_PLAN_ID; else process.env.PRO_USAGE_PLAN_ID = prevPro;
+    if (prevTable === undefined) delete process.env.API_KEYS_TABLE;
+    else process.env.API_KEYS_TABLE = prevTable;
+    if (prevPro === undefined) delete process.env.PRO_USAGE_PLAN_ID;
+    else process.env.PRO_USAGE_PLAN_ID = prevPro;
   }
 });
 
@@ -2820,7 +3037,9 @@ test('listAdminAuditLogs - queries audit partitions and returns sorted logs; non
 
     const adminRequest = {
       httpMethod: 'GET',
-      requestContext: { authorizer: { claims: { email: 'admin@test.com', 'cognito:groups': 'Admins' } } },
+      requestContext: {
+        authorizer: { claims: { email: 'admin@test.com', 'cognito:groups': 'Admins' } },
+      },
       queryStringParameters: { days: '1', limit: '10' },
     };
     const res = await analytics.listAdminAuditLogs(adminRequest);
@@ -2836,15 +3055,11 @@ test('listAdminAuditLogs - queries audit partitions and returns sorted logs; non
     // QueryCommand sent with ADMIN_AUDIT#<date> partition
     const queryCmd = ddbCommands.find((c) => c.constructor.name === 'QueryCommand');
     assert.ok(queryCmd, 'QueryCommand should be sent');
-    assert.ok(queryCmd.input.ExpressionAttributeValues[':pk'].S.startsWith('ADMIN_AUDIT#'), 'partition key should start with ADMIN_AUDIT#');
+    assert.ok(
+      queryCmd.input.ExpressionAttributeValues[':pk'].S.startsWith('ADMIN_AUDIT#'),
+      'partition key should start with ADMIN_AUDIT#'
+    );
   } finally {
     analytics.ddb.send = origDdbSend;
   }
 });
-
-
-
-
-
-
-

@@ -50,10 +50,10 @@ export async function adminFetch(endpoint, options = {}) {
   const candidateUrls = fallbackUrl ? [primaryUrl, fallbackUrl] : [primaryUrl];
 
   const headers = {
-    'Accept': 'application/json',
+    Accept: 'application/json',
     'Content-Type': 'application/json',
-    'Authorization': `Bearer ${token}`,
-    ...(options.headers || {})
+    Authorization: `Bearer ${token}`,
+    ...(options.headers || {}),
   };
 
   let lastResponse = null;
@@ -78,15 +78,14 @@ export async function adminFetch(endpoint, options = {}) {
 
     // AWS API Gateway returns 403 {"message":"Missing Authentication Token"} for unmapped routes,
     // or {"message":"Invalid key=value pair (missing equal-sign) in Authorization header..."} when Bearer token is sent to an unmapped path
-    const isUnmapped = response.status === 404 || 
-      (response.status === 403 && (
-        payload?.message === 'Missing Authentication Token' || 
-        payload?.message === 'Forbidden' ||
-        (typeof payload?.message === 'string' && (
-          payload.message.includes('missing equal-sign') ||
-          payload.message.includes('Authorization header')
-        ))
-      ));
+    const isUnmapped =
+      response.status === 404 ||
+      (response.status === 403 &&
+        (payload?.message === 'Missing Authentication Token' ||
+          payload?.message === 'Forbidden' ||
+          (typeof payload?.message === 'string' &&
+            (payload.message.includes('missing equal-sign') ||
+              payload.message.includes('Authorization header')))));
 
     if (isUnmapped && candidateUrls.length > 1 && url !== candidateUrls[candidateUrls.length - 1]) {
       continue;
@@ -110,7 +109,8 @@ export async function adminFetch(endpoint, options = {}) {
     if (lastResponse.status === 403) {
       throw new Error('Administrative privileges required (403 Forbidden)');
     }
-    const errorMsg = lastPayload?.error || lastPayload?.message || `API error (${lastResponse.status})`;
+    const errorMsg =
+      lastPayload?.error || lastPayload?.message || `API error (${lastResponse.status})`;
     const error = new Error(errorMsg);
     error.status = lastResponse.status;
     error.data = lastPayload;

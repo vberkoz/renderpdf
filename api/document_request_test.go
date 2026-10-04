@@ -605,4 +605,3 @@ func TestDocumentOptionsValidationAndPlaceholders(t *testing.T) {
 		t.Fatalf("unexpected password options: %#v", req.Options)
 	}
 }
-

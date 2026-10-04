@@ -1,245 +1,152 @@
 # AGENT-RULES.md
 
-Repository-safe editing guide for AI agents working in `renderpdf`.
+Repository boundaries, placement rules, and forbidden patterns for AI agents working in `renderpdf`.
+
+For modification recipes, see [change-recipes.md](file:///Users/basilsergius/projects/renderpdf/docs/change-recipes.md).
+For a fast lookup table of edit surfaces and verification scripts, see [edit-surfaces.md](file:///Users/basilsergius/projects/renderpdf/docs/edit-surfaces.md).
 
 ## Purpose
 
 - Keep new changes inside the repo's existing responsibility boundaries.
 - Prevent root-level sprawl and duplicate operational entrypoints.
-- Make edits predictable for Go services, static frontend files, CloudFormation, shell scripts, and `_prompts/`.
+- Enforce strict boundaries for Go services, static frontend files, CloudFormation, shell scripts, and `_prompts/`.
 
 ## Placement Rules
 
-### New Backend Code
+### Backend Code
 
-- PDF generation service code:
-  - put in `/Users/basilsergius/projects/renderpdf/api/`
-- Auth-related Lambda code:
-  - put in `/Users/basilsergius/projects/renderpdf/auth/`
-- Shared backend logic:
-  - keep inside the owning service folder unless both `api/` and `auth/` truly need it
-- Do not create a new root backend folder.
+- **PDF generation service**:
+  - Canonical location: `api/`
+- **Auth-related Lambda code**:
+  - Canonical location: `auth/`
+- **Analytics Lambda code**:
+  - Canonical location: `analytics/`
+- **Webhook delivery worker**:
+  - Canonical location: `webhooks/`
+- **Shared backend logic**:
+  - Keep inside the owning service folder unless multiple services truly require shared code.
+- **Rule**: Do NOT create a new root backend folder.
 
-### New Frontend Code
+### Frontend Code
 
-- Authenticated dashboard UI:
-  - put in `/Users/basilsergius/projects/renderpdf/dashboard/`
-- Public marketing/demo UI:
-  - put in `/Users/basilsergius/projects/renderpdf/landing/`
-- Keep these as static assets unless the repo is explicitly being migrated to a bundled frontend.
-- Do not create a generic `frontend/`, `web/`, or `client/` folder unless the user explicitly asks for a structural change.
+- **Authenticated dashboard UI**:
+  - Canonical location: `dashboard/`
+- **Public marketing / demo UI**:
+  - Canonical location: `landing/`
+- **Rule**: Keep these as static assets. Do NOT create generic `frontend/`, `web/`, `ui/`, or `client/` directories unless explicitly instructed.
 
-### New Infrastructure Code
+### Infrastructure Code
 
-- CloudFormation templates and deployment config examples:
-  - put in `/Users/basilsergius/projects/renderpdf/infra/`
-- Update canonical infra files here:
-  - `/Users/basilsergius/projects/renderpdf/infra/cloudformation.yaml`
-  - `/Users/basilsergius/projects/renderpdf/infra/parameters.json.example`
-- Root `cloudformation.yaml` is a compatibility path. Prefer editing the canonical file in `infra/`.
+- **CloudFormation templates and deployment config**:
+  - Canonical location: `infra/` (`infra/cloudformation.yaml`, `infra/parameters.json.example`)
+- **Rule**: Root `cloudformation.yaml` is a compatibility path. Always edit the canonical file in `infra/`.
 
-### New Scripts
+### Scripts
 
-- Operational scripts:
-  - put in `/Users/basilsergius/projects/renderpdf/scripts/`
-- Root script files are compatibility wrappers only:
-  - `/Users/basilsergius/projects/renderpdf/deploy.sh`
-  - `/Users/basilsergius/projects/renderpdf/deploy-landing.sh`
-  - `/Users/basilsergius/projects/renderpdf/test-api.sh`
-- Do not add new non-wrapper scripts at the repo root.
+- **Operational & verification scripts**:
+  - Canonical location: `scripts/`
+- **Rule**: Root script files (`deploy.sh`, `deploy-landing.sh`, `test-api.sh`) are compatibility wrappers only. Do NOT add new non-wrapper scripts at the repo root.
 
-### New Docs And Prompt Files
+### Documentation & Workflow Prompts
 
-- Long-form repo/process docs:
-  - put in `/Users/basilsergius/projects/renderpdf/docs/`
-- AI workflow modules:
-  - put in `/Users/basilsergius/projects/renderpdf/_prompts/`
-- Example HTML inputs for PDF testing:
-  - put in `/Users/basilsergius/projects/renderpdf/doc-examples/`
+- **Long-form repo & process docs**:
+  - Canonical location: `docs/`
+- **AI workflow modules**:
+  - Canonical location: `_prompts/`
+- **PDF testing HTML fixtures**:
+  - Canonical location: `doc-examples/`
+
+---
 
 ## Naming Rules
 
 ### Scripts
 
-- Deployment scripts:
-  - use `deploy-<scope>.sh` or `deploy.sh` only for the primary full deploy
-- Test scripts:
-  - use `test-<scope>.sh`
-- One script per clear operational purpose.
-- Avoid ambiguous names like `run.sh`, `temp.sh`, `helper.sh`.
+- Deployment: `deploy-<scope>.sh` (use `deploy.sh` only for the primary full deploy).
+- Verification / Testing: `verify-<scope>.sh` or `test-<scope>.sh`.
+- Exactly one script per clear operational purpose. Avoid ambiguous names like `run.sh`, `temp.sh`, `helper.sh`.
 
 ### Tests
 
-- Go tests:
-  - use Go's standard `*_test.go`
-- HTML example fixtures:
-  - use descriptive kebab-case or existing plain names that reflect the document purpose
-- Do not create ad hoc test files at the repo root.
+- Go: standard `*_test.go`.
+- Node: standard `*.test.js`.
+- HTML fixtures: descriptive kebab-case or scenario names in `doc-examples/` (e.g. `invoice.html`, `report.html`). Do not place fixtures at the repo root.
 
-### Prompt Files
+### Workflow Prompts
 
-- Keep numeric ordering for workflow prompts:
-  - `NN-NAME.md`
-- Use uppercase descriptive names to match current convention:
-  - example: `11-NEW-FLOW.md`
-- If a prompt is informational rather than ordered workflow, prefer a descriptive README or docs file instead.
+- Numeric ordering for workflow prompts: `NN-NAME.md` (e.g. `11-NEW-FLOW.md`).
+- Uppercase descriptive names matching repo convention.
+- Always register new prompt modules in `_prompts/INDEX.md`.
 
-### Examples
+---
 
-- Put sample HTML fixtures in `doc-examples/`.
-- Use names that describe document shape or scenario:
-  - `invoice.html`
-  - `report.html`
-  - `variable-columns.html`
+## Decision Matrix: Modify Existing vs Create New
 
-## Modify Existing Vs Create New
+### Modify Existing Files When:
+- The responsibility already belongs to a current file.
+- The change extends current deploy, auth, dashboard, landing, or PDF behavior.
+- Adding a new file would introduce an ambiguous or secondary source of truth.
 
-### Modify Existing Files When
+### Create New Files When:
+- Adding a distinct responsibility that has no natural home in existing files.
+- An existing script would otherwise become overloaded or unsafe to reason about.
+- Introducing a new PDF test scenario (`doc-examples/`).
+- Adding a brand-new workflow module in `_prompts/`.
 
-- The responsibility already exists in a current file.
-- The change updates current deploy, auth, dashboard, landing, or PDF behavior.
-- The new logic is a direct extension of an existing script or prompt step.
-- Adding a new file would create a second source of truth.
+### Prefer Editing Over Creating If:
+- An existing file targets the same deploy destination.
+- An existing file manages the same UI page responsibility.
+- An existing script performs the same verification goal.
+- The proposed new file would differ only by environment or minor logic branches.
 
-### Create New Files When
-
-- A new file adds a distinct responsibility that does not already have a natural home.
-- A script would otherwise become hard to reason about if overloaded.
-- A new example fixture is needed for a new PDF scenario.
-- A new prompt step is truly separate from the existing numbered steps.
-
-### Prefer Editing Over Creating If Any Of These Are True
-
-- There is already a file with the same deploy target.
-- There is already a file with the same UI page responsibility.
-- There is already a script with the same verification goal.
-- The new file would differ only by one environment or one small branch of logic.
+---
 
 ## Forbidden Patterns
 
-- Duplicate deploy scripts for the same target.
-- Duplicate test scripts for the same verification path.
-- New root-level infrastructure, script, or docs files when `infra/`, `scripts/`, or `docs/` already owns that concern.
-- Hidden side effects in scripts:
-  - changing directories without anchoring to script location
-  - relying on caller cwd without documenting it
-  - silently mutating unrelated AWS resources
-- Editing generated local binaries as if they were source:
-  - `/Users/basilsergius/projects/renderpdf/api/renderpdf`
-  - `/Users/basilsergius/projects/renderpdf/auth/authorizer`
-  - `/Users/basilsergius/projects/renderpdf/auth/api-keys`
-- Creating alternate frontend roots like `client/`, `ui/`, or `frontend/` without an explicit migration task.
-- Creating alternate infra roots like `ops/`, `iac/`, or `cloud/` without an explicit migration task.
-- Adding prompt docs that claim scripts or files exist when they do not.
+1. **Duplicate entrypoints**: Never create duplicate deploy or test scripts for the same target or verification path.
+2. **Root sprawl**: Never add new root-level infrastructure, operational scripts, tests, or documentation files.
+3. **Editing generated binaries**: NEVER edit compiled binaries as source files:
+   - `api/renderpdf`
+   - `auth/authorizer`
+   - `auth/api-keys`
+4. **Unanchored script execution**: Never write shell scripts that rely on caller `cwd` or change directories without anchoring to `SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"`.
+5. **Silent mutations**: Never write scripts that silently mutate unrelated AWS resources or delete data tables without explicit prompt instruction.
+6. **Framework introduction**: Never introduce build tools, bundlers, or frontend frameworks into `dashboard/` or `landing/` unless explicitly tasked with a migration.
+7. **Phantom references**: Never add prompt docs or instructions claiming scripts or files exist when they do not.
+8. **Symlink edits**: Never edit root compatibility symlinks/wrappers when canonical targets exist in `infra/` or `scripts/`.
 
-## Existing Files To Treat Carefully
+---
 
-- `/Users/basilsergius/projects/renderpdf/infra/cloudformation.yaml`
-- `/Users/basilsergius/projects/renderpdf/scripts/deploy.sh`
-- `/Users/basilsergius/projects/renderpdf/scripts/deploy-landing.sh`
-- `/Users/basilsergius/projects/renderpdf/scripts/test-api.sh`
-- `/Users/basilsergius/projects/renderpdf/dashboard/login.html`
-- `/Users/basilsergius/projects/renderpdf/dashboard/callback.html`
-- `/Users/basilsergius/projects/renderpdf/dashboard/app.js`
-- `/Users/basilsergius/projects/renderpdf/landing/index.html`
-- `/Users/basilsergius/projects/renderpdf/parameters.json`
+## High-Risk Files (Edit With Caution)
 
-## Before Editing Checklist
+- `infra/cloudformation.yaml`: Main cloud resources; validate with `./scripts/verify-infra.sh`.
+- `scripts/deploy.sh` & `scripts/deploy-landing.sh`: Production deployment paths.
+- `scripts/test-api.sh`: Smoke test suite with live AWS dependencies.
+- `dashboard/login.html`, `dashboard/callback.html`, `dashboard/app.js`: Production Cognito authentication flow and token storage.
+- `landing/index.html`: Public customer portal and live conversion demo.
+- `parameters.json`: Live deployment parameters.
 
-- [ ] Read `/Users/basilsergius/projects/renderpdf/AGENTS.md`
-- [ ] Read `/Users/basilsergius/projects/renderpdf/docs/ARCHITECTURE.md`
-- [ ] Read the README in the target folder, if present
-- [ ] Confirm the target area:
-  - `api/`
-  - `auth/`
-  - `dashboard/`
-  - `landing/`
-  - `infra/`
-  - `scripts/`
-  - `docs/`
-  - `_prompts/`
-- [ ] Search for existing files that already own the responsibility
-- [ ] Check for path-sensitive references in scripts, docs, and prompts
-- [ ] Check for hard-coded domains, callback URLs, and AWS resource names
-- [ ] Confirm whether root files are wrappers or compatibility links before editing them
+---
 
-## After Editing Checklist
+## Pre-Flight & Post-Flight Checklists
 
-- [ ] Re-read changed paths for accidental new responsibilities
-- [ ] Confirm there is still one clear deploy path per target
-- [ ] Confirm there is still one clear test path per target
-- [ ] Update docs or prompts if commands or canonical paths changed
-- [ ] Keep compatibility wrappers working if canonical scripts moved
-- [ ] Avoid leaving broken absolute or root-relative paths
-- [ ] Note any assumptions if repo behavior was unclear
+### Before Editing
+- [ ] Read `AGENTS.md` and `docs/ARCHITECTURE.md`.
+- [ ] Consult `docs/edit-surfaces.md` to identify the safe edit surface and verification script.
+- [ ] Confirm whether root files are wrappers before modifying them.
+- [ ] Check for hardcoded Cognito domain names, callback URLs, or API endpoints.
 
-## Verification Commands By Area
+### After Editing
+- [ ] Verify that no new unexpected responsibilities were added to modified files.
+- [ ] Confirm single source of truth is preserved (no duplicate entrypoints).
+- [ ] Run the respective verification script or `./scripts/verify-all.sh`.
+- [ ] Keep compatibility wrappers intact if canonical scripts were touched.
 
-### API
+---
 
-```bash
-cd /Users/basilsergius/projects/renderpdf/api && go test ./...
-```
+## Repo-Specific Constraints
 
-### Auth
-
-```bash
-cd /Users/basilsergius/projects/renderpdf/auth && go test ./...
-```
-
-### Scripts
-
-```bash
-cd /Users/basilsergius/projects/renderpdf && bash -n deploy.sh deploy-landing.sh test-api.sh scripts/deploy.sh scripts/deploy-landing.sh scripts/test-api.sh
-```
-
-### Infrastructure
-
-```bash
-cd /Users/basilsergius/projects/renderpdf && aws cloudformation validate-template --template-body file://infra/cloudformation.yaml
-```
-
-### Deployed API Smoke Test
-
-```bash
-cd /Users/basilsergius/projects/renderpdf && ./scripts/test-api.sh
-```
-
-### Landing
-
-- Review:
-  - `/Users/basilsergius/projects/renderpdf/landing/index.html`
-- If deployment is intended:
-
-```bash
-cd /Users/basilsergius/projects/renderpdf && ./scripts/deploy-landing.sh
-```
-
-### Dashboard
-
-- Review:
-  - `/Users/basilsergius/projects/renderpdf/dashboard/login.html`
-  - `/Users/basilsergius/projects/renderpdf/dashboard/callback.html`
-  - `/Users/basilsergius/projects/renderpdf/dashboard/index.html`
-  - `/Users/basilsergius/projects/renderpdf/dashboard/app.js`
-- If deployment is intended:
-
-```bash
-cd /Users/basilsergius/projects/renderpdf && ./scripts/deploy.sh
-```
-
-### Prompts
-
-- Verify referenced files exist:
-
-```bash
-cd /Users/basilsergius/projects/renderpdf && rg -n "deploy\\.sh|test-api\\.sh|cloudformation\\.yaml|scripts/|infra/" _prompts
-```
-
-## Repo-Specific Notes
-
-- `api/` and `auth/` are Go Lambda services, not a monorepo with shared packages.
-- `dashboard/` and `landing/` are static frontend folders with hard-coded production integrations.
-- `infra/cloudformation.yaml` is the canonical CloudFormation template.
-- `scripts/` is the canonical home for operational shell scripts.
-- `_prompts/` is part of the working system because the repo uses a prompt-driven workflow; keep prompt instructions aligned with the actual file tree.
+- Run `./scripts/verify-all.sh` for fast, unified offline verification of Go, Node, static UI, shell, and infra syntax.
+- `api/` and `auth/` are standalone Go Lambda modules, not a monorepo with shared packages.
+- In macOS sandboxed CLI environments, shell commands inspecting `docs/` (`ls docs`, `find docs`) may fail with `Operation not permitted`; inspect documentation with native file viewing tools directly.
+- For local offline mocking and testing variables, refer to `.env.test.example` and `docs/testing-and-mocking.md`.

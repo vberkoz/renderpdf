@@ -50,8 +50,12 @@ function attributes(source) {
 
 function parsePage(source) {
   const facts = {
-    ids: [], fragments: [], stylesheets: [], navigation: [],
-    targets: new Set(), headings: [],
+    ids: [],
+    fragments: [],
+    stylesheets: [],
+    navigation: [],
+    targets: new Set(),
+    headings: [],
   };
   let heading = null;
   let index = 0;
@@ -155,17 +159,22 @@ function checkPage(page) {
     idLines.set(id.value, lines);
   }
   for (const [id, lines] of idLines) {
-    if (lines.length > 1) errors.push(`${label}:${lines.join(', ')}: duplicate id ${JSON.stringify(id)}`);
+    if (lines.length > 1)
+      errors.push(`${label}:${lines.join(', ')}: duplicate id ${JSON.stringify(id)}`);
   }
 
   for (const fragment of facts.fragments) {
     if (!idLines.has(fragment.value)) {
-      errors.push(`${label}:${fragment.line}: internal anchor #${fragment.value} has no target element`);
+      errors.push(
+        `${label}:${fragment.line}: internal anchor #${fragment.value} has no target element`
+      );
     }
   }
   for (const navigation of facts.navigation) {
     if (!facts.targets.has(navigation.value)) {
-      errors.push(`${label}:${navigation.line}: navigation view ${JSON.stringify(navigation.value)} has no data-dashboard-view target`);
+      errors.push(
+        `${label}:${navigation.line}: navigation view ${JSON.stringify(navigation.value)} has no data-dashboard-view target`
+      );
     }
   }
 
@@ -173,7 +182,9 @@ function checkPage(page) {
   const sectionLines = new Map();
   for (const heading of facts.headings) {
     if (previousLevel !== null && heading.level > previousLevel + 1) {
-      errors.push(`${label}:${heading.line}: heading hierarchy skips from h${previousLevel} to h${heading.level}`);
+      errors.push(
+        `${label}:${heading.line}: heading hierarchy skips from h${previousLevel} to h${heading.level}`
+      );
     }
     previousLevel = heading.level;
     const match = heading.text.match(SECTION_NUMBER);
@@ -185,13 +196,16 @@ function checkPage(page) {
     }
   }
   for (const [number, lines] of sectionLines) {
-    if (lines.length > 1) errors.push(`${label}:${lines.join(', ')}: duplicate documentation section number ${number}`);
+    if (lines.length > 1)
+      errors.push(`${label}:${lines.join(', ')}: duplicate documentation section number ${number}`);
   }
 
   for (const stylesheet of facts.stylesheets) {
     const target = resolveStylesheet(page, stylesheet.value);
     if (target && !isFile(target)) {
-      errors.push(`${label}:${stylesheet.line}: stylesheet ${JSON.stringify(stylesheet.value)} does not exist locally`);
+      errors.push(
+        `${label}:${stylesheet.line}: stylesheet ${JSON.stringify(stylesheet.value)} does not exist locally`
+      );
     }
   }
   return errors;
@@ -208,7 +222,9 @@ function htmlPages(directory) {
 const pages = PAGE_ROOTS.flatMap(htmlPages).sort();
 const errors = pages.flatMap(checkPage);
 if (errors.length) {
-  console.error(`Static UI verification failed:\n${errors.map((error) => `- ${error}`).join('\n')}`);
+  console.error(
+    `Static UI verification failed:\n${errors.map((error) => `- ${error}`).join('\n')}`
+  );
   process.exitCode = 1;
 } else {
   console.log(`Static UI verification passed (${pages.length} HTML pages checked).`);

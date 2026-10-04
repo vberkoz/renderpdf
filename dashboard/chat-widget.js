@@ -2,7 +2,7 @@
  * RenderPDF AI Support Chat Widget
  * Lightweight (~6 KB), zero external dependencies vanilla JavaScript client.
  */
-(function() {
+(function () {
   'use strict';
 
   // Prevent multiple initializations
@@ -14,10 +14,11 @@
   const EMAIL_KEY = 'renderpdf_chat_email';
 
   // Determine API endpoint
-  const apiOrigin = window.location.protocol === 'file:'
-    ? 'https://renderpdf.vberkoz.com'
-    : (window.location.origin || '');
-  const API_ENDPOINT = window.RENDERPDF_CHAT_ENDPOINT || (apiOrigin + '/api/v1/chat');
+  const apiOrigin =
+    window.location.protocol === 'file:'
+      ? 'https://renderpdf.vberkoz.com'
+      : window.location.origin || '';
+  const API_ENDPOINT = window.RENDERPDF_CHAT_ENDPOINT || apiOrigin + '/api/v1/chat';
 
   // Session Management
   function getOrCreateSessionId() {
@@ -38,7 +39,7 @@
     const isDashboard = window.location.pathname.startsWith('/app');
     const context = {
       url: window.location.href,
-      source: isDashboard ? 'dashboard' : 'landing'
+      source: isDashboard ? 'dashboard' : 'landing',
     };
 
     // Extract Cognito JWT credentials if on dashboard or previously signed in
@@ -48,9 +49,16 @@
         const parts = idToken.split('.');
         if (parts.length === 3) {
           const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
-          const payload = JSON.parse(decodeURIComponent(atob(base64).split('').map(function(c) {
-            return '%' + c.charCodeAt(0).toString(16).padStart(2, '0');
-          }).join('')));
+          const payload = JSON.parse(
+            decodeURIComponent(
+              atob(base64)
+                .split('')
+                .map(function (c) {
+                  return '%' + c.charCodeAt(0).toString(16).padStart(2, '0');
+                })
+                .join('')
+            )
+          );
           if (payload.email) context.email = payload.email;
           if (payload.sub) context.userId = payload.sub;
         }
@@ -101,7 +109,7 @@
 
     // Placeholder storage for code blocks to protect them from inline parsing
     const codeBlocks = [];
-    let formatted = safeText.replace(/```(?:[a-zA-Z0-9_-]+)?\n?([\s\S]*?)```/g, function(_, code) {
+    let formatted = safeText.replace(/```(?:[a-zA-Z0-9_-]+)?\n?([\s\S]*?)```/g, function (_, code) {
       const id = '___CODEBLOCK_' + codeBlocks.length + '___';
       codeBlocks.push('<pre><code>' + code.trim() + '</code></pre>');
       return id;
@@ -114,7 +122,10 @@
     formatted = formatted.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
 
     // Links [text](https://...)
-    formatted = formatted.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+    formatted = formatted.replace(
+      /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
+      '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>'
+    );
 
     // Bullet lists
     formatted = formatted.replace(/(?:^|\n)[*-]\s+(.+)/g, '<br>&bull; $1');
@@ -123,7 +134,7 @@
     formatted = formatted.replace(/\n/g, '<br>');
 
     // Restore code blocks
-    codeBlocks.forEach(function(block, index) {
+    codeBlocks.forEach(function (block, index) {
       formatted = formatted.replace('___CODEBLOCK_' + index + '___', block);
     });
 
@@ -259,7 +270,7 @@
       messages.push({
         role: 'assistant',
         text: "Hi there! 👋 I'm RenderPDF's AI assistant. Ask me anything about HTML-to-PDF rendering, paper options, pricing, or API integration!",
-        time: formatTime()
+        time: formatTime(),
       });
       saveHistory();
     }
@@ -268,13 +279,14 @@
 
     // Toggle Chat Window
     function toggleChat(forceOpen) {
-      const willOpen = typeof forceOpen === 'boolean' ? forceOpen : !win.classList.contains('is-open');
+      const willOpen =
+        typeof forceOpen === 'boolean' ? forceOpen : !win.classList.contains('is-open');
       if (willOpen) {
         win.classList.add('is-open');
         trigger.classList.add('is-open');
         trigger.setAttribute('aria-expanded', 'true');
         scrollToBottom();
-        setTimeout(function() {
+        setTimeout(function () {
           inputEl.focus();
         }, 150);
       } else {
@@ -284,17 +296,17 @@
       }
     }
 
-    trigger.addEventListener('click', function() {
+    trigger.addEventListener('click', function () {
       toggleChat();
     });
 
-    closeBtn.addEventListener('click', function() {
+    closeBtn.addEventListener('click', function () {
       toggleChat(false);
     });
 
     // Suggestion chips
-    win.querySelectorAll('.rpdf-chip').forEach(function(chip) {
-      chip.addEventListener('click', function() {
+    win.querySelectorAll('.rpdf-chip').forEach(function (chip) {
+      chip.addEventListener('click', function () {
         const question = chip.getAttribute('data-question');
         if (question && !isSending) {
           sendMessage(question);
@@ -303,14 +315,14 @@
     });
 
     // Auto-grow textarea & button enablement
-    inputEl.addEventListener('input', function() {
+    inputEl.addEventListener('input', function () {
       inputEl.style.height = 'auto';
       inputEl.style.height = Math.max(32, Math.min(inputEl.scrollHeight, 90)) + 'px';
       sendBtn.disabled = !inputEl.value.trim() || isSending;
     });
 
     // Enter to submit (Shift+Enter for newline)
-    inputEl.addEventListener('keydown', function(e) {
+    inputEl.addEventListener('keydown', function (e) {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         if (!sendBtn.disabled) {
@@ -319,7 +331,7 @@
       }
     });
 
-    sendBtn.addEventListener('click', function() {
+    sendBtn.addEventListener('click', function () {
       sendFromInput();
     });
 
@@ -334,7 +346,7 @@
 
     // Email Banner Submission
     if (emailFormEl) {
-      emailFormEl.addEventListener('submit', function(e) {
+      emailFormEl.addEventListener('submit', function (e) {
         e.preventDefault();
         const email = emailInputEl.value.trim();
         if (!email) return;
@@ -383,7 +395,7 @@
 
     function renderAllMessages() {
       messagesEl.innerHTML = '';
-      messages.forEach(function(msg) {
+      messages.forEach(function (msg) {
         appendMessageDOM(msg);
       });
       scrollToBottom();
@@ -416,12 +428,14 @@
       if (isSending) return;
       isSending = true;
       sendBtn.disabled = true;
+      sendBtn.classList.add('is-processing');
+      sendBtn.setAttribute('aria-busy', 'true');
 
       // Append user message
       const userMsg = {
         role: 'user',
         text: text,
-        time: formatTime()
+        time: formatTime(),
       };
       messages.push(userMsg);
       saveHistory();
@@ -436,13 +450,13 @@
         const response = await fetch(API_ENDPOINT, {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
           },
           body: JSON.stringify({
             sessionId: sessionId,
             message: text,
-            visitorContext: visitorContext
-          })
+            visitorContext: visitorContext,
+          }),
         });
 
         hideTypingIndicator();
@@ -452,12 +466,13 @@
         }
 
         const data = await response.json();
-        const replyText = data.reply || 'Thanks for reaching out! A team member will follow up shortly.';
+        const replyText =
+          data.reply || 'Thanks for reaching out! A team member will follow up shortly.';
 
         const botMsg = {
           role: 'assistant',
           text: replyText,
-          time: formatTime()
+          time: formatTime(),
         };
         messages.push(botMsg);
         saveHistory();
@@ -474,19 +489,20 @@
           emailBannerEl.style.display = 'flex';
           emailInputEl.focus();
         }
-
       } catch (err) {
         hideTypingIndicator();
         const errorMsg = {
           role: 'assistant',
           text: "I couldn't reach the support service right now. Please check your connection or email our team at **support@renderpdf.com**.",
-          time: formatTime()
+          time: formatTime(),
         };
         messages.push(errorMsg);
         saveHistory();
         appendMessageDOM(errorMsg);
       } finally {
         isSending = false;
+        sendBtn.classList.remove('is-processing');
+        sendBtn.removeAttribute('aria-busy');
         sendBtn.disabled = !inputEl.value.trim();
         scrollToBottom();
       }
@@ -494,15 +510,21 @@
 
     // Expose programmatic API on window
     window.RenderPDFChat = {
-      open: function() { toggleChat(true); },
-      close: function() { toggleChat(false); },
-      toggle: function() { toggleChat(); },
-      sendMessage: function(msg) {
+      open: function () {
+        toggleChat(true);
+      },
+      close: function () {
+        toggleChat(false);
+      },
+      toggle: function () {
+        toggleChat();
+      },
+      sendMessage: function (msg) {
         toggleChat(true);
         sendMessage(msg);
       },
       getSessionId: getOrCreateSessionId,
-      getContext: getVisitorContext
+      getContext: getVisitorContext,
     };
   }
 

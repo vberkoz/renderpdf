@@ -1,0 +1,13 @@
+services:
+  localstack:
+    image: localstack/localstack:3.7.2
+    container_name: renderpdf-localstack-test
+    ports:
+      - '4566:4566'
+    environment:
+      - SERVICES=dynamodb,s3,sqs
+      - AWS_DEFAULT_REGION=us-east-1
+      - DOCKER_HOST=unix:///var/run/docker.sock
+    volumes:
+      - ./scripts/init-localstack.sh:/etc/localstack/init/ready.d/init-aws.sh:ro
+      - /var/run/docker.sock:/var/run/docker.sock

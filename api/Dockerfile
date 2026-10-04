@@ -31,7 +31,17 @@ RUN apk add --no-cache curl && \
     curl -f -sSL -o /fonts/Lato-Italic.ttf "https://github.com/google/fonts/raw/main/ofl/lato/Lato-Italic.ttf" && \
     curl -f -sSL -o /fonts/Lato-BoldItalic.ttf "https://github.com/google/fonts/raw/main/ofl/lato/Lato-BoldItalic.ttf" && \
     curl -f -sSL -o /fonts/Montserrat.ttf "https://github.com/google/fonts/raw/main/ofl/montserrat/Montserrat%5Bwght%5D.ttf" && \
-    curl -f -sSL -o /fonts/Montserrat-Italic.ttf "https://github.com/google/fonts/raw/main/ofl/montserrat/Montserrat-Italic%5Bwght%5D.ttf"
+    curl -f -sSL -o /fonts/Montserrat-Italic.ttf "https://github.com/google/fonts/raw/main/ofl/montserrat/Montserrat-Italic%5Bwght%5D.ttf" && \
+    curl -f -sSL -o /fonts/IBMPlexSans.ttf "https://github.com/google/fonts/raw/main/ofl/ibmplexsans/IBMPlexSans%5Bwdth%2Cwght%5D.ttf" && \
+    curl -f -sSL -o /fonts/IBMPlexSans-Italic.ttf "https://github.com/google/fonts/raw/main/ofl/ibmplexsans/IBMPlexSans-Italic%5Bwdth%2Cwght%5D.ttf" && \
+    curl -f -sSL -o /fonts/IBMPlexMono-Regular.ttf "https://github.com/google/fonts/raw/main/ofl/ibmplexmono/IBMPlexMono-Regular.ttf" && \
+    curl -f -sSL -o /fonts/IBMPlexMono-Bold.ttf "https://github.com/google/fonts/raw/main/ofl/ibmplexmono/IBMPlexMono-Bold.ttf" && \
+    curl -f -sSL -o /fonts/IBMPlexMono-Italic.ttf "https://github.com/google/fonts/raw/main/ofl/ibmplexmono/IBMPlexMono-Italic.ttf" && \
+    curl -f -sSL -o /fonts/IBMPlexMono-BoldItalic.ttf "https://github.com/google/fonts/raw/main/ofl/ibmplexmono/IBMPlexMono-BoldItalic.ttf" && \
+    curl -f -sSL -o /fonts/IBMPlexMono-Medium.ttf "https://github.com/google/fonts/raw/main/ofl/ibmplexmono/IBMPlexMono-Medium.ttf" && \
+    curl -f -sSL -o /fonts/IBMPlexMono-SemiBold.ttf "https://github.com/google/fonts/raw/main/ofl/ibmplexmono/IBMPlexMono-SemiBold.ttf" && \
+    curl -f -sSL -o /fonts/DMSans.ttf "https://github.com/google/fonts/raw/main/ofl/dmsans/DMSans%5Bopsz%2Cwght%5D.ttf" && \
+    curl -f -sSL -o /fonts/DMSans-Italic.ttf "https://github.com/google/fonts/raw/main/ofl/dmsans/DMSans-Italic%5Bopsz%2Cwght%5D.ttf"
 
 FROM public.ecr.aws/lambda/provided:al2023
 

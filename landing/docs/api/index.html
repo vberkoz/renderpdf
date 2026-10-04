@@ -23,7 +23,9 @@
             </a>
             <nav id="docs-primary-navigation" class="topnav" data-carbon-header-nav aria-label="Primary navigation">
                 <a href="/">Home</a>
+                <a href="/#pricing">Pricing</a>
                 <a href="/docs/api/" aria-current="page">API docs</a>
+                <a href="/stats/">Stats</a>
                 <a href="/app/">Dashboard</a>
                 <a href="https://github.com/vberkoz/renderpdf">GitHub</a>
             </nav>
@@ -57,14 +59,14 @@
                     <p class="sidebar-title">Documentation</p>
                     <nav aria-label="Documentation sections">
                         <details class="sidebar-group" open>
-                            <summary><svg class="lucide lucide-rocket" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg> Get started</summary>
+                            <summary>Get started</summary>
                             <a href="/docs/api/" class="is-active" aria-current="page">Quick start</a>
                             <a href="/docs/api/trial/">Anonymous trial</a>
                             <a href="/docs/api/request-basics/">Request basics</a>
                             <a href="/docs/api/authentication/">Authentication</a>
                         </details>
                         <details class="sidebar-group">
-                            <summary><svg class="lucide lucide-file-code" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 12.5 8 15l2 2.5"/><path d="m14 12.5 2 2.5-2 2.5"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"/></svg> Render inputs</summary>
+                            <summary>Render inputs</summary>
                             <a href="/docs/api/render/">Render HTML</a>
                             <a href="/docs/api/render-document/">Document JSON</a>
                             <a href="/docs/api/pdf-security/">Password &amp; security</a>
@@ -73,7 +75,7 @@
                             <a href="/docs/api/render-upload/">Local package</a>
                         </details>
                         <details class="sidebar-group">
-                            <summary><svg class="lucide lucide-layers" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg> Templates &amp; batches</summary>
+                            <summary>Templates & batches</summary>
                             <a href="/docs/api/templates/">Templates</a>
                             <a href="/docs/api/render-template/">Render a template</a>
                             <a href="/docs/api/sources/">Saved sources</a>
@@ -81,17 +83,17 @@
                             <a href="/docs/api/batches/">Batch rendering</a>
                         </details>
                         <details class="sidebar-group">
-                            <summary><svg class="lucide lucide-send" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Delivery &amp; errors</summary>
+                            <summary>Delivery & errors</summary>
                             <a href="/docs/api/webhooks/">Webhooks</a>
                             <a href="/docs/api/response/">Response</a>
                             <a href="/docs/api/errors/">Errors</a>
                         </details>
                         <details class="sidebar-group">
-                            <summary><svg class="lucide lucide-key-round" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/></svg> API keys</summary>
+                            <summary>API keys</summary>
                             <a href="/docs/api/api-keys/">Manage API keys</a>
                         </details>
                         <details class="sidebar-group">
-                            <summary><svg class="lucide lucide-code-2" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m18 16 4-4-4-4"/><path d="m6 8-4 4 4 4"/><path d="m14.5 4-5 16"/></svg> Code examples</summary>
+                            <summary>Code examples</summary>
                             <a href="/docs/api/examples/">Examples</a>
                         </details>
                     </nav>
@@ -196,87 +198,6 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.11.1/build/highlight.min.js"></script>
-    <script>
-        if (window.hljs) window.hljs.highlightAll();
-
-        const hashRoutes = {
-            '#quick-start': '/docs/api/',
-            '#trial': '/docs/api/trial/',
-            '#request-basics': '/docs/api/request-basics/',
-            '#authentication': '/docs/api/authentication/',
-            '#render': '/docs/api/render/',
-            '#render-document': '/docs/api/render-document/',
-            '#pdf-security': '/docs/api/pdf-security/',
-            '#markdown': '/docs/api/markdown/',
-            '#render-url': '/docs/api/render-url/',
-            '#render-upload': '/docs/api/render-upload/',
-            '#templates': '/docs/api/templates/',
-            '#render-template': '/docs/api/render-template/',
-            '#sources': '/docs/api/sources/',
-            '#files': '/docs/api/files/',
-            '#batches': '/docs/api/batches/',
-            '#webhooks': '/docs/api/webhooks/',
-            '#examples': '/docs/api/examples/',
-            '#response': '/docs/api/response/',
-            '#errors': '/docs/api/errors/',
-            '#api-keys': '/docs/api/api-keys/'
-        };
-        if (window.location.hash && hashRoutes[window.location.hash]) {
-            window.location.replace(hashRoutes[window.location.hash]);
-        }
-
-        async function copyCode(button) {
-            const target = document.getElementById(button.dataset.copyTarget);
-            if (!target) return;
-
-            const originalLabel = button.textContent;
-            const text = target.textContent;
-            button.disabled = true;
-            button.classList.remove('is-copied', 'is-copy-error');
-
-            try {
-                if (navigator.clipboard?.writeText) {
-                    await navigator.clipboard.writeText(text);
-                } else {
-                    const selection = window.getSelection();
-                    const range = document.createRange();
-                    range.selectNodeContents(target);
-                    selection.removeAllRanges();
-                    selection.addRange(range);
-                    document.execCommand('copy');
-                    selection.removeAllRanges();
-                }
-                button.innerHTML = '<svg class="lucide lucide-check" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg> Copied';
-                button.classList.add('is-copied');
-            } catch {
-                button.textContent = 'Select text';
-                button.classList.add('is-copy-error');
-            } finally {
-                window.setTimeout(() => {
-                    button.innerHTML = '<svg class="lucide lucide-copy" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg> Copy';
-                    button.classList.remove('is-copied', 'is-copy-error');
-                    button.disabled = false;
-                }, 1600);
-            }
-        }
-
-        document.querySelectorAll('.copy-button').forEach((button) => {
-            button.addEventListener('click', () => copyCode(button));
-        });
-
-        const sidebarGroups = [...document.querySelectorAll('.sidebar-group')];
-        sidebarGroups.forEach((group) => {
-            group.addEventListener('toggle', () => {
-                if (!group.open) return;
-                sidebarGroups.forEach((otherGroup) => { if (otherGroup !== group) otherGroup.open = false; });
-            });
-        });
-    </script>
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <script>
-        if (window.lucide) {
-            window.lucide.createIcons();
-        }
-    </script>
+    <script src="/docs.js"></script>
 </body>
 </html>
