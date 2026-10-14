@@ -92,6 +92,9 @@ func normalizeCanonicalRenderRequestWithOwner(ctx context.Context, body, ownerID
 	if err := decoder.Decode(&struct{}{}); err != io.EOF {
 		return normalizedRenderRequest{}, &renderError{Code: "render_request_invalid", Message: "Invalid render request", Status: 400}
 	}
+	if request.Version == "" {
+		request.Version = documentRequestVersion
+	}
 	if request.Version != documentRequestVersion {
 		return normalizedRenderRequest{}, &renderError{Code: "render_version_unsupported", Message: "version must be \"1\"", Status: 422}
 	}
@@ -112,16 +115,33 @@ func normalizeCanonicalRenderRequestWithOwner(ctx context.Context, body, ownerID
 	}
 
 	switch request.Source.Type {
-	case "html", "markdown":
+	case "html":
 		if request.Source.ID != "" || request.Source.TemplateID != "" || request.Source.Variables != nil || request.Source.URL != "" || request.Source.UploadID != "" || request.Source.Entrypoint != "" {
 			return normalizedRenderRequest{}, &renderError{Code: "render_source_invalid", Message: "source contains fields not supported by its type", Status: 422}
 		}
-		document := documentRenderRequest{Version: request.Version, CSS: request.CSS, Data: request.Data, Options: request.Options, Label: result.Label, WebhookURL: request.WebhookURL, WebhookSecret: request.WebhookSecret}
-		if request.Source.Type == "html" {
-			document.HTML = request.Source.Content
+		if request.Data != nil || request.CSS != "" {
+			document := documentRenderRequest{Version: request.Version, CSS: request.CSS, Data: request.Data, Options: request.Options, Label: result.Label, WebhookURL: request.WebhookURL, WebhookSecret: request.WebhookSecret, HTML: request.Source.Content}
+			encoded, err := marshal(document)
+			if err != nil {
+				return normalizedRenderRequest{}, err
+			}
+			result.Kind, result.Body = renderKindDocument, encoded
 		} else {
-			document.Source = &documentRenderSource{Type: "markdown", Content: request.Source.Content}
+			var opts *documentRenderOptions
+			if !request.Options.isZero() {
+				opts = &request.Options
+			}
+			encoded, err := marshal(Request{HTML: request.Source.Content, WebhookURL: request.WebhookURL, WebhookSecret: request.WebhookSecret, Options: opts})
+			if err != nil {
+				return normalizedRenderRequest{}, err
+			}
+			result.Kind, result.Body = renderKindHTML, encoded
 		}
+	case "markdown":
+		if request.Source.ID != "" || request.Source.TemplateID != "" || request.Source.Variables != nil || request.Source.URL != "" || request.Source.UploadID != "" || request.Source.Entrypoint != "" {
+			return normalizedRenderRequest{}, &renderError{Code: "render_source_invalid", Message: "source contains fields not supported by its type", Status: 422}
+		}
+		document := documentRenderRequest{Version: request.Version, CSS: request.CSS, Data: request.Data, Options: request.Options, Label: result.Label, WebhookURL: request.WebhookURL, WebhookSecret: request.WebhookSecret, Source: &documentRenderSource{Type: "markdown", Content: request.Source.Content}}
 		encoded, err := marshal(document)
 		if err != nil {
 			return normalizedRenderRequest{}, err
@@ -137,19 +157,27 @@ func normalizeCanonicalRenderRequestWithOwner(ctx context.Context, body, ownerID
 		}
 		result.Kind, result.Body = renderKindTemplate, encoded
 	case "url":
-		if request.Source.ID != "" || request.Source.Content != "" || request.Source.TemplateID != "" || request.Source.Variables != nil || request.Source.UploadID != "" || request.Source.Entrypoint != "" || !noDocumentFields() {
+		if request.Source.ID != "" || request.Source.Content != "" || request.Source.TemplateID != "" || request.Source.Variables != nil || request.Source.UploadID != "" || request.Source.Entrypoint != "" || request.CSS != "" || request.Data != nil {
 			return normalizedRenderRequest{}, &renderError{Code: "render_source_invalid", Message: "source contains fields not supported by its type", Status: 422}
 		}
-		encoded, err := marshal(URLRequest{URL: request.Source.URL, WebhookURL: request.WebhookURL, WebhookSecret: request.WebhookSecret})
+		var opts *documentRenderOptions
+		if !request.Options.isZero() {
+			opts = &request.Options
+		}
+		encoded, err := marshal(URLRequest{URL: request.Source.URL, WebhookURL: request.WebhookURL, WebhookSecret: request.WebhookSecret, Options: opts})
 		if err != nil {
 			return normalizedRenderRequest{}, err
 		}
 		result.Kind, result.Body = renderKindURL, encoded
 	case "upload":
-		if request.Source.ID != "" || request.Source.Content != "" || request.Source.TemplateID != "" || request.Source.Variables != nil || request.Source.URL != "" || !noDocumentFields() {
+		if request.Source.ID != "" || request.Source.Content != "" || request.Source.TemplateID != "" || request.Source.Variables != nil || request.Source.URL != "" || request.CSS != "" || request.Data != nil {
 			return normalizedRenderRequest{}, &renderError{Code: "render_source_invalid", Message: "source contains fields not supported by its type", Status: 422}
 		}
-		encoded, err := marshal(packageRenderRequest{UploadID: request.Source.UploadID, Entrypoint: request.Source.Entrypoint, WebhookURL: request.WebhookURL, WebhookSecret: request.WebhookSecret})
+		var opts *documentRenderOptions
+		if !request.Options.isZero() {
+			opts = &request.Options
+		}
+		encoded, err := marshal(packageRenderRequest{UploadID: request.Source.UploadID, Entrypoint: request.Source.Entrypoint, WebhookURL: request.WebhookURL, WebhookSecret: request.WebhookSecret, Options: opts})
 		if err != nil {
 			return normalizedRenderRequest{}, err
 		}

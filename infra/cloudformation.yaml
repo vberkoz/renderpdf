@@ -711,15 +711,12 @@ Resources:
 
   UserPoolV2:
     Type: AWS::Cognito::UserPool
-    DependsOn: LandingEmailIdentity
     Properties:
       UserPoolName: !Sub '${AppName}-users-v2'
       AutoVerifiedAttributes:
         - email
       EmailConfiguration:
-        EmailSendingAccount: DEVELOPER
-        SourceArn: !Sub 'arn:aws:ses:${AWS::Region}:${AWS::AccountId}:identity/${LandingDomain}'
-        From: !Ref NotificationFromEmail
+        EmailSendingAccount: COGNITO_DEFAULT
       Policies:
         PasswordPolicy:
           MinimumLength: 8

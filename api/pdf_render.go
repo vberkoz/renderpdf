@@ -67,7 +67,7 @@ func generatePDFWithOptions(ctx context.Context, html string, options documentRe
 	if footerTmpl == "" {
 		footerTmpl = defaultFooterTemplate
 	}
-	pdfBytes, err := generatePDFURLWithCustomSettings(ctx, "data:text/html;charset=utf-8,"+escaped, displayHeaderFooter, headerTmpl, footerTmpl, false)
+	pdfBytes, err := generatePDFURLWithCustomSettings(ctx, "data:text/html;charset=utf-8,"+escaped, displayHeaderFooter, headerTmpl, footerTmpl, false, options)
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +95,7 @@ func generateDocumentPDFWithOptions(ctx context.Context, documentHTML string, op
 	if footerTmpl == "" {
 		footerTmpl = defaultFooterTemplate
 	}
-	pdfBytes, err := generatePDFURLWithCustomSettings(ctx, "data:text/html;charset=utf-8,"+escaped, displayHeaderFooter, headerTmpl, footerTmpl, true)
+	pdfBytes, err := generatePDFURLWithCustomSettings(ctx, "data:text/html;charset=utf-8,"+escaped, displayHeaderFooter, headerTmpl, footerTmpl, true, options)
 	if err != nil {
 		return nil, err
 	}
@@ -111,10 +111,30 @@ func generatePDFURLWithOptions(ctx context.Context, targetURL string, displayHea
 }
 
 func generatePDFURLWithRenderSettings(ctx context.Context, targetURL string, displayHeaderFooter, disableJavaScript bool) ([]byte, error) {
-	return generatePDFURLWithCustomSettings(ctx, targetURL, displayHeaderFooter, defaultHeaderTemplate, defaultFooterTemplate, disableJavaScript)
+	return generatePDFURLWithCustomSettings(ctx, targetURL, displayHeaderFooter, defaultHeaderTemplate, defaultFooterTemplate, disableJavaScript, documentRenderOptions{})
 }
 
-func generatePDFURLWithCustomSettings(ctx context.Context, targetURL string, displayHeaderFooter bool, headerTemplate, footerTemplate string, disableJavaScript bool) ([]byte, error) {
+func generatePDFURLWithDocumentOptions(ctx context.Context, targetURL string, options documentRenderOptions) ([]byte, error) {
+	displayHeaderFooter := true
+	if options.DisplayHeaderFooter != nil {
+		displayHeaderFooter = *options.DisplayHeaderFooter
+	}
+	headerTmpl := options.HeaderTemplate
+	if headerTmpl == "" {
+		headerTmpl = defaultHeaderTemplate
+	}
+	footerTmpl := options.FooterTemplate
+	if footerTmpl == "" {
+		footerTmpl = defaultFooterTemplate
+	}
+	pdfBytes, err := generatePDFURLWithCustomSettings(ctx, targetURL, displayHeaderFooter, headerTmpl, footerTmpl, false, options)
+	if err != nil {
+		return nil, err
+	}
+	return applyPDFSecurity(pdfBytes, options)
+}
+
+func generatePDFURLWithCustomSettings(ctx context.Context, targetURL string, displayHeaderFooter bool, headerTemplate, footerTemplate string, disableJavaScript bool, options documentRenderOptions) ([]byte, error) {
 	// Use one deadline for the browser's entire lifetime. A launch-only child
 	// context becomes Chrome's owner inside chromedp; when that shorter context
 	// expires it kills an otherwise healthy browser during PDF rendering.
@@ -184,6 +204,8 @@ func generatePDFURLWithCustomSettings(ctx context.Context, targetURL string, dis
 	var buf []byte
 	diagnostics := newRenderDiagnostics()
 	chromedp.ListenTarget(taskCtx, diagnostics.listen)
+	netTracker := newNetworkIdleTracker()
+	chromedp.ListenTarget(taskCtx, netTracker.listen)
 	chromedp.ListenTarget(taskCtx, func(ev interface{}) {
 		event, ok := ev.(*fetch.EventRequestPaused)
 		if !ok || event == nil {
@@ -253,50 +275,139 @@ func generatePDFURLWithCustomSettings(ctx context.Context, targetURL string, dis
 		chromedp.ActionFunc(func(ctx context.Context) error {
 			return emulation.SetEmulatedMedia().WithMedia("print").Do(ctx)
 		}),
-		// Explicitly await font loading and image decoding before printing.
-		// Headless Chrome renders lazily loaded @font-face rules with fallback fonts
-		// unless document.fonts.ready has resolved under the active print media styles.
+		// 1. CSS Animation & Transition Disable: Inject a CSS rule prior to rendering
 		chromedp.ActionFunc(func(ctx context.Context) error {
 			if disableJavaScript {
 				return nil
 			}
-			_, _, _ = runtime.Evaluate(`(async () => {
+			_, _, _ = runtime.Evaluate(`(() => {
 				try {
-					if (document.fonts) {
-						await Promise.race([
-							document.fonts.ready,
-							new Promise(resolve => setTimeout(resolve, 2500))
-						]);
-					}
-					const images = Array.from(document.images || []);
-					if (images.length > 0) {
-						await Promise.race([
-							Promise.all(images.map(img => {
-								if (img.complete) return Promise.resolve();
-								return new Promise(resolve => {
-									img.addEventListener('load', resolve, { once: true });
-									img.addEventListener('error', resolve, { once: true });
-								});
-							})),
-							new Promise(resolve => setTimeout(resolve, 2000))
-						]);
-					}
-					void document.body.offsetHeight;
-					if (document.fonts) {
-						await Promise.race([
-							document.fonts.ready,
-							new Promise(resolve => setTimeout(resolve, 1500))
-						]);
-					}
+					const style = document.createElement('style');
+					style.setAttribute('data-renderpdf', 'disable-animations');
+					style.textContent = '*, *::before, *::after { -webkit-transition-duration: 0s !important; transition-duration: 0s !important; -webkit-animation-duration: 0s !important; animation-duration: 0s !important; }';
+					(document.head || document.documentElement).appendChild(style);
 				} catch (e) {}
-			})()`).WithAwaitPromise(true).Do(ctx)
+			})()`).Do(ctx)
 			return nil
 		}),
+		// 2. Smart Wait-For Readiness Triggers
 		chromedp.ActionFunc(func(ctx context.Context) error {
-			if disableJavaScript {
-				return chromedp.Sleep(1 * time.Second).Do(ctx)
+			stage = "wait_for"
+
+			waitTimeout := 5 * time.Second
+			if ms := options.getTimeoutMs(); ms > 0 {
+				waitTimeout = time.Duration(ms) * time.Millisecond
 			}
-			return chromedp.Sleep(250 * time.Millisecond).Do(ctx)
+
+			waitCtx, waitCancel := context.WithTimeout(ctx, waitTimeout)
+			defer waitCancel()
+
+			var waitActions []chromedp.Action
+
+			// Network Idle: "networkidle0" / "networkidle2"
+			idleMode := strings.ToLower(strings.TrimSpace(options.getNetworkIdle()))
+			if idleMode == "networkidle0" || idleMode == "networkidle2" {
+				maxInflight := 0
+				if idleMode == "networkidle2" {
+					maxInflight = 2
+				}
+				waitActions = append(waitActions, chromedp.ActionFunc(func(c context.Context) error {
+					return netTracker.waitForIdle(c, maxInflight, 500*time.Millisecond)
+				}))
+			}
+
+			// Automatic Font Readiness (document.fonts.ready) & image decoding
+			if !disableJavaScript && options.getWaitForFonts() {
+				waitActions = append(waitActions, chromedp.ActionFunc(func(c context.Context) error {
+					_, _, err := runtime.Evaluate(`(async () => {
+						try {
+							if (document.fonts && document.fonts.ready) {
+								await document.fonts.ready;
+							}
+							const images = Array.from(document.images || []);
+							if (images.length > 0) {
+								await Promise.all(images.map(img => {
+									if (img.complete) return Promise.resolve();
+									return new Promise(resolve => {
+										img.addEventListener('load', resolve, { once: true });
+										img.addEventListener('error', resolve, { once: true });
+									});
+								}));
+							}
+							void document.body.offsetHeight;
+							if (document.fonts && document.fonts.ready) {
+								await document.fonts.ready;
+							}
+						} catch (e) {}
+					})()`).WithAwaitPromise(true).Do(c)
+					return err
+				}))
+			}
+
+			// Canvas Animations & WebGL Quiescence: wait for canvas pixel data
+			if !disableJavaScript {
+				waitActions = append(waitActions, chromedp.ActionFunc(func(c context.Context) error {
+					_, _, err := runtime.Evaluate(`(async () => {
+						try {
+							const canvases = Array.from(document.querySelectorAll('canvas'));
+							if (canvases.length === 0) return;
+							const start = Date.now();
+							while (Date.now() - start < 1500) {
+								let painted = false;
+								for (const canvas of canvases) {
+									if (canvas.width > 0 && canvas.height > 0) {
+										const ctx = canvas.getContext('2d');
+										if (ctx) {
+											try {
+												const pixel = ctx.getImageData(Math.floor(canvas.width / 2), Math.floor(canvas.height / 2), 1, 1).data;
+												if (pixel[3] !== 0) {
+													painted = true;
+													break;
+												}
+											} catch (e) {}
+										}
+									}
+								}
+								if (painted) break;
+								await new Promise(r => setTimeout(r, 50));
+							}
+						} catch (e) {}
+					})()`).WithAwaitPromise(true).Do(c)
+					return err
+				}))
+			}
+
+			// Custom Selector Trigger
+			if selector := options.getWaitForSelector(); selector != "" {
+				waitActions = append(waitActions, chromedp.WaitVisible(selector, chromedp.ByQuery))
+			}
+
+			// Custom JavaScript Function Trigger
+			if fn := options.getWaitForFunction(); fn != "" && !disableJavaScript {
+				waitActions = append(waitActions, chromedp.Poll(fn, nil, chromedp.WithPollingInterval(50*time.Millisecond)))
+			}
+
+			if len(waitActions) > 0 {
+				if err := chromedp.Run(waitCtx, waitActions...); err != nil {
+					if errors.Is(err, context.DeadlineExceeded) || errors.Is(waitCtx.Err(), context.DeadlineExceeded) {
+						if ctx.Err() != nil {
+							return ctx.Err()
+						}
+						// Safety timeout reached: proceed to print
+						fmt.Printf("Readiness wait timed out after %v, proceeding to render\n", waitTimeout)
+						return nil
+					}
+					return err
+				}
+			}
+
+			if !disableJavaScript {
+				_, _, _ = runtime.Evaluate(`new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))`).WithAwaitPromise(true).Do(ctx)
+			} else {
+				_ = chromedp.Sleep(200 * time.Millisecond).Do(ctx)
+			}
+
+			return nil
 		}),
 		chromedp.ActionFunc(func(ctx context.Context) error {
 			stage = "printing"
@@ -393,4 +504,91 @@ func (d *renderDiagnostics) error() error {
 		return &renderError{Code: "image_loading_failed", Message: "An image failed to load while rendering the page"}
 	}
 	return nil
+}
+
+// networkIdleTracker tracks in-flight HTTP requests over CDP to determine
+// when network activity has ceased for a specified duration (networkidle0/networkidle2).
+type networkIdleTracker struct {
+	mu       sync.Mutex
+	inflight map[network.RequestID]struct{}
+	notify   chan struct{}
+}
+
+func newNetworkIdleTracker() *networkIdleTracker {
+	return &networkIdleTracker{
+		inflight: make(map[network.RequestID]struct{}),
+		notify:   make(chan struct{}, 100),
+	}
+}
+
+func (t *networkIdleTracker) listen(ev interface{}) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	switch event := ev.(type) {
+	case *network.EventRequestWillBeSent:
+		t.inflight[event.RequestID] = struct{}{}
+		t.broadcast()
+	case *network.EventLoadingFinished:
+		delete(t.inflight, event.RequestID)
+		t.broadcast()
+	case *network.EventLoadingFailed:
+		delete(t.inflight, event.RequestID)
+		t.broadcast()
+	}
+}
+
+func (t *networkIdleTracker) broadcast() {
+	select {
+	case t.notify <- struct{}{}:
+	default:
+	}
+}
+
+func (t *networkIdleTracker) activeCount() int {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return len(t.inflight)
+}
+
+func (t *networkIdleTracker) waitForIdle(ctx context.Context, maxInflight int, idleDuration time.Duration) error {
+	timer := time.NewTimer(idleDuration)
+	defer timer.Stop()
+
+	if t.activeCount() > maxInflight {
+		if !timer.Stop() {
+			select {
+			case <-timer.C:
+			default:
+			}
+		}
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-timer.C:
+			if t.activeCount() <= maxInflight {
+				return nil
+			}
+		case <-t.notify:
+			if t.activeCount() <= maxInflight {
+				if !timer.Stop() {
+					select {
+					case <-timer.C:
+					default:
+					}
+				}
+				timer.Reset(idleDuration)
+			} else {
+				if !timer.Stop() {
+					select {
+					case <-timer.C:
+					default:
+					}
+				}
+			}
+		}
+	}
 }

@@ -36,10 +36,11 @@ type packageUploadResponse struct {
 }
 
 type packageRenderRequest struct {
-	UploadID      string `json:"uploadId"`
-	Entrypoint    string `json:"entrypoint,omitempty"`
-	WebhookURL    string `json:"webhookUrl,omitempty"`
-	WebhookSecret string `json:"webhookSecret,omitempty"`
+	UploadID      string                 `json:"uploadId"`
+	Entrypoint    string                 `json:"entrypoint,omitempty"`
+	WebhookURL    string                 `json:"webhookUrl,omitempty"`
+	WebhookSecret string                 `json:"webhookSecret,omitempty"`
+	Options       *documentRenderOptions `json:"options,omitempty"`
 }
 
 func isPackageUploadRequest(request events.APIGatewayProxyRequest) bool {

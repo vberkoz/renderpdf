@@ -34,9 +34,10 @@ type Request struct {
 }
 
 type URLRequest struct {
-	URL           string `json:"url"`
-	WebhookURL    string `json:"webhookUrl,omitempty"`
-	WebhookSecret string `json:"webhookSecret,omitempty"`
+	URL           string                 `json:"url"`
+	WebhookURL    string                 `json:"webhookUrl,omitempty"`
+	WebhookSecret string                 `json:"webhookSecret,omitempty"`
+	Options       *documentRenderOptions `json:"options,omitempty"`
 }
 
 type Response struct {
@@ -246,6 +247,13 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 			analytics.ErrorType = "validation"
 			return errorResponse(400, err.Error(), corsHeaders), nil
 		}
+		if req.Options != nil {
+			if err := validateDocumentOptions(req.Options); err != nil {
+				analytics.ErrorType = "validation"
+				return renderErrorResponse(err, corsHeaders), nil
+			}
+			documentOptions = *req.Options
+		}
 		renderURL = validatedURL
 		webhookURL = req.WebhookURL
 		webhookSecret = req.WebhookSecret
@@ -262,6 +270,13 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 			return errorResponse(422, err.Error(), corsHeaders), nil
 		}
 		packageURL, packageCleanup = preparedURL, cleanup
+		if req.Options != nil {
+			if err := validateDocumentOptions(req.Options); err != nil {
+				analytics.ErrorType = "validation"
+				return renderErrorResponse(err, corsHeaders), nil
+			}
+			documentOptions = *req.Options
+		}
 		webhookURL, webhookSecret = req.WebhookURL, req.WebhookSecret
 		analytics.HTMLBytes = packageBytes
 	} else {
@@ -360,9 +375,9 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 	if isDocumentRender {
 		pdfBytes, err = generateDocumentPDFWithOptions(ctx, html, documentOptions)
 	} else if isURLRender {
-		pdfBytes, err = generatePDFURL(ctx, renderURL)
+		pdfBytes, err = generatePDFURLWithDocumentOptions(ctx, renderURL, documentOptions)
 	} else if isPackageRender {
-		pdfBytes, err = generatePDFURL(ctx, packageURL)
+		pdfBytes, err = generatePDFURLWithDocumentOptions(ctx, packageURL, documentOptions)
 	} else {
 		html = injectPrintCSS(html)
 		html = ensureColgroup(html)

@@ -183,18 +183,71 @@ func resolveDocumentRenderHTML(body string) (string, documentRenderRequest, erro
 	return documentHTML, request, nil
 }
 
+// waitForOptions defines readiness conditions evaluated before printing.
+type waitForOptions struct {
+	Selector    string `json:"selector,omitempty"`
+	Function    string `json:"function,omitempty"`
+	TimeoutMs   int    `json:"timeoutMs,omitempty"`
+	NetworkIdle string `json:"networkIdle,omitempty"`
+	Fonts       *bool  `json:"fonts,omitempty"`
+}
+
 // documentRenderOptions describes the bounded layout intent accepted by the
 // contract. Conversion into Chromium print options is added with the document
 // compiler, but all accepted values are validated here.
 type documentRenderOptions struct {
-	Format              string `json:"format,omitempty"`
-	Margin              string `json:"margin,omitempty"`
-	HeaderTemplate      string `json:"headerTemplate,omitempty"`
-	FooterTemplate      string `json:"footerTemplate,omitempty"`
-	DisplayHeaderFooter *bool  `json:"displayHeaderFooter,omitempty"`
-	Password            string `json:"password,omitempty"`
-	OwnerPassword       string `json:"ownerPassword,omitempty"`
-	Permissions         string `json:"permissions,omitempty"`
+	Format              string          `json:"format,omitempty"`
+	Margin              string          `json:"margin,omitempty"`
+	HeaderTemplate      string          `json:"headerTemplate,omitempty"`
+	FooterTemplate      string          `json:"footerTemplate,omitempty"`
+	DisplayHeaderFooter *bool           `json:"displayHeaderFooter,omitempty"`
+	Password            string          `json:"password,omitempty"`
+	OwnerPassword       string          `json:"ownerPassword,omitempty"`
+	Permissions         string          `json:"permissions,omitempty"`
+	WaitFor             *waitForOptions `json:"waitFor,omitempty"`
+	WaitForSelector     string          `json:"waitForSelector,omitempty"`
+	WaitForFunction     string          `json:"waitForFunction,omitempty"`
+	WaitForFonts        *bool           `json:"waitForFonts,omitempty"`
+	NetworkIdle         string          `json:"networkIdle,omitempty"`
+	TimeoutMs           int             `json:"timeoutMs,omitempty"`
+}
+
+func (o documentRenderOptions) getWaitForSelector() string {
+	if o.WaitFor != nil && o.WaitFor.Selector != "" {
+		return o.WaitFor.Selector
+	}
+	return o.WaitForSelector
+}
+
+func (o documentRenderOptions) getWaitForFunction() string {
+	if o.WaitFor != nil && o.WaitFor.Function != "" {
+		return o.WaitFor.Function
+	}
+	return o.WaitForFunction
+}
+
+func (o documentRenderOptions) getWaitForFonts() bool {
+	if o.WaitFor != nil && o.WaitFor.Fonts != nil {
+		return *o.WaitFor.Fonts
+	}
+	if o.WaitForFonts != nil {
+		return *o.WaitForFonts
+	}
+	return true
+}
+
+func (o documentRenderOptions) getNetworkIdle() string {
+	if o.WaitFor != nil && o.WaitFor.NetworkIdle != "" {
+		return o.WaitFor.NetworkIdle
+	}
+	return o.NetworkIdle
+}
+
+func (o documentRenderOptions) getTimeoutMs() int {
+	if o.WaitFor != nil && o.WaitFor.TimeoutMs != 0 {
+		return o.WaitFor.TimeoutMs
+	}
+	return o.TimeoutMs
 }
 
 func (o documentRenderOptions) isZero() bool {
@@ -205,7 +258,13 @@ func (o documentRenderOptions) isZero() bool {
 		o.DisplayHeaderFooter == nil &&
 		o.Password == "" &&
 		o.OwnerPassword == "" &&
-		o.Permissions == ""
+		o.Permissions == "" &&
+		o.WaitFor == nil &&
+		o.WaitForSelector == "" &&
+		o.WaitForFunction == "" &&
+		o.WaitForFonts == nil &&
+		o.NetworkIdle == "" &&
+		o.TimeoutMs == 0
 }
 
 // parseDocumentRenderRequest accepts exactly one JSON object and rejects
@@ -259,6 +318,9 @@ func parseDocumentRenderRequest(body string) (documentRenderRequest, error) {
 	}
 	if err := validateDocumentOptions(&request.Options); err != nil {
 		return documentRenderRequest{}, err
+	}
+	if request.Options.getWaitForFunction() != "" {
+		return documentRenderRequest{}, documentRequestError(422, "document_wait_function_disallowed", "options.waitFor.function is not supported when JavaScript is disabled")
 	}
 	if err := validateDocumentPageSettings(content, request.CSS); err != nil {
 		return documentRenderRequest{}, err
@@ -563,6 +625,22 @@ func validateDocumentOptions(options *documentRenderOptions) error {
 		default:
 			return documentRequestError(422, "document_permissions_invalid", "options.permissions must be one of all, print, or none")
 		}
+	}
+	if sel := options.getWaitForSelector(); len(sel) > 1024 {
+		return documentRequestError(422, "document_wait_selector_invalid", "options.waitFor.selector must not exceed 1024 characters")
+	}
+	if fn := options.getWaitForFunction(); len(fn) > 4096 {
+		return documentRequestError(422, "document_wait_function_invalid", "options.waitFor.function must not exceed 4096 characters")
+	}
+	if idle := options.getNetworkIdle(); idle != "" {
+		switch strings.ToLower(strings.TrimSpace(idle)) {
+		case "networkidle0", "networkidle2":
+		default:
+			return documentRequestError(422, "document_network_idle_invalid", "options.waitFor.networkIdle must be either \"networkidle0\" or \"networkidle2\"")
+		}
+	}
+	if ms := options.getTimeoutMs(); ms < 0 || ms > 20000 {
+		return documentRequestError(422, "document_wait_timeout_invalid", "options.waitFor.timeoutMs must be between 0 and 20000")
 	}
 	return nil
 }
