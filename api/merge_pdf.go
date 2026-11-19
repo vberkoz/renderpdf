@@ -67,12 +67,5 @@ func mergePDFStreams(pdfSlices [][]byte, options documentRenderOptions) ([]byte,
 		}
 	}
 
-	if options.Signing != nil {
-		mergedBytes, err = applyPDFSignature(mergedBytes, options)
-		if err != nil {
-			return nil, 0, fmt.Errorf("apply signature: %w", err)
-		}
-	}
-
 	return mergedBytes, pageCount, nil
 }

@@ -136,6 +136,14 @@ func isMergeRequest(r events.APIGatewayProxyRequest) bool {
 	return p == mergeResource || p == pdfMergeResource || p == dashboardMergeResource
 }
 
+func isDeprecatedPDFMergeRequest(r events.APIGatewayProxyRequest) bool {
+	p := strings.TrimSuffix(r.Path, "/")
+	if p == "" {
+		p = strings.TrimSuffix(r.Resource, "/")
+	}
+	return p == pdfMergeResource
+}
+
 func parseMergeRequest(body string) (mergeRequest, error) {
 	var req mergeRequest
 	decoder := json.NewDecoder(strings.NewReader(body))
@@ -199,6 +207,12 @@ func parseMergeRequest(body string) (mergeRequest, error) {
 }
 
 func handleMergeRequest(ctx context.Context, r events.APIGatewayProxyRequest, h map[string]string) events.APIGatewayProxyResponse {
+	if h == nil {
+		h = map[string]string{}
+	}
+	if isDeprecatedPDFMergeRequest(r) {
+		addDeprecationHeaders(h, mergeResource)
+	}
 	owner := authorizerValue(r, "userId")
 	if owner == "" {
 		return errorResponse(http.StatusUnauthorized, "Authentication is required", h)

@@ -57,7 +57,13 @@ docker build --platform linux/amd64 -f Dockerfile.apikeys -t ${STACK_NAME}-apike
 ANALYTICS_ZIP="$(mktemp -t renderpdf-analytics.XXXXXX).zip"
 WEBHOOKS_ZIP="$(mktemp -t renderpdf-webhooks.XXXXXX).zip"
 ACCOUNT_LINKER_ZIP="$(mktemp -t renderpdf-account-linker.XXXXXX).zip"
-trap 'rm -f "${ANALYTICS_ZIP}" "${WEBHOOKS_ZIP}" "${ACCOUNT_LINKER_ZIP}"' EXIT
+BATCH_BUILD_DIR="$(mktemp -d -t renderpdf-batch-build.XXXXXX)"
+BATCH_ZIP="$(mktemp -t renderpdf-batch.XXXXXX).zip"
+trap 'rm -rf "${ANALYTICS_ZIP}" "${WEBHOOKS_ZIP}" "${ACCOUNT_LINKER_ZIP}" "${BATCH_ZIP}" "${BATCH_BUILD_DIR}"' EXIT
+echo "Packaging lightweight Go batch ZIP Lambda..."
+cd "${ROOT_DIR}/api"
+CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -tags lambda.norpc -ldflags="-s -w" -o "${BATCH_BUILD_DIR}/bootstrap" .
+zip -q -j "${BATCH_ZIP}" "${BATCH_BUILD_DIR}/bootstrap"
 echo "Packaging native Node.js analytics Lambda..."
 cd "${ROOT_DIR}/analytics"
 zip -q -j "${ANALYTICS_ZIP}" *.js package.json -x "*.test.js" "test-*.js"
@@ -149,10 +155,18 @@ aws lambda update-function-code \
   --query 'LastUpdateStatus' \
   --output text
 
-for function_name in ${STACK_NAME}-batch-worker ${STACK_NAME}-batch-reconciler ${STACK_NAME}-batch-outbox-dispatcher; do
+aws lambda update-function-code \
+  --function-name "${STACK_NAME}-batch-worker" \
+  --image-uri ${ECR_REPO}:latest \
+  --region ${REGION} \
+  --profile ${PROFILE} \
+  --query 'LastUpdateStatus' \
+  --output text 2>/dev/null || echo "${STACK_NAME}-batch-worker not yet created"
+
+for function_name in ${STACK_NAME}-batch-reconciler ${STACK_NAME}-batch-outbox-dispatcher; do
   aws lambda update-function-code \
     --function-name "${function_name}" \
-    --image-uri ${ECR_REPO}:latest \
+    --zip-file "fileb://${BATCH_ZIP}" \
     --region ${REGION} \
     --profile ${PROFILE} \
     --query 'LastUpdateStatus' \

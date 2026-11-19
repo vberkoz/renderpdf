@@ -7,14 +7,13 @@
 - Purpose:
   - Normalize and render HTML, Markdown, templates, public URLs, uploaded ZIP
     packages, or saved sources into a private PDF and return a signed URL.
-  - Merge multiple PDFs (`POST /api/v1/merge`, `POST /api/v1/pdf/merge`) with
-    unified page numbers, watermarks, encryption, and digital signing.
-  - Server-side enterprise extensions: vector Barcodes & QR codes, PII Redaction,
-    PAdES / PKCS#7 digital signatures, PDF/A & Factur-X e-invoicing compliance, and
+  - Merge multiple PDFs (`POST /api/v1/merge`; legacy alias `POST /api/v1/pdf/merge` is deprecated with RFC 8594 headers) with
+    unified page numbers, watermarks, encryption, and compliance metadata.
+  - Server-side enterprise extensions: vector Barcodes & QR codes, PDF/A & Factur-X e-invoicing compliance, and
     smart wait-for condition evaluation.
 - Source:
   - `api/main.go`, `api/render_request.go`, `api/merge_api.go`, `api/compliance.go`,
-    `api/redaction.go`, `api/watermark.go`, `api/barcode.go`
+    `api/watermark.go`, `api/barcode.go`
 - Build/runtime entrypoints:
   - `api/Dockerfile`
   - `scripts/deploy.sh`
@@ -24,7 +23,7 @@
 - Contracts:
   - Refer to `docs/api-summary.md` first for core endpoint contracts. Consult `docs/openapi.yaml` only when inspecting deep schema definitions.
 - Package API:
-  - `POST /api/v1/files/upload` returns a short-lived presigned ZIP upload URL.
+  - `POST /api/v1/files/upload` returns a short-lived presigned ZIP upload URL (legacy alias `POST /api/v1/uploads` is deprecated with RFC 8594 headers).
   - `POST /api/v1/render` with an `upload` source renders an uploaded ZIP's
     `index.html` or requested entrypoint.
   - Sources: `/api/v1/sources`; files: `/api/v1/files`; batches:

@@ -91,7 +91,7 @@
                             </div>
                             <div class="route"><span class="method">POST</span><code>/render</code></div>
                         </div>
-                        <p class="section-copy">Use this authenticated two-step workflow when a document has local CSS, images, fonts, or JavaScript. ZIP files must use relative paths, contain <code>index.html</code> by default, and are limited to 25 MB compressed, 50 MB extracted, and 500 files. Packages are private, expire after one day, and cannot load network resources while rendering.</p>
+                        <p class="section-copy">Use this authenticated two-step workflow via <code>POST /api/v1/files/upload</code> when a document has local CSS, images, fonts, or JavaScript. ZIP files must use relative paths, contain <code>index.html</code> by default, and are limited to 25 MB compressed, 50 MB extracted, and 500 files. Packages are private, expire after one day, and cannot load network resources while rendering. The legacy alias <code>POST /api/v1/uploads</code> is deprecated and returns RFC 8594 <code>Deprecation</code>, <code>Sunset</code>, and <code>Link</code> headers pointing to <code>/api/v1/files/upload</code>.</p>
                         <div class="code-block">
                             <div class="code-header"><span>cURL</span><button type="button" class="copy-button" data-copy-target="render-upload-code">Copy</button></div>
                             <pre id="render-upload-code"><code class="language-bash">upload=$(curl -s -X POST https://renderpdf.vberkoz.com/api/v1/files/upload \

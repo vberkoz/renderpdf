@@ -205,7 +205,6 @@ func buildDocumentHTMLFromResolvedHTML(resolvedHTML, css string, options documen
 	}
 	pageCSS := fmt.Sprintf("@page { size: %s; margin: %s; }", pageSize, options.Margin)
 	documentHTML := "<!doctype html>\n<html>\n<head>\n<meta charset=\"utf-8\">\n<style>\n" + css + "\n" + pageCSS + "\n</style>\n</head>\n<body>\n" + resolvedHTML + "\n</body>\n</html>"
-	documentHTML = transformRedaction(documentHTML, options.Redaction)
 	documentHTML = transformBarcodes(documentHTML)
 	documentHTML = injectPrintCSS(documentHTML)
 	if err := validateDocumentRenderInputSize(documentHTML, ""); err != nil {

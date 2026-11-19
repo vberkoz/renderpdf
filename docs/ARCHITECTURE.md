@@ -82,11 +82,11 @@
 
 ### PDF Merging Flow
 
-- `POST /api/v1/merge` (and alias `POST /api/v1/pdf/merge`) accepts 2–100 PDF items
+- `POST /api/v1/merge` (legacy alias `POST /api/v1/pdf/merge` is deprecated and emits RFC 8594 headers) accepts 2–100 PDF items
   specified as owned file IDs, public HTTP/HTTPS URLs, or base64 data streams.
 - The API Lambda downloads and validates the source PDFs, merges them via pdfcpu,
   and optionally stamps unified page numbers, watermarks, AES-256 encryption, or
-  cryptographic digital signatures.
+  PDF/A and Factur-X compliance metadata.
 - Stores the output as a private S3 PDF object and writes a `batch_merged_pdf` file
   record with a 15-minute signed download URL.
 

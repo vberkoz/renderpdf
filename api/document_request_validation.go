@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"regexp"
 	"strconv"
 	"strings"
 )
@@ -178,55 +177,6 @@ func validateDocumentOptions(options *documentRenderOptions) error {
 					}
 				}
 			}
-		}
-	}
-	if options.Redaction != nil {
-		r := options.Redaction
-		if r.Replacement != "" {
-			switch strings.ToLower(strings.TrimSpace(r.Replacement)) {
-			case "bar", "mask", "text":
-			default:
-				return documentRequestError(422, "document_redaction_replacement_invalid", "options.redaction.replacement must be one of: bar, mask, text")
-			}
-		}
-		for _, t := range r.Types {
-			switch strings.ToLower(strings.TrimSpace(t)) {
-			case "ssn", "creditcard", "card", "email", "phone":
-			default:
-				return documentRequestError(422, "document_redaction_type_invalid", fmt.Sprintf("unsupported redaction type %q; must be ssn, creditCard, email, or phone", t))
-			}
-		}
-		for _, p := range r.Patterns {
-			if _, err := regexp.Compile(p); err != nil {
-				return documentRequestError(422, "document_redaction_pattern_invalid", fmt.Sprintf("invalid regex pattern %q: %v", p, err))
-			}
-		}
-	}
-	if options.Signing != nil {
-		s := options.Signing
-		if strings.TrimSpace(s.Certificate) == "" && strings.TrimSpace(s.KmsKeyID) == "" {
-			return documentRequestError(422, "document_signing_certificate_required", "options.signing requires certificate or kmsKeyId")
-		}
-		if len(s.Certificate) > 65536 {
-			return documentRequestError(422, "document_signing_certificate_too_large", "options.signing.certificate must not exceed 65536 bytes")
-		}
-		if len(s.PrivateKey) > 65536 {
-			return documentRequestError(422, "document_signing_private_key_too_large", "options.signing.privateKey must not exceed 65536 bytes")
-		}
-		if len(s.Name) > 256 {
-			return documentRequestError(422, "document_signing_name_invalid", "options.signing.name must not exceed 256 characters")
-		}
-		if len(s.Reason) > 256 {
-			return documentRequestError(422, "document_signing_reason_invalid", "options.signing.reason must not exceed 256 characters")
-		}
-		if len(s.Location) > 256 {
-			return documentRequestError(422, "document_signing_location_invalid", "options.signing.location must not exceed 256 characters")
-		}
-		if len(s.ContactInfo) > 256 {
-			return documentRequestError(422, "document_signing_contact_invalid", "options.signing.contactInfo must not exceed 256 characters")
-		}
-		if options.Password != "" || options.OwnerPassword != "" {
-			return documentRequestError(422, "document_signing_encrypted_unsupported", "cannot sign password-protected/encrypted PDF documents simultaneously")
 		}
 	}
 	if options.Watermark != nil {

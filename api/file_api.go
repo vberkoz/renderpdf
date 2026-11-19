@@ -17,6 +17,7 @@ import (
 )
 
 const fileResource = "/api/v1/files"
+const fileUploadResource = "/api/v1/files/upload"
 const dashboardFileResource = "/api/v1/dashboard/files"
 const maxPrivateFileStorageBytes int64 = 500 * 1024 * 1024
 

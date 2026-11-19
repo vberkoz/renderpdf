@@ -77,7 +77,7 @@ test('parseDocumentEditor accepts source with type upload', () => {
   assert.strictEqual(parsed.request.source.uploadId, 'file_zip_123');
 });
 
-test('parseDocumentEditor allows compliance, signing, redaction, waitFor options', () => {
+test('parseDocumentEditor allows compliance and waitFor options and rejects signing and redaction', () => {
   const advancedPayload = {
     version: '1',
     html: '<p>Invoice {{customer.name}}</p>',
@@ -86,8 +86,6 @@ test('parseDocumentEditor allows compliance, signing, redaction, waitFor options
       format: 'A4',
       margin: '10mm',
       compliance: 'pdfa-3b',
-      signing: { kmsKeyId: 'arn:aws:kms:123' },
-      redaction: { enabled: true },
       waitFor: { selector: '#done' },
     },
   };
@@ -99,9 +97,29 @@ test('parseDocumentEditor allows compliance, signing, redaction, waitFor options
 
   const parsed = createRender.parseDocumentEditor();
   assert.strictEqual(parsed.request.options.compliance, 'pdfa-3b');
-  assert.deepStrictEqual(parsed.request.options.signing, { kmsKeyId: 'arn:aws:kms:123' });
-  assert.deepStrictEqual(parsed.request.options.redaction, { enabled: true });
   assert.deepStrictEqual(parsed.request.options.waitFor, { selector: '#done' });
+
+  for (const retiredOption of ['signing', 'redaction']) {
+    const retiredPayload = {
+      version: '1',
+      html: '<p>Invoice {{customer.name}}</p>',
+      data: { customer: { name: 'Ada' } },
+      options: {
+        format: 'A4',
+        margin: '10mm',
+        [retiredOption]: { enabled: true },
+      },
+    };
+    global.document.getElementById = (id) => {
+      if (id === 'documentSourceTypeInput') return { value: 'html' };
+      if (id === 'documentJsonInput') return { value: JSON.stringify(retiredPayload) };
+      return null;
+    };
+    assert.throws(
+      () => createRender.parseDocumentEditor(),
+      new RegExp(`Unknown options field "${retiredOption}"`)
+    );
+  }
 });
 
 test('batchSubmission extracts mergeOutput state', () => {

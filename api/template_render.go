@@ -63,15 +63,11 @@ func resolveTemplateRenderHTML(ctx context.Context, store templateStore, ownerID
 // lets tests assert the final HTML supplied to Chromium without requiring a
 // local Chrome installation.
 func renderTemplatePDF(ctx context.Context, store templateStore, ownerID, body string, generate func(context.Context, string) ([]byte, error)) ([]byte, error) {
-	html, templateReq, err := resolveTemplateRenderHTML(ctx, store, ownerID, body)
+	html, _, err := resolveTemplateRenderHTML(ctx, store, ownerID, body)
 	if err != nil {
 		return nil, err
 	}
-	var redaction *redactionOptions
-	if templateReq.Options != nil {
-		redaction = templateReq.Options.Redaction
-	}
-	pdf, err := generate(ctx, transformBarcodes(transformRedaction(rewriteTfoot(injectPrintCSS(html)), redaction)))
+	pdf, err := generate(ctx, transformBarcodes(rewriteTfoot(injectPrintCSS(html))))
 	if err != nil {
 		return nil, fmt.Errorf("generate template PDF: %w", err)
 	}

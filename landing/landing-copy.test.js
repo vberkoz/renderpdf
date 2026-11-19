@@ -63,7 +63,7 @@ test('landing and security docs omit unvalidated claims and stale overage pricin
     assert.doesNotMatch(indexHtml, pattern, `landing/index.html must not match ${pattern}`);
   }
 
-  for (const pattern of [/\bPAdES\b/i, /\bHIPAA\b/i, /printBackground/i]) {
+  for (const pattern of [/\bPAdES\b/i, /\bHIPAA\b/i, /printBackground/i, /options\.signing/i, /options\.redaction/i, /X\.509 PKCS#7/i]) {
     assert.doesNotMatch(
       pdfSecurityHtml,
       pattern,
@@ -71,8 +71,16 @@ test('landing and security docs omit unvalidated claims and stale overage pricin
     );
   }
   assert.ok(
-    pdfSecurityHtml.includes('id="digital-signatures"'),
-    'pdf-security docs must preserve #digital-signatures anchor'
+    !pdfSecurityHtml.includes('id="digital-signatures"'),
+    'pdf-security docs must not contain #digital-signatures anchor'
+  );
+  assert.ok(
+    !pdfSecurityHtml.includes('id="redaction"'),
+    'pdf-security docs must not contain #redaction anchor'
+  );
+  assert.ok(
+    pdfSecurityHtml.includes('id="encryption"'),
+    'pdf-security docs must preserve #encryption anchor'
   );
 });
 
@@ -87,8 +95,10 @@ test('JSON-LD structured data parses cleanly and matches visible FAQ and pricing
   const software = graph.find((node) => node['@type'] === 'SoftwareApplication');
   assert.ok(software, 'JSON-LD must include SoftwareApplication');
   const featureText = software.featureList.join('\n');
-  assert.ok(featureText.includes('X.509 PKCS#7'));
+  assert.ok(!featureText.includes('X.509 PKCS#7'));
+  assert.ok(!featureText.includes('PII Redaction'));
   assert.ok(!featureText.includes('PAdES'));
+  assert.ok(featureText.includes('AES-256 PDF Password Protection and Permissions'));
 
   const faqPage = graph.find((node) => node['@type'] === 'FAQPage');
   assert.ok(faqPage, 'JSON-LD must include FAQPage');

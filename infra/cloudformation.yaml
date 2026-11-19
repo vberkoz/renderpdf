@@ -1042,10 +1042,14 @@ Resources:
     Type: AWS::Lambda::Function
     Properties:
       FunctionName: !Sub '${AppName}-batch-outbox-dispatcher'
-      PackageType: Image
+      Runtime: provided.al2023
+      Handler: bootstrap
+      Architectures:
+        - x86_64
       Role: !GetAtt LambdaExecutionRole.Arn
       Code:
-        ImageUri: !Sub '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${AppName}:latest'
+        ZipFile: |
+          placeholder-compiled-go-binary-updated-by-deploy-script
       MemorySize: 256
       Timeout: 30
       Environment:
@@ -1068,10 +1072,14 @@ Resources:
     Type: AWS::Lambda::Function
     Properties:
       FunctionName: !Sub '${AppName}-batch-reconciler'
-      PackageType: Image
+      Runtime: provided.al2023
+      Handler: bootstrap
+      Architectures:
+        - x86_64
       Role: !GetAtt LambdaExecutionRole.Arn
       Code:
-        ImageUri: !Sub '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${AppName}:latest'
+        ZipFile: |
+          placeholder-compiled-go-binary-updated-by-deploy-script
       MemorySize: 256
       Timeout: 30
       Environment:

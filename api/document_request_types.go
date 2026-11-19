@@ -178,8 +178,6 @@ type documentRenderOptions struct {
 	NetworkIdle         string             `json:"networkIdle,omitempty"`
 	TimeoutMs           int                `json:"timeoutMs,omitempty"`
 	PageNumbers         *pageNumberOptions `json:"pageNumbers,omitempty"`
-	Redaction           *redactionOptions  `json:"redaction,omitempty"`
-	Signing             *signingOptions    `json:"signing,omitempty"`
 	Watermark           *watermarkOptions  `json:"watermark,omitempty"`
 	Compliance          *complianceOptions `json:"compliance,omitempty"`
 }
@@ -243,8 +241,6 @@ func (o documentRenderOptions) isZero() bool {
 		o.NetworkIdle == "" &&
 		o.TimeoutMs == 0 &&
 		o.PageNumbers == nil &&
-		o.Redaction == nil &&
-		o.Signing == nil &&
 		o.Watermark == nil &&
 		o.Compliance == nil
 }
@@ -307,14 +303,6 @@ func mergeDocumentRenderOptions(base, override documentRenderOptions) documentRe
 	if override.PageNumbers != nil {
 		pn := *override.PageNumbers
 		merged.PageNumbers = &pn
-	}
-	if override.Redaction != nil {
-		r := *override.Redaction
-		merged.Redaction = &r
-	}
-	if override.Signing != nil {
-		s := *override.Signing
-		merged.Signing = &s
 	}
 	if override.Watermark != nil {
 		wm := *override.Watermark

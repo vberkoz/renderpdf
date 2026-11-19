@@ -299,8 +299,6 @@ img { max-width: 100%; box-sizing: content-box; background-color: #fff; }
       'watermark',
       'pageNumbers',
       'waitFor',
-      'redaction',
-      'signing',
       'compliance',
     ];
     const unknownOption = Object.keys(options).find((field) => !allowedOptions.includes(field));

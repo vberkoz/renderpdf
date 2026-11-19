@@ -112,7 +112,7 @@ func TestAllSourceTypesPDFDimensions(t *testing.T) {
 		if err := json.Unmarshal([]byte(norm.Body), &req); err != nil {
 			t.Fatal(err)
 		}
-		html := transformBarcodes(transformRedaction(rewriteTfoot(injectPrintCSS(req.HTML)), req.Options.Redaction))
+		html := transformBarcodes(rewriteTfoot(injectPrintCSS(req.HTML)))
 		pdfBytes, err := generatePDFWithOptions(ctx, html, *req.Options)
 		if err != nil {
 			t.Fatal(err)
@@ -149,7 +149,7 @@ func TestAllSourceTypesPDFDimensions(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		html := transformBarcodes(transformRedaction(rewriteTfoot(injectPrintCSS(resolvedHTML)), tplReq.Options.Redaction))
+		html := transformBarcodes(rewriteTfoot(injectPrintCSS(resolvedHTML)))
 		pdfBytes, err := generatePDFWithOptions(ctx, html, *tplReq.Options)
 		if err != nil {
 			t.Fatal(err)

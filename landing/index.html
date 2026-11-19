@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Developer-friendly HTML to PDF API with real headless Chromium. Built-in Factur-X e-invoicing, vector barcodes, PII redaction, and batch rendering. Start free.">
+    <meta name="description" content="Developer-friendly HTML to PDF API with real headless Chromium. Built-in Factur-X e-invoicing, vector barcodes, and batch rendering. Start free.">
     <link rel="canonical" href="https://renderpdf.vberkoz.com/">
     
     <!-- OpenGraph / Social Sharing -->
@@ -11,7 +11,7 @@
     <meta property="og:site_name" content="RenderPDF">
     <meta property="og:url" content="https://renderpdf.vberkoz.com/">
     <meta property="og:title" content="RenderPDF — Fast HTML to PDF API, E-Invoicing &amp; Batch PDF Generation">
-    <meta property="og:description" content="Developer-friendly HTML to PDF API with real headless Chromium. Built-in Factur-X e-invoicing, vector barcodes, PII redaction, and batch rendering. Fast, secure, and reliable.">
+    <meta property="og:description" content="Developer-friendly HTML to PDF API with real headless Chromium. Built-in Factur-X e-invoicing, vector barcodes, and batch rendering. Fast, secure, and reliable.">
     <meta property="og:image" content="https://renderpdf.vberkoz.com/og-image.jpg">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
@@ -21,7 +21,7 @@
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:url" content="https://renderpdf.vberkoz.com/">
     <meta name="twitter:title" content="RenderPDF — Fast HTML to PDF API, E-Invoicing &amp; Batch PDF Generation">
-    <meta name="twitter:description" content="Developer-friendly HTML to PDF API with real headless Chromium. Built-in Factur-X e-invoicing, vector barcodes, PII redaction, and batch rendering. Fast, secure, and reliable.">
+    <meta name="twitter:description" content="Developer-friendly HTML to PDF API with real headless Chromium. Built-in Factur-X e-invoicing, vector barcodes, and batch rendering. Fast, secure, and reliable.">
     <meta name="twitter:image" content="https://renderpdf.vberkoz.com/og-image.jpg">
 
     <title>RenderPDF — Fast HTML to PDF API, E-Invoicing &amp; Batch PDF Generation</title>
@@ -45,7 +45,7 @@
           "url": "https://renderpdf.vberkoz.com/",
           "applicationCategory": "DeveloperApplication",
           "operatingSystem": "Cloud / REST API",
-          "description": "Developer-friendly HTML to PDF API with headless Chromium, Factur-X e-invoicing compliance, vector barcodes, PII redaction, and automated batch rendering.",
+          "description": "Developer-friendly HTML to PDF API with headless Chromium, Factur-X e-invoicing compliance, vector barcodes, and automated batch rendering.",
           "offers": [
             {
               "@type": "Offer",
@@ -73,8 +73,7 @@
             "HTML, Markdown, and URL to PDF conversion via Headless Chromium",
             "PDF/A and Hybrid E-Invoicing (Factur-X / ZUGFeRD EN 16931)",
             "Dynamic Vector Barcodes (Code 128, QR Code, DataMatrix, EAN)",
-            "Server-side PII Redaction and Data Masking",
-            "X.509 PKCS#7 Digital Signatures & AWS KMS",
+            "AES-256 PDF Password Protection and Permissions",
             "Native Multi-Document PDF Merging",
             "Asynchronous Bulk Batch Generation with SQS and DynamoDB",
             "Event-driven Webhook Delivery with HMAC verification"
@@ -250,7 +249,7 @@
                         <p class="eyebrow">Enterprise-grade capabilities</p>
                         <h2 id="features-title">Engineered for invoices, compliance, and scale.</h2>
                     </div>
-                    <p class="features-subtitle">Turn HTML into production-ready documents with built-in European e-invoicing compliance, zero-JS vector barcodes, AST-level PII sanitization, and automated batch queues.</p>
+                    <p class="features-subtitle">Turn HTML into production-ready documents with built-in European e-invoicing compliance, zero-JS vector barcodes, AES-256 password encryption, and automated batch queues.</p>
                 </header>
 
                 <div class="features-grid">
@@ -274,20 +273,11 @@
 
                     <article class="feature-card">
                         <div class="capability-icon-wrap" aria-hidden="true">
-                            <svg class="lucide lucide-shield-alert" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
-                        </div>
-                        <h3>PII Redaction &amp; Masking</h3>
-                        <p>Scrub SSNs, credit cards, emails, and custom regex from the DOM before Chromium rendering. Output solid black bars (████) or custom masks to help protect sensitive personal data.</p>
-                        <a class="feature-link" href="/docs/api/pdf-security/#redaction">Redaction guide <svg class="lucide lucide-arrow-up-right" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg></a>
-                    </article>
-
-                    <article class="feature-card">
-                        <div class="capability-icon-wrap" aria-hidden="true">
                             <svg class="lucide lucide-key-round" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 18v3c0 .6.4 1 1 1h4v-3h3v-3h2l1.4-1.4a6.5 6.5 0 1 0-4-4Z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/></svg>
                         </div>
-                        <h3>Cryptographic Signatures</h3>
-                        <p>Sign generated PDFs with X.509 PKCS#7 detached signatures or delegate cryptographic hash signing to AWS KMS for tamper-evident document integrity.</p>
-                        <a class="feature-link" href="/docs/api/pdf-security/#digital-signatures">Signing options <svg class="lucide lucide-arrow-up-right" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg></a>
+                        <h3>AES-256 Encryption &amp; Permissions</h3>
+                        <p>Lock confidential PDFs with standard AES-256 user and owner passwords while enforcing granular printing and text-copying permissions.</p>
+                        <a class="feature-link" href="/docs/api/pdf-security/#encryption">Security options <svg class="lucide lucide-arrow-up-right" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg></a>
                     </article>
 
                     <article class="feature-card">

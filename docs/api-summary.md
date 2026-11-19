@@ -47,19 +47,6 @@ Request shape:
       "pages": "all|odd|even|1|2-",
       "onTop": true
     },
-    "redaction": {
-      "enabled": true,
-      "types": ["ssn", "creditCard", "email", "phone"],
-      "patterns": ["CONFIDENTIAL-\\d+"],
-      "replacement": "bar|mask|text",
-      "replacementText": "[REDACTED]"
-    },
-    "signing": {
-      "certificate": "<base64-pem-or-pkcs12>",
-      "privateKey": "<base64-pem-key>",
-      "name": "Signer Name",
-      "reason": "Contract Execution"
-    },
     "compliance": {
       "profile": "pdfa-1b|pdfa-2b|pdfa-3b|factur-x|zugferd",
       "invoiceXml": "<rsm:CrossIndustryInvoice>...</rsm:CrossIndustryInvoice>",
@@ -112,20 +99,8 @@ Templates and HTML documents can directly embed barcodes and QR codes rendered s
   - `<barcode type="code128|128|code39|39|ean|ean13|ean8|2of5|datamatrix|pdf417|qr" value="INV-2026" width="220" height="60" text="true|false" />`
   - `<div data-barcode="INV-2026" data-barcode-type="code128"></div>`
 
-### Enterprise Signatures & Data Redaction
+### PDF/A & Invoicing Compliance (Factur-X / ZUGFeRD)
 
-RenderPDF supports server-side PII sanitization and cryptographic PDF digital signing:
-
-- **Server-Side PII Redaction & Data Masking**:
-  Excises sensitive data from the AST *before* Chromium rendering or PDF generation, preventing data from existing in DOM or vector streams:
-  - Custom tag: `<redact style="bar|mask|text" type="ssn|creditCard|email|phone">123-45-6789</redact>`
-  - Attribute: `<span data-redact="true" data-redact-style="mask" data-redact-type="email">user@example.com</span>`
-  - Automated scrubbing via `options.redaction`: `{"enabled": true, "types": ["ssn", "creditCard", "email", "phone"], "patterns": ["CUSTOM-\\d+"], "replacement": "bar|mask|text"}`.
-  - Replacements: `bar` (solid black box `████████`), `mask` (masked digits e.g. `***-**-6789`), or `text` (custom string e.g. `[REDACTED]`).
-- **X.509 PKCS#7 Digital Signatures**:
-  Cryptographically sign generated or merged PDFs with X.509 certificates:
-  - Direct credentials: `"signing": {"certificate": "<PEM or PKCS#12 .p12 base64>", "privateKey": "<PEM key>", "password": "...", "name": "...", "reason": "...", "location": "...", "contactInfo": "..."}`.
-  - Cloud KMS: `"signing": {"certificate": "<PEM cert>", "kmsKeyId": "arn:aws:kms:...", "name": "..."}` delegates cryptographic hash signing to AWS KMS.
 - **PDF/A & Invoicing Compliance (Factur-X / ZUGFeRD)**:
   - Supports ISO archival profiles (`pdfa-1b`, `pdfa-2b`, `pdfa-3b`) and hybrid Franco-German e-invoicing (`factur-x`, `zugferd`).
   - Automatically injects sRGB IEC61966-2.1 OutputIntents dictionary (`GTS_PDFA1` or `GTS_PDFA3`).
@@ -134,9 +109,9 @@ RenderPDF supports server-side PII sanitization and cryptographic PDF digital si
   - Supported invoice profiles: `MINIMUM`, `BASIC WL`, `BASIC`, `EN 16931` (default, standard EU mandate), `EXTENDED`.
   - Note: PDF/A specification strictly forbids password encryption; combining `compliance` with `password` or `ownerPassword` returns `422`.
 
-## Native PDF Merging: `POST /merge` (or `POST /pdf/merge`)
+## Native PDF Merging: `POST /merge`
 
-Merge multiple PDFs into a single document with optional unified page numbering, encryption, and digital signing.
+Merge multiple PDFs into a single document with optional unified page numbering, watermarks, encryption, and compliance metadata. (The legacy alias `POST /pdf/merge` is deprecated and emits RFC 8594 `Deprecation`, `Sunset`, and `Link: </api/v1/merge>; rel="successor-version"` headers.)
 
 Request shape:
 ```json
@@ -161,11 +136,6 @@ Request shape:
     "password": "open_pass",
     "ownerPassword": "owner_pass",
     "permissions": "all|print|none",
-    "signing": {
-      "certificate": "<base64-pem-or-pkcs12>",
-      "privateKey": "<base64-pem-key>",
-      "name": "Signer Name"
-    },
     "compliance": {
       "profile": "factur-x",
       "invoiceXml": "<rsm:CrossIndustryInvoice>...</rsm:CrossIndustryInvoice>"
@@ -220,7 +190,7 @@ Request shape:
 ## Files & Packages (`/files`)
 
 - `GET /files`: List customer files (`200 OK` -> `{"files": [FileRecord]}`: rendered PDFs, uploads, batch ZIPs).
-- `POST /files/upload`: Get 15-min S3 PUT URL for asset ZIP (`201 Created` -> `{"uploadId": "...", "uploadUrl": "...", "expiresIn": 900}`).
+- `POST /files/upload`: Get 15-min S3 PUT URL for asset ZIP (`201 Created` -> `{"uploadId": "...", "uploadUrl": "...", "expiresIn": 900}`). (Legacy alias `POST /uploads` is deprecated and returns RFC 8594 `Deprecation`, `Sunset`, and `Link: </api/v1/files/upload>; rel="successor-version"` headers.)
 - `GET /files/{id}`: Get metadata (`200 OK` -> `FileRecord`).
 - `DELETE /files/{id}`: Delete file and S3 object (`204 No Content`).
 - `GET /files/{id}/download`: Get 15-min signed download URL (`200 OK` -> `{"url": "..."}`).

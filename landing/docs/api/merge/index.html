@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Merge multiple PDFs into a single document with unified page numbers, watermarks, encryption, and digital signing.">
+    <meta name="description" content="Merge multiple PDFs into a single document with unified page numbers, watermarks, encryption, and compliance metadata.">
     <title>Merge PDFs | RenderPDF API</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -88,10 +88,10 @@
                             <div><p class="eyebrow">Multi-document processing</p><h1>Merge PDFs</h1></div>
                             <div class="route"><span class="method">POST</span><code>/merge</code></div>
                         </div>
-                        <p class="section-copy">Concatenate between 2 and 100 PDFs into a single unified document with continuous page numbering, watermarks, encryption, compliance metadata, and digital signatures in a single API call.</p>
+                        <p class="section-copy">Concatenate between 2 and 100 PDFs into a single unified document with continuous page numbering, watermarks, encryption, and compliance metadata in a single API call.</p>
                         
                         <h2>Endpoint details</h2>
-                        <p class="section-copy">You can call either <code>POST /api/v1/merge</code> or the alias <code>POST /api/v1/pdf/merge</code> with standard Bearer API key authentication. Each successful merge reserves one monthly quota unit.</p>
+                        <p class="section-copy">Use the canonical route <code>POST /api/v1/merge</code> with standard Bearer API key authentication. Each successful merge reserves one monthly quota unit. The legacy alias <code>POST /api/v1/pdf/merge</code> is deprecated and emits RFC 8594 <code>Deprecation</code>, <code>Sunset</code>, and <code>Link</code> headers pointing to <code>/api/v1/merge</code>.</p>
 
                         <h2>Request parameters</h2>
                         <div class="property-row"><code>version</code><span class="type">string</span><span class="optional">optional</span><p>Contract version. Defaults to <code>"1"</code>.</p></div>
@@ -103,7 +103,6 @@
                                 <li><code>watermark</code>: Stamp a diagonal or rotated watermark across all merged pages (e.g. <code>text: "CONFIDENTIAL"</code>, <code>opacity: 0.15</code>).</li>
                                 <li><code>password</code>, <code>ownerPassword</code>, <code>permissions</code>: Apply AES-256 password protection and restrict printing or copying.</li>
                                 <li><code>compliance</code>: Embed Factur-X / ZUGFeRD XML invoice and output an ISO PDF/A-3b compliant document.</li>
-                                <li><code>signing</code>: Cryptographically sign the final merged PDF with an X.509 certificate or AWS KMS.</li>
                             </ul>
                         </p></div>
                         <div class="property-row"><code>label</code><span class="type">string</span><span class="optional">optional</span><p>Customer tracking label (up to 120 characters) displayed in dashboard logs and analytics.</p></div>

@@ -331,7 +331,7 @@ func TestRenderBatchNormalizedSourcePropagatesOptions(t *testing.T) {
 		return "file:///tmp/renderpdf-package-test/" + uploadID + "/" + entrypoint, 128, func() {}, nil
 	}
 
-	optsJSON := `"options":{"format":"Letter","margin":"12mm","landscape":true,"displayHeaderFooter":false,"redaction":{"enabled":true,"types":["email"]}}`
+	optsJSON := `"options":{"format":"Letter","margin":"12mm","landscape":true,"displayHeaderFooter":false}`
 
 	// 1. renderKindHTML
 	normHTML, err := normalizeCanonicalRenderRequestWithOwner(context.Background(), `{"version":"1","source":{"type":"html","content":"<p>test@example.com</p>"},`+optsJSON+`}`, "customer-a")
@@ -344,8 +344,8 @@ func TestRenderBatchNormalizedSourcePropagatesOptions(t *testing.T) {
 	if gotHTMLOpts.Format != "Letter" || gotHTMLOpts.Margin != "12mm" || !gotHTMLOpts.isLandscape() || gotHTMLOpts.DisplayHeaderFooter == nil || *gotHTMLOpts.DisplayHeaderFooter != false {
 		t.Fatalf("html options lost: %#v", gotHTMLOpts)
 	}
-	if strings.Contains(gotHTML, "test@example.com") {
-		t.Fatalf("expected redaction applied to batch html: %s", gotHTML)
+	if !strings.Contains(gotHTML, "test@example.com") {
+		t.Fatalf("expected html body preserved in batch html: %s", gotHTML)
 	}
 
 	// 2. renderKindDocument
@@ -372,8 +372,8 @@ func TestRenderBatchNormalizedSourcePropagatesOptions(t *testing.T) {
 	if gotHTMLOpts.Format != "Letter" || gotHTMLOpts.Margin != "12mm" || !gotHTMLOpts.isLandscape() || gotHTMLOpts.DisplayHeaderFooter == nil || *gotHTMLOpts.DisplayHeaderFooter != false {
 		t.Fatalf("template options lost: %#v", gotHTMLOpts)
 	}
-	if strings.Contains(gotHTML, "ada@example.com") {
-		t.Fatalf("expected redaction applied to batch template: %s", gotHTML)
+	if !strings.Contains(gotHTML, "ada@example.com") {
+		t.Fatalf("expected template variable preserved in batch template: %s", gotHTML)
 	}
 
 	// 4. renderKindURL

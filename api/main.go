@@ -52,6 +52,15 @@ var (
 	signRenderedPDFDownload = presignPDFDownload
 )
 
+func addDeprecationHeaders(headers map[string]string, successorPath string) {
+	if headers == nil {
+		return
+	}
+	headers["Deprecation"] = "true"
+	headers["Sunset"] = "Wed, 30 Dec 2026 23:59:59 GMT"
+	headers["Link"] = fmt.Sprintf("<%s>; rel=\"successor-version\"", successorPath)
+}
+
 func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 	requestID := uuid.NewString()
 	corsHeaders := map[string]string{
@@ -97,6 +106,7 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		return jsonResponse(200, map[string]int{"limit": quota.Limit, "remaining": quota.Remaining}, corsHeaders), nil
 	}
 	if isPackageUploadRequest(request) {
+		addDeprecationHeaders(corsHeaders, fileUploadResource)
 		if request.HTTPMethod != "POST" || trialModeOnly() {
 			return errorResponse(404, "Not found", corsHeaders), nil
 		}
@@ -339,7 +349,6 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 	} else {
 		html = injectPrintCSS(html)
 		html = rewriteTfoot(html)
-		html = transformRedaction(html, documentOptions.Redaction)
 		html = transformBarcodes(html)
 		pdfBytes, err = renderHTMLPDF(ctx, html, documentOptions)
 	}

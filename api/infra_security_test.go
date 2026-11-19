@@ -262,3 +262,34 @@ func TestCloudFormationPhase2DefaultHeaderFooterFlag(t *testing.T) {
 		})
 	}
 }
+
+func TestCloudFormationBatchLightweightZipFunctions(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Join("..", "infra", "cloudformation.yaml"))
+	if err != nil {
+		t.Fatalf("read cloudformation.yaml: %v", err)
+	}
+	template := string(raw)
+
+	for _, fnName := range []string{"BatchOutboxDispatcherFunction", "BatchReconcilerFunction"} {
+		t.Run(fnName+"_zip_runtime", func(t *testing.T) {
+			block := extractCFNResourceBlock(t, template, fnName)
+			if strings.Contains(block, "PackageType: Image") {
+				t.Fatalf("%s must not use PackageType: Image:\n%s", fnName, block)
+			}
+			for _, want := range []string{"Runtime: provided.al2023", "Handler: bootstrap"} {
+				if !strings.Contains(block, want) {
+					t.Fatalf("%s missing %q:\n%s", fnName, want, block)
+				}
+			}
+		})
+	}
+
+	for _, fnName := range []string{"PdfFunction", "TrialPdfFunction", "BatchWorkerFunction"} {
+		t.Run(fnName+"_image_runtime", func(t *testing.T) {
+			block := extractCFNResourceBlock(t, template, fnName)
+			if !strings.Contains(block, "PackageType: Image") {
+				t.Fatalf("%s must retain PackageType: Image:\n%s", fnName, block)
+			}
+		})
+	}
+}

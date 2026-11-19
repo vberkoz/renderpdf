@@ -228,5 +228,5 @@ func applyPDFPostProcessing(pdfBytes []byte, options documentRenderOptions) ([]b
 	if err != nil {
 		return nil, err
 	}
-	return applyPDFSignature(pdfBytes, options)
+	return pdfBytes, nil
 }

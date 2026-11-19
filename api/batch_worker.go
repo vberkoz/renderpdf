@@ -248,7 +248,7 @@ func renderBatchNormalizedSource(ctx context.Context, owner string, normalized n
 			}
 			opts = *request.Options
 		}
-		html := transformBarcodes(transformRedaction(rewriteTfoot(injectPrintCSS(request.HTML)), opts.Redaction))
+		html := transformBarcodes(rewriteTfoot(injectPrintCSS(request.HTML)))
 		return batchHTMLPDFRenderer(ctx, html, opts)
 	case renderKindDocument:
 		html, docReq, err := resolveDocumentRenderHTML(normalized.Body)
@@ -268,7 +268,7 @@ func renderBatchNormalizedSource(ctx context.Context, owner string, normalized n
 		if templateReq.Options != nil {
 			opts = *templateReq.Options
 		}
-		resolved := transformBarcodes(transformRedaction(rewriteTfoot(injectPrintCSS(html)), opts.Redaction))
+		resolved := transformBarcodes(rewriteTfoot(injectPrintCSS(html)))
 		return batchHTMLPDFRenderer(ctx, resolved, opts)
 	case renderKindURL:
 		var request URLRequest

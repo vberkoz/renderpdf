@@ -322,3 +322,33 @@ func TestMergeSafeDialContextRejectsPrivateIPsAndDNSRebinding(t *testing.T) {
 		t.Fatalf("loopback server hits = %d, want 0", hits.Load())
 	}
 }
+
+func TestHandleMergeRequestDeprecationHeaders(t *testing.T) {
+	legacyHeaders := map[string]string{"Content-Type": "application/json"}
+	legacyResp := handleMergeRequest(context.Background(), events.APIGatewayProxyRequest{
+		HTTPMethod: http.MethodPost,
+		Resource:   pdfMergeResource,
+		Path:       pdfMergeResource,
+		Body:       `{"files": ["file_1", "file_2"]}`,
+	}, legacyHeaders)
+	if legacyResp.Headers["Deprecation"] != "true" {
+		t.Fatalf("Deprecation header = %q, want true", legacyResp.Headers["Deprecation"])
+	}
+	if legacyResp.Headers["Sunset"] != "Wed, 30 Dec 2026 23:59:59 GMT" {
+		t.Fatalf("Sunset header = %q, want Wed, 30 Dec 2026 23:59:59 GMT", legacyResp.Headers["Sunset"])
+	}
+	if legacyResp.Headers["Link"] != `</api/v1/merge>; rel="successor-version"` {
+		t.Fatalf("Link header = %q, want </api/v1/merge>; rel=\"successor-version\"", legacyResp.Headers["Link"])
+	}
+
+	canonicalHeaders := map[string]string{"Content-Type": "application/json"}
+	canonicalResp := handleMergeRequest(context.Background(), events.APIGatewayProxyRequest{
+		HTTPMethod: http.MethodPost,
+		Resource:   mergeResource,
+		Path:       mergeResource,
+		Body:       `{"files": ["file_1", "file_2"]}`,
+	}, canonicalHeaders)
+	if _, ok := canonicalResp.Headers["Deprecation"]; ok {
+		t.Fatalf("canonical %s must not emit Deprecation header: %#v", mergeResource, canonicalResp.Headers)
+	}
+}
