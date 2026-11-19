@@ -13,10 +13,10 @@ try {
   };
 }
 
-const { ddb } = require('./admin-analytics');
-const { getBilling } = require('./admin-users');
 const { sendPaymentFailedAlert } = require('./notifications');
 const {
+  ddb,
+  getBilling,
   TABLE_NAME,
   PADDLE_WEBHOOK_SECRET,
   PADDLE_OVERAGE_PRICE_ID,

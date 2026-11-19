@@ -230,5 +230,4 @@ Request shape:
 - `GET /api-keys`: List API keys (`200 OK` -> `{"keys": [ApiKeyRecord]}`).
 - `POST /api-keys`: Create API key (`201 Created` -> `{"keyId": "...", "apiKey": "rpdf_live_...", "name": "..."}`).
 - `DELETE /api-keys/{id}`: Revoke API key (`204 No Content`).
-- `GET /analytics`: Usage stats for admin (`200 OK` -> `{"totalRequests": 100, "totalBytes": 1000, "periodDays": 30}`, `403`).
 - `POST /analytics`: Log client analytics event (`200 OK` -> `{"success": true}`). Body: `{"eventName": "...", "metadata": {...}}`.

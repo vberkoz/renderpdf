@@ -7,7 +7,7 @@
 - `auth/`
   - API key authorizer, API key management Lambda, and Cognito `account-linker/` trigger.
 - `analytics/`
-  - Node.js analytics aggregation, Paddle billing webhooks, and admin console API.
+  - Node.js analytics event ingestion, public stats rollups, and Paddle billing webhooks.
 - `webhooks/`
   - SQS customer webhook worker Lambda delivering `pdf.completed` notifications.
 - `dashboard/`

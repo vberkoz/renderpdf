@@ -3,7 +3,6 @@
 ## Purpose
 
 - Save authenticated analytics events.
-- Read aggregated PDF usage and analytics events for the private stats view.
 - Serve the signed-in customer dashboard, including monthly quota, request logs,
   and Paddle billing actions.
 
@@ -14,9 +13,6 @@
 
 ## API
 
-- `GET /api/v1/analytics?days=7`
-  - Requires the Cognito authorizer.
-  - Returns aggregate request counts, output bytes, event counts, active days, and daily totals.
 - `POST /api/v1/analytics`
   - Requires the Cognito authorizer.
   - Accepts `{ "event", "path", "source", "status", "durationMs" }`.

@@ -21,8 +21,8 @@ try {
   };
 }
 
-const { ddb } = require('./admin-analytics');
 const {
+  ddb,
   syncUserUsagePlans,
   getBilling,
   getQuotaRecord,
@@ -30,9 +30,6 @@ const {
   planNameForTier,
   PLAN_QUOTAS,
   FREE_MONTHLY_QUOTA,
-} = require('./admin-users');
-
-const {
   TABLE_NAME,
   PADDLE_API_KEY,
   PADDLE_PRICES,

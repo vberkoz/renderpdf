@@ -59,33 +59,6 @@ async function sendTelegramMessage(text, options = {}) {
   }
 }
 
-function formatChatEscalationTelegramMessage({ session, recentMessages }) {
-  const visitor = session?.visitorEmail || session?.sourceIp || 'Anonymous Visitor';
-  const reason = (session?.escalationReason || 'human assistance').replace(/_/g, ' ');
-  const plan = session?.plan || 'anonymous';
-  const sessionId = session?.sessionId || '';
-  const adminChatUrl = `https://renderpdf.vberkoz.com/app/admin#chats?id=${encodeURIComponent(sessionId)}`;
-
-  const lastUserMsg =
-    (recentMessages || []).filter((m) => m.role === 'user' || m.sender === 'visitor').pop()
-      ?.content || '(No message content)';
-
-  return (
-    `🚨 <b>[RenderPDF Chat Escalated]</b>\n\n` +
-    `👤 <b>Visitor:</b> <code>${escapeHtml(visitor)}</code>\n` +
-    `💼 <b>Plan:</b> ${escapeHtml(plan)}\n` +
-    `🎯 <b>Reason:</b> <code>${escapeHtml(reason)}</code>\n` +
-    `🆔 <b>Session:</b> <code>${escapeHtml(sessionId)}</code>\n\n` +
-    `💬 <b>Last Message:</b>\n<i>"${escapeHtml(lastUserMsg)}"</i>\n\n` +
-    `👉 <a href="${adminChatUrl}">Open in Admin Inbox</a>`
-  );
-}
-
-async function sendTelegramChatEscalation({ session, recentMessages }) {
-  const text = formatChatEscalationTelegramMessage({ session, recentMessages });
-  return sendTelegramMessage(text);
-}
-
 function formatErrorTelegramMessage({ context, error, details }) {
   const errMessage = error?.message || String(error || 'Unknown error');
   const contextName = context || 'System';
@@ -115,9 +88,8 @@ function formatBillingAlertTelegramMessage({ userId, customerEmail, eventType, r
   return (
     `💳 <b>[RenderPDF Billing Alert]</b>\n\n` +
     `👤 <b>Customer:</b> <code>${escapeHtml(user)}</code>\n` +
-    `⚠️ <b>Event:</b> <code>${escapeHtml(event)}</code>\n` +
-    (reason ? `📝 <b>Reason:</b> ${escapeHtml(reason)}\n\n` : '\n') +
-    `👉 <a href="https://renderpdf.vberkoz.com/app/admin#users">View in Admin Users</a>`
+    `⚠️ <b>Event:</b> <code>${escapeHtml(event)}</code>` +
+    (reason ? `\n📝 <b>Reason:</b> ${escapeHtml(reason)}` : '')
   );
 }
 
@@ -129,8 +101,6 @@ async function sendTelegramBillingAlert({ userId, customerEmail, eventType, reas
 module.exports = {
   escapeHtml,
   sendTelegramMessage,
-  formatChatEscalationTelegramMessage,
-  sendTelegramChatEscalation,
   formatErrorTelegramMessage,
   sendTelegramErrorAlert,
   formatBillingAlertTelegramMessage,

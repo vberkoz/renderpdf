@@ -87,3 +87,34 @@ aws cloudwatch set-alarm-state \
   --state-value OK \
   --state-reason "Verification drill complete"
 ```
+
+## Surface Retirement Rollout & Rollback Runbook (F17, F18a, F18b, F18c)
+
+The retirement of Bedrock support chat (`F17`), `/waitlist/` (`F18a`), `/stats/`, `/app/stats`, `/app/debug` (`F18b`), and `/app/admin` (`F18c`) is executed in two operational stages to avoid breaking active sessions and to let DynamoDB records expire naturally.
+
+### Stage 1: 7-Day Widget Kill-Switch & Static UI Soak
+
+1. Run `./scripts/deploy_ui.sh` to sync `landing/` and `dashboard/` without `chat-widget.js` / `chat-widget.css`, delete retired S3 objects (`waitlist/`, `stats/`, `app/admin/`, `app/stats/`, `styles/waitlist.css`, `styles/stats.css`, `app/debug.html`, `chat-widget.*`, `app/chat-widget.*`), and invalidate CloudFront (`/*`).
+2. Soak for 7 days (or verify zero active `CHAT_STATUS#*` sessions remain in `UsageTable`) before removing backend chat routes.
+
+### Stage 2: Backend & CloudFormation Cleanup + DynamoDB TTL Preservation
+
+1. Run `./scripts/deploy.sh` to deploy updated `renderpdf-analytics-node` and `infra/cloudformation.yaml`, activating the `DashboardRoutingFunction` HTTP `301` redirect (`/waitlist`, `/waitlist/`, `/waitlist/index.html` -> `/app/`) and removing `/api/v1/chat`, `/api/v1/admin/*`, and the `bedrock:InvokeModel` IAM statement.
+2. Keep `UsageTable` (`RenderPdfTable`) `TimeToLiveSpecification` (`AttributeName: expiresAt`, `Enabled: true`) untouched so historical `CHAT#*` (30d TTL), `ANALYTICS#*` (90d TTL), and `AUDIT#*` (365d TTL) items expire automatically without table scans or manual deletes.
+
+### Staging Smoke Verification & Rollback
+
+Verify CloudFront redirects and active customer app after deployment:
+
+```bash
+curl -sSI https://renderpdf.vberkoz.com/waitlist/   # Expect HTTP/2 301 and location: /app/
+curl -sSI https://renderpdf.vberkoz.com/app/        # Expect HTTP/2 200
+```
+
+Rollback if needed:
+
+```bash
+git revert <COMMIT_SHA>
+./scripts/deploy_ui.sh
+./scripts/deploy.sh
+```

@@ -13,31 +13,6 @@ const {
   publicStatsResponse,
 } = require('./public-stats');
 
-const {
-  handleChatMessage,
-  listAdminChats,
-  getAdminChatTranscript,
-  postAdminChatReply,
-  updateAdminChatStatus,
-} = require('./chat');
-
-const {
-  readAdminAnalytics,
-} = require('./admin-analytics');
-
-const {
-  searchAdminUsers,
-  readAdminUserDossier,
-  handleAdminUserPlanOverride,
-  handleAdminUserQuotaAdjust,
-  handleAdminUserStatus,
-  handleAdminKeyRevoke,
-} = require('./admin-users');
-
-const {
-  listAdminAuditLogs,
-} = require('./admin-audit');
-
 function response(statusCode, payload) {
   return {
     statusCode,
@@ -84,161 +59,20 @@ async function routeRequest(event, saveAnalyticsFn) {
     if (event.httpMethod === 'OPTIONS') return publicStatsResponse(204);
     return readPublicStats(event);
   }
-  if (effectivePath.endsWith('/chat') || effectivePath === '/api/v1/chat') {
-    if (event.httpMethod === 'OPTIONS' || event.httpMethod === 'POST')
-      return handleChatMessage(event);
-    return response(405, { error: 'Method not allowed' });
-  }
-  if (effectivePath.endsWith('/admin/analytics') || effectivePath.includes('/admin/analytics')) {
-    if (event.httpMethod === 'OPTIONS') return response(204);
-    if (event.httpMethod === 'GET') return readAdminAnalytics(event);
-    return response(405, { error: 'Method not allowed' });
-  }
   if (
-    effectivePath.includes('/admin/users') ||
+    effectivePath.endsWith('/chat') ||
+    effectivePath === '/api/v1/chat' ||
+    effectivePath.includes('/admin/') ||
+    effectivePath.startsWith('/users') ||
     effectivePath.includes('/api/v1/users') ||
-    effectivePath.endsWith('/users') ||
-    effectivePath.startsWith('/users/')
+    effectivePath.endsWith('/audit-logs') ||
+    effectivePath.startsWith('/chats') ||
+    effectivePath.endsWith('/chats')
   ) {
-    if (event.httpMethod === 'OPTIONS') return response(204);
-
-    const planMatch =
-      effectivePath.match(/\/(?:admin\/)?users\/([^/?#]+)\/plan$/) ||
-      (event.path || '').match(/\/(?:admin\/)?users\/([^/?#]+)\/plan$/);
-    if (planMatch || event.resource?.endsWith('/plan')) {
-      const userId =
-        event.pathParameters?.userId && event.pathParameters?.userId !== '{userId}'
-          ? event.pathParameters.userId
-          : planMatch
-            ? planMatch[1]
-            : null;
-      if (event.httpMethod === 'POST') return handleAdminUserPlanOverride(event, userId);
-      return response(405, { error: 'Method not allowed' });
-    }
-
-    const quotaMatch =
-      effectivePath.match(/\/(?:admin\/)?users\/([^/?#]+)\/quota$/) ||
-      (event.path || '').match(/\/(?:admin\/)?users\/([^/?#]+)\/quota$/);
-    if (quotaMatch || event.resource?.endsWith('/quota')) {
-      const userId =
-        event.pathParameters?.userId && event.pathParameters?.userId !== '{userId}'
-          ? event.pathParameters.userId
-          : quotaMatch
-            ? quotaMatch[1]
-            : null;
-      if (event.httpMethod === 'POST') return handleAdminUserQuotaAdjust(event, userId);
-      return response(405, { error: 'Method not allowed' });
-    }
-
-    const statusMatch =
-      effectivePath.match(/\/(?:admin\/)?users\/([^/?#]+)\/status$/) ||
-      (event.path || '').match(/\/(?:admin\/)?users\/([^/?#]+)\/status$/);
-    if (statusMatch || event.resource?.endsWith('/status')) {
-      const userId =
-        event.pathParameters?.userId && event.pathParameters?.userId !== '{userId}'
-          ? event.pathParameters.userId
-          : statusMatch
-            ? statusMatch[1]
-            : null;
-      if (event.httpMethod === 'POST') return handleAdminUserStatus(event, userId);
-      return response(405, { error: 'Method not allowed' });
-    }
-
-    const revokeMatch =
-      effectivePath.match(/\/(?:admin\/)?users\/([^/?#]+)\/keys\/([^/?#]+)\/revoke$/) ||
-      (event.path || '').match(/\/(?:admin\/)?users\/([^/?#]+)\/keys\/([^/?#]+)\/revoke$/);
-    if (revokeMatch || event.resource?.endsWith('/revoke')) {
-      const userId =
-        event.pathParameters?.userId && event.pathParameters?.userId !== '{userId}'
-          ? event.pathParameters.userId
-          : revokeMatch
-            ? revokeMatch[1]
-            : null;
-      const keyId =
-        event.pathParameters?.keyId && event.pathParameters?.keyId !== '{keyId}'
-          ? event.pathParameters.keyId
-          : revokeMatch
-            ? revokeMatch[2]
-            : null;
-      if (event.httpMethod === 'POST') return handleAdminKeyRevoke(event, userId, keyId);
-      return response(405, { error: 'Method not allowed' });
-    }
-
-    const userIdParam = event.pathParameters?.userId || event.queryStringParameters?.userId;
-    const match =
-      effectivePath.match(/\/(?:admin\/)?users\/([^/?#]+)$/) ||
-      (event.path || '').match(/\/(?:admin\/)?users\/([^/?#]+)$/);
-    const userId =
-      userIdParam && userIdParam !== '{userId}' ? userIdParam : match ? match[1] : null;
-    if (userId && userId !== 'users') {
-      if (event.httpMethod === 'GET') return readAdminUserDossier(event, userId);
-      return response(405, { error: 'Method not allowed' });
-    }
-    if (event.httpMethod === 'GET') return searchAdminUsers(event);
-    return response(405, { error: 'Method not allowed' });
-  }
-  if (effectivePath.includes('/admin/audit-logs') || effectivePath.endsWith('/audit-logs')) {
-    if (event.httpMethod === 'OPTIONS') return response(204);
-    if (event.httpMethod === 'GET') return listAdminAuditLogs(event);
-    return response(405, { error: 'Method not allowed' });
-  }
-  if (
-    effectivePath.includes('/admin/chats') ||
-    effectivePath.endsWith('/chats') ||
-    effectivePath.startsWith('/chats/')
-  ) {
-    if (event.httpMethod === 'OPTIONS') return response(204);
-
-    const replyMatch =
-      effectivePath.match(/\/(?:admin\/)?chats\/([^/?#]+)\/reply$/) ||
-      (event.path || '').match(/\/(?:admin\/)?chats\/([^/?#]+)\/reply$/);
-    if (replyMatch || event.resource?.endsWith('/reply')) {
-      const sessionId =
-        event.pathParameters?.sessionId && event.pathParameters?.sessionId !== '{sessionId}'
-          ? event.pathParameters.sessionId
-          : replyMatch
-            ? replyMatch[1]
-            : null;
-      if (event.httpMethod === 'POST') return postAdminChatReply(event, sessionId);
-      return response(405, { error: 'Method not allowed' });
-    }
-
-    const statusMatch =
-      effectivePath.match(/\/(?:admin\/)?chats\/([^/?#]+)\/status$/) ||
-      (event.path || '').match(/\/(?:admin\/)?chats\/([^/?#]+)\/status$/);
-    if (
-      statusMatch ||
-      (event.resource?.includes('/chats/') && event.resource?.endsWith('/status'))
-    ) {
-      const sessionId =
-        event.pathParameters?.sessionId && event.pathParameters?.sessionId !== '{sessionId}'
-          ? event.pathParameters.sessionId
-          : statusMatch
-            ? statusMatch[1]
-            : null;
-      if (event.httpMethod === 'POST') return updateAdminChatStatus(event, sessionId);
-      return response(405, { error: 'Method not allowed' });
-    }
-
-    const sessionIdParam =
-      event.pathParameters?.sessionId || event.queryStringParameters?.sessionId;
-    const match =
-      effectivePath.match(/\/(?:admin\/)?chats\/([^/?#]+)$/) ||
-      (event.path || '').match(/\/(?:admin\/)?chats\/([^/?#]+)$/);
-    const sessionId =
-      sessionIdParam && sessionIdParam !== '{sessionId}' ? sessionIdParam : match ? match[1] : null;
-    if (sessionId && sessionId !== 'chats') {
-      if (event.httpMethod === 'GET') return getAdminChatTranscript(event, sessionId);
-      return response(405, { error: 'Method not allowed' });
-    }
-
-    if (event.httpMethod === 'GET') return listAdminChats(event);
-    return response(405, { error: 'Method not allowed' });
+    return response(404, { error: 'Not found' });
   }
 
   switch (event.httpMethod) {
-    case 'GET':
-      return readAdminAnalytics(event);
     case 'POST':
       return saveAnalyticsFn(event);
     case 'OPTIONS':

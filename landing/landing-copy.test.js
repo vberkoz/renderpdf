@@ -120,3 +120,36 @@ test('JSON-LD structured data parses cleanly and matches visible FAQ and pricing
   assert.ok(visibleCssText.includes('upload'));
   assert.ok(visibleCssText.includes('CSP'));
 });
+
+test('retired chat, waitlist, stats, debug, and admin surfaces are removed and redirected', () => {
+  const repoRoot = path.resolve(__dirname, '..');
+  const dashboardHtml = fs.readFileSync(path.join(repoRoot, 'dashboard', 'index.html'), 'utf8');
+  const cfnYaml = fs.readFileSync(path.join(repoRoot, 'infra', 'cloudformation.yaml'), 'utf8');
+
+  for (const html of [indexHtml, dashboardHtml]) {
+    assert.ok(!html.includes('chat-widget.js'), 'HTML must not load chat-widget.js');
+    assert.ok(!html.includes('chat-widget.css'), 'HTML must not load chat-widget.css');
+    assert.ok(!html.includes('/waitlist/'), 'HTML must not link to /waitlist/');
+    assert.ok(!html.includes('<a href="/stats/">'), 'HTML must not link to /stats/');
+  }
+
+  assert.ok(cfnYaml.includes("uri === '/waitlist' || uri === '/waitlist/' || uri === '/waitlist/index.html'"));
+  assert.ok(cfnYaml.includes('statusCode: 301'));
+  assert.ok(cfnYaml.includes("location: { value: '/app/' + querySuffix(request.querystring) }"));
+  assert.ok(!cfnYaml.includes('bedrock:InvokeModel'));
+  assert.ok(!cfnYaml.includes('ChatResource'));
+  assert.ok(!cfnYaml.includes('AdminResource'));
+
+  const deployUiSh = fs.readFileSync(path.join(repoRoot, 'scripts', 'deploy_ui.sh'), 'utf8');
+  const deploySh = fs.readFileSync(path.join(repoRoot, 'scripts', 'deploy.sh'), 'utf8');
+  const opsMd = fs.readFileSync(path.join(repoRoot, 'docs', 'operations.md'), 'utf8');
+
+  for (const script of [deployUiSh, deploySh]) {
+    for (const target of ['"waitlist/"', '"stats/"', '"app/admin/"', '"app/stats/"', '"app/debug.html"', '"chat-widget.js"']) {
+      assert.ok(script.includes(target), `deploy script must clean up retired S3 target ${target}`);
+    }
+  }
+  assert.ok(opsMd.includes('Stage 1: 7-Day Widget Kill-Switch & Static UI Soak'));
+  assert.ok(opsMd.includes('Stage 2: Backend & CloudFormation Cleanup + DynamoDB TTL Preservation'));
+  assert.ok(opsMd.includes('expiresAt'));
+});

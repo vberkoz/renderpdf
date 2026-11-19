@@ -124,60 +124,6 @@ test('sendTelegramMessage dispatches POST to Telegram Bot API with HTML parse mo
   assert.equal(body.parse_mode, 'HTML');
 });
 
-test('formatChatEscalationTelegramMessage builds clean HTML message with transcript and link', () => {
-  const msg = notifications.formatChatEscalationTelegramMessage({
-    session: {
-      sessionId: 'cs_tg_test_1',
-      visitorEmail: 'alex@company.com',
-      plan: 'pro',
-      escalationReason: 'high_value_lead',
-    },
-    recentMessages: [
-      { role: 'user', content: 'We need 200k renders/month for our enterprise app.' },
-      { role: 'assistant', content: 'I have routed your inquiry to Basil.' },
-    ],
-  });
-
-  assert.ok(msg.includes('RenderPDF Chat Escalated'));
-  assert.ok(msg.includes('alex@company.com'));
-  assert.ok(msg.includes('pro'));
-  assert.ok(msg.includes('high value lead'));
-  assert.ok(msg.includes('200k renders/month'));
-  assert.ok(msg.includes('https://renderpdf.vberkoz.com/app/admin#chats?id=cs_tg_test_1'));
-});
-
-test('sendChatEscalationAlert dispatches to Telegram and SES concurrently', async () => {
-  process.env.TELEGRAM_BOT_TOKEN = '123456:ABC-DEF';
-  process.env.TELEGRAM_CHAT_ID = '987654321';
-
-  let tgCalled = false;
-  notifications.setTelegramFetch(async () => {
-    tgCalled = true;
-    return {
-      ok: true,
-      json: async () => ({ ok: true, result: { message_id: 101 } }),
-    };
-  });
-
-  // Mock SES client
-  notifications.setSESClient({
-    send: async () => ({ MessageId: 'ses_msg_123' }),
-  });
-
-  const res = await notifications.sendChatEscalationAlert({
-    session: {
-      sessionId: 'cs_tg_dual_dispatch',
-      visitorEmail: 'lead@startup.co',
-      escalationReason: 'partnership_inquiry',
-    },
-    recentMessages: [{ role: 'user', content: 'Interested in partnering with RenderPDF.' }],
-  });
-
-  assert.equal(res.sent, true);
-  assert.equal(res.telegramSent, true);
-  assert.equal(tgCalled, true);
-});
-
 test('sendTelegramErrorAlert formats error with context and stack', async () => {
   process.env.TELEGRAM_BOT_TOKEN = '123456:ABC-DEF';
   process.env.TELEGRAM_CHAT_ID = '987654321';

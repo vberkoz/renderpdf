@@ -38,53 +38,18 @@ async function sendPaymentFailedAlert(ddb, tableName, userId, customerEmail) {
   }
 }
 
-async function sendChatEscalationAlert({ session, recentMessages }) {
-  const recipient = process.env.OPERATIONS_ALERT_EMAIL || 'vberkoz@gmail.com';
-  const { subject, html, text } = email.buildChatEscalationEmail({ session, recentMessages });
-
-  const [sesOutcome, tgOutcome] = await Promise.allSettled([
-    email.sendSESEmail({ to: recipient, subject, html, text }),
-    telegram.sendTelegramChatEscalation({ session, recentMessages }),
-  ]);
-
-  const emailSent = sesOutcome.status === 'fulfilled';
-  if (emailSent) {
-    console.log(
-      `Chat escalation alert email sent to ${recipient} (sessionId: ${session?.sessionId})`
-    );
-  } else {
-    console.error(`Failed to send chat escalation alert to ${recipient}:`, sesOutcome.reason);
-  }
-
-  const tgSent = tgOutcome.status === 'fulfilled' && tgOutcome.value?.sent;
-  if (tgSent) {
-    console.log(`Chat escalation alert sent to Telegram (sessionId: ${session?.sessionId})`);
-  }
-
-  return {
-    sent: emailSent || tgSent,
-    recipient,
-    response: sesOutcome.status === 'fulfilled' ? sesOutcome.value : null,
-    telegramSent: Boolean(tgSent),
-  };
-}
-
 module.exports = {
   // Email functions
   sendSESEmail: email.sendSESEmail,
   buildPaymentFailedEmail: email.buildPaymentFailedEmail,
   resolveCustomerEmail: email.resolveCustomerEmail,
-  buildChatEscalationEmail: email.buildChatEscalationEmail,
-  sendOperatorChatReply: email.sendOperatorChatReply,
   setSESClient: email.setSESClient,
   setCognitoClient: email.setCognitoClient,
 
   // Telegram functions
   sendTelegramMessage: telegram.sendTelegramMessage,
-  sendTelegramChatEscalation: telegram.sendTelegramChatEscalation,
   sendTelegramErrorAlert: telegram.sendTelegramErrorAlert,
   sendTelegramBillingAlert: telegram.sendTelegramBillingAlert,
-  formatChatEscalationTelegramMessage: telegram.formatChatEscalationTelegramMessage,
   formatErrorTelegramMessage: telegram.formatErrorTelegramMessage,
   formatBillingAlertTelegramMessage: telegram.formatBillingAlertTelegramMessage,
   setTelegramFetch: telegram.setTelegramFetch,
@@ -92,5 +57,4 @@ module.exports = {
 
   // Orchestrators
   sendPaymentFailedAlert,
-  sendChatEscalationAlert,
 };

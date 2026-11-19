@@ -30,7 +30,7 @@ try {
   };
 }
 
-const { ddb, getDdbClient } = require('./admin-analytics');
+const { ddb, getDdbClient } = require('./billing-common');
 
 const ANALYTICS_INDEX = 'AnalyticsDateIndex';
 const ANALYTICS_TTL_DAYS = 90;

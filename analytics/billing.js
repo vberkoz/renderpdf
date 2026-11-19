@@ -11,14 +11,15 @@ try {
   };
 }
 
-const { ddb, queryDay } = require('./admin-analytics');
 const {
+  ddb,
+  queryDay,
   syncUserUsagePlans,
   getBilling,
   getQuotaRecord,
   monthlyQuotaForBilling,
   PLAN_QUOTAS,
-} = require('./admin-users');
+} = require('./billing-common');
 
 const common = require('./billing-common');
 const subscriptions = require('./billing-subscriptions');

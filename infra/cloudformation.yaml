@@ -320,22 +320,17 @@ Resources:
         function handler(event) {
           var request = event.request;
           var uri = request.uri;
-          if (uri === '/stats' || uri === '/stats/') {
-            request.uri = '/stats/index.html';
-            return request;
-          }
-          if (uri.indexOf('/app/') !== 0) return request;
-
-          if (uri === '/app/stats/index.html') {
+          if (uri === '/waitlist' || uri === '/waitlist/' || uri === '/waitlist/index.html') {
             return {
               statusCode: 301,
               statusDescription: 'Moved Permanently',
               headers: {
-                location: { value: '/app/stats' + querySuffix(request.querystring) },
+                location: { value: '/app/' + querySuffix(request.querystring) },
                 'cache-control': { value: 'no-store' }
               }
             };
           }
+          if (uri.indexOf('/app/') !== 0) return request;
 
           if (uri.slice(-5) === '.html') {
             return {
@@ -348,25 +343,11 @@ Resources:
             };
           }
 
-          if (uri === '/app/admin') {
-            return {
-              statusCode: 301,
-              statusDescription: 'Moved Permanently',
-              headers: {
-                location: { value: '/app/admin/' + querySuffix(request.querystring) },
-                'cache-control': { value: 'no-store' }
-              }
-            };
-          }
-
           var routes = {
             '/app/login': true,
             '/app/callback': true,
-            '/app/debug': true,
             '/app/create-render': '/app/index.html',
-            '/app/create-render/': '/app/index.html',
-            '/app/stats': '/app/stats/index.html',
-            '/app/admin/': '/app/admin/index.html'
+            '/app/create-render/': '/app/index.html'
           };
           if (routes[uri]) request.uri = routes[uri] === true ? uri + '.html' : routes[uri];
           return request;
@@ -912,12 +893,6 @@ Resources:
                 Resource:
                   - !Sub 'arn:aws:apigateway:${AWS::Region}::/apikeys*'
                   - !Sub 'arn:aws:apigateway:${AWS::Region}::/usageplans*'
-              - Effect: Allow
-                Action:
-                  - 'bedrock:InvokeModel'
-                Resource:
-                  - 'arn:aws:bedrock:*::foundation-model/amazon.nova-micro-v1:0'
-                  - 'arn:aws:bedrock:*::foundation-model/amazon.nova-lite-v1:0'
 
   TrialLambdaExecutionRole:
     Type: AWS::IAM::Role
@@ -1374,55 +1349,6 @@ Resources:
       RestApiId: !Ref RestApi
       ParentId: !Ref ApiV1Resource
       PathPart: analytics
-
-  ChatResource:
-    Type: AWS::ApiGateway::Resource
-    Properties:
-      RestApiId: !Ref RestApi
-      ParentId: !Ref ApiV1Resource
-      PathPart: chat
-
-  AdminResource:
-    Type: AWS::ApiGateway::Resource
-    Properties:
-      RestApiId: !Ref RestApi
-      ParentId: !Ref ApiV1Resource
-      PathPart: admin
-
-  AdminAnalyticsResource:
-    Type: AWS::ApiGateway::Resource
-    Properties:
-      RestApiId: !Ref RestApi
-      ParentId: !Ref AdminResource
-      PathPart: analytics
-
-  AdminUsersResource:
-    Type: AWS::ApiGateway::Resource
-    Properties:
-      RestApiId: !Ref RestApi
-      ParentId: !Ref AdminResource
-      PathPart: users
-
-  AdminUserItemResource:
-    Type: AWS::ApiGateway::Resource
-    Properties:
-      RestApiId: !Ref RestApi
-      ParentId: !Ref AdminUsersResource
-      PathPart: '{userId}'
-
-  AdminUserPlanResource:
-    Type: AWS::ApiGateway::Resource
-    Properties:
-      RestApiId: !Ref RestApi
-      ParentId: !Ref AdminUserItemResource
-      PathPart: plan
-
-  AdminUserQuotaResource:
-    Type: AWS::ApiGateway::Resource
-    Properties:
-      RestApiId: !Ref RestApi
-      ParentId: !Ref AdminUserItemResource
-      PathPart: quota
 
   PublicStatsResource:
     Type: AWS::ApiGateway::Resource
@@ -2181,239 +2107,6 @@ Resources:
         IntegrationHttpMethod: POST
         Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AnalyticsFunction.Arn}/invocations'
 
-  ChatOptionsMethod:
-    Type: AWS::ApiGateway::Method
-    Properties:
-      RestApiId: !Ref RestApi
-      ResourceId: !Ref ChatResource
-      HttpMethod: OPTIONS
-      AuthorizationType: NONE
-      Integration:
-        Type: MOCK
-        RequestTemplates:
-          application/json: '{"statusCode": 204}'
-        IntegrationResponses:
-          - StatusCode: 204
-            ResponseParameters:
-              method.response.header.Access-Control-Allow-Headers: "'Content-Type,Authorization'"
-              method.response.header.Access-Control-Allow-Methods: "'POST,OPTIONS'"
-              method.response.header.Access-Control-Allow-Origin: "'*'"
-            ResponseTemplates:
-              application/json: ''
-      MethodResponses:
-        - StatusCode: 204
-          ResponseParameters:
-            method.response.header.Access-Control-Allow-Headers: true
-            method.response.header.Access-Control-Allow-Methods: true
-            method.response.header.Access-Control-Allow-Origin: true
-
-  ChatPostMethod:
-    Type: AWS::ApiGateway::Method
-    Properties:
-      RestApiId: !Ref RestApi
-      ResourceId: !Ref ChatResource
-      HttpMethod: POST
-      AuthorizationType: NONE
-      Integration:
-        Type: AWS_PROXY
-        IntegrationHttpMethod: POST
-        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AnalyticsFunction.Arn}/invocations'
-
-  AdminAnalyticsOptionsMethod:
-    Type: AWS::ApiGateway::Method
-    Properties:
-      RestApiId: !Ref RestApi
-      ResourceId: !Ref AdminAnalyticsResource
-      HttpMethod: OPTIONS
-      AuthorizationType: NONE
-      Integration:
-        Type: MOCK
-        RequestTemplates:
-          application/json: '{"statusCode": 204}'
-        IntegrationResponses:
-          - StatusCode: 204
-            ResponseParameters:
-              method.response.header.Access-Control-Allow-Headers: "'Content-Type,Authorization'"
-              method.response.header.Access-Control-Allow-Methods: "'GET,OPTIONS'"
-              method.response.header.Access-Control-Allow-Origin: "'https://renderpdf.vberkoz.com'"
-            ResponseTemplates:
-              application/json: ''
-      MethodResponses:
-        - StatusCode: 204
-          ResponseParameters:
-            method.response.header.Access-Control-Allow-Headers: true
-            method.response.header.Access-Control-Allow-Methods: true
-            method.response.header.Access-Control-Allow-Origin: true
-
-  AdminAnalyticsGetMethod:
-    Type: AWS::ApiGateway::Method
-    Properties:
-      RestApiId: !Ref RestApi
-      ResourceId: !Ref AdminAnalyticsResource
-      HttpMethod: GET
-      AuthorizationType: COGNITO_USER_POOLS
-      AuthorizerId: !Ref CognitoAuthorizer
-      Integration:
-        Type: AWS_PROXY
-        IntegrationHttpMethod: POST
-        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AnalyticsFunction.Arn}/invocations'
-
-  AdminUsersOptionsMethod:
-    Type: AWS::ApiGateway::Method
-    Properties:
-      RestApiId: !Ref RestApi
-      ResourceId: !Ref AdminUsersResource
-      HttpMethod: OPTIONS
-      AuthorizationType: NONE
-      Integration:
-        Type: MOCK
-        RequestTemplates:
-          application/json: '{"statusCode": 204}'
-        IntegrationResponses:
-          - StatusCode: 204
-            ResponseParameters:
-              method.response.header.Access-Control-Allow-Headers: "'Content-Type,Authorization'"
-              method.response.header.Access-Control-Allow-Methods: "'GET,OPTIONS'"
-              method.response.header.Access-Control-Allow-Origin: "'https://renderpdf.vberkoz.com'"
-            ResponseTemplates:
-              application/json: ''
-      MethodResponses:
-        - StatusCode: 204
-          ResponseParameters:
-            method.response.header.Access-Control-Allow-Headers: true
-            method.response.header.Access-Control-Allow-Methods: true
-            method.response.header.Access-Control-Allow-Origin: true
-
-  AdminUsersGetMethod:
-    Type: AWS::ApiGateway::Method
-    Properties:
-      RestApiId: !Ref RestApi
-      ResourceId: !Ref AdminUsersResource
-      HttpMethod: GET
-      AuthorizationType: COGNITO_USER_POOLS
-      AuthorizerId: !Ref CognitoAuthorizer
-      Integration:
-        Type: AWS_PROXY
-        IntegrationHttpMethod: POST
-        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AnalyticsFunction.Arn}/invocations'
-
-  AdminUserItemOptionsMethod:
-    Type: AWS::ApiGateway::Method
-    Properties:
-      RestApiId: !Ref RestApi
-      ResourceId: !Ref AdminUserItemResource
-      HttpMethod: OPTIONS
-      AuthorizationType: NONE
-      Integration:
-        Type: MOCK
-        RequestTemplates:
-          application/json: '{"statusCode": 204}'
-        IntegrationResponses:
-          - StatusCode: 204
-            ResponseParameters:
-              method.response.header.Access-Control-Allow-Headers: "'Content-Type,Authorization'"
-              method.response.header.Access-Control-Allow-Methods: "'GET,OPTIONS'"
-              method.response.header.Access-Control-Allow-Origin: "'https://renderpdf.vberkoz.com'"
-            ResponseTemplates:
-              application/json: ''
-      MethodResponses:
-        - StatusCode: 204
-          ResponseParameters:
-            method.response.header.Access-Control-Allow-Headers: true
-            method.response.header.Access-Control-Allow-Methods: true
-            method.response.header.Access-Control-Allow-Origin: true
-
-  AdminUserItemGetMethod:
-    Type: AWS::ApiGateway::Method
-    Properties:
-      RestApiId: !Ref RestApi
-      ResourceId: !Ref AdminUserItemResource
-      HttpMethod: GET
-      AuthorizationType: COGNITO_USER_POOLS
-      AuthorizerId: !Ref CognitoAuthorizer
-      Integration:
-        Type: AWS_PROXY
-        IntegrationHttpMethod: POST
-        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AnalyticsFunction.Arn}/invocations'
-
-  AdminUserPlanOptionsMethod:
-    Type: AWS::ApiGateway::Method
-    Properties:
-      RestApiId: !Ref RestApi
-      ResourceId: !Ref AdminUserPlanResource
-      HttpMethod: OPTIONS
-      AuthorizationType: NONE
-      Integration:
-        Type: MOCK
-        RequestTemplates:
-          application/json: '{"statusCode": 204}'
-        IntegrationResponses:
-          - StatusCode: 204
-            ResponseParameters:
-              method.response.header.Access-Control-Allow-Headers: "'Content-Type,Authorization'"
-              method.response.header.Access-Control-Allow-Methods: "'POST,OPTIONS'"
-              method.response.header.Access-Control-Allow-Origin: "'https://renderpdf.vberkoz.com'"
-            ResponseTemplates:
-              application/json: ''
-      MethodResponses:
-        - StatusCode: 204
-          ResponseParameters:
-            method.response.header.Access-Control-Allow-Headers: true
-            method.response.header.Access-Control-Allow-Methods: true
-            method.response.header.Access-Control-Allow-Origin: true
-
-  AdminUserPlanPostMethod:
-    Type: AWS::ApiGateway::Method
-    Properties:
-      RestApiId: !Ref RestApi
-      ResourceId: !Ref AdminUserPlanResource
-      HttpMethod: POST
-      AuthorizationType: COGNITO_USER_POOLS
-      AuthorizerId: !Ref CognitoAuthorizer
-      Integration:
-        Type: AWS_PROXY
-        IntegrationHttpMethod: POST
-        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AnalyticsFunction.Arn}/invocations'
-
-  AdminUserQuotaOptionsMethod:
-    Type: AWS::ApiGateway::Method
-    Properties:
-      RestApiId: !Ref RestApi
-      ResourceId: !Ref AdminUserQuotaResource
-      HttpMethod: OPTIONS
-      AuthorizationType: NONE
-      Integration:
-        Type: MOCK
-        RequestTemplates:
-          application/json: '{"statusCode": 204}'
-        IntegrationResponses:
-          - StatusCode: 204
-            ResponseParameters:
-              method.response.header.Access-Control-Allow-Headers: "'Content-Type,Authorization'"
-              method.response.header.Access-Control-Allow-Methods: "'POST,OPTIONS'"
-              method.response.header.Access-Control-Allow-Origin: "'https://renderpdf.vberkoz.com'"
-            ResponseTemplates:
-              application/json: ''
-      MethodResponses:
-        - StatusCode: 204
-          ResponseParameters:
-            method.response.header.Access-Control-Allow-Headers: true
-            method.response.header.Access-Control-Allow-Methods: true
-            method.response.header.Access-Control-Allow-Origin: true
-
-  AdminUserQuotaPostMethod:
-    Type: AWS::ApiGateway::Method
-    Properties:
-      RestApiId: !Ref RestApi
-      ResourceId: !Ref AdminUserQuotaResource
-      HttpMethod: POST
-      AuthorizationType: COGNITO_USER_POOLS
-      AuthorizerId: !Ref CognitoAuthorizer
-      Integration:
-        Type: AWS_PROXY
-        IntegrationHttpMethod: POST
-        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AnalyticsFunction.Arn}/invocations'
-
   PublicStatsOptionsMethod:
     Type: AWS::ApiGateway::Method
     Properties:
@@ -2691,25 +2384,6 @@ Resources:
       - AnalyticsOptionsMethod
       - AnalyticsGetMethod
       - AnalyticsPostMethod
-      - ChatResource
-      - ChatOptionsMethod
-      - ChatPostMethod
-      - AdminResource
-      - AdminAnalyticsResource
-      - AdminAnalyticsOptionsMethod
-      - AdminAnalyticsGetMethod
-      - AdminUsersResource
-      - AdminUsersOptionsMethod
-      - AdminUsersGetMethod
-      - AdminUserItemResource
-      - AdminUserItemOptionsMethod
-      - AdminUserItemGetMethod
-      - AdminUserPlanResource
-      - AdminUserPlanOptionsMethod
-      - AdminUserPlanPostMethod
-      - AdminUserQuotaResource
-      - AdminUserQuotaOptionsMethod
-      - AdminUserQuotaPostMethod
       - PublicStatsResource
       - PublicStatsOptionsMethod
       - PublicStatsGetMethod

@@ -56,26 +56,24 @@
 - Maintenance:
   - `scripts/sync-api-keys.sh`
 
-### Analytics, Billing & Governance
+### Analytics & Billing
 
 - Purpose:
   - Save authenticated analytics events and aggregate PDF usage from the shared usage table.
-  - Process Paddle subscription billing webhooks, checkouts, and customer billing portal links.
-  - Power live public transparency metrics (`/api/v1/public-stats`).
-  - Provide Amazon Bedrock-powered support chat and triage escalation.
-  - Administrative operations API: user dossiers, quota adjustments, plan overrides, audit logs, and admin chat inbox.
+  - Process Paddle subscription billing webhooks, checkouts, plan changes, and customer billing portal links.
+  - Power live public telemetry metrics (`GET /api/v1/public-stats`).
 - Source:
-  - `analytics/index.js`, `analytics/admin-users.js`, `analytics/admin-analytics.js`,
-    `analytics/admin-audit.js`, `analytics/chat.js`, `analytics/billing.js`,
-    `analytics/notifications.js`, `analytics/public-stats.js`
+  - `analytics/index.js`, `analytics/router.js`, `analytics/billing.js`,
+    `analytics/billing-common.js`, `analytics/billing-subscriptions.js`,
+    `analytics/billing-webhooks.js`, `analytics/notifications.js`,
+    `analytics/public-stats.js`
 - Build/runtime entrypoints:
   - Node.js 22 managed Lambda runtime
   - `scripts/deploy.sh`
 - API:
-  - `GET /api/v1/analytics`, `POST /api/v1/analytics`
-  - `POST /api/v1/billing/webhook`, `POST /api/v1/billing/checkout`, `POST /api/v1/billing/portal`
-  - `GET /api/v1/public-stats`, `POST /api/v1/chat`
-  - `/api/v1/admin/*` (users, analytics, audit-logs, chats)
+  - `POST /api/v1/analytics`
+  - `POST /api/v1/billing/webhook`, `POST /api/v1/billing/checkout`, `POST /api/v1/billing/change-plan`, `POST /api/v1/billing/portal`
+  - `GET /api/v1/dashboard`, `GET /api/v1/public-stats`
 
 ### Webhook Delivery
 
@@ -91,20 +89,16 @@
 ### Dashboard
 
 - Purpose:
-  - Authenticated customer UI for login, key management, PDF rendering sandbox, billing, template management, and AI support chat.
-  - Dedicated Admin Console (`dashboard/admin/`) for platform operations, user support, and financial analytics.
+  - Authenticated customer UI for login, key management, PDF rendering sandbox, billing, and template management.
 - Source:
   - `dashboard/login.html`
   - `dashboard/callback.html`
   - `dashboard/index.html`
   - `dashboard/app.js`
-  - `dashboard/admin/index.html`
-  - `dashboard/chat-widget.js`
 - Deployment:
   - `scripts/deploy.sh`
 - Public path:
   - `https://renderpdf.vberkoz.com/app/`
-  - `https://renderpdf.vberkoz.com/app/admin/`
 - Verification:
   - Manual flow in `docs/VERIFICATION.md`
 

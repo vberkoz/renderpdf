@@ -21,23 +21,9 @@ try {
     }
   };
 }
+const { sendPaymentFailedAlert, sendTelegramErrorAlert } = require('./notifications');
 const {
-  recordAdminAudit,
-  listAdminAuditLogs,
-} = require('./admin-audit');
-const {
-  findCognitoUser,
-  getCognitoAttr,
-  formatCognitoDate,
-  getRecentRequestsForUser,
-  mapRecentRequest,
-  searchAdminUsers,
-  readAdminUserDossier,
-  handleAdminUserPlanOverride,
-  handleAdminUserQuotaAdjust,
-  handleAdminUserStatus,
-  handleAdminKeyRevoke,
-  cognito,
+  ddb,
   apigw,
   syncUserUsagePlans,
   getBilling,
@@ -46,31 +32,8 @@ const {
   planNameForTier,
   PLAN_QUOTAS,
   FREE_MONTHLY_QUOTA,
-} = require('./admin-users');
-const { sendPaymentFailedAlert, sendTelegramErrorAlert } = require('./notifications');
-const {
-  handleChatMessage,
-  buildSystemPrompt,
-  listAdminChats,
-  getAdminChatTranscript,
-  postAdminChatReply,
-  updateAdminChatStatus,
-} = require('./chat');
-const {
-  calculateAwsCost,
-  calculateGrossMargin,
-  calculateP95,
-  calculateMedianTtfc,
-  aggregateDayData,
-  readAdminAnalytics,
-  readAnalytics,
-  isAuthorizedAdmin,
   unwrap,
-  roundOneDecimal,
-  parseDays,
-  topRanks,
-  ddb,
-} = require('./admin-analytics');
+} = require('./billing-common');
 const {
   readPublicStats,
   recordPublicEvent,
@@ -264,39 +227,14 @@ exports.recordRenderRollup = recordRenderRollup;
 exports.recordEventRollup = recordEventRollup;
 exports.saveAnalytics = saveAnalytics;
 exports.EVENT_ROLLUP_TARGETS = EVENT_ROLLUP_TARGETS;
-exports.readAdminAnalytics = readAdminAnalytics;
-exports.readAnalytics = readAnalytics;
-exports.calculateAwsCost = calculateAwsCost;
-exports.calculateGrossMargin = calculateGrossMargin;
-exports.calculateP95 = calculateP95;
-exports.calculateMedianTtfc = calculateMedianTtfc;
-exports.isAuthorizedAdmin = isAuthorizedAdmin;
-exports.aggregateDayData = aggregateDayData;
 exports.unwrap = unwrap;
-exports.roundOneDecimal = roundOneDecimal;
-exports.parseDays = parseDays;
-exports.topRanks = topRanks;
 exports.recordPublicEvent = recordPublicEvent;
 exports.readPublicStats = readPublicStats;
 exports.publicStatsResponse = publicStatsResponse;
 exports.queryDay = queryDay;
 exports.dateKey = dateKey;
-exports.cognito = cognito;
-exports.searchAdminUsers = searchAdminUsers;
-exports.readAdminUserDossier = readAdminUserDossier;
-exports.getCognitoAttr = getCognitoAttr;
-exports.getRecentRequestsForUser = getRecentRequestsForUser;
-exports.findCognitoUser = findCognitoUser;
-exports.handleAdminUserPlanOverride = handleAdminUserPlanOverride;
-exports.handleAdminUserQuotaAdjust = handleAdminUserQuotaAdjust;
-exports.recordAdminAudit = recordAdminAudit;
-exports.handleAdminUserStatus = handleAdminUserStatus;
-exports.handleAdminKeyRevoke = handleAdminKeyRevoke;
-exports.listAdminAuditLogs = listAdminAuditLogs;
-exports.handleChatMessage = handleChatMessage;
-exports.buildSystemPrompt = buildSystemPrompt;
-exports.listAdminChats = listAdminChats;
-exports.getAdminChatTranscript = getAdminChatTranscript;
-exports.postAdminChatReply = postAdminChatReply;
-exports.updateAdminChatStatus = updateAdminChatStatus;
+exports.getBilling = getBilling;
+exports.getQuotaRecord = getQuotaRecord;
+exports.PLAN_QUOTAS = PLAN_QUOTAS;
+exports.FREE_MONTHLY_QUOTA = FREE_MONTHLY_QUOTA;
 

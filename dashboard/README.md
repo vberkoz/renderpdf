@@ -12,7 +12,6 @@
 - `/Users/basilsergius/projects/renderpdf/dashboard/callback.html`
 - `/Users/basilsergius/projects/renderpdf/dashboard/index.html`
 - `/Users/basilsergius/projects/renderpdf/dashboard/app.js`
-- `/Users/basilsergius/projects/renderpdf/dashboard/stats/index.html`
 
 ## Dashboard Views
 
@@ -25,8 +24,6 @@
 ## Safe To Edit
 
 - HTML, CSS, and JS files in this folder.
-- `/Users/basilsergius/projects/renderpdf/dashboard/debug.html`
-  - Safe if the change is clearly limited to debugging support.
 
 ## Treat Carefully
 

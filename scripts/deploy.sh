@@ -245,6 +245,13 @@ if [ -n "$WEBSITE_BUCKET" ]; then
   aws s3 sync "${ROOT_DIR}/landing/" s3://${WEBSITE_BUCKET}/ --profile ${PROFILE} --cache-control "no-cache" --follow-symlinks
   echo "Deploying dashboard app to main site..."
   aws s3 sync "${ROOT_DIR}/dashboard/" s3://${WEBSITE_BUCKET}/app/ --profile ${PROFILE} --cache-control "no-cache" --follow-symlinks
+  echo "Removing retired static UI objects from S3..."
+  for retired_prefix in "waitlist/" "stats/" "app/admin/" "app/stats/"; do
+    aws s3 rm "s3://${WEBSITE_BUCKET}/${retired_prefix}" --recursive --profile ${PROFILE} >/dev/null 2>&1 || true
+  done
+  for retired_key in "chat-widget.js" "chat-widget.css" "styles/waitlist.css" "styles/stats.css" "app/debug.html" "app/chat-widget.js" "app/chat-widget.css"; do
+    aws s3 rm "s3://${WEBSITE_BUCKET}/${retired_key}" --profile ${PROFILE} >/dev/null 2>&1 || true
+  done
 fi
 
 if [ -n "$CLOUDFRONT_ID" ]; then

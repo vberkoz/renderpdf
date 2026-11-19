@@ -17,7 +17,6 @@ echo "  - Landing Marketing Site (/)"
 echo "  - API Documentation (/docs/api/)"
 echo "  - Auth (Login / Callback) (/app/login, /app/callback)"
 echo "  - Client Developer Dashboard (/app/)"
-echo "  - Admin Governance & Analytics Console (/app/admin/)"
 echo "=================================================="
 
 echo "Getting stack outputs for '${STACK_NAME}' (${REGION})..."
@@ -51,7 +50,7 @@ aws s3 sync "${ROOT_DIR}/landing/" "s3://${WEBSITE_BUCKET}/" \
   --follow-symlinks
 
 echo ""
-echo "[2/4] Deploying client dashboard, auth pages, and admin console..."
+echo "[2/4] Deploying client dashboard and auth pages..."
 echo "      Source: ${ROOT_DIR}/dashboard/"
 echo "      Target: s3://${WEBSITE_BUCKET}/app/"
 aws s3 sync "${ROOT_DIR}/dashboard/" "s3://${WEBSITE_BUCKET}/app/" \
@@ -60,13 +59,21 @@ aws s3 sync "${ROOT_DIR}/dashboard/" "s3://${WEBSITE_BUCKET}/app/" \
   --follow-symlinks
 
 echo ""
+echo "[2b/4] Removing retired static UI objects from S3..."
+for retired_prefix in "waitlist/" "stats/" "app/admin/" "app/stats/"; do
+  aws s3 rm "s3://${WEBSITE_BUCKET}/${retired_prefix}" --recursive --profile ${PROFILE} >/dev/null 2>&1 || true
+done
+for retired_key in "chat-widget.js" "chat-widget.css" "styles/waitlist.css" "styles/stats.css" "app/debug.html" "app/chat-widget.js" "app/chat-widget.css"; do
+  aws s3 rm "s3://${WEBSITE_BUCKET}/${retired_key}" --profile ${PROFILE} >/dev/null 2>&1 || true
+done
+
+echo ""
 echo "[3/4] Verifying critical surface presence on S3..."
 aws s3 ls "s3://${WEBSITE_BUCKET}/index.html" --profile ${PROFILE} >/dev/null && echo "  ✔ Landing page (/)"
 aws s3 ls "s3://${WEBSITE_BUCKET}/docs/api/index.html" --profile ${PROFILE} >/dev/null && echo "  ✔ API Documentation (/docs/api/)"
 aws s3 ls "s3://${WEBSITE_BUCKET}/app/login.html" --profile ${PROFILE} >/dev/null && echo "  ✔ Auth Login (/app/login)"
 aws s3 ls "s3://${WEBSITE_BUCKET}/app/callback.html" --profile ${PROFILE} >/dev/null && echo "  ✔ Auth Callback (/app/callback)"
 aws s3 ls "s3://${WEBSITE_BUCKET}/app/index.html" --profile ${PROFILE} >/dev/null && echo "  ✔ Client Developer Dashboard (/app/)"
-aws s3 ls "s3://${WEBSITE_BUCKET}/app/admin/index.html" --profile ${PROFILE} >/dev/null && echo "  ✔ Admin Governance & Analytics Console (/app/admin/)"
 
 echo ""
 if [ -n "$CLOUDFRONT_ID" ]; then
@@ -97,6 +104,5 @@ if [ -n "$LANDING_URL" ]; then
   echo "  API Documentation: https://${LANDING_URL}/docs/api/"
   echo "  Auth / Sign In:    https://${LANDING_URL}/app/login"
   echo "  Client Dashboard:  https://${LANDING_URL}/app/"
-  echo "  Admin Console:     https://${LANDING_URL}/app/admin/"
 fi
 echo "=================================================="

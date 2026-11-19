@@ -94,10 +94,7 @@
 
 - Successful PDF requests write `PDF_REQUEST` records to the shared usage table.
 - The analytics Lambda writes `ANALYTICS` events to the same table with a 90-day TTL.
-- The `/app/stats` page redirects through Cognito sign-in and reads aggregate data
-  through `GET /api/v1/analytics`; the analytics Lambda permits only the configured stats email address.
-- Live public stats (`/stats/` and `GET /api/v1/public-stats`) provide cached,
-  anonymized rollups (render counts, success rates, latency percentiles) for marketing transparency.
+- Live public stats (`GET /api/v1/public-stats`) provide cached, anonymized rollups (render counts, success rates, latency percentiles) for the landing hero live telemetry.
 
 ### Customer Dashboard and Billing Flow
 
@@ -115,22 +112,6 @@
   stores the account's subscription status. It accepts only subscription
   lifecycle events and conditionally applies state using Paddle's event ID and
   occurrence time, so duplicate or stale deliveries cannot restore access.
-
-### Support Chat & AI Flow
-
-- `POST /api/v1/chat` integrates with Amazon Bedrock to provide AI-assisted customer
-  support in the dashboard and landing widgets.
-- Uses prompt-engineered knowledge bases built from official API documentation.
-- When human assistance is needed, conversations can escalate to trigger SES email
-  notifications and Telegram alerts to admins.
-
-### Admin Governance & Audit Flow
-
-- `/app/admin/` provides authorized administrators with real-time operations control.
-- Endpoints (`/api/v1/admin/users`, `/api/v1/admin/analytics`, `/api/v1/admin/audit-logs`, `/api/v1/admin/chats`)
-  support user dossier inspections across 5 data stores, manual subscription overrides,
-  quota credits, key revocations, and administrative chat replies.
-- All administrative mutations are recorded as immutable audit logs in DynamoDB with a 365-day TTL.
 
 ### Account Linking Flow
 
