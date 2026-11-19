@@ -156,38 +156,76 @@ func generatePDFURLWithDocumentOptions(ctx context.Context, targetURL string, op
 }
 
 func generatePDFURLWithCustomSettings(ctx context.Context, targetURL string, displayHeaderFooter bool, headerTemplate, footerTemplate string, disableJavaScript bool, options documentRenderOptions) ([]byte, error) {
-	// Use one deadline for the browser's entire lifetime. A launch-only child
-	// context becomes Chrome's owner inside chromedp; when that shorter context
-	// expires it kills an otherwise healthy browser during PDF rendering.
-	generationCtx, generationCancel := context.WithTimeout(ctx, 24*time.Second)
-	defer generationCancel()
-
 	chromePath, err := prepareChrome()
 	if err != nil {
 		return nil, err
 	}
 	fmt.Printf("Using Chrome at: %s\n", chromePath)
 
-	os.RemoveAll("/tmp/chrome-data")
-	os.MkdirAll("/tmp/chrome-data", 0755)
+	if chromeWarmPoolEnabled() {
+		return generatePDFURLWithWarmPool(ctx, chromePath, targetURL, displayHeaderFooter, headerTemplate, footerTemplate, disableJavaScript, options)
+	}
+	return generatePDFURLWithColdBrowser(ctx, chromePath, targetURL, displayHeaderFooter, headerTemplate, footerTemplate, disableJavaScript, options)
+}
+
+func generatePDFURLWithWarmPool(ctx context.Context, chromePath, targetURL string, displayHeaderFooter bool, headerTemplate, footerTemplate string, disableJavaScript bool, options documentRenderOptions) ([]byte, error) {
+	for attempt := 0; attempt < 2; attempt++ {
+		tabCtx, releaseTab, browserOutput, err := defaultWarmChromePool.acquireTab(chromePath)
+		if err != nil {
+			if errors.Is(err, context.DeadlineExceeded) {
+				return nil, &renderError{Code: "chromium_timeout", Message: "Chromium timed out while starting", Status: 504}
+			}
+			return nil, fmt.Errorf("failed to start browser: %v: %s", err, browserOutput.String())
+		}
+
+		runCtx, runCancel := context.WithTimeout(tabCtx, 24*time.Second)
+		stopWatch := context.AfterFunc(ctx, runCancel)
+
+		if err := chromedp.Run(runCtx); err != nil {
+			stopWatch()
+			runCancel()
+			releaseTab(true)
+			if attempt == 0 && !errors.Is(err, context.DeadlineExceeded) && ctx.Err() == nil {
+				continue
+			}
+			if errors.Is(err, context.DeadlineExceeded) {
+				return nil, &renderError{Code: "chromium_timeout", Message: "Chromium timed out while starting", Status: 504}
+			}
+			return nil, fmt.Errorf("failed to start browser: %v: %s", err, browserOutput.String())
+		}
+
+		buf, renderErr := runPDFRenderOnTarget(runCtx, targetURL, displayHeaderFooter, headerTemplate, footerTemplate, disableJavaScript, options)
+		stopWatch()
+		runCancel()
+		if renderErr != nil {
+			failedBrowser := tabCtx.Err() != nil || isWarmBrowserCrashError(renderErr)
+			releaseTab(failedBrowser)
+			if attempt == 0 && failedBrowser && ctx.Err() == nil && !errors.Is(renderErr, context.DeadlineExceeded) {
+				continue
+			}
+			return nil, renderErr
+		}
+		releaseTab(false)
+		return buf, nil
+	}
+	return nil, &renderError{Code: "render_failed", Message: "Render failed"}
+}
+
+func generatePDFURLWithColdBrowser(ctx context.Context, chromePath, targetURL string, displayHeaderFooter bool, headerTemplate, footerTemplate string, disableJavaScript bool, options documentRenderOptions) ([]byte, error) {
+	// Use one deadline for the browser's entire lifetime. A launch-only child
+	// context becomes Chrome's owner inside chromedp; when that shorter context
+	// expires it kills an otherwise healthy browser during PDF rendering.
+	generationCtx, generationCancel := context.WithTimeout(ctx, 24*time.Second)
+	defer generationCancel()
+
+	userDataDir, err := os.MkdirTemp("/tmp", "chrome-data-*")
+	if err != nil {
+		return nil, fmt.Errorf("create chrome temp dir: %w", err)
+	}
+	defer os.RemoveAll(userDataDir)
 
 	var browserOutput bytes.Buffer
-	opts := append(chromedp.DefaultExecAllocatorOptions[:],
-		chromedp.ExecPath(chromePath),
-		chromedp.CombinedOutput(&browserOutput),
-		chromedp.WSURLReadTimeout(18*time.Second),
-		chromedp.NoSandbox,
-		chromedp.DisableGPU,
-		chromedp.Flag("disable-dev-shm-usage", true),
-		chromedp.Flag("disable-setuid-sandbox", true),
-		chromedp.Flag("no-zygote", true),
-		chromedp.Flag("single-process", true),
-		chromedp.Flag("no-proxy-server", true),
-		chromedp.Flag("allow-file-access-from-files", true),
-		chromedp.Flag("proxy-bypass-list", "*"),
-		chromedp.UserDataDir("/tmp/chrome-data"),
-		chromedp.WindowSize(1920, 1080),
-	)
+	opts := buildChromeExecOptions(chromePath, userDataDir, &browserOutput)
 
 	fmt.Println("Creating Chrome allocator...")
 	allocCtx, allocCancel := chromedp.NewExecAllocator(generationCtx, opts...)
@@ -213,6 +251,11 @@ func generatePDFURLWithCustomSettings(ctx context.Context, targetURL string, dis
 		return nil, fmt.Errorf("failed to start browser: %v: %s", err, browserOutput.String())
 	}
 	fmt.Println("Browser started successfully")
+
+	return runPDFRenderOnTarget(taskCtx, targetURL, displayHeaderFooter, headerTemplate, footerTemplate, disableJavaScript, options)
+}
+
+func runPDFRenderOnTarget(taskCtx context.Context, targetURL string, displayHeaderFooter bool, headerTemplate, footerTemplate string, disableJavaScript bool, options documentRenderOptions) ([]byte, error) {
 
 	var buf []byte
 	diagnostics := newRenderDiagnostics()
@@ -460,7 +503,7 @@ func generatePDFURLWithCustomSettings(ctx context.Context, targetURL string, dis
 		}),
 	)
 
-	err = chromedp.Run(taskCtx, actions...)
+	err := chromedp.Run(taskCtx, actions...)
 	if err != nil {
 		fmt.Printf("chromedp.Run failed at stage %s: %v\n", stage, err)
 

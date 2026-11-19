@@ -476,3 +476,88 @@ func TestDocumentOptionsPageNumbersValidation(t *testing.T) {
 	}
 }
 
+func TestDocumentControlBlocksExtraVariablesAndZeroRetentionOptions(t *testing.T) {
+	// 1. HTML document with {{#each}} and {{#if}} plus extra unreferenced fields in data
+	docHTML, req, err := resolveDocumentRenderHTML(`{
+		"version": "1",
+		"html": "<main><h1>{{invoice.number}}</h1>{{#if invoice.paid}}<p>PAID</p>{{else}}<p>DUE</p>{{/if}}<ul>{{#each items}}<li>{{name}}: {{price}}</li>{{/each}}</ul></main>",
+		"css": "body { font-family: sans-serif; }",
+		"data": {
+			"invoice": {"number": "INV-900", "paid": true, "extraMeta": "ignored"},
+			"items": [
+				{"name": "Consulting & Advisory", "price": "$500", "internalSku": "SKU-1"},
+				{"name": "Support", "price": "$100", "internalSku": "SKU-2"}
+			],
+			"unusedTopLevel": "allowed"
+		},
+		"options": {
+			"format": "A4",
+			"zeroRetention": true,
+			"responseFormat": "binary"
+		}
+	}`)
+	if err != nil {
+		t.Fatalf("resolveDocumentRenderHTML with blocks failed: %v", err)
+	}
+	if !strings.Contains(docHTML, "INV-900") || !strings.Contains(docHTML, "<p>PAID</p>") || !strings.Contains(docHTML, "<li>Consulting &amp; Advisory: $500</li>") {
+		t.Fatalf("unexpected resolved HTML: %s", docHTML)
+	}
+	if !req.Options.isZeroRetention() || !req.Options.isBinaryResponse() {
+		t.Fatalf("expected zeroRetention and binaryResponse options to be active: %#v", req.Options)
+	}
+
+	// 2. Markdown document with {{#each}} and {{#if}}
+	mdHTML, _, err := resolveDocumentRenderHTML(`{
+		"version": "1",
+		"source": {
+			"type": "markdown",
+			"content": "# {{title}}\n\n{{#if summary}}{{summary}}\n\n{{/if}}{{#each rows}}- **{{label}}**: {{val}}\n{{/each}}"
+		},
+		"css": "",
+		"data": {
+			"title": "Q4 Summary",
+			"summary": "All targets met.",
+			"rows": [
+				{"label": "Revenue", "val": "$100k *net*"},
+				{"label": "Growth", "val": "+24%"}
+			]
+		}
+	}`)
+	if err != nil {
+		t.Fatalf("resolveDocumentRenderHTML markdown with blocks failed: %v", err)
+	}
+	if !strings.Contains(mdHTML, "<h1>Q4 Summary</h1>") || !strings.Contains(mdHTML, "Revenue") || !strings.Contains(mdHTML, "$100k *net*") {
+		t.Fatalf("unexpected resolved markdown HTML: %s", mdHTML)
+	}
+
+	// 3. Flat document with strictVariables: false allows extra keys
+	flatHTML, _, err := resolveDocumentRenderHTML(`{
+		"version": "1",
+		"html": "<p>Hello {{name}}</p>",
+		"css": "",
+		"data": {"name": "Ada", "extraKey": "permitted"},
+		"options": {"strictVariables": false}
+	}`)
+	if err != nil || !strings.Contains(flatHTML, "<p>Hello Ada</p>") {
+		t.Fatalf("expected strictVariables:false to allow extra keys, got err=%v html=%s", err, flatHTML)
+	}
+
+	// 4. Invalid responseFormat and zeroRetention + webhookUrl conflict return 422
+	_, err = parseDocumentRenderRequest(`{
+		"version": "1",
+		"html": "<p>Hi</p>",
+		"data": {},
+		"options": {"responseFormat": "xml"}
+	}`)
+	assertDocumentErrorCode(t, err, "document_response_format_invalid")
+
+	_, err = parseDocumentRenderRequest(`{
+		"version": "1",
+		"html": "<p>Hi</p>",
+		"data": {},
+		"webhookUrl": "https://example.test/hook",
+		"options": {"zeroRetention": true}
+	}`)
+	assertDocumentErrorCode(t, err, "zero_retention_webhook_unsupported")
+}
+

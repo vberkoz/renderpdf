@@ -24,7 +24,7 @@ func resolveDocumentRenderHTML(body string) (string, documentRenderRequest, erro
 		return "", documentRenderRequest{}, err
 	}
 	if request.Source != nil {
-		resolvedMarkdown, err := resolveDocumentMarkdown(request.Source.Content, request.Data)
+		resolvedMarkdown, err := resolveDocumentMarkdownWithOptions(request.Source.Content, request.Data, request.Options.allowExtraVariables())
 		if err != nil {
 			return "", documentRenderRequest{}, err
 		}
@@ -103,6 +103,9 @@ func parseDocumentRenderRequest(body string) (documentRenderRequest, error) {
 	if request.Options.getWaitForFunction() != "" {
 		return documentRenderRequest{}, documentRequestError(422, "document_wait_function_disallowed", "options.waitFor.function is not supported when JavaScript is disabled")
 	}
+	if request.Options.isZeroRetention() && strings.TrimSpace(request.WebhookURL) != "" {
+		return documentRenderRequest{}, documentRequestError(422, "zero_retention_webhook_unsupported", "webhooks are not supported when options.zeroRetention is true because no download URL is persisted")
+	}
 	if err := validateDocumentPageSettings(content, request.CSS); err != nil {
 		return documentRenderRequest{}, err
 	}
@@ -117,7 +120,7 @@ func parseDocumentRenderRequest(body string) (documentRenderRequest, error) {
 		if err := validateDocumentCSS(request.CSS); err != nil {
 			return documentRenderRequest{}, err
 		}
-		if _, err := resolveDocumentMarkdown(request.Source.Content, request.Data); err != nil {
+		if _, err := resolveDocumentMarkdownWithOptions(request.Source.Content, request.Data, request.Options.allowExtraVariables()); err != nil {
 			return documentRenderRequest{}, err
 		}
 	}
@@ -129,38 +132,34 @@ func parseDocumentRenderRequest(body string) (documentRenderRequest, error) {
 // prevents tag injection and Markdown escaping prevents values from creating
 // formatting, links, tables, or other document structure.
 func resolveDocumentMarkdown(markdown string, data map[string]any) (string, error) {
-	if _, err := resolveDocumentHTML(markdown, data); err != nil {
-		return "", err
+	return resolveDocumentMarkdownWithOptions(markdown, data, false)
+}
+
+func resolveDocumentMarkdownWithOptions(markdown string, data map[string]any, allowExtra bool) (string, error) {
+	resolvedMarkdown, err := renderTemplateWithOptions(markdown, data, allowExtra, escapeMarkdownBindingValue)
+	if err == nil {
+		return resolvedMarkdown, nil
 	}
-	values, err := flattenTemplateVariables(data, "")
-	if err != nil {
-		return "", documentRequestError(422, "document_binding_invalid", "Document bindings are invalid")
-	}
-	matches := templateTagPattern.FindAllStringSubmatchIndex(markdown, -1)
-	var result strings.Builder
-	lastIndex := 0
-	for _, match := range matches {
-		result.WriteString(markdown[lastIndex:match[0]])
-		rawInner := markdown[match[2]:match[3]]
-		tag, err := parseTemplateTag(rawInner)
-		if err == nil {
-			if tag.tagType == tagTypeVariable {
-				result.WriteString(escapeMarkdownBindingValue(values[tag.varPath]))
-			} else if tag.tagType == tagTypeHelper {
-				svg, err := executeTemplateHelper(tag, values)
-				if err == nil {
-					result.WriteString(svg)
-				}
-			}
-		}
-		lastIndex = match[1]
-	}
-	result.WriteString(markdown[lastIndex:])
-	return result.String(), nil
+	return "", mapTemplateToDocumentBindingError(err)
 }
 
 func escapeMarkdownBindingValue(value any) string {
 	return markdownBindingEscaper.Replace(stdhtml.EscapeString(fmt.Sprint(value)))
+}
+
+func mapTemplateToDocumentBindingError(err error) error {
+	var templateErr *renderError
+	if !errors.As(err, &templateErr) {
+		return documentRequestError(422, "document_binding_invalid", "Document bindings are invalid")
+	}
+	switch templateErr.Code {
+	case missingTemplateVariableCode:
+		return documentRequestError(422, "document_binding_missing", templateErr.Message)
+	case unknownTemplateVariableCode:
+		return documentRequestError(422, "document_binding_unknown", templateErr.Message)
+	default:
+		return documentRequestError(422, "document_binding_invalid", templateErr.Message)
+	}
 }
 
 // resolveDocumentHTML shares the established template binding engine with
@@ -168,22 +167,15 @@ func escapeMarkdownBindingValue(value any) string {
 // HTML-escapes values before they become document markup. Every placeholder
 // needs a data value, and every supplied data leaf must be consumed.
 func resolveDocumentHTML(html string, data map[string]any) (string, error) {
-	resolvedHTML, err := renderTemplateHTML(html, data)
+	return resolveDocumentHTMLWithOptions(html, data, false)
+}
+
+func resolveDocumentHTMLWithOptions(html string, data map[string]any, allowExtra bool) (string, error) {
+	resolvedHTML, err := renderTemplateHTMLWithOptions(html, data, allowExtra)
 	if err == nil {
 		return resolvedHTML, nil
 	}
-	var templateErr *renderError
-	if !errors.As(err, &templateErr) {
-		return "", documentRequestError(422, "document_binding_invalid", "Document bindings are invalid")
-	}
-	switch templateErr.Code {
-	case missingTemplateVariableCode:
-		return "", documentRequestError(422, "document_binding_missing", templateErr.Message)
-	case unknownTemplateVariableCode:
-		return "", documentRequestError(422, "document_binding_unknown", templateErr.Message)
-	default:
-		return "", documentRequestError(422, "document_binding_invalid", templateErr.Message)
-	}
+	return "", mapTemplateToDocumentBindingError(err)
 }
 
 // buildDocumentHTML produces the only document shell passed to Chromium. Page
@@ -191,7 +183,7 @@ func resolveDocumentHTML(html string, data map[string]any) (string, error) {
 // document authors as raw HTML. User-provided @page rules are rejected during
 // request validation so they cannot override this controlled page layout.
 func buildDocumentHTML(request documentRenderRequest) (string, error) {
-	resolvedHTML, err := resolveDocumentHTML(request.HTML, request.Data)
+	resolvedHTML, err := resolveDocumentHTMLWithOptions(request.HTML, request.Data, request.Options.allowExtraVariables())
 	if err != nil {
 		return "", err
 	}

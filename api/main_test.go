@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"os"
@@ -222,5 +223,149 @@ func TestTrialModeIsolatesDocumentStoreAndBlocksNonTrialRoutes(t *testing.T) {
 			t.Fatalf("%s %s status = %d, want 404; body=%s", route.method, route.path, blockedResp.StatusCode, blockedResp.Body)
 		}
 	}
+}
+
+func TestZeroRetentionAndBinaryPDFResponse(t *testing.T) {
+	prevClient, prevTable, prevBucket := ddbClient, tableName, bucketName
+	prevFileFactory := fileStoreFactory
+	prevRender, prevPut, prevSign := renderHTMLPDF, putRenderedPDFObject, signRenderedPDFDownload
+	t.Cleanup(func() {
+		ddbClient, tableName, bucketName = prevClient, prevTable, prevBucket
+		fileStoreFactory = prevFileFactory
+		renderHTMLPDF, putRenderedPDFObject, signRenderedPDFDownload = prevRender, prevPut, prevSign
+	})
+
+	t.Setenv("FREE_MONTHLY_QUOTA", "25")
+	tableName = "renderpdf-usage"
+	bucketName = "renderpdf-pdfs"
+	fakeDDB := &fakeDynamoDB{}
+	ddbClient = fakeDDB
+
+	fakePDF := []byte("%PDF-1.4\n1 0 obj\n<<>>\nendobj\n%%EOF\n")
+	renderHTMLPDF = func(_ context.Context, _ string, _ documentRenderOptions) ([]byte, error) {
+		return fakePDF, nil
+	}
+
+	s3Writes := 0
+	s3Signs := 0
+	fileCreates := 0
+	putRenderedPDFObject = func(_, _ string, _ []byte) error {
+		s3Writes++
+		return nil
+	}
+	signRenderedPDFDownload = func(bucket, key string) (string, error) {
+		s3Signs++
+		return "https://signed.example.com/" + bucket + "/" + key, nil
+	}
+	fileStoreFactory = func() fileStore {
+		return &countingFileStore{onCreate: func() { fileCreates++ }}
+	}
+
+	// 1. zeroRetention: true with JSON response -> 0 S3 writes, 0 fileStore writes, inline base64 data
+	reqZeroJSON := events.APIGatewayProxyRequest{
+		HTTPMethod: "POST",
+		Resource:   renderResource,
+		Path:       renderResource,
+		Body:       `{"version":"1","source":{"type":"html","content":"<h1>Zero Retention</h1>"},"options":{"zeroRetention":true}}`,
+	}
+	reqZeroJSON.RequestContext.Authorizer = map[string]interface{}{"userId": "customer-zero"}
+
+	resp, err := handler(context.Background(), reqZeroJSON)
+	if err != nil {
+		t.Fatalf("zeroRetention JSON handler error: %v", err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("status = %d, want 200; body=%s", resp.StatusCode, resp.Body)
+	}
+	if s3Writes != 0 || s3Signs != 0 || fileCreates != 0 {
+		t.Fatalf("expected 0 S3 writes, 0 signs, 0 fileStore writes in zeroRetention, got s3Writes=%d s3Signs=%d fileCreates=%d", s3Writes, s3Signs, fileCreates)
+	}
+	if resp.Headers["X-Retention-Policy"] != "zero-retention" {
+		t.Fatalf("expected X-Retention-Policy: zero-retention header, got %#v", resp.Headers)
+	}
+	var parsedResp Response
+	if err := json.Unmarshal([]byte(resp.Body), &parsedResp); err != nil {
+		t.Fatalf("unmarshal response: %v", err)
+	}
+	if !parsedResp.ZeroRetention || parsedResp.URL != "" || parsedResp.Data != base64.StdEncoding.EncodeToString(fakePDF) {
+		t.Fatalf("unexpected zeroRetention JSON response: %#v", parsedResp)
+	}
+
+	// 2. zeroRetention: true with Accept: application/pdf -> binary base64-encoded APIGatewayProxyResponse, 0 S3 writes
+	reqZeroBinary := events.APIGatewayProxyRequest{
+		HTTPMethod: "POST",
+		Resource:   renderResource,
+		Path:       renderResource,
+		Headers:    map[string]string{"Accept": "application/pdf"},
+		Body:       `{"version":"1","source":{"type":"html","content":"<h1>Zero Binary</h1>"},"label":"Invoice #42","options":{"zeroRetention":true}}`,
+	}
+	reqZeroBinary.RequestContext.Authorizer = map[string]interface{}{"userId": "customer-zero"}
+
+	binResp, err := handler(context.Background(), reqZeroBinary)
+	if err != nil {
+		t.Fatalf("zeroRetention binary handler error: %v", err)
+	}
+	if binResp.StatusCode != 200 || !binResp.IsBase64Encoded {
+		t.Fatalf("expected 200 IsBase64Encoded=true, got status=%d isBase64=%v", binResp.StatusCode, binResp.IsBase64Encoded)
+	}
+	if s3Writes != 0 || fileCreates != 0 {
+		t.Fatalf("expected 0 S3 writes and 0 fileStore writes, got s3Writes=%d fileCreates=%d", s3Writes, fileCreates)
+	}
+	if binResp.Headers["Content-Type"] != "application/pdf" || !strings.Contains(binResp.Headers["Content-Disposition"], "Invoice 42.pdf") {
+		t.Fatalf("unexpected binary headers: %#v", binResp.Headers)
+	}
+	decodedPDF, err := base64.StdEncoding.DecodeString(binResp.Body)
+	if err != nil || string(decodedPDF) != string(fakePDF) {
+		t.Fatalf("decoded binary body mismatch: err=%v got=%q", err, decodedPDF)
+	}
+
+	// 3. zeroRetention: true + webhookUrl -> rejected with 422 zero_retention_webhook_unsupported
+	reqZeroWebhook := events.APIGatewayProxyRequest{
+		HTTPMethod: "POST",
+		Resource:   renderResource,
+		Path:       renderResource,
+		Body:       `{"version":"1","source":{"type":"html","content":"<h1>Fail</h1>"},"webhookUrl":"https://example.com/webhook","options":{"zeroRetention":true}}`,
+	}
+	reqZeroWebhook.RequestContext.Authorizer = map[string]interface{}{"userId": "customer-zero"}
+
+	hookResp, err := handler(context.Background(), reqZeroWebhook)
+	if err != nil {
+		t.Fatalf("zeroRetention webhook handler error: %v", err)
+	}
+	if hookResp.StatusCode != 422 || !strings.Contains(hookResp.Body, "zero_retention_webhook_unsupported") {
+		t.Fatalf("expected 422 zero_retention_webhook_unsupported, got status=%d body=%s", hookResp.StatusCode, hookResp.Body)
+	}
+
+	// 4. Normal retention with options.responseFormat="binary" -> stores in S3 & fileStore AND returns binary PDF
+	reqStoredBinary := events.APIGatewayProxyRequest{
+		HTTPMethod: "POST",
+		Resource:   renderResource,
+		Path:       renderResource,
+		Body:       `{"version":"1","source":{"type":"html","content":"<h1>Stored Binary</h1>"},"options":{"responseFormat":"binary"}}`,
+	}
+	reqStoredBinary.RequestContext.Authorizer = map[string]interface{}{"userId": "customer-zero"}
+
+	storedBinResp, err := handler(context.Background(), reqStoredBinary)
+	if err != nil {
+		t.Fatalf("stored binary handler error: %v", err)
+	}
+	if storedBinResp.StatusCode != 200 || !storedBinResp.IsBase64Encoded || storedBinResp.Headers["Content-Type"] != "application/pdf" {
+		t.Fatalf("unexpected stored binary response: status=%d isBase64=%v headers=%#v", storedBinResp.StatusCode, storedBinResp.IsBase64Encoded, storedBinResp.Headers)
+	}
+	if s3Writes != 1 || fileCreates != 1 || storedBinResp.Headers["X-File-Id"] == "" {
+		t.Fatalf("expected 1 S3 write, 1 fileStore create, and X-File-Id header, got s3Writes=%d fileCreates=%d headers=%#v", s3Writes, fileCreates, storedBinResp.Headers)
+	}
+}
+
+type countingFileStore struct {
+	noopTestFileStore
+	onCreate func()
+}
+
+func (c *countingFileStore) Create(_ context.Context, _ storedFile) error {
+	if c.onCreate != nil {
+		c.onCreate()
+	}
+	return nil
 }
 

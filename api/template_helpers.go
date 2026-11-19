@@ -138,7 +138,7 @@ func parseHelperArgs(remainder string) ([]helperArg, map[string]helperArg, error
 			default:
 				if _, err := strconv.Atoi(token); err == nil {
 					arg = helperArg{isLiteral: true, strVal: token}
-				} else if templatePlaceholderPattern.MatchString("{{" + token + "}}") {
+				} else if templatePlaceholderPattern.MatchString("{{"+token+"}}") || isValidTemplateExpr(token) {
 					arg = helperArg{isVar: true, varPath: token}
 				} else {
 					return nil, nil, fmt.Errorf("invalid token %q in template helper", token)

@@ -116,7 +116,7 @@
                             <code>data</code>
                             <span class="type">object</span>
                             <span class="optional">optional</span>
-                            <p>Key-value mappings for dynamic <code>{{path.to.value}}</code> bindings. Inserted values are automatically HTML-escaped.</p>
+                            <p>Key-value mappings for dynamic <code>{{path.to.value}}</code> bindings and safe control blocks (<code>{{#each items}}...{{/each}}</code>, <code>{{#if cond}}...{{else}}...{{/if}}</code>, <code>{{#unless cond}}...{{/unless}}</code>). Inserted values are automatically HTML-escaped.</p>
                         </div>
                         <div class="property-row">
                             <code>options</code>
@@ -165,6 +165,9 @@
                         </p></div>
                         <div class="property-row"><code>password</code>, <code>ownerPassword</code>, <code>permissions</code><p>AES-256 PDF encryption. See <a href="/docs/api/pdf-security/#encryption">Security &amp; Passwords</a>.</p></div>
                         <div class="property-row"><code>compliance</code><p>Factur-X and PDF/A archival compliance. See <a href="/docs/api/compliance/">Compliance &amp; Factur-X</a>.</p></div>
+                        <div class="property-row"><code>zeroRetention</code><span class="type">boolean</span><p>When <code>true</code>, skips S3 object storage and DynamoDB file metadata persistence (0 S3 writes) and returns the rendered PDF directly in the response (either as binary <code>application/pdf</code> or base64 <code>data</code> in JSON) with <code>X-Retention-Policy: zero-retention</code>. Cannot be combined with <code>webhookUrl</code>.</p></div>
+                        <div class="property-row"><code>responseFormat</code><span class="type">string</span><p>Response format: <code>"json"</code> (default) or <code>"binary"</code> / <code>"pdf"</code> (returns raw <code>application/pdf</code> bytes directly; also triggered by sending <code>Accept: application/pdf</code>).</p></div>
+                        <div class="property-row"><code>strictVariables</code><span class="type">boolean</span><p>Controls whether unreferenced keys in <code>data</code>/<code>variables</code> are rejected on flat templates (default: <code>true</code>; set to <code>false</code> or <code>allowExtraVariables: true</code> to allow extra fields).</p></div>
 
                         <h2>Built-in print styling &amp; pagination helpers</h2>
                         <p class="section-copy">RenderPDF automatically optimizes HTML for print layout before invoking Chromium:</p>

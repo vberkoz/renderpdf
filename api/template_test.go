@@ -205,3 +205,118 @@ func TestTemplateVariablePathsWithHelpers(t *testing.T) {
 		t.Fatalf("templateVariablePaths = %#v, want %#v", got, want)
 	}
 }
+
+func TestRenderTemplateHTMLControlBlocksEachAndIf(t *testing.T) {
+	tmpl := `<h1>{{company.name}}</h1>` +
+		`{{#if showBanner}}<div class="banner">Promo: {{bannerText}}</div>{{else}}<div class="banner">Standard</div>{{/if}}` +
+		`{{#unless hideItems}}<ul>` +
+		`{{#each items}}<li data-idx="{{@index}}">{{#if @first}}[FIRST] {{/if}}{{name}}: ${{price}} ({{../company.name}}){{#if tags}} [{{#each tags}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}]{{/if}}</li>{{/each}}` +
+		`</ul>{{/unless}}` +
+		`{{#each emptyList}}<p>{{missingInsideEmpty}}</p>{{/each}}`
+
+	html, err := renderTemplateHTML(tmpl, map[string]any{
+		"company":    map[string]any{"name": "Acme & Co"},
+		"showBanner": false,
+		"bannerText": nil, // unused because showBanner is false
+		"hideItems":  false,
+		"unusedRoot": "extra-allowed-when-blocks-used",
+		"emptyList":  []any{},
+		"items": []any{
+			map[string]any{
+				"name":       "Widget <A>",
+				"price":      "10.00",
+				"tags":       []string{"featured", "sale"},
+				"extraField": "ignored",
+			},
+			map[string]any{
+				"name":  "Gadget",
+				"price": "25.00",
+				"tags":  []string{},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("renderTemplateHTML with blocks failed: %v", err)
+	}
+
+	checks := []string{
+		`<h1>Acme &amp; Co</h1>`,
+		`<div class="banner">Standard</div>`,
+		`<li data-idx="0">[FIRST] Widget &lt;A&gt;: $10.00 (Acme &amp; Co) [featured, sale]</li>`,
+		`<li data-idx="1">Gadget: $25.00 (Acme &amp; Co)</li>`,
+	}
+	for _, want := range checks {
+		if !strings.Contains(html, want) {
+			t.Fatalf("rendered HTML missing %q:\n%s", want, html)
+		}
+	}
+}
+
+func TestRenderTemplateHTMLBlockBoundsAndValidation(t *testing.T) {
+	// 1. Missing variable inside active #each iteration -> 422 template_variable_missing
+	_, err := renderTemplateHTML(`{{#each items}}<p>{{name}} - {{missingSku}}</p>{{/each}}`, map[string]any{
+		"items": []any{map[string]any{"name": "Item 1"}},
+	})
+	var renderErr *renderError
+	if !errors.As(err, &renderErr) || renderErr.Status != 422 || renderErr.Code != missingTemplateVariableCode {
+		t.Fatalf("expected 422 %s for missing inner variable, got %#v", missingTemplateVariableCode, err)
+	}
+
+	// 2. Missing variable inside active #if branch -> 422 template_variable_missing
+	_, err = renderTemplateHTML(`{{#if active}}<p>{{missingActiveVar}}</p>{{/if}}`, map[string]any{
+		"active": true,
+	})
+	if !errors.As(err, &renderErr) || renderErr.Status != 422 || renderErr.Code != missingTemplateVariableCode {
+		t.Fatalf("expected 422 %s for missing active #if variable, got %#v", missingTemplateVariableCode, err)
+	}
+
+	// 3. Iteration cap > 1000 -> 422 template_variable_invalid
+	many := make([]any, 1001)
+	for i := range many {
+		many[i] = i
+	}
+	_, err = renderTemplateHTML(`{{#each items}}{{this}}{{/each}}`, map[string]any{
+		"items": many,
+	})
+	if !errors.As(err, &renderErr) || renderErr.Status != 422 || renderErr.Code != invalidTemplateVariableCode {
+		t.Fatalf("expected 422 %s for >1000 iterations, got %#v", invalidTemplateVariableCode, err)
+	}
+
+	// 4. Nesting depth > 5 -> 422 template_variable_invalid
+	deepTmpl := `{{#if a}}{{#if a}}{{#if a}}{{#if a}}{{#if a}}{{#if a}}too deep{{/if}}{{/if}}{{/if}}{{/if}}{{/if}}{{/if}}`
+	_, err = renderTemplateHTML(deepTmpl, map[string]any{"a": true})
+	if !errors.As(err, &renderErr) || renderErr.Status != 422 || renderErr.Code != invalidTemplateVariableCode {
+		t.Fatalf("expected 422 %s for block depth > 5, got %#v", invalidTemplateVariableCode, err)
+	}
+
+	// 5. Mismatched or unclosed blocks and non-array #each target -> 422 template_variable_invalid
+	invalidSyntaxes := []struct {
+		name string
+		tmpl string
+		vars map[string]any
+	}{
+		{"unclosed each", `{{#each items}}<p>{{this}}</p>`, map[string]any{"items": []any{"a"}}},
+		{"mismatched close", `{{#if cond}}<p>hi</p>{{/each}}`, map[string]any{"cond": true}},
+		{"else in each", `{{#each items}}{{this}}{{else}}none{{/each}}`, map[string]any{"items": []any{"a"}}},
+		{"double else", `{{#if cond}}a{{else}}b{{else}}c{{/if}}`, map[string]any{"cond": true}},
+		{"non-array each", `{{#each notAList}}{{this}}{{/each}}`, map[string]any{"notAList": "string-val"}},
+	}
+	for _, tc := range invalidSyntaxes {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := renderTemplateHTML(tc.tmpl, tc.vars)
+			var rErr *renderError
+			if !errors.As(err, &rErr) || rErr.Status != 422 || rErr.Code != invalidTemplateVariableCode {
+				t.Fatalf("%s: expected 422 %s, got %#v", tc.name, invalidTemplateVariableCode, err)
+			}
+		})
+	}
+
+	// 6. renderTemplateHTMLWithOptions(..., allowExtra=true) permits extra keys on flat templates
+	flatHTML, err := renderTemplateHTMLWithOptions(`<p>{{customer.name}}</p>`, map[string]any{
+		"customer": map[string]any{"name": "Ada", "extraEmail": "ada@example.com"},
+		"unused":   []any{1, 2, 3},
+	}, true)
+	if err != nil || flatHTML != `<p>Ada</p>` {
+		t.Fatalf("renderTemplateHTMLWithOptions allowExtra failed: html=%q err=%v", flatHTML, err)
+	}
+}

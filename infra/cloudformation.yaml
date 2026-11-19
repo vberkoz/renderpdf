@@ -135,6 +135,13 @@ Parameters:
       - 'true'
       - 'false'
     Description: Feature flag enabling legacy default Chromium header/footer templates when displayHeaderFooter is omitted (set to true for rollback without code redeploy)
+  ChromeWarmPool:
+    Type: String
+    Default: 'true'
+    AllowedValues:
+      - 'true'
+      - 'false'
+    Description: Feature flag enabling warm headless Chromium browser pool reuse across Lambda invocations (set to false to spawn a new browser per request)
 
 Resources:
   OperationsAlertsTopic:
@@ -984,6 +991,7 @@ Resources:
           SES_REGION: !Ref SesRegion
           USER_POOL_ID: !Ref UserPoolV2
           DEFAULT_DISPLAY_HEADER_FOOTER: !Ref DefaultDisplayHeaderFooter
+          CHROME_WARM_POOL: !Ref ChromeWarmPool
 
   TrialPdfFunction:
     Type: AWS::Lambda::Function
@@ -1003,6 +1011,7 @@ Resources:
           TRIAL_DAILY_LIMIT: '3'
           TRIAL_MAX_HTML_BYTES: '1048576'
           DEFAULT_DISPLAY_HEADER_FOOTER: !Ref DefaultDisplayHeaderFooter
+          CHROME_WARM_POOL: !Ref ChromeWarmPool
 
   BatchWorkerFunction:
     Type: AWS::Lambda::Function
@@ -1030,6 +1039,7 @@ Resources:
           SES_REGION: !Ref SesRegion
           USER_POOL_ID: !Ref UserPoolV2
           DEFAULT_DISPLAY_HEADER_FOOTER: !Ref DefaultDisplayHeaderFooter
+          CHROME_WARM_POOL: !Ref ChromeWarmPool
 
   BatchWorkerEventSource:
     Type: AWS::Lambda::EventSourceMapping

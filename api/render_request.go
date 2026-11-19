@@ -3,7 +3,9 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
+	"os"
 	"strings"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -145,14 +147,24 @@ func normalizeCanonicalRenderRequestWithOwner(ctx context.Context, body, ownerID
 		}
 		result.Kind, result.Body = renderKindDocument, encoded
 	case "template":
-		if request.Source.ID != "" || request.Source.Content != "" || request.Source.URL != "" || request.Source.UploadID != "" || request.Source.Entrypoint != "" || request.CSS != "" || request.Data != nil {
+		tplID := request.Source.TemplateID
+		if tplID == "" {
+			tplID = request.Source.ID
+		}
+		if (request.Source.TemplateID != "" && request.Source.ID != "" && request.Source.TemplateID != request.Source.ID) ||
+			request.Source.Content != "" || request.Source.URL != "" || request.Source.UploadID != "" || request.Source.Entrypoint != "" || request.CSS != "" ||
+			(request.Source.Variables != nil && request.Data != nil) {
 			return normalizedRenderRequest{}, &renderError{Code: "render_source_invalid", Message: "source contains fields not supported by its type", Status: 422}
+		}
+		vars := request.Source.Variables
+		if vars == nil {
+			vars = request.Data
 		}
 		var opts *documentRenderOptions
 		if !request.Options.isZero() {
 			opts = &request.Options
 		}
-		encoded, err := marshal(templateRenderRequest{TemplateID: request.Source.TemplateID, Variables: request.Source.Variables, Options: opts, Label: result.Label, WebhookURL: request.WebhookURL, WebhookSecret: request.WebhookSecret})
+		encoded, err := marshal(templateRenderRequest{TemplateID: tplID, Variables: vars, Options: opts, Label: result.Label, WebhookURL: request.WebhookURL, WebhookSecret: request.WebhookSecret})
 		if err != nil {
 			return normalizedRenderRequest{}, err
 		}
@@ -184,22 +196,74 @@ func normalizeCanonicalRenderRequestWithOwner(ctx context.Context, body, ownerID
 		}
 		result.Kind, result.Body = renderKindUpload, encoded
 	case "stored":
-		if request.Source.ID == "" || request.Source.Content != "" || request.Source.TemplateID != "" || request.Source.Variables != nil || request.Source.URL != "" || request.Source.UploadID != "" || request.Source.Entrypoint != "" || request.CSS != "" || ownerID == "" {
+		storedID := request.Source.ID
+		if storedID == "" {
+			storedID = request.Source.TemplateID
+		}
+		if storedID == "" ||
+			(request.Source.ID != "" && request.Source.TemplateID != "" && request.Source.ID != request.Source.TemplateID) ||
+			request.Source.Content != "" || request.Source.URL != "" || request.Source.UploadID != "" || request.Source.Entrypoint != "" || request.CSS != "" ||
+			(request.Data != nil && request.Source.Variables != nil) || ownerID == "" {
 			return normalizedRenderRequest{}, &renderError{Code: "render_source_invalid", Message: "stored sources require source.id and may only override data and options", Status: 422}
 		}
-		definition, err := sourceDefinitionLoader(ctx, ownerID, request.Source.ID)
+		overrideData := request.Data
+		if overrideData == nil {
+			overrideData = request.Source.Variables
+		}
+		definition, err := sourceDefinitionLoader(ctx, ownerID, storedID)
 		if err != nil {
+			if isStoredSourceNotFound(err) || isStoredSourceUnconfigured(err) {
+				if tpl, tplErr := templateStoreFactory().Get(ctx, ownerID, storedID); tplErr == nil {
+					vars := mergeTemplateVariableMaps(tpl.Variables, overrideData)
+					if vars == nil {
+						vars = map[string]any{}
+					}
+					opts := request.Options
+					if tpl.Variables != nil && overrideData != nil && opts.AllowExtraVariables == nil && opts.StrictVariables == nil {
+						allow := true
+						opts.AllowExtraVariables = &allow
+					}
+					var optsPtr *documentRenderOptions
+					if !opts.isZero() {
+						optsPtr = &opts
+					}
+					encoded, mErr := marshal(templateRenderRequest{
+						TemplateID:    tpl.ID,
+						Variables:     vars,
+						Options:       optsPtr,
+						Label:         result.Label,
+						WebhookURL:    request.WebhookURL,
+						WebhookSecret: request.WebhookSecret,
+					})
+					if mErr != nil {
+						return normalizedRenderRequest{}, mErr
+					}
+					return normalizedRenderRequest{
+						Kind:          renderKindTemplate,
+						Body:          encoded,
+						Canonical:     true,
+						SourceType:    "template",
+						SourceMode:    "stored",
+						SourceVersion: request.Version,
+						Label:         result.Label,
+					}, nil
+				}
+			}
 			return normalizedRenderRequest{}, err
 		}
-		if request.Data != nil {
-			definition.Data = request.Data
+		if overrideData != nil {
+			if definition.Data != nil {
+				definition.Data = mergeTemplateVariableMaps(definition.Data, overrideData)
+			} else {
+				definition.Data = overrideData
+			}
 		}
 		if !request.Options.isZero() {
 			definition.Options = mergeDocumentRenderOptions(definition.Options, request.Options)
 		}
 		definition.Label = request.Label
 		if definition.Label == "" {
-			if meta, metaErr := sourceStoreFactory().Get(ctx, ownerID, request.Source.ID); metaErr == nil {
+			if meta, metaErr := sourceStoreFactory().Get(ctx, ownerID, storedID); metaErr == nil {
 				definition.Label = meta.Name
 			}
 		}
@@ -215,4 +279,17 @@ func normalizeCanonicalRenderRequestWithOwner(ctx context.Context, body, ownerID
 		return normalizedRenderRequest{}, &renderError{Code: "render_source_type_invalid", Message: "source.type must be html, markdown, template, url, upload, or stored", Status: 422}
 	}
 	return result, nil
+}
+
+func isStoredSourceNotFound(err error) bool {
+	var rErr *renderError
+	return errors.As(err, &rErr) && rErr.Code == "stored_source_not_found"
+}
+
+func isStoredSourceUnconfigured(err error) bool {
+	if os.Getenv("DOCUMENT_STORE_TABLE_NAME") != "" {
+		return false
+	}
+	var rErr *renderError
+	return errors.As(err, &rErr) && rErr.Code == "stored_source_unavailable"
 }

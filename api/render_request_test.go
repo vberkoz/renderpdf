@@ -358,3 +358,91 @@ func TestTemplateRenderOptionsValidationAndHandlerPropagation(t *testing.T) {
 		t.Fatalf("capturedOpts = %#v, want Letter/12mm/landscape=true/displayHeaderFooter=false", capturedOpts)
 	}
 }
+
+func TestUnifiedTemplateAndStoredSourcesCrossResolution(t *testing.T) {
+	store := &memoryTemplateAPIStore{
+		templates: map[string]Template{
+			"customer-a/tpl-unified": {
+				ID:        "tpl-unified",
+				Name:      "Unified Invoice",
+				Type:      TemplateTypeInvoice,
+				HTML:      "<h1>{{company}}</h1>{{#each items}}<p>{{name}}</p>{{/each}}",
+				Variables: map[string]any{"company": "Default Corp"},
+				OwnerID:   "customer-a",
+			},
+		},
+	}
+
+	prevTplFactory := templateStoreFactory
+	prevLoader := sourceDefinitionLoader
+	t.Cleanup(func() {
+		templateStoreFactory = prevTplFactory
+		sourceDefinitionLoader = prevLoader
+	})
+	templateStoreFactory = func() templateStore { return store }
+	sourceDefinitionLoader = func(_ context.Context, ownerID, sourceID string) (canonicalRenderRequest, error) {
+		if ownerID == "customer-a" && sourceID == "src-unified" {
+			return canonicalRenderRequest{
+				Version: "1",
+				Source:  canonicalRenderSource{Type: "html", Content: "<main><h2>{{heading}}</h2><p>{{body}}</p></main>"},
+				Data:    map[string]any{"heading": "Default Heading", "body": "Default Body"},
+				Options: documentRenderOptions{Format: "A4", Margin: "15mm"},
+			}, nil
+		}
+		return canonicalRenderRequest{}, &renderError{Code: "stored_source_not_found", Message: "Stored source not found", Status: 404}
+	}
+
+	// 1. source.type="template" accepts source.id and top-level data
+	norm1, err := normalizeRenderRequest(context.Background(), events.APIGatewayProxyRequest{
+		Resource: renderResource,
+		Body:     `{"version":"1","source":{"type":"template","id":"tpl-unified"},"data":{"items":[{"name":"Item A"}]}}`,
+	}, "customer-a")
+	if err != nil {
+		t.Fatalf("template with source.id and top-level data failed: %v", err)
+	}
+	html1, _, err := resolveTemplateRenderHTML(context.Background(), store, "customer-a", norm1.Body)
+	if err != nil {
+		t.Fatalf("resolveTemplateRenderHTML failed: %v", err)
+	}
+	if !strings.Contains(html1, "<h1>Default Corp</h1>") || !strings.Contains(html1, "<p>Item A</p>") {
+		t.Fatalf("unexpected html1: %s", html1)
+	}
+
+	// 2. source.type="stored" falls back to templateStore when ID is a template, and accepts source.variables
+	norm2, err := normalizeRenderRequest(context.Background(), events.APIGatewayProxyRequest{
+		Resource: renderResource,
+		Body:     `{"version":"1","source":{"type":"stored","templateId":"tpl-unified","variables":{"company":"Override Corp","items":[{"name":"Item B"}]}}}`,
+	}, "customer-a")
+	if err != nil {
+		t.Fatalf("stored fallback to templateStore failed: %v", err)
+	}
+	if norm2.Kind != renderKindTemplate || norm2.SourceMode != "stored" {
+		t.Fatalf("unexpected norm2: %#v", norm2)
+	}
+	html2, _, err := resolveTemplateRenderHTML(context.Background(), store, "customer-a", norm2.Body)
+	if err != nil {
+		t.Fatalf("resolveTemplateRenderHTML from stored fallback failed: %v", err)
+	}
+	if !strings.Contains(html2, "<h1>Override Corp</h1>") || !strings.Contains(html2, "<p>Item B</p>") {
+		t.Fatalf("unexpected html2: %s", html2)
+	}
+
+	// 3. source.type="template" falls back to sourceDefinitionLoader when templateId is a saved source
+	norm3, err := normalizeRenderRequest(context.Background(), events.APIGatewayProxyRequest{
+		Resource: renderResource,
+		Body:     `{"version":"1","source":{"type":"template","templateId":"src-unified","variables":{"body":"Overridden from template mode"}}}`,
+	}, "customer-a")
+	if err != nil {
+		t.Fatalf("normalize template for saved source failed: %v", err)
+	}
+	html3, tplReq3, err := resolveTemplateRenderHTML(context.Background(), store, "customer-a", norm3.Body)
+	if err != nil {
+		t.Fatalf("resolveTemplateRenderHTML fallback to sourceStore failed: %v", err)
+	}
+	if !strings.Contains(html3, "<h2>Default Heading</h2>") || !strings.Contains(html3, "<p>Overridden from template mode</p>") {
+		t.Fatalf("unexpected html3: %s", html3)
+	}
+	if tplReq3.Options == nil || tplReq3.Options.Margin != "15mm" {
+		t.Fatalf("expected saved source options to be preserved, got %#v", tplReq3.Options)
+	}
+}

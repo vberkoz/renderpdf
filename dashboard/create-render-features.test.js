@@ -166,3 +166,47 @@ test('loadDocumentEditorSample populates documentJsonInput and preview succeeds'
   assert.ok(req);
   assert.strictEqual(req.version, '1');
 });
+
+test('parseDocumentEditor supports zeroRetention, responseFormat, strictVariables, and control blocks', () => {
+  const payload = {
+    version: '1',
+    html: '<h1>{{title}}</h1>{{#if showItems}}<ul>{{#each items}}<li>{{name}}</li>{{/each}}</ul>{{/if}}',
+    data: {
+      title: 'Invoice',
+      showItems: true,
+      items: [{ name: 'Line 1', extraSku: 'A1' }],
+      unusedField: 'allowedWithControlBlocks',
+    },
+    options: {
+      format: 'A4',
+      margin: '15mm',
+      zeroRetention: true,
+      responseFormat: 'binary',
+      strictVariables: false,
+    },
+  };
+  global.document.getElementById = (id) => {
+    if (id === 'documentSourceTypeInput') return { value: 'html' };
+    if (id === 'documentJsonInput') return { value: JSON.stringify(payload) };
+    return null;
+  };
+
+  const parsed = createRender.parseDocumentEditor();
+  assert.strictEqual(parsed.request.options.zeroRetention, true);
+  assert.strictEqual(parsed.request.options.responseFormat, 'binary');
+  assert.strictEqual(parsed.request.options.strictVariables, false);
+
+  const badFormatPayload = {
+    ...payload,
+    options: { format: 'A4', margin: '15mm', responseFormat: 'xml' },
+  };
+  global.document.getElementById = (id) => {
+    if (id === 'documentSourceTypeInput') return { value: 'html' };
+    if (id === 'documentJsonInput') return { value: JSON.stringify(badFormatPayload) };
+    return null;
+  };
+  assert.throws(
+    () => createRender.parseDocumentEditor(),
+    /options\.responseFormat must be one of json, binary, or pdf/
+  );
+});

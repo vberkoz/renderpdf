@@ -79,17 +79,38 @@ img { max-width: 100%; box-sizing: content-box; background-color: #fff; }
     return new TextEncoder().encode(value).length;
   }
 
-  function flattenDocumentData(value, prefix = '', depth = 1, output = new Map()) {
+  function validateArrayDepth(arr, depth) {
+    if (depth > 10) throw new Error('data must not exceed 10 nested levels.');
+    arr.forEach((item) => {
+      if (Array.isArray(item)) {
+        validateArrayDepth(item, depth + 1);
+      } else if (isPlainObject(item)) {
+        flattenDocumentData(item, '', depth + 1, new Map(), true);
+      }
+    });
+  }
+
+  function flattenDocumentData(
+    value,
+    prefix = '',
+    depth = 1,
+    output = new Map(),
+    allowNull = false
+  ) {
     if (depth > 10) throw new Error('data must not exceed 10 nested levels.');
     Object.entries(value).forEach(([key, child]) => {
       if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key))
         throw new Error(`Invalid data variable name "${key}".`);
       const path = prefix ? `${prefix}.${key}` : key;
       if (isPlainObject(child)) {
-        flattenDocumentData(child, path, depth + 1, output);
-      } else {
-        if (child === null) throw new Error(`Missing required data variable "${path}".`);
+        flattenDocumentData(child, path, depth + 1, output, allowNull);
+      } else if (Array.isArray(child)) {
+        validateArrayDepth(child, depth + 1);
         output.set(path, child);
+      } else {
+        if (child === null && !allowNull)
+          throw new Error(`Missing required data variable "${path}".`);
+        if (child !== null) output.set(path, child);
       }
     });
     return output;
@@ -290,6 +311,7 @@ img { max-width: 100%; box-sizing: content-box; background-color: #fff; }
     const allowedOptions = [
       'format',
       'margin',
+      'landscape',
       'headerTemplate',
       'footerTemplate',
       'displayHeaderFooter',
@@ -300,9 +322,31 @@ img { max-width: 100%; box-sizing: content-box; background-color: #fff; }
       'pageNumbers',
       'waitFor',
       'compliance',
+      'zeroRetention',
+      'responseFormat',
+      'strictVariables',
+      'allowExtraVariables',
     ];
     const unknownOption = Object.keys(options).find((field) => !allowedOptions.includes(field));
     if (unknownOption) throw new Error(`Unknown options field "${unknownOption}".`);
+    if (options.zeroRetention !== undefined && typeof options.zeroRetention !== 'boolean') {
+      throw new Error('options.zeroRetention must be a boolean.');
+    }
+    if (
+      options.responseFormat !== undefined &&
+      !['json', 'binary', 'pdf'].includes(String(options.responseFormat).trim().toLowerCase())
+    ) {
+      throw new Error('options.responseFormat must be one of json, binary, or pdf.');
+    }
+    if (options.strictVariables !== undefined && typeof options.strictVariables !== 'boolean') {
+      throw new Error('options.strictVariables must be a boolean.');
+    }
+    if (
+      options.allowExtraVariables !== undefined &&
+      typeof options.allowExtraVariables !== 'boolean'
+    ) {
+      throw new Error('options.allowExtraVariables must be a boolean.');
+    }
     if (!['A4', 'Letter', 'Legal'].includes(options.format))
       throw new Error('options.format must be one of A4, Letter, or Legal.');
     const marginMatch =
@@ -372,17 +416,26 @@ img { max-width: 100%; box-sizing: content-box; background-color: #fff; }
     const content = usesMarkdown ? request.source.content : request.html;
     if (/@page\b/i.test(content)) throw new Error('@page settings must be supplied through options.');
     if (!usesMarkdown) validateDocumentMarkupForPreview(content);
-    const values = flattenDocumentData(request.data);
-    const placeholders = [...content.matchAll(documentPlaceholderPattern)];
-    const unmatched = content.replace(documentPlaceholderPattern, '');
-    if (unmatched.includes('{{') || unmatched.includes('}}'))
-      throw new Error('HTML contains an invalid placeholder; use {{path.to.value}}.');
-    const expected = new Set(placeholders.map((match) => match[1]));
-    const missing = [...expected].find((path) => !values.has(path));
-    if (missing) throw new Error(`Missing required data variable "${missing}".`);
-    const unused = [...values.keys()].find((path) => !expected.has(path));
-    if (unused)
-      throw new Error(`Unknown data variable "${unused}"; every supplied value must be used.`);
+    const hasControlBlocks = /{{\s*(?:#each|#if|#unless)\b/.test(content);
+    const allowExtra =
+      hasControlBlocks ||
+      options.allowExtraVariables === true ||
+      options.strictVariables === false;
+    const values = flattenDocumentData(request.data, '', 1, new Map(), allowExtra);
+    if (!hasControlBlocks) {
+      const placeholders = [...content.matchAll(documentPlaceholderPattern)];
+      const unmatched = content.replace(documentPlaceholderPattern, '');
+      if (unmatched.includes('{{') || unmatched.includes('}}'))
+        throw new Error('HTML contains an invalid placeholder; use {{path.to.value}}.');
+      const expected = new Set(placeholders.map((match) => match[1]));
+      const missing = [...expected].find((path) => !values.has(path));
+      if (missing) throw new Error(`Missing required data variable "${missing}".`);
+      if (!allowExtra) {
+        const unused = [...values.keys()].find((path) => !expected.has(path));
+        if (unused)
+          throw new Error(`Unknown data variable "${unused}"; every supplied value must be used.`);
+      }
+    }
     return { request: { ...request, css, options }, values, usesMarkdown };
   }
 

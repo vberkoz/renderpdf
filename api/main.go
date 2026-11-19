@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -34,9 +35,11 @@ type URLRequest struct {
 }
 
 type Response struct {
-	RequestID string `json:"requestId"`
-	URL       string `json:"url"`
-	Size      int64  `json:"size"`
+	RequestID     string `json:"requestId"`
+	URL           string `json:"url,omitempty"`
+	Size          int64  `json:"size"`
+	Data          string `json:"data,omitempty"`
+	ZeroRetention bool   `json:"zeroRetention,omitempty"`
 }
 
 var (
@@ -66,9 +69,9 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 	corsHeaders := map[string]string{
 		"Content-Type":                  "application/json",
 		"Access-Control-Allow-Origin":   "*",
-		"Access-Control-Allow-Headers":  "Content-Type,X-Amz-Date,Authorization,X-Amz-Security-Token",
+		"Access-Control-Allow-Headers":  "Content-Type,Accept,X-Amz-Date,Authorization,X-Amz-Security-Token",
 		"Access-Control-Allow-Methods":  "GET,POST,OPTIONS",
-		"Access-Control-Expose-Headers": "X-Request-Id,X-Trial-Limit,X-Trial-Remaining",
+		"Access-Control-Expose-Headers": "X-Request-Id,X-Trial-Limit,X-Trial-Remaining,X-File-Id,X-Retention-Policy",
 		"X-Request-Id":                  requestID,
 	}
 	if request.HTTPMethod == "OPTIONS" {
@@ -279,6 +282,10 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		analytics.SourceVersion = normalized.SourceVersion
 		analytics.SourceBytes = int64(len(normalized.Body))
 	}
+	if documentOptions.isZeroRetention() && webhookURL != "" {
+		analytics.ErrorType = "validation"
+		return errorResponseWithCode(422, "zero_retention_webhook_unsupported", "webhooks are not supported when options.zeroRetention is true because no download URL is persisted", corsHeaders), nil
+	}
 	if webhookURL != "" {
 		if isTrial {
 			analytics.ErrorType = "validation"
@@ -372,6 +379,28 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		return renderErrorResponse(err, corsHeaders), nil
 	}
 
+	binaryResponse := wantsBinaryPDFResponse(request, documentOptions)
+	if displayName == "" {
+		displayName = normalized.Label
+	}
+
+	if documentOptions.isZeroRetention() {
+		analytics.Status = "success"
+		analytics.ErrorType = ""
+		analytics.PDFBytes = int64(len(pdfBytes))
+		corsHeaders["X-Retention-Policy"] = "zero-retention"
+		if binaryResponse {
+			return binaryPDFResponse(pdfBytes, displayName, "", corsHeaders), nil
+		}
+		resp := Response{
+			RequestID:     requestID,
+			Size:          int64(len(pdfBytes)),
+			Data:          base64.StdEncoding.EncodeToString(pdfBytes),
+			ZeroRetention: true,
+		}
+		return jsonResponse(200, resp, corsHeaders), nil
+	}
+
 	ownerKeyID := analytics.CustomerID
 	if isTrial {
 		ownerKeyID = ""
@@ -401,13 +430,12 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		fmt.Printf("PDF download URL signing failed for %s: %v\n", requestID, err)
 		return errorResponseWithCode(503, "download_url_unavailable", "PDF download URL is temporarily unavailable", corsHeaders), nil
 	}
+	fileID := ""
 	if !isTrial {
+		fileID = "file_" + requestID
 		checksum := sha256.Sum256(pdfBytes)
 		expiresAt := time.Now().UTC().Add(maxPDFRetentionDays * 24 * time.Hour)
-		if displayName == "" {
-			displayName = normalized.Label
-		}
-		if err := fileStoreFactory().Create(ctx, storedFile{ID: "file_" + requestID, Kind: "rendered_pdf", ContentType: "application/pdf", SizeBytes: int64(len(pdfBytes)), Checksum: "sha256:" + hex.EncodeToString(checksum[:]), DisplayName: displayName, RetentionExpiresAt: &expiresAt, Origin: map[string]string{"requestId": requestID}, OwnerID: analytics.CustomerID, Bucket: bucketName, ObjectKey: key, CreatedAt: time.Now().UTC()}); err != nil {
+		if err := fileStoreFactory().Create(ctx, storedFile{ID: fileID, Kind: "rendered_pdf", ContentType: "application/pdf", SizeBytes: int64(len(pdfBytes)), Checksum: "sha256:" + hex.EncodeToString(checksum[:]), DisplayName: displayName, RetentionExpiresAt: &expiresAt, Origin: map[string]string{"requestId": requestID}, OwnerID: analytics.CustomerID, Bucket: bucketName, ObjectKey: key, CreatedAt: time.Now().UTC()}); err != nil {
 			fmt.Printf("PDF file metadata write skipped for %s: %v\n", requestID, err)
 		}
 	}
@@ -427,7 +455,69 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		}
 	}
 
+	if binaryResponse {
+		return binaryPDFResponse(pdfBytes, displayName, fileID, corsHeaders), nil
+	}
 	return jsonResponse(200, resp, corsHeaders), nil
+}
+
+func headerValue(headers map[string]string, name string) string {
+	for k, v := range headers {
+		if strings.EqualFold(k, name) {
+			return v
+		}
+	}
+	return ""
+}
+
+func wantsBinaryPDFResponse(request events.APIGatewayProxyRequest, options documentRenderOptions) bool {
+	if options.isBinaryResponse() {
+		return true
+	}
+	if strings.EqualFold(strings.TrimSpace(options.ResponseFormat), "json") {
+		return false
+	}
+	accept := strings.ToLower(headerValue(request.Headers, "Accept"))
+	return strings.Contains(accept, "application/pdf")
+}
+
+func sanitizePDFFilename(displayName string) string {
+	name := strings.TrimSpace(displayName)
+	if name == "" {
+		return "document.pdf"
+	}
+	var clean strings.Builder
+	for _, r := range name {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '-' || r == '_' || r == '.' || r == ' ' {
+			clean.WriteRune(r)
+		}
+	}
+	safe := strings.TrimSpace(clean.String())
+	if safe == "" {
+		return "document.pdf"
+	}
+	if !strings.HasSuffix(strings.ToLower(safe), ".pdf") {
+		safe += ".pdf"
+	}
+	return safe
+}
+
+func binaryPDFResponse(pdfBytes []byte, displayName, fileID string, baseHeaders map[string]string) events.APIGatewayProxyResponse {
+	headers := make(map[string]string, len(baseHeaders)+3)
+	for k, v := range baseHeaders {
+		headers[k] = v
+	}
+	headers["Content-Type"] = "application/pdf"
+	headers["Content-Disposition"] = fmt.Sprintf(`inline; filename="%s"`, sanitizePDFFilename(displayName))
+	if fileID != "" {
+		headers["X-File-Id"] = fileID
+	}
+	return events.APIGatewayProxyResponse{
+		StatusCode:      200,
+		Headers:         headers,
+		Body:            base64.StdEncoding.EncodeToString(pdfBytes),
+		IsBase64Encoded: true,
+	}
 }
 
 func main() {

@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	stdhtml "html"
 	"regexp"
 	"sort"
 	"strings"
@@ -51,81 +50,14 @@ var (
 	templateTagPattern         = regexp.MustCompile(`{{\s*([^}]+?)\s*}}`)
 )
 
-// renderTemplateHTML applies a template's declared placeholders and helpers to a
-// nested variables object. Every variable placeholder must be supplied, and every
-// supplied leaf value must be consumed. Unconsumed or missing variables fail with
-// actionable 422 renderErrors.
+// renderTemplateHTML applies a template's declared placeholders, safe control blocks
+// (#each, #if, #unless), and helpers to a nested variables object.
 func renderTemplateHTML(templateHTML string, variables map[string]any) (string, error) {
-	matches := templateTagPattern.FindAllStringSubmatchIndex(templateHTML, -1)
-	if strings.Contains(templateHTML, "{{") || strings.Contains(templateHTML, "}}") {
-		matched := 0
-		for _, match := range matches {
-			matched += strings.Count(templateHTML[match[0]:match[1]], "{{")
-		}
-		if matched != strings.Count(templateHTML, "{{") || matched != strings.Count(templateHTML, "}}") {
-			return "", templateVariableError(invalidTemplateVariableCode, "Template contains an invalid placeholder; use {{path.to.value}}")
-		}
-	}
+	return renderTemplateHTMLWithOptions(templateHTML, variables, false)
+}
 
-	values, err := flattenTemplateVariables(variables, "")
-	if err != nil {
-		return "", err
-	}
-
-	parsedTags := make([]*parsedTemplateTag, len(matches))
-	expected := make(map[string]struct{})
-	for i, match := range matches {
-		rawInner := templateHTML[match[2]:match[3]]
-		tag, err := parseTemplateTag(rawInner)
-		if err != nil {
-			return "", templateVariableError(invalidTemplateVariableCode, "Template contains an invalid placeholder; use {{path.to.value}}")
-		}
-		parsedTags[i] = tag
-		if tag.tagType == tagTypeVariable {
-			expected[tag.varPath] = struct{}{}
-		} else if tag.tagType == tagTypeHelper {
-			for _, arg := range tag.posArgs {
-				if arg.isVar {
-					expected[arg.varPath] = struct{}{}
-				}
-			}
-			for _, arg := range tag.options {
-				if arg.isVar {
-					expected[arg.varPath] = struct{}{}
-				}
-			}
-		}
-	}
-
-	for path := range expected {
-		if _, ok := values[path]; !ok {
-			return "", templateVariableError(missingTemplateVariableCode, fmt.Sprintf("Missing required template variable %q", path))
-		}
-	}
-	for path := range values {
-		if _, ok := expected[path]; !ok {
-			return "", templateVariableError(unknownTemplateVariableCode, fmt.Sprintf("Unknown template variable %q", path))
-		}
-	}
-
-	var result strings.Builder
-	lastIndex := 0
-	for i, match := range matches {
-		result.WriteString(templateHTML[lastIndex:match[0]])
-		tag := parsedTags[i]
-		if tag.tagType == tagTypeVariable {
-			result.WriteString(stdhtml.EscapeString(fmt.Sprint(values[tag.varPath])))
-		} else if tag.tagType == tagTypeHelper {
-			svg, err := executeTemplateHelper(tag, values)
-			if err != nil {
-				return "", templateVariableError(invalidTemplateVariableCode, fmt.Sprintf("Template helper error: %v", err))
-			}
-			result.WriteString(svg)
-		}
-		lastIndex = match[1]
-	}
-	result.WriteString(templateHTML[lastIndex:])
-	return result.String(), nil
+func renderTemplateHTMLWithOptions(templateHTML string, variables map[string]any, allowExtra bool) (string, error) {
+	return renderTemplateWithOptions(templateHTML, variables, allowExtra, defaultTemplateEscape)
 }
 
 func flattenTemplateVariables(variables map[string]any, prefix string) (map[string]any, error) {
@@ -170,6 +102,26 @@ func templateVariablePaths(templateHTML string) []string {
 	seen := map[string]struct{}{}
 	matches := templateTagPattern.FindAllStringSubmatch(templateHTML, -1)
 	for _, match := range matches {
+		inner := strings.TrimSpace(match[1])
+		if inner == "" || inner == "else" || strings.HasPrefix(inner, "/") {
+			continue
+		}
+		for _, prefix := range []string{"#each", "#if", "#unless"} {
+			if strings.HasPrefix(inner, prefix+" ") || strings.HasPrefix(inner, prefix+"\t") {
+				expr := strings.TrimSpace(inner[len(prefix):])
+				if templatePlaceholderPattern.MatchString("{{"+expr+"}}") && expr != "this" {
+					seen[expr] = struct{}{}
+				}
+				inner = ""
+				break
+			}
+		}
+		if inner == "" || strings.HasPrefix(inner, "#") {
+			continue
+		}
+		if inner == "this" || inner == "." || strings.HasPrefix(inner, "@") || strings.HasPrefix(inner, "this.") || strings.HasPrefix(inner, "./") || strings.HasPrefix(inner, "../") {
+			continue
+		}
 		tag, err := parseTemplateTag(match[1])
 		if err != nil {
 			continue
@@ -178,12 +130,12 @@ func templateVariablePaths(templateHTML string) []string {
 			seen[tag.varPath] = struct{}{}
 		} else if tag.tagType == tagTypeHelper {
 			for _, arg := range tag.posArgs {
-				if arg.isVar {
+				if arg.isVar && templatePlaceholderPattern.MatchString("{{"+arg.varPath+"}}") && arg.varPath != "this" {
 					seen[arg.varPath] = struct{}{}
 				}
 			}
 			for _, arg := range tag.options {
-				if arg.isVar {
+				if arg.isVar && templatePlaceholderPattern.MatchString("{{"+arg.varPath+"}}") && arg.varPath != "this" {
 					seen[arg.varPath] = struct{}{}
 				}
 			}

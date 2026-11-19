@@ -85,6 +85,12 @@ func (s *dynamoSourceStore) Create(_ context.Context, v savedSource) error {
 	return err
 }
 func (s *dynamoSourceStore) Get(_ context.Context, owner, id string) (savedSource, error) {
+	if strings.TrimSpace(owner) == "" || strings.TrimSpace(id) == "" {
+		return savedSource{}, errSourceNotFound
+	}
+	if s.tableName == "" || s.client == nil {
+		return savedSource{}, errors.New("source storage is not configured")
+	}
 	out, err := s.client.GetItem(&dynamodb.GetItemInput{TableName: aws.String(s.tableName), Key: sourceItemKey(owner, id), ConsistentRead: aws.Bool(true)})
 	if err != nil {
 		return savedSource{}, err

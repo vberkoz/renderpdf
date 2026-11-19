@@ -259,5 +259,12 @@ func validateDocumentOptions(options *documentRenderOptions) error {
 			return documentRequestError(422, "document_compliance_encrypted_unsupported", "PDF/A and Factur-X/ZUGFeRD compliance does not allow password-protected or encrypted PDF documents")
 		}
 	}
+	if options.ResponseFormat != "" {
+		switch strings.ToLower(strings.TrimSpace(options.ResponseFormat)) {
+		case "json", "binary", "pdf":
+		default:
+			return documentRequestError(422, "document_response_format_invalid", "options.responseFormat must be one of json, binary, or pdf")
+		}
+	}
 	return nil
 }

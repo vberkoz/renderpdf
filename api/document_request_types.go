@@ -180,10 +180,37 @@ type documentRenderOptions struct {
 	PageNumbers         *pageNumberOptions `json:"pageNumbers,omitempty"`
 	Watermark           *watermarkOptions  `json:"watermark,omitempty"`
 	Compliance          *complianceOptions `json:"compliance,omitempty"`
+	ZeroRetention       *bool              `json:"zeroRetention,omitempty"`
+	ResponseFormat      string             `json:"responseFormat,omitempty"`
+	StrictVariables     *bool              `json:"strictVariables,omitempty"`
+	AllowExtraVariables *bool              `json:"allowExtraVariables,omitempty"`
 }
 
 func (o documentRenderOptions) isLandscape() bool {
 	return o.Landscape != nil && *o.Landscape
+}
+
+func (o documentRenderOptions) isZeroRetention() bool {
+	return o.ZeroRetention != nil && *o.ZeroRetention
+}
+
+func (o documentRenderOptions) isBinaryResponse() bool {
+	switch strings.ToLower(strings.TrimSpace(o.ResponseFormat)) {
+	case "binary", "pdf":
+		return true
+	default:
+		return false
+	}
+}
+
+func (o documentRenderOptions) allowExtraVariables() bool {
+	if o.AllowExtraVariables != nil {
+		return *o.AllowExtraVariables
+	}
+	if o.StrictVariables != nil {
+		return !*o.StrictVariables
+	}
+	return false
 }
 
 func (o documentRenderOptions) getWaitForSelector() string {
@@ -242,7 +269,11 @@ func (o documentRenderOptions) isZero() bool {
 		o.TimeoutMs == 0 &&
 		o.PageNumbers == nil &&
 		o.Watermark == nil &&
-		o.Compliance == nil
+		o.Compliance == nil &&
+		o.ZeroRetention == nil &&
+		o.ResponseFormat == "" &&
+		o.StrictVariables == nil &&
+		o.AllowExtraVariables == nil
 }
 
 func mergeDocumentRenderOptions(base, override documentRenderOptions) documentRenderOptions {
@@ -311,6 +342,21 @@ func mergeDocumentRenderOptions(base, override documentRenderOptions) documentRe
 	if override.Compliance != nil {
 		c := *override.Compliance
 		merged.Compliance = &c
+	}
+	if override.ZeroRetention != nil {
+		v := *override.ZeroRetention
+		merged.ZeroRetention = &v
+	}
+	if override.ResponseFormat != "" {
+		merged.ResponseFormat = override.ResponseFormat
+	}
+	if override.StrictVariables != nil {
+		v := *override.StrictVariables
+		merged.StrictVariables = &v
+	}
+	if override.AllowExtraVariables != nil {
+		v := *override.AllowExtraVariables
+		merged.AllowExtraVariables = &v
 	}
 	return merged
 }

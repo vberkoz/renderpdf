@@ -7,6 +7,7 @@ Agents: Consult this file first. Inspect [openapi.yaml](file:///Users/basilsergi
 
 - **Auth**: `Authorization: Bearer <API_KEY>` (required for all routes except `/trial/*`).
 - **Content-Type**: `application/json` (standard JSON body for requests).
+- **Accept**: `application/json` (default) or `application/pdf` (returns binary PDF response directly).
 
 ## Canonical Render: `POST /render`
 
@@ -61,7 +62,11 @@ Request shape:
       "networkIdle": "networkidle0|networkidle2",
       "timeoutMs": 5000,
       "fonts": true
-    }
+    },
+    "zeroRetention": false,
+    "responseFormat": "json|binary|pdf",
+    "strictVariables": true,
+    "allowExtraVariables": false
   },
   "label": "optional tracking label",
   "webhookUrl": "https://...",
@@ -75,14 +80,23 @@ Request shape:
 |---|---|---|
 | `html` | `content` (string) | `{"type": "html", "content": "<h1>{{title}}</h1>"}` (max 1 MB) |
 | `markdown` | `content` (string) | `{"type": "markdown", "content": "# {{title}}"}` |
-| `template` | `templateId` (string), opt: `variables` (obj) | `{"type": "template", "templateId": "tmpl_..."}` |
+| `template` | `templateId` or `id` (string), opt: `variables` or `data` (obj) | `{"type": "template", "templateId": "tmpl_..."}` (cross-resolves saved sources) |
 | `url` | `url` (valid http/https URI) | `{"type": "url", "url": "https://example.com"}` |
 | `upload` | `uploadId` (string), opt: `entrypoint` (str) | `{"type": "upload", "uploadId": "upload_...", "entrypoint": "index.html"}` |
-| `stored` | `id` (string) | `{"type": "stored", "id": "src_..."}` (saved source definition) |
+| `stored` | `id` or `templateId` (string), opt: `data` or `variables` (obj) | `{"type": "stored", "id": "src_..."}` (cross-resolves saved templates) |
 
 **Response**:
-- `200 OK`: `{"requestId": "uuid", "url": "https://signed-s3...", "size": 48392}` (signed URL expires in 15m)
+- `200 OK` (default JSON): `{"requestId": "uuid", "url": "https://signed-s3...", "size": 48392}` (signed URL expires in 15m)
+- `200 OK` (`options.zeroRetention: true` with JSON): `{"requestId": "uuid", "size": 48392, "data": "<base64-pdf>", "zeroRetention": true}` (0 S3 writes, 0 DocumentStore records)
+- `200 OK` (`Accept: application/pdf` or `options.responseFormat: "binary"`): binary `application/pdf` payload (`X-Request-Id`, `Content-Disposition: inline; filename="..."`, and `X-Retention-Policy: zero-retention` when `zeroRetention: true`)
 - Status codes: `400` Malformed JSON, `401` Unauthorized, `403` Quota exceeded, `422` Validation failure, `429` Rate limit, `500` Chromium/internal error.
+
+### Safe Control Blocks (`{{#each}}`, `{{#if}}`, `{{#unless}}`)
+
+Templates and HTML/Markdown documents support bounded control blocks alongside `{{path.to.value}}` bindings:
+- **Iteration**: `{{#each items}}<li>{{@index}}: {{name}} ({{../company.name}})</li>{{/each}}` (supports `{{this}}`, `{{.}}`, `{{@index}}`, `{{@first}}`, `{{@last}}`, relative item fields, and `../` parent lookups; max nesting depth 5, max 1,000 total iterations per render).
+- **Conditionals**: `{{#if discount}}<p>Discount: {{discount}}</p>{{else}}<p>Standard rate</p>{{/if}}` and `{{#unless hideFooter}}...{{/unless}}`.
+- **Extra Variables**: Unreferenced keys in `data`/`variables` are automatically permitted when control blocks are used, when saved template/source defaults are merged, or when `options.strictVariables: false` (`options.allowExtraVariables: true`) is set. Missing required placeholders inside active branches always return `422`.
 
 ### Dynamic Vector Barcodes & QR Codes
 

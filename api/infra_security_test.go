@@ -293,3 +293,24 @@ func TestCloudFormationBatchLightweightZipFunctions(t *testing.T) {
 		})
 	}
 }
+
+func TestCloudFormationChromeWarmPoolFlag(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Join("..", "infra", "cloudformation.yaml"))
+	if err != nil {
+		t.Fatalf("read cloudformation.yaml: %v", err)
+	}
+	template := string(raw)
+
+	if !strings.Contains(template, "ChromeWarmPool:") || !strings.Contains(template, "Default: 'true'") {
+		t.Fatalf("expected ChromeWarmPool parameter defaulting to 'true'")
+	}
+
+	for _, fnName := range []string{"PdfFunction", "TrialPdfFunction", "BatchWorkerFunction"} {
+		t.Run(fnName, func(t *testing.T) {
+			block := extractCFNResourceBlock(t, template, fnName)
+			if !strings.Contains(block, "CHROME_WARM_POOL: !Ref ChromeWarmPool") {
+				t.Fatalf("%s missing CHROME_WARM_POOL env var:\n%s", fnName, block)
+			}
+		})
+	}
+}
