@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"regexp"
 	"strings"
 
 	"golang.org/x/net/html"
@@ -35,14 +34,10 @@ func rewriteTfoot(htmlStr string) string {
 	return buf.String()
 }
 
+// ensureColgroup is retained for API signature compatibility, but is a safe no-op.
+// Blindly forcing a 4-column colgroup (40/20/20/20) distorts tables with 2, 3, or 5+ columns.
 func ensureColgroup(html string) string {
-	re := regexp.MustCompile(`(?i)<table([^>]*)>`)
-	return re.ReplaceAllStringFunc(html, func(m string) string {
-		if strings.Contains(strings.ToLower(html[strings.Index(html, m):]), "<colgroup") {
-			return m
-		}
-		return m + `<colgroup><col style="width:40%"><col style="width:20%"><col style="width:20%"><col style="width:20%"></colgroup>`
-	})
+	return html
 }
 
 func injectPrintCSS(html string) string {
@@ -58,16 +53,27 @@ func injectPrintCSS(html string) string {
     print-color-adjust: exact !important;
     forced-color-adjust: none !important;
   }
-  table {
-    table-layout: fixed !important;
-    width: 100% !important;
+  thead {
+    display: table-header-group !important;
   }
   tfoot {
     display: table-row-group !important;
   }
-  tr {
+  tr,
+  .signature, .signatures, .signature-block, .signature-row,
+  .totals-area, .totals-table, .grand-total, .summary-row,
+  .avoid-break, [data-avoid-break],
+  figure, pre, blockquote {
     break-inside: avoid !important;
     page-break-inside: avoid !important;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    break-after: avoid !important;
+    page-break-after: avoid !important;
+  }
+  p, li {
+    orphans: 3;
+    widows: 3;
   }
 }
 </style>

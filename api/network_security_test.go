@@ -254,3 +254,20 @@ func TestNetworkSecurityFilter_DNSCaching(t *testing.T) {
 		t.Errorf("lookupCount = %d, want 1 (cached)", got)
 	}
 }
+
+func TestSanctionedCountry(t *testing.T) {
+	sanctioned := []string{"RU", "ru", " BY ", "IR", "kp", "SY", "CU"}
+	for _, code := range sanctioned {
+		if !isSanctionedCountry(code) {
+			t.Errorf("expected country %q to be sanctioned", code)
+		}
+	}
+
+	allowed := []string{"US", "UA", "GB", "DE", "FR", "CA", "PL", "", "unknown"}
+	for _, code := range allowed {
+		if isSanctionedCountry(code) {
+			t.Errorf("expected country %q to not be sanctioned", code)
+		}
+	}
+}
+

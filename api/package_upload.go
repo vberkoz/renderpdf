@@ -199,7 +199,7 @@ func injectPackageCSP(entryPath string) error {
 		return err
 	}
 	const policy = `<meta http-equiv="Content-Security-Policy" content="default-src 'self' data: blob:; base-uri 'none'; connect-src 'none'; img-src 'self' data: blob:; font-src 'self' data:; media-src 'self' data: blob:; object-src 'none'; frame-src 'none'; form-action 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'">`
-	text := rewriteTfoot(ensureColgroup(injectPrintCSS(string(contents))))
+	text := transformBarcodes(transformRedaction(rewriteTfoot(injectPrintCSS(string(contents))), nil))
 	if index := strings.Index(strings.ToLower(text), "</head>"); index >= 0 {
 		text = text[:index] + policy + text[index:]
 	} else {

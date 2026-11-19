@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -74,6 +75,7 @@ func fileItem(v storedFile) map[string]*dynamodb.AttributeValue {
 	item["createdAt"] = &dynamodb.AttributeValue{S: aws.String(v.CreatedAt.Format(time.RFC3339Nano))}
 	if v.RetentionExpiresAt != nil {
 		item["retentionExpiresAt"] = &dynamodb.AttributeValue{S: aws.String(v.RetentionExpiresAt.Format(time.RFC3339Nano))}
+		item["expiresAt"] = &dynamodb.AttributeValue{N: aws.String(strconv.FormatInt(v.RetentionExpiresAt.UTC().Unix(), 10))}
 	}
 	if v.Origin != nil {
 		b, _ := json.Marshal(v.Origin)

@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/chromedp/cdproto/emulation"
@@ -18,33 +18,65 @@ import (
 	"github.com/chromedp/cdproto/page"
 	"github.com/chromedp/cdproto/runtime"
 	"github.com/chromedp/chromedp"
-	"github.com/pdfcpu/pdfcpu/pkg/api"
-	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu/model"
 )
 
-func applyPDFSecurity(pdfBytes []byte, options documentRenderOptions) ([]byte, error) {
-	if options.Password == "" && options.OwnerPassword == "" {
-		return pdfBytes, nil
+func defaultDisplayHeaderFooter() bool {
+	val, err := strconv.ParseBool(strings.TrimSpace(os.Getenv("DEFAULT_DISPLAY_HEADER_FOOTER")))
+	if err != nil {
+		return false
 	}
-	userPW := options.Password
-	ownerPW := options.OwnerPassword
-	if ownerPW == "" {
-		ownerPW = userPW
+	return val
+}
+
+func resolveDisplayHeaderFooter(html string, options documentRenderOptions) bool {
+	if options.DisplayHeaderFooter != nil {
+		return *options.DisplayHeaderFooter
 	}
-	conf := model.NewAESConfiguration(userPW, ownerPW, 256)
-	switch strings.ToLower(strings.TrimSpace(options.Permissions)) {
-	case "none":
-		conf.Permissions = model.PermissionsNone
-	case "print":
-		conf.Permissions = model.PermissionsPrint
-	default:
-		conf.Permissions = model.PermissionsAll
+	if strings.TrimSpace(options.HeaderTemplate) != "" || strings.TrimSpace(options.FooterTemplate) != "" {
+		return true
 	}
-	var out bytes.Buffer
-	if err := api.Encrypt(bytes.NewReader(pdfBytes), &out, conf); err != nil {
-		return nil, fmt.Errorf("encrypt pdf: %w", err)
+	if options.PageNumbers != nil || strings.Contains(strings.ToLower(html), "renderpdf:no-header-footer") {
+		return false
 	}
-	return out.Bytes(), nil
+	return defaultDisplayHeaderFooter()
+}
+
+func buildCDPPrintParams(displayHeaderFooter bool, headerTemplate, footerTemplate string, cssPageOwnsLayout bool, options documentRenderOptions) *page.PrintToPDFParams {
+	paperW, paperH := resolveCDPPaperSize(options.Format)
+	hasPageOpts := strings.TrimSpace(options.Format) != "" || strings.TrimSpace(options.Margin) != "" || options.Landscape != nil
+	preferCSSPageSize := true
+	if !cssPageOwnsLayout && hasPageOpts {
+		preferCSSPageSize = false
+	}
+
+	printAction := page.PrintToPDF().
+		WithPrintBackground(true).
+		WithDisplayHeaderFooter(displayHeaderFooter).
+		WithLandscape(options.isLandscape()).
+		WithPaperWidth(paperW).
+		WithPaperHeight(paperH).
+		WithPreferCSSPageSize(preferCSSPageSize)
+
+	if displayHeaderFooter {
+		topM, bottomM, leftM, rightM := resolveCDPPrintMargins(true, options.Margin)
+		printAction = printAction.
+			WithMarginTop(topM).
+			WithMarginBottom(bottomM).
+			WithMarginLeft(leftM).
+			WithMarginRight(rightM).
+			WithHeaderTemplate(headerTemplate).
+			WithFooterTemplate(footerTemplate)
+	} else if !cssPageOwnsLayout {
+		if m, ok := parseMarginInches(options.Margin); ok {
+			printAction = printAction.
+				WithMarginTop(m).
+				WithMarginBottom(m).
+				WithMarginLeft(m).
+				WithMarginRight(m)
+		}
+	}
+
+	return printAction
 }
 
 func generatePDF(ctx context.Context, html string) ([]byte, error) {
@@ -52,26 +84,21 @@ func generatePDF(ctx context.Context, html string) ([]byte, error) {
 }
 
 func generatePDFWithOptions(ctx context.Context, html string, options documentRenderOptions) ([]byte, error) {
-	displayHeaderFooter := true
-	if options.DisplayHeaderFooter != nil {
-		displayHeaderFooter = *options.DisplayHeaderFooter
-	} else if strings.Contains(strings.ToLower(html), "renderpdf:no-header-footer") {
-		displayHeaderFooter = false
-	}
+	displayHeaderFooter := resolveDisplayHeaderFooter(html, options)
 	escaped := url.PathEscape(html)
 	headerTmpl := options.HeaderTemplate
-	if headerTmpl == "" {
-		headerTmpl = defaultHeaderTemplate
-	}
 	footerTmpl := options.FooterTemplate
-	if footerTmpl == "" {
+	if strings.TrimSpace(headerTmpl) == "" && strings.TrimSpace(footerTmpl) == "" && displayHeaderFooter {
+		headerTmpl = defaultHeaderTemplate
 		footerTmpl = defaultFooterTemplate
 	}
+	headerTmpl = normalizeHeaderFooterTemplate(headerTmpl)
+	footerTmpl = normalizeHeaderFooterTemplate(footerTmpl)
 	pdfBytes, err := generatePDFURLWithCustomSettings(ctx, "data:text/html;charset=utf-8,"+escaped, displayHeaderFooter, headerTmpl, footerTmpl, false, options)
 	if err != nil {
 		return nil, err
 	}
-	return applyPDFSecurity(pdfBytes, options)
+	return applyPDFPostProcessing(pdfBytes, options)
 }
 
 // generateDocumentPDF is the restricted renderer for the document JSON mode.
@@ -82,28 +109,25 @@ func generateDocumentPDF(ctx context.Context, documentHTML string) ([]byte, erro
 }
 
 func generateDocumentPDFWithOptions(ctx context.Context, documentHTML string, options documentRenderOptions) ([]byte, error) {
-	displayHeaderFooter := true
-	if options.DisplayHeaderFooter != nil {
-		displayHeaderFooter = *options.DisplayHeaderFooter
-	}
+	displayHeaderFooter := resolveDisplayHeaderFooter(documentHTML, options)
 	escaped := url.PathEscape(documentHTML)
 	headerTmpl := options.HeaderTemplate
-	if headerTmpl == "" {
-		headerTmpl = defaultHeaderTemplate
-	}
 	footerTmpl := options.FooterTemplate
-	if footerTmpl == "" {
+	if strings.TrimSpace(headerTmpl) == "" && strings.TrimSpace(footerTmpl) == "" && displayHeaderFooter {
+		headerTmpl = defaultHeaderTemplate
 		footerTmpl = defaultFooterTemplate
 	}
+	headerTmpl = normalizeHeaderFooterTemplate(headerTmpl)
+	footerTmpl = normalizeHeaderFooterTemplate(footerTmpl)
 	pdfBytes, err := generatePDFURLWithCustomSettings(ctx, "data:text/html;charset=utf-8,"+escaped, displayHeaderFooter, headerTmpl, footerTmpl, true, options)
 	if err != nil {
 		return nil, err
 	}
-	return applyPDFSecurity(pdfBytes, options)
+	return applyPDFPostProcessing(pdfBytes, options)
 }
 
 func generatePDFURL(ctx context.Context, targetURL string) ([]byte, error) {
-	return generatePDFURLWithOptions(ctx, targetURL, true)
+	return generatePDFURLWithDocumentOptions(ctx, targetURL, documentRenderOptions{})
 }
 
 func generatePDFURLWithOptions(ctx context.Context, targetURL string, displayHeaderFooter bool) ([]byte, error) {
@@ -115,23 +139,20 @@ func generatePDFURLWithRenderSettings(ctx context.Context, targetURL string, dis
 }
 
 func generatePDFURLWithDocumentOptions(ctx context.Context, targetURL string, options documentRenderOptions) ([]byte, error) {
-	displayHeaderFooter := true
-	if options.DisplayHeaderFooter != nil {
-		displayHeaderFooter = *options.DisplayHeaderFooter
-	}
+	displayHeaderFooter := resolveDisplayHeaderFooter("", options)
 	headerTmpl := options.HeaderTemplate
-	if headerTmpl == "" {
-		headerTmpl = defaultHeaderTemplate
-	}
 	footerTmpl := options.FooterTemplate
-	if footerTmpl == "" {
+	if strings.TrimSpace(headerTmpl) == "" && strings.TrimSpace(footerTmpl) == "" && displayHeaderFooter {
+		headerTmpl = defaultHeaderTemplate
 		footerTmpl = defaultFooterTemplate
 	}
+	headerTmpl = normalizeHeaderFooterTemplate(headerTmpl)
+	footerTmpl = normalizeHeaderFooterTemplate(footerTmpl)
 	pdfBytes, err := generatePDFURLWithCustomSettings(ctx, targetURL, displayHeaderFooter, headerTmpl, footerTmpl, false, options)
 	if err != nil {
 		return nil, err
 	}
-	return applyPDFSecurity(pdfBytes, options)
+	return applyPDFPostProcessing(pdfBytes, options)
 }
 
 func generatePDFURLWithCustomSettings(ctx context.Context, targetURL string, displayHeaderFooter bool, headerTemplate, footerTemplate string, disableJavaScript bool, options documentRenderOptions) ([]byte, error) {
@@ -154,19 +175,11 @@ func generatePDFURLWithCustomSettings(ctx context.Context, targetURL string, dis
 	opts := append(chromedp.DefaultExecAllocatorOptions[:],
 		chromedp.ExecPath(chromePath),
 		chromedp.CombinedOutput(&browserOutput),
-		// Chrome can spend most of ten seconds faulting the browser image into
-		// memory during a Lambda cold start before it prints the DevTools URL.
-		// Keep this below API Gateway's synchronous timeout, but leave enough
-		// headroom for the first invocation of a fresh execution environment.
 		chromedp.WSURLReadTimeout(18*time.Second),
 		chromedp.NoSandbox,
 		chromedp.DisableGPU,
 		chromedp.Flag("disable-dev-shm-usage", true),
 		chromedp.Flag("disable-setuid-sandbox", true),
-		// Lambda's Firecracker runtime requires Chrome to avoid spawning the
-		// usual browser process tree. Disable proxy resolution as well: Chrome's
-		// V8 proxy resolver is not supported in single-process mode and can block
-		// startup before the DevTools endpoint is published.
 		chromedp.Flag("no-zygote", true),
 		chromedp.Flag("single-process", true),
 		chromedp.Flag("no-proxy-server", true),
@@ -243,8 +256,6 @@ func generatePDFURLWithCustomSettings(ctx context.Context, targetURL string, dis
 		actions = append(actions, emulation.SetScriptExecutionDisabled(true))
 	}
 	actions = append(actions,
-		// Do not wait for every remote asset to finish. A slow image or
-		// stylesheet must not consume the API Gateway timeout before print.
 		chromedp.ActionFunc(func(ctx context.Context) error {
 			_, _, errorText, _, err := page.Navigate(targetURL).Do(ctx)
 			if err != nil {
@@ -263,7 +274,7 @@ func generatePDFURLWithCustomSettings(ctx context.Context, targetURL string, dis
 			return emulation.SetDeviceMetricsOverride(
 				1920,
 				1080,
-				1,
+				2,
 				false,
 			).WithScreenOrientation(
 				&emulation.ScreenOrientation{
@@ -275,7 +286,7 @@ func generatePDFURLWithCustomSettings(ctx context.Context, targetURL string, dis
 		chromedp.ActionFunc(func(ctx context.Context) error {
 			return emulation.SetEmulatedMedia().WithMedia("print").Do(ctx)
 		}),
-		// 1. CSS Animation & Transition Disable: Inject a CSS rule prior to rendering
+		// 1. CSS & JS Animation Disable
 		chromedp.ActionFunc(func(ctx context.Context) error {
 			if disableJavaScript {
 				return nil
@@ -286,6 +297,19 @@ func generatePDFURLWithCustomSettings(ctx context.Context, targetURL string, dis
 					style.setAttribute('data-renderpdf', 'disable-animations');
 					style.textContent = '*, *::before, *::after { -webkit-transition-duration: 0s !important; transition-duration: 0s !important; -webkit-animation-duration: 0s !important; animation-duration: 0s !important; }';
 					(document.head || document.documentElement).appendChild(style);
+
+					if (window.Chart) {
+						if (window.Chart.defaults) {
+							window.Chart.defaults.animation = false;
+							if (window.Chart.defaults.transitions && window.Chart.defaults.transitions.active) {
+								window.Chart.defaults.transitions.active.animation = { duration: 0 };
+							}
+						}
+					}
+					if (window.Apex) {
+						window.Apex.chart = window.Apex.chart || {};
+						window.Apex.chart.animations = { enabled: false };
+					}
 				} catch (e) {}
 			})()`).Do(ctx)
 			return nil
@@ -316,14 +340,29 @@ func generatePDFURLWithCustomSettings(ctx context.Context, targetURL string, dis
 				}))
 			}
 
-			// Automatic Font Readiness (document.fonts.ready) & image decoding
+			// Automatic Font Readiness & image decoding
 			if !disableJavaScript && options.getWaitForFonts() {
 				waitActions = append(waitActions, chromedp.ActionFunc(func(c context.Context) error {
 					_, _, err := runtime.Evaluate(`(async () => {
 						try {
+							const links = Array.from(document.querySelectorAll('link[rel="stylesheet"]'));
+							if (links.length > 0) {
+								await Promise.all(links.map(link => {
+									if (link.sheet) return Promise.resolve();
+									return new Promise(resolve => {
+										link.addEventListener('load', resolve, { once: true });
+										link.addEventListener('error', resolve, { once: true });
+										setTimeout(resolve, 2000);
+									});
+								}));
+							}
+
+							void document.body.offsetHeight;
+
 							if (document.fonts && document.fonts.ready) {
 								await document.fonts.ready;
 							}
+
 							const images = Array.from(document.images || []);
 							if (images.length > 0) {
 								await Promise.all(images.map(img => {
@@ -331,9 +370,11 @@ func generatePDFURLWithCustomSettings(ctx context.Context, targetURL string, dis
 									return new Promise(resolve => {
 										img.addEventListener('load', resolve, { once: true });
 										img.addEventListener('error', resolve, { once: true });
+										setTimeout(resolve, 3000);
 									});
 								}));
 							}
+
 							void document.body.offsetHeight;
 							if (document.fonts && document.fonts.ready) {
 								await document.fonts.ready;
@@ -344,251 +385,114 @@ func generatePDFURLWithCustomSettings(ctx context.Context, targetURL string, dis
 				}))
 			}
 
-			// Canvas Animations & WebGL Quiescence: wait for canvas pixel data
+			// Canvas, WebGL, D3 & SVG Quiescence
 			if !disableJavaScript {
 				waitActions = append(waitActions, chromedp.ActionFunc(func(c context.Context) error {
 					_, _, err := runtime.Evaluate(`(async () => {
 						try {
 							const canvases = Array.from(document.querySelectorAll('canvas'));
-							if (canvases.length === 0) return;
-							const start = Date.now();
-							while (Date.now() - start < 1500) {
-								let painted = false;
-								for (const canvas of canvases) {
-									if (canvas.width > 0 && canvas.height > 0) {
-										const ctx = canvas.getContext('2d');
-										if (ctx) {
-											try {
-												const pixel = ctx.getImageData(Math.floor(canvas.width / 2), Math.floor(canvas.height / 2), 1, 1).data;
-												if (pixel[3] !== 0) {
-													painted = true;
-													break;
-												}
-											} catch (e) {}
-										}
-									}
-								}
-								if (painted) break;
-								await new Promise(r => setTimeout(r, 50));
+							const svgs = Array.from(document.querySelectorAll('svg'));
+							if (canvases.length === 0 && svgs.length === 0) return;
+
+							if (window.Chart && typeof window.Chart.instances === 'object') {
+								try {
+									Object.values(window.Chart.instances).forEach(inst => {
+										if (inst && typeof inst.stop === 'function') inst.stop();
+									});
+								} catch (e) {}
 							}
+
+							await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
 						} catch (e) {}
 					})()`).WithAwaitPromise(true).Do(c)
 					return err
 				}))
 			}
 
-			// Custom Selector Trigger
-			if selector := options.getWaitForSelector(); selector != "" {
-				waitActions = append(waitActions, chromedp.WaitVisible(selector, chromedp.ByQuery))
+			// Wait For DOM Selector
+			if sel := options.getWaitForSelector(); sel != "" {
+				waitActions = append(waitActions, chromedp.WaitVisible(sel, chromedp.ByQuery))
 			}
 
-			// Custom JavaScript Function Trigger
-			if fn := options.getWaitForFunction(); fn != "" && !disableJavaScript {
-				waitActions = append(waitActions, chromedp.Poll(fn, nil, chromedp.WithPollingInterval(50*time.Millisecond)))
+			// Wait For Custom JS Function Expression
+			if !disableJavaScript {
+				if fnExpr := options.getWaitForFunction(); fnExpr != "" {
+					waitActions = append(waitActions, chromedp.ActionFunc(func(c context.Context) error {
+						ticker := time.NewTicker(50 * time.Millisecond)
+						defer ticker.Stop()
+						for {
+							select {
+							case <-c.Done():
+								return c.Err()
+							case <-ticker.C:
+								var res bool
+								evalErr := chromedp.Evaluate(fmt.Sprintf(`Boolean((%s)())`, fnExpr), &res).Do(c)
+								if evalErr == nil && res {
+									return nil
+								}
+							}
+						}
+					}))
+				}
 			}
 
 			if len(waitActions) > 0 {
 				if err := chromedp.Run(waitCtx, waitActions...); err != nil {
 					if errors.Is(err, context.DeadlineExceeded) || errors.Is(waitCtx.Err(), context.DeadlineExceeded) {
-						if ctx.Err() != nil {
-							return ctx.Err()
-						}
-						// Safety timeout reached: proceed to print
-						fmt.Printf("Readiness wait timed out after %v, proceeding to render\n", waitTimeout)
-						return nil
+						return &renderError{Code: "wait_for_timeout", Message: "Timeout waiting for page readiness trigger"}
 					}
-					return err
+					return &renderError{Code: "wait_for_failed", Message: fmt.Sprintf("Wait condition failed: %v", err)}
 				}
-			}
-
-			if !disableJavaScript {
-				_, _, _ = runtime.Evaluate(`new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))`).WithAwaitPromise(true).Do(ctx)
-			} else {
-				_ = chromedp.Sleep(200 * time.Millisecond).Do(ctx)
 			}
 
 			return nil
 		}),
 		chromedp.ActionFunc(func(ctx context.Context) error {
-			stage = "printing"
+			stage = "pdf_generation"
+			return nil
+		}),
+		chromedp.ActionFunc(func(ctx context.Context) error {
+			printAction := buildCDPPrintParams(displayHeaderFooter, headerTemplate, footerTemplate, disableJavaScript, options)
+
 			var err error
-			effectiveHeader := headerTemplate
-			if effectiveHeader == "" {
-				effectiveHeader = defaultHeaderTemplate
-			}
-			effectiveFooter := footerTemplate
-			if effectiveFooter == "" {
-				effectiveFooter = defaultFooterTemplate
-			}
-			buf, _, err = page.PrintToPDF().
-				WithPrintBackground(true).
-				WithPreferCSSPageSize(true).
-				WithScale(1).
-				WithDisplayHeaderFooter(displayHeaderFooter).
-				WithHeaderTemplate(effectiveHeader).
-				WithFooterTemplate(effectiveFooter).
-				WithMarginTop(0.5).
-				WithMarginBottom(0.5).
-				WithMarginLeft(0).
-				WithMarginRight(0).
-				Do(ctx)
+			buf, _, err = printAction.Do(ctx)
 			return err
 		}),
 	)
+
 	err = chromedp.Run(taskCtx, actions...)
 	if err != nil {
-		// Keep the document payload out of logs, while recording enough context to
-		// diagnose Chromium/CDP failures in the Lambda log stream.
-		fmt.Printf("Chromium render failed at stage %s (%T): %v\n", stage, err, err)
+		fmt.Printf("chromedp.Run failed at stage %s: %v\n", stage, err)
+
+		var rErr *renderError
+		if errors.As(err, &rErr) {
+			return nil, rErr
+		}
+
+		if stage == "navigation" {
+			if errors.Is(err, context.DeadlineExceeded) {
+				return nil, &renderError{Code: "navigation_timeout", Message: "Navigation timed out"}
+			}
+			return nil, &renderError{Code: "navigation_failed", Message: "Page navigation failed"}
+		}
+
+		if stage == "pdf_generation" {
+			if diagErr := diagnostics.error(); diagErr != nil {
+				return nil, diagErr
+			}
+			if errors.Is(err, context.DeadlineExceeded) {
+				return nil, &renderError{Code: "pdf_generation_timeout", Message: "PDF generation timed out"}
+			}
+			return nil, &renderError{Code: "pdf_generation_failed", Message: "Failed to generate PDF"}
+		}
+
 		if errors.Is(err, context.DeadlineExceeded) {
-			if stage == "navigation" {
-				return nil, &renderError{Code: "navigation_timeout", Message: "Navigation timed out while loading the page", Status: 504}
-			}
-			return nil, &renderError{Code: "chromium_timeout", Message: "Chromium timed out while rendering the PDF", Status: 504}
+			return nil, &renderError{Code: "chromium_timeout", Message: "Rendering operation timed out"}
 		}
-		return nil, err
-	}
-	if diagnosticErr := diagnostics.error(); diagnosticErr != nil {
-		return nil, diagnosticErr
+
+		return nil, &renderError{Code: "render_failed", Message: "Render failed"}
 	}
 
+	fmt.Printf("PDF generated successfully, size: %d bytes\n", len(buf))
 	return buf, nil
-}
-
-// renderDiagnostics collects only failures that make the produced document
-// unreliable. It is guarded because CDP event delivery is asynchronous.
-type renderDiagnostics struct {
-	mu        sync.Mutex
-	imageFail bool
-	cssFail   bool
-	jsFail    bool
-}
-
-func newRenderDiagnostics() *renderDiagnostics { return &renderDiagnostics{} }
-
-func (d *renderDiagnostics) listen(event interface{}) {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-
-	switch event := event.(type) {
-	case *network.EventLoadingFailed:
-		if event.Type == network.ResourceTypeImage && !event.Canceled {
-			d.imageFail = true
-		}
-	case *runtime.EventExceptionThrown:
-		d.jsFail = true
-	case *log.EventEntryAdded:
-		if event.Entry == nil {
-			return
-		}
-		text := strings.ToLower(event.Entry.Text)
-		if strings.Contains(text, "css") && (strings.Contains(text, "parse") || strings.Contains(text, "syntax") || strings.Contains(text, "stylesheet")) {
-			d.cssFail = true
-		}
-	}
-}
-
-func (d *renderDiagnostics) error() error {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-
-	// Prefer direct document failures over asset failures, so a page with both
-	// reports the most actionable cause first.
-	if d.jsFail {
-		return &renderError{Code: "javascript_exception", Message: "JavaScript exception while rendering the page"}
-	}
-	if d.cssFail {
-		return &renderError{Code: "css_parsing_error", Message: "CSS parsing error while rendering the page"}
-	}
-	if d.imageFail {
-		return &renderError{Code: "image_loading_failed", Message: "An image failed to load while rendering the page"}
-	}
-	return nil
-}
-
-// networkIdleTracker tracks in-flight HTTP requests over CDP to determine
-// when network activity has ceased for a specified duration (networkidle0/networkidle2).
-type networkIdleTracker struct {
-	mu       sync.Mutex
-	inflight map[network.RequestID]struct{}
-	notify   chan struct{}
-}
-
-func newNetworkIdleTracker() *networkIdleTracker {
-	return &networkIdleTracker{
-		inflight: make(map[network.RequestID]struct{}),
-		notify:   make(chan struct{}, 100),
-	}
-}
-
-func (t *networkIdleTracker) listen(ev interface{}) {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-
-	switch event := ev.(type) {
-	case *network.EventRequestWillBeSent:
-		t.inflight[event.RequestID] = struct{}{}
-		t.broadcast()
-	case *network.EventLoadingFinished:
-		delete(t.inflight, event.RequestID)
-		t.broadcast()
-	case *network.EventLoadingFailed:
-		delete(t.inflight, event.RequestID)
-		t.broadcast()
-	}
-}
-
-func (t *networkIdleTracker) broadcast() {
-	select {
-	case t.notify <- struct{}{}:
-	default:
-	}
-}
-
-func (t *networkIdleTracker) activeCount() int {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	return len(t.inflight)
-}
-
-func (t *networkIdleTracker) waitForIdle(ctx context.Context, maxInflight int, idleDuration time.Duration) error {
-	timer := time.NewTimer(idleDuration)
-	defer timer.Stop()
-
-	if t.activeCount() > maxInflight {
-		if !timer.Stop() {
-			select {
-			case <-timer.C:
-			default:
-			}
-		}
-	}
-
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-timer.C:
-			if t.activeCount() <= maxInflight {
-				return nil
-			}
-		case <-t.notify:
-			if t.activeCount() <= maxInflight {
-				if !timer.Stop() {
-					select {
-					case <-timer.C:
-					default:
-					}
-				}
-				timer.Reset(idleDuration)
-			} else {
-				if !timer.Stop() {
-					select {
-					case <-timer.C:
-					default:
-					}
-				}
-			}
-		}
-	}
 }

@@ -110,9 +110,6 @@ func normalizeCanonicalRenderRequestWithOwner(ctx context.Context, body, ownerID
 		}
 		return string(encoded), nil
 	}
-	noDocumentFields := func() bool {
-		return request.CSS == "" && request.Data == nil && request.Options.isZero()
-	}
 
 	switch request.Source.Type {
 	case "html":
@@ -148,10 +145,14 @@ func normalizeCanonicalRenderRequestWithOwner(ctx context.Context, body, ownerID
 		}
 		result.Kind, result.Body = renderKindDocument, encoded
 	case "template":
-		if request.Source.ID != "" || request.Source.Content != "" || request.Source.URL != "" || request.Source.UploadID != "" || request.Source.Entrypoint != "" || !noDocumentFields() {
+		if request.Source.ID != "" || request.Source.Content != "" || request.Source.URL != "" || request.Source.UploadID != "" || request.Source.Entrypoint != "" || request.CSS != "" || request.Data != nil {
 			return normalizedRenderRequest{}, &renderError{Code: "render_source_invalid", Message: "source contains fields not supported by its type", Status: 422}
 		}
-		encoded, err := marshal(templateRenderRequest{TemplateID: request.Source.TemplateID, Variables: request.Source.Variables, Label: result.Label, WebhookURL: request.WebhookURL, WebhookSecret: request.WebhookSecret})
+		var opts *documentRenderOptions
+		if !request.Options.isZero() {
+			opts = &request.Options
+		}
+		encoded, err := marshal(templateRenderRequest{TemplateID: request.Source.TemplateID, Variables: request.Source.Variables, Options: opts, Label: result.Label, WebhookURL: request.WebhookURL, WebhookSecret: request.WebhookSecret})
 		if err != nil {
 			return normalizedRenderRequest{}, err
 		}
@@ -183,8 +184,8 @@ func normalizeCanonicalRenderRequestWithOwner(ctx context.Context, body, ownerID
 		}
 		result.Kind, result.Body = renderKindUpload, encoded
 	case "stored":
-		if request.Source.ID == "" || request.Source.Content != "" || request.Source.TemplateID != "" || request.Source.Variables != nil || request.Source.URL != "" || request.Source.UploadID != "" || request.Source.Entrypoint != "" || request.CSS != "" || !request.Options.isZero() || ownerID == "" {
-			return normalizedRenderRequest{}, &renderError{Code: "render_source_invalid", Message: "stored sources require source.id and may only override data", Status: 422}
+		if request.Source.ID == "" || request.Source.Content != "" || request.Source.TemplateID != "" || request.Source.Variables != nil || request.Source.URL != "" || request.Source.UploadID != "" || request.Source.Entrypoint != "" || request.CSS != "" || ownerID == "" {
+			return normalizedRenderRequest{}, &renderError{Code: "render_source_invalid", Message: "stored sources require source.id and may only override data and options", Status: 422}
 		}
 		definition, err := sourceDefinitionLoader(ctx, ownerID, request.Source.ID)
 		if err != nil {
@@ -192,6 +193,9 @@ func normalizeCanonicalRenderRequestWithOwner(ctx context.Context, body, ownerID
 		}
 		if request.Data != nil {
 			definition.Data = request.Data
+		}
+		if !request.Options.isZero() {
+			definition.Options = mergeDocumentRenderOptions(definition.Options, request.Options)
 		}
 		definition.Label = request.Label
 		if definition.Label == "" {

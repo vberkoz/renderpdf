@@ -5,7 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
+	"strings"
 	"testing"
+
+	"github.com/aws/aws-lambda-go/events"
 )
 
 func TestPDFGeneration(t *testing.T) {
@@ -102,3 +105,122 @@ func TestErrorResponseUsesStableCodesAndRequestID(t *testing.T) {
 		t.Fatalf("body = %#v, want stable code and request id", body)
 	}
 }
+
+func TestHandlerBlocksSanctionedCountry(t *testing.T) {
+	ctx := context.Background()
+	req := events.APIGatewayProxyRequest{
+		HTTPMethod: "POST",
+		Path:       "/api/v1/render",
+		Headers: map[string]string{
+			"CloudFront-Viewer-Country": "RU",
+		},
+	}
+	resp, err := handler(ctx, req)
+	if err != nil {
+		t.Fatalf("handler err = %v", err)
+	}
+	if resp.StatusCode != 403 {
+		t.Fatalf("status = %d, want 403", resp.StatusCode)
+	}
+	if !strings.Contains(resp.Body, "international sanctions") {
+		t.Fatalf("body = %s, want mention of sanctions", resp.Body)
+	}
+}
+
+func TestTrialModeIsolatesDocumentStoreAndBlocksNonTrialRoutes(t *testing.T) {
+	previousClient, previousTable, previousBucket, previousSecret := ddbClient, tableName, bucketName, trialSecret
+	previousFileFactory, previousSourceFactory, previousTemplateFactory := fileStoreFactory, sourceStoreFactory, templateStoreFactory
+	previousRender, previousPut, previousSign := renderHTMLPDF, putRenderedPDFObject, signRenderedPDFDownload
+	t.Cleanup(func() {
+		ddbClient, tableName, bucketName, trialSecret = previousClient, previousTable, previousBucket, previousSecret
+		fileStoreFactory, sourceStoreFactory, templateStoreFactory = previousFileFactory, previousSourceFactory, previousTemplateFactory
+		renderHTMLPDF, putRenderedPDFObject, signRenderedPDFDownload = previousRender, previousPut, previousSign
+	})
+
+	t.Setenv("TRIAL_MODE_ONLY", "true")
+	t.Setenv("TRIAL_DAILY_LIMIT", "3")
+	tableName = "renderpdf-usage"
+	bucketName = "renderpdf-pdfs"
+	trialSecret = []byte("01234567890123456789012345678901")
+	ddbClient = &fakeDynamoDB{count: "1"}
+
+	fileStoreFactory = func() fileStore {
+		t.Fatal("trial mode must not invoke fileStoreFactory")
+		return nil
+	}
+	sourceStoreFactory = func() sourceStore {
+		t.Fatal("trial mode must not invoke sourceStoreFactory")
+		return nil
+	}
+	templateStoreFactory = func() templateStore {
+		t.Fatal("trial mode must not invoke templateStoreFactory")
+		return nil
+	}
+
+	var putBucket, putKey string
+	renderHTMLPDF = func(context.Context, string, documentRenderOptions) ([]byte, error) {
+		return []byte("%PDF-1.4\n%%EOF\n"), nil
+	}
+	putRenderedPDFObject = func(bucket, key string, _ []byte) error {
+		putBucket, putKey = bucket, key
+		return nil
+	}
+	signRenderedPDFDownload = func(bucket, key string) (string, error) {
+		return "https://signed.example.com/" + bucket + "/" + key, nil
+	}
+
+	resp, err := handler(context.Background(), events.APIGatewayProxyRequest{
+		HTTPMethod: "POST",
+		Resource:   trialResource,
+		Path:       trialResource,
+		Body:       `{"html":"<h1>Trial</h1>"}`,
+		Headers:    map[string]string{"X-RenderPDF-Viewer-IP": "203.0.113.8"},
+	})
+	if err != nil {
+		t.Fatalf("trial render err = %v", err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("trial render status = %d, want 200; body=%s", resp.StatusCode, resp.Body)
+	}
+	if putBucket != "renderpdf-pdfs" || !strings.HasPrefix(putKey, "files/trial/") || !strings.HasSuffix(putKey, ".pdf") {
+		t.Fatalf("unexpected trial S3 target bucket=%q key=%q", putBucket, putKey)
+	}
+
+	quotaResp, err := handler(context.Background(), events.APIGatewayProxyRequest{
+		HTTPMethod: "GET",
+		Resource:   trialQuotaResource,
+		Path:       trialQuotaResource,
+		Headers:    map[string]string{"X-RenderPDF-Viewer-IP": "203.0.113.8"},
+	})
+	if err != nil {
+		t.Fatalf("trial quota err = %v", err)
+	}
+	if quotaResp.StatusCode != 200 {
+		t.Fatalf("trial quota status = %d, want 200; body=%s", quotaResp.StatusCode, quotaResp.Body)
+	}
+
+	blockedRoutes := []struct {
+		method string
+		path   string
+	}{
+		{"GET", "/api/v1/files"},
+		{"GET", "/api/v1/sources"},
+		{"POST", "/api/v1/batches"},
+		{"POST", "/api/v1/merge"},
+		{"GET", "/api/v1/templates"},
+	}
+	for _, route := range blockedRoutes {
+		blockedResp, blockedErr := handler(context.Background(), events.APIGatewayProxyRequest{
+			HTTPMethod: route.method,
+			Resource:   route.path,
+			Path:       route.path,
+		})
+		if blockedErr != nil {
+			t.Fatalf("%s %s err = %v", route.method, route.path, blockedErr)
+		}
+		if blockedResp.StatusCode != 404 {
+			t.Fatalf("%s %s status = %d, want 404; body=%s", route.method, route.path, blockedResp.StatusCode, blockedResp.Body)
+		}
+	}
+}
+

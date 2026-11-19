@@ -244,3 +244,19 @@ var defaultNetworkFilter = newNetworkSecurityFilter(nil)
 func isSafeNetworkURL(rawURL string) bool {
 	return defaultNetworkFilter.isAllowedURL(rawURL)
 }
+
+var sanctionedCountryCodes = map[string]bool{
+	"RU": true, // Russian Federation
+	"BY": true, // Republic of Belarus
+	"IR": true, // Islamic Republic of Iran
+	"KP": true, // Democratic People's Republic of Korea
+	"SY": true, // Syrian Arab Republic
+	"CU": true, // Republic of Cuba
+}
+
+// isSanctionedCountry returns true if the ISO 3166-1 alpha-2 country code is subject to comprehensive international sanctions.
+func isSanctionedCountry(country string) bool {
+	code := strings.ToUpper(strings.TrimSpace(country))
+	return sanctionedCountryCodes[code]
+}
+

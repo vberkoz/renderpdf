@@ -41,7 +41,11 @@ RUN apk add --no-cache curl && \
     curl -f -sSL -o /fonts/IBMPlexMono-Medium.ttf "https://github.com/google/fonts/raw/main/ofl/ibmplexmono/IBMPlexMono-Medium.ttf" && \
     curl -f -sSL -o /fonts/IBMPlexMono-SemiBold.ttf "https://github.com/google/fonts/raw/main/ofl/ibmplexmono/IBMPlexMono-SemiBold.ttf" && \
     curl -f -sSL -o /fonts/DMSans.ttf "https://github.com/google/fonts/raw/main/ofl/dmsans/DMSans%5Bopsz%2Cwght%5D.ttf" && \
-    curl -f -sSL -o /fonts/DMSans-Italic.ttf "https://github.com/google/fonts/raw/main/ofl/dmsans/DMSans-Italic%5Bopsz%2Cwght%5D.ttf"
+    curl -f -sSL -o /fonts/DMSans-Italic.ttf "https://github.com/google/fonts/raw/main/ofl/dmsans/DMSans-Italic%5Bopsz%2Cwght%5D.ttf" && \
+    curl -f -sSL -o /fonts/NotoSansSC.ttf "https://raw.githubusercontent.com/google/fonts/main/ofl/notosanssc/NotoSansSC%5Bwght%5D.ttf" && \
+    curl -f -sSL -o /fonts/NotoSansJP.ttf "https://raw.githubusercontent.com/google/fonts/main/ofl/notosansjp/NotoSansJP%5Bwght%5D.ttf" && \
+    curl -f -sSL -o /fonts/NotoSansArabic.ttf "https://raw.githubusercontent.com/google/fonts/main/ofl/notosansarabic/NotoSansArabic%5Bwdth%2Cwght%5D.ttf" && \
+    curl -f -sSL -o /fonts/NotoEmoji.ttf "https://raw.githubusercontent.com/google/fonts/main/ofl/notoemoji/NotoEmoji%5Bwght%5D.ttf"
 
 FROM public.ecr.aws/lambda/provided:al2023
 

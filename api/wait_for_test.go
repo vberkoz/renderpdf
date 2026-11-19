@@ -267,3 +267,47 @@ func TestNetworkIdleTracker(t *testing.T) {
 		t.Fatalf("waitForIdle(0) error = %v", err)
 	}
 }
+
+func TestWaitForOptionsFullConfiguration(t *testing.T) {
+	body := `{
+		"source": { "type": "url", "url": "https://example.com/dashboard" },
+		"options": {
+			"waitFor": {
+				"selector": "#chart canvas",
+				"function": "() => window.CHART_READY === true",
+				"networkIdle": "networkidle0",
+				"timeoutMs": 6000,
+				"fonts": true
+			}
+		}
+	}`
+	normalized, err := normalizeRenderRequest(context.Background(), events.APIGatewayProxyRequest{
+		Resource: renderResource,
+		Body:     body,
+	}, "customer-test")
+	if err != nil {
+		t.Fatalf("normalizeRenderRequest() error = %v", err)
+	}
+	var req URLRequest
+	if err := json.Unmarshal([]byte(normalized.Body), &req); err != nil {
+		t.Fatalf("json.Unmarshal(URLRequest) error = %v", err)
+	}
+	if req.Options == nil {
+		t.Fatal("expected req.Options to be non-nil")
+	}
+	if req.Options.getWaitForSelector() != "#chart canvas" {
+		t.Fatalf("selector = %q", req.Options.getWaitForSelector())
+	}
+	if req.Options.getWaitForFunction() != "() => window.CHART_READY === true" {
+		t.Fatalf("function = %q", req.Options.getWaitForFunction())
+	}
+	if req.Options.getNetworkIdle() != "networkidle0" {
+		t.Fatalf("networkIdle = %q", req.Options.getNetworkIdle())
+	}
+	if req.Options.getTimeoutMs() != 6000 {
+		t.Fatalf("timeoutMs = %d", req.Options.getTimeoutMs())
+	}
+	if !req.Options.getWaitForFonts() {
+		t.Fatal("expected waitForFonts to be true")
+	}
+}

@@ -1,12 +1,10 @@
 package main
 
 import (
-	"archive/zip"
-	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"sort"
@@ -18,8 +16,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
-	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/google/uuid"
 )
 
@@ -114,7 +110,7 @@ func handleBatchRequest(ctx context.Context, r events.APIGatewayProxyRequest, h 
 		return cancelBatch(owner, job, h, db)
 	}
 	if len(parts) == 2 && parts[1] == "download" && r.HTTPMethod == http.MethodGet {
-		return downloadBatchZIP(ctx, owner, job, h, db)
+		return downloadBatchOutput(ctx, r, owner, job, h, db)
 	}
 	return errorResponse(404, "Not found", h)
 }
@@ -162,68 +158,6 @@ func sortBatchJobsNewestFirst(jobs []batchJobReply) {
 	sort.Slice(jobs, func(i, j int) bool { return jobs[i].CreatedAt.After(jobs[j].CreatedAt) })
 }
 
-const maxBatchZIPBytes = 100 * 1024 * 1024
-
-// downloadBatchZIP materializes completed PDFs into one private ZIP artifact.
-// The conservative cap keeps this synchronous API path within Lambda memory.
-func downloadBatchZIP(ctx context.Context, owner string, job batchJobReply, h map[string]string, db *dynamodb.DynamoDB) events.APIGatewayProxyResponse {
-	if job.SucceededCount == 0 {
-		return errorResponseWithCode(409, "batch_outputs_unavailable", "No completed PDFs are available", h)
-	}
-	artifactID, fileID := "results.zip", "file_batch_"+job.JobID+"_results"
-	if existing, err := fileStoreFactory().Get(ctx, owner, fileID); err == nil {
-		url, signErr := presignPrivateDownload(existing.Bucket, existing.ObjectKey)
-		if signErr != nil {
-			return errorResponse(503, "Batch download is temporarily unavailable", h)
-		}
-		return sourceJSON(200, map[string]string{"fileId": fileID, "url": url}, h)
-	}
-	items, err := db.QueryWithContext(ctx, &dynamodb.QueryInput{TableName: aws.String(batchTable()), KeyConditionExpression: aws.String("PK = :pk"), ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{":pk": {S: aws.String("JOB#" + job.JobID)}}})
-	if err != nil {
-		return errorResponse(503, "Batch storage is temporarily unavailable", h)
-	}
-	var output bytes.Buffer
-	writer := zip.NewWriter(&output)
-	for _, item := range items.Items {
-		fileID := aws.StringValue(item["outputFileId"].S)
-		if fileID == "" {
-			continue
-		}
-		file, err := fileStoreFactory().Get(ctx, owner, fileID)
-		if err != nil {
-			return errorResponse(503, "Batch output is temporarily unavailable", h)
-		}
-		object, err := s3Client.GetObjectWithContext(ctx, &s3.GetObjectInput{Bucket: aws.String(file.Bucket), Key: aws.String(file.ObjectKey)})
-		if err != nil {
-			return errorResponse(503, "Batch output is temporarily unavailable", h)
-		}
-		entry, err := writer.Create(fmt.Sprintf("%03d-%s.pdf", batchNumber(item, "ordinal", 0), fileID))
-		if err == nil {
-			_, err = io.Copy(entry, object.Body)
-		}
-		object.Body.Close()
-		if err != nil || output.Len() > maxBatchZIPBytes {
-			return errorResponseWithCode(413, "batch_zip_too_large", "Batch ZIP exceeds the 100 MB export limit", h)
-		}
-	}
-	if err := writer.Close(); err != nil {
-		return errorResponse(503, "Batch ZIP could not be created", h)
-	}
-	key := batchArtifactObjectKey(owner, job.JobID, artifactID)
-	if _, err := s3Client.PutObjectWithContext(ctx, &s3.PutObjectInput{Bucket: aws.String(bucketName), Key: aws.String(key), Body: bytes.NewReader(output.Bytes()), ContentType: aws.String("application/zip")}); err != nil {
-		return errorResponse(503, "Batch ZIP could not be stored", h)
-	}
-	expires := time.Now().UTC().Add(maxPDFRetentionDays * 24 * time.Hour)
-	if err := fileStoreFactory().Create(ctx, storedFile{ID: fileID, Kind: "batch_zip", ContentType: "application/zip", SizeBytes: int64(output.Len()), RetentionExpiresAt: &expires, Origin: map[string]string{"jobId": job.JobID}, OwnerID: owner, Bucket: bucketName, ObjectKey: key, CreatedAt: time.Now().UTC()}); err != nil {
-		return errorResponse(503, "Batch ZIP metadata could not be stored", h)
-	}
-	url, err := presignPrivateDownload(bucketName, key)
-	if err != nil {
-		return errorResponse(503, "Batch download is temporarily unavailable", h)
-	}
-	return sourceJSON(200, map[string]string{"fileId": fileID, "url": url}, h)
-}
-
 func createBatch(ctx context.Context, r events.APIGatewayProxyRequest, owner string, h map[string]string, db *dynamodb.DynamoDB) events.APIGatewayProxyResponse {
 	req, err := parseBatchRenderRequest(r.Body)
 	if err != nil {
@@ -233,6 +167,13 @@ func createBatch(ctx context.Context, r events.APIGatewayProxyRequest, owner str
 		if _, err := sourceStoreFactory().Get(ctx, owner, req.Source.ID); err != nil {
 			return errorResponse(404, "Stored source not found", h)
 		}
+	}
+	if err := checkAccountQuotaAvailable(owner, time.Now().UTC()); err != nil {
+		if errors.Is(err, errAccountQuotaExceeded) {
+			return errorResponse(http.StatusTooManyRequests, "Monthly PDF quota reached", h)
+		}
+		fmt.Printf("Account quota error during batch submission: %v\n", err)
+		return errorResponse(http.StatusServiceUnavailable, "Account quota is temporarily unavailable", h)
 	}
 	active, quotaErr := activeBatchJobCount(owner, db)
 	if quotaErr != nil {
@@ -314,61 +255,6 @@ func batchJobItem(owner string, job batchJobReply, request string) map[string]*d
 	return item
 }
 
-type batchQueueMessage struct {
-	OwnerID string `json:"ownerId"`
-	JobID   string `json:"jobId"`
-	Ordinal int    `json:"ordinal"`
-}
-
-// This is a transactional-outbox dispatcher: durable pending entries exist
-// before SQS is touched. A crash after SendMessage can duplicate a message, but
-// never a render because the worker conditionally claims the item.
-func recoverBatchEnqueues(ctx context.Context, db *dynamodb.DynamoDB, owner, jobID string) error {
-	items, err := db.QueryWithContext(ctx, &dynamodb.QueryInput{TableName: aws.String(batchTable()), KeyConditionExpression: aws.String("PK = :pk"), ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{":pk": {S: aws.String("JOB#" + jobID)}}})
-	if err != nil {
-		return err
-	}
-	for _, item := range items.Items {
-		if aws.StringValue(item["status"].S) != "queued" {
-			continue
-		}
-		ordinal, _ := strconv.Atoi(aws.StringValue(item["ordinal"].N))
-		if ordinal == 0 || !claimBatchEnqueue(ctx, db, item) {
-			continue
-		}
-		if err := enqueueBatchItem(owner, jobID, ordinal); err != nil {
-			resetBatchEnqueue(ctx, db, item)
-			return err
-		}
-		if err := markBatchEnqueued(ctx, db, item); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-func claimBatchEnqueue(ctx context.Context, db *dynamodb.DynamoDB, item map[string]*dynamodb.AttributeValue) bool {
-	now := time.Now().UTC()
-	_, err := db.UpdateItemWithContext(ctx, &dynamodb.UpdateItemInput{TableName: aws.String(batchTable()), Key: map[string]*dynamodb.AttributeValue{"PK": item["PK"], "SK": item["SK"]}, UpdateExpression: aws.String("SET enqueueState = :sending, enqueueLeaseUntil = :lease ADD enqueueAttempts :one"), ConditionExpression: aws.String("#status = :queued AND (enqueueState = :pending OR (enqueueState = :sending AND enqueueLeaseUntil < :now))"), ExpressionAttributeNames: map[string]*string{"#status": aws.String("status")}, ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{":queued": {S: aws.String("queued")}, ":pending": {S: aws.String("pending")}, ":sending": {S: aws.String("sending")}, ":now": {N: aws.String(fmt.Sprint(now.Unix()))}, ":lease": {N: aws.String(fmt.Sprint(now.Add(30 * time.Second).Unix()))}, ":one": {N: aws.String("1")}}})
-	return err == nil
-}
-func resetBatchEnqueue(ctx context.Context, db *dynamodb.DynamoDB, item map[string]*dynamodb.AttributeValue) {
-	_, _ = db.UpdateItemWithContext(ctx, &dynamodb.UpdateItemInput{TableName: aws.String(batchTable()), Key: map[string]*dynamodb.AttributeValue{"PK": item["PK"], "SK": item["SK"]}, UpdateExpression: aws.String("SET enqueueState = :pending, enqueueLeaseUntil = :zero"), ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{":pending": {S: aws.String("pending")}, ":zero": {N: aws.String("0")}}})
-}
-func markBatchEnqueued(ctx context.Context, db *dynamodb.DynamoDB, item map[string]*dynamodb.AttributeValue) error {
-	_, err := db.UpdateItemWithContext(ctx, &dynamodb.UpdateItemInput{TableName: aws.String(batchTable()), Key: map[string]*dynamodb.AttributeValue{"PK": item["PK"], "SK": item["SK"]}, UpdateExpression: aws.String("SET enqueueState = :sent REMOVE enqueueLeaseUntil"), ConditionExpression: aws.String("enqueueState = :sending"), ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{":sent": {S: aws.String("sent")}, ":sending": {S: aws.String("sending")}}})
-	return err
-}
-func enqueueBatchItem(owner, jobID string, ordinal int) error {
-	url := os.Getenv("BATCH_QUEUE_URL")
-	if url == "" {
-		return fmt.Errorf("batch queue unavailable")
-	}
-	body, _ := json.Marshal(batchQueueMessage{owner, jobID, ordinal})
-	_, err := sqsClient.SendMessageWithContext(context.Background(), &sqs.SendMessageInput{QueueUrl: aws.String(url), MessageBody: aws.String(string(body))})
-	return err
-}
-func mustBatchJSON(v any) string { b, _ := json.Marshal(v); return string(b) }
-
 func readBatch(owner, id string, db *dynamodb.DynamoDB) (batchJobReply, error) {
 	o, e := db.GetItem(&dynamodb.GetItemInput{TableName: aws.String(batchTable()), Key: batchJobKey(owner, id), ConsistentRead: aws.Bool(true)})
 	if e != nil || o.Item == nil {
@@ -414,19 +300,6 @@ func derivedBatchStatus(job batchJobReply) string {
 		return "running"
 	}
 	return "queued"
-}
-func countBatchPendingEnqueues(db *dynamodb.DynamoDB, id string) int {
-	o, e := db.Query(&dynamodb.QueryInput{TableName: aws.String(batchTable()), KeyConditionExpression: aws.String("PK = :pk"), ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{":pk": {S: aws.String("JOB#" + id)}}})
-	if e != nil {
-		return 0
-	}
-	n := 0
-	for _, item := range o.Items {
-		if aws.StringValue(item["status"].S) == "queued" && aws.StringValue(item["enqueueState"].S) != "sent" {
-			n++
-		}
-	}
-	return n
 }
 
 func listBatchItems(id string, h map[string]string, db *dynamodb.DynamoDB) events.APIGatewayProxyResponse {

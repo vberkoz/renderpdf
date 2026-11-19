@@ -194,6 +194,5 @@ func templateStoreErrorResponse(err error, headers map[string]string) events.API
 }
 
 func templateJSONResponse(status int, value any, headers map[string]string) events.APIGatewayProxyResponse {
-	body, _ := json.Marshal(value)
-	return events.APIGatewayProxyResponse{StatusCode: status, Body: string(body), Headers: headers}
+	return jsonResponse(status, value, headers)
 }

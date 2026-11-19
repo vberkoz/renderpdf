@@ -118,3 +118,96 @@ func TestAccountQuotaReservationUpgradesExhaustedPlan(t *testing.T) {
 		t.Fatalf("upgrade condition should check #limit < :limit AND #used < :limit, got %s", got)
 	}
 }
+
+func TestCheckAccountQuotaAvailable(t *testing.T) {
+	previousClient, previousTable := ddbClient, tableName
+	t.Cleanup(func() {
+		ddbClient, tableName = previousClient, previousTable
+	})
+	t.Setenv("FREE_MONTHLY_QUOTA", "25")
+	t.Setenv("STARTER_MONTHLY_QUOTA", "5000")
+	tableName = "renderpdf-usage"
+	now := time.Date(2026, time.August, 19, 10, 0, 0, 0, time.UTC)
+
+	t.Run("missing quota item allows submission", func(t *testing.T) {
+		ddbClient = &fakeDynamoDB{}
+		if err := checkAccountQuotaAvailable("customer-123", now); err != nil {
+			t.Fatalf("expected nil, got %v", err)
+		}
+	})
+
+	t.Run("used below limit allows submission", func(t *testing.T) {
+		ddbClient = &fakeDynamoDB{
+			getItem: func(input *dynamodb.GetItemInput) (*dynamodb.GetItemOutput, error) {
+				if aws.StringValue(input.Key["requestId"].S) == "USER_QUOTA#customer-123#2026-08" {
+					return &dynamodb.GetItemOutput{Item: map[string]*dynamodb.AttributeValue{
+						"used":  {N: aws.String("24")},
+						"limit": {N: aws.String("25")},
+					}}, nil
+				}
+				return &dynamodb.GetItemOutput{}, nil
+			},
+		}
+		if err := checkAccountQuotaAvailable("customer-123", now); err != nil {
+			t.Fatalf("expected nil, got %v", err)
+		}
+	})
+
+	t.Run("used at free limit returns exceeded", func(t *testing.T) {
+		ddbClient = &fakeDynamoDB{
+			getItem: func(input *dynamodb.GetItemInput) (*dynamodb.GetItemOutput, error) {
+				if aws.StringValue(input.Key["requestId"].S) == "USER_QUOTA#customer-123#2026-08" {
+					return &dynamodb.GetItemOutput{Item: map[string]*dynamodb.AttributeValue{
+						"used":  {N: aws.String("25")},
+						"limit": {N: aws.String("25")},
+					}}, nil
+				}
+				return &dynamodb.GetItemOutput{}, nil
+			},
+		}
+		err := checkAccountQuotaAvailable("customer-123", now)
+		if !errors.Is(err, errAccountQuotaExceeded) {
+			t.Fatalf("expected errAccountQuotaExceeded, got %v", err)
+		}
+	})
+
+	t.Run("overage higher stored limit allows submission", func(t *testing.T) {
+		ddbClient = &fakeDynamoDB{
+			getItem: func(input *dynamodb.GetItemInput) (*dynamodb.GetItemOutput, error) {
+				if aws.StringValue(input.Key["requestId"].S) == "USER_QUOTA#customer-123#2026-08" {
+					return &dynamodb.GetItemOutput{Item: map[string]*dynamodb.AttributeValue{
+						"used":  {N: aws.String("25")},
+						"limit": {N: aws.String("50")},
+					}}, nil
+				}
+				return &dynamodb.GetItemOutput{}, nil
+			},
+		}
+		if err := checkAccountQuotaAvailable("customer-123", now); err != nil {
+			t.Fatalf("expected nil with overage limit, got %v", err)
+		}
+	})
+
+	t.Run("upgraded plan higher than stored limit allows submission", func(t *testing.T) {
+		ddbClient = &fakeDynamoDB{
+			getItem: func(input *dynamodb.GetItemInput) (*dynamodb.GetItemOutput, error) {
+				switch aws.StringValue(input.Key["requestId"].S) {
+				case "BILLING#customer-123":
+					return &dynamodb.GetItemOutput{Item: map[string]*dynamodb.AttributeValue{
+						"status": {S: aws.String("active")},
+						"tier":   {S: aws.String("starter")},
+					}}, nil
+				case "USER_QUOTA#customer-123#2026-08":
+					return &dynamodb.GetItemOutput{Item: map[string]*dynamodb.AttributeValue{
+						"used":  {N: aws.String("25")},
+						"limit": {N: aws.String("25")},
+					}}, nil
+				}
+				return &dynamodb.GetItemOutput{}, nil
+			},
+		}
+		if err := checkAccountQuotaAvailable("customer-123", now); err != nil {
+			t.Fatalf("expected nil after plan upgrade, got %v", err)
+		}
+	})
+}

@@ -45,9 +45,13 @@ type fakeDynamoDB struct {
 	updateErr    error
 	updateErrors []error
 	count        string
+	getItem      func(*dynamodb.GetItemInput) (*dynamodb.GetItemOutput, error)
 }
 
-func (f *fakeDynamoDB) GetItem(*dynamodb.GetItemInput) (*dynamodb.GetItemOutput, error) {
+func (f *fakeDynamoDB) GetItem(input *dynamodb.GetItemInput) (*dynamodb.GetItemOutput, error) {
+	if f.getItem != nil {
+		return f.getItem(input)
+	}
 	return &dynamodb.GetItemOutput{}, nil
 }
 

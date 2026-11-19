@@ -7,9 +7,13 @@ func TestParseBatchRenderRequestModes(t *testing.T) {
 	if _, err := parseBatchRenderRequest(shared); err != nil {
 		t.Fatalf("shared source: %v", err)
 	}
-	explicit := `{"version":"1","items":[{"definition":{"version":"1","source":{"type":"markdown","content":"# Hi"},"data":{}}}]}`
-	if _, err := parseBatchRenderRequest(explicit); err != nil {
+	explicit := `{"version":"1","items":[{"definition":{"version":"1","source":{"type":"markdown","content":"# Hi"},"data":{}}}],"options":{"mergeOutput":true}}`
+	parsed, err := parseBatchRenderRequest(explicit)
+	if err != nil {
 		t.Fatalf("explicit definition: %v", err)
+	}
+	if !parsed.Options.MergeOutput {
+		t.Fatalf("expected MergeOutput to be true")
 	}
 }
 

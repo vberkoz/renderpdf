@@ -319,7 +319,7 @@ func validSourceDefinition(v canonicalRenderRequest) (canonicalRenderRequest, er
 	}
 	return v, nil
 }
-func mustJSON(v any) string { b, _ := json.Marshal(v); return string(b) }
+func mustJSON(v any) string { b, _ := marshalJSONWithoutEscape(v); return string(b) }
 func sourceError(e error, h map[string]string) events.APIGatewayProxyResponse {
 	if errors.Is(e, errSourceNotFound) {
 		return errorResponse(404, "Source not found", h)
@@ -327,6 +327,5 @@ func sourceError(e error, h map[string]string) events.APIGatewayProxyResponse {
 	return errorResponse(503, "Source storage is temporarily unavailable", h)
 }
 func sourceJSON(status int, v any, h map[string]string) events.APIGatewayProxyResponse {
-	b, _ := json.Marshal(v)
-	return events.APIGatewayProxyResponse{StatusCode: status, Body: string(b), Headers: h}
+	return jsonResponse(status, v, h)
 }

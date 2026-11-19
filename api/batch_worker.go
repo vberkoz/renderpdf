@@ -12,8 +12,26 @@ import (
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/s3"
+)
+
+type batchWorkerDB interface {
+	TransactWriteItemsWithContext(aws.Context, *dynamodb.TransactWriteItemsInput, ...request.Option) (*dynamodb.TransactWriteItemsOutput, error)
+	TransactWriteItems(*dynamodb.TransactWriteItemsInput) (*dynamodb.TransactWriteItemsOutput, error)
+	GetItem(*dynamodb.GetItemInput) (*dynamodb.GetItemOutput, error)
+}
+
+var (
+	batchWorkerDBFactory = func() batchWorkerDB {
+		return dynamodb.New(sess)
+	}
+	batchItemRenderer    = renderBatchNormalizedSource
+	batchHTMLPDFRenderer = generatePDFWithOptions
+	batchDocPDFRenderer  = generateDocumentPDFWithOptions
+	batchURLPDFRenderer  = generatePDFURLWithDocumentOptions
+	batchPackagePreparer = preparePackage
 )
 
 // batchWorkerHandler claims each queued item conditionally. A redelivered SQS
@@ -129,7 +147,7 @@ func failRetryExhaustedBatchItem(ctx context.Context, message batchQueueMessage)
 
 func processBatchItem(ctx context.Context, message batchQueueMessage) error {
 	startedAt := time.Now()
-	db := dynamodb.New(sess)
+	db := batchWorkerDBFactory()
 	key := batchItemKey(message.JobID, message.Ordinal)
 	_, err := db.TransactWriteItemsWithContext(ctx, &dynamodb.TransactWriteItemsInput{TransactItems: []*dynamodb.TransactWriteItem{
 		{Update: &dynamodb.Update{TableName: aws.String(batchTable()), Key: key, UpdateExpression: aws.String("SET #status = :running"), ConditionExpression: aws.String("#status = :queued"), ExpressionAttributeNames: map[string]*string{"#status": aws.String("status")}, ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{":queued": {S: aws.String("queued")}, ":running": {S: aws.String("running")}}}},
@@ -169,8 +187,16 @@ func processBatchItem(ctx context.Context, message batchQueueMessage) error {
 	if err != nil {
 		return completeBatchItem(db, message.OwnerID, message.JobID, key, "failed", "batch_item_validation_failed", "")
 	}
-	pdf, err := renderBatchNormalizedSource(ctx, message.OwnerID, normalized)
+	reservedQuota, quotaErr := reserveAccountQuota(message.OwnerID, "", time.Now().UTC())
+	if quotaErr != nil {
+		if errors.Is(quotaErr, errAccountQuotaExceeded) {
+			return completeBatchItem(db, message.OwnerID, message.JobID, key, "failed", "monthly_quota_exceeded", "")
+		}
+		return quotaErr
+	}
+	pdf, err := batchItemRenderer(ctx, message.OwnerID, normalized)
 	if err != nil {
+		refundAccountQuota(reservedQuota)
 		if renderErr, ok := err.(*renderError); ok && renderErr.Status >= 400 && renderErr.Status < 500 {
 			return completeBatchItem(db, message.OwnerID, message.JobID, key, "failed", "batch_item_validation_failed", "")
 		}
@@ -179,9 +205,11 @@ func processBatchItem(ctx context.Context, message batchQueueMessage) error {
 	fileID := "file_batch_" + message.JobID + fmt.Sprintf("_%06d", message.Ordinal)
 	objectKey := renderedPDFObjectKey(message.OwnerID, fileID)
 	if err := ensurePrivateFileStorage(ctx, message.OwnerID, int64(len(pdf))); err != nil {
+		refundAccountQuota(reservedQuota)
 		return completeBatchItem(db, message.OwnerID, message.JobID, key, "failed", "file_storage_limit_reached", "")
 	}
 	if _, err = s3Client.PutObject(&s3.PutObjectInput{Bucket: aws.String(bucketName), Key: aws.String(objectKey), Body: bytes.NewReader(pdf)}); err != nil {
+		refundAccountQuota(reservedQuota)
 		return err
 	}
 	createdAt := time.Now().UTC()
@@ -192,6 +220,7 @@ func processBatchItem(ctx context.Context, message batchQueueMessage) error {
 		// lets us treat that exact persisted record as an idempotent success.
 		existing, getErr := fileStoreFactory().Get(ctx, message.OwnerID, fileID)
 		if getErr != nil || existing.ObjectKey != objectKey {
+			refundAccountQuota(reservedQuota)
 			return err
 		}
 	}
@@ -204,21 +233,43 @@ func processBatchItem(ctx context.Context, message batchQueueMessage) error {
 // canonical contract, and the worker now supports every resulting kind.
 func renderBatchNormalizedSource(ctx context.Context, owner string, normalized normalizedRenderRequest) ([]byte, error) {
 	switch normalized.Kind {
+	case renderKindHTML:
+		var request Request
+		if err := json.Unmarshal([]byte(normalized.Body), &request); err != nil {
+			return nil, &renderError{Code: "batch_html_request_invalid", Message: "Invalid HTML render request", Status: 422}
+		}
+		if strings.TrimSpace(request.HTML) == "" {
+			return nil, &renderError{Code: "batch_html_required", Message: "HTML is required", Status: 422}
+		}
+		var opts documentRenderOptions
+		if request.Options != nil {
+			if err := validateDocumentOptions(request.Options); err != nil {
+				return nil, err
+			}
+			opts = *request.Options
+		}
+		html := transformBarcodes(transformRedaction(rewriteTfoot(injectPrintCSS(request.HTML)), opts.Redaction))
+		return batchHTMLPDFRenderer(ctx, html, opts)
 	case renderKindDocument:
 		html, docReq, err := resolveDocumentRenderHTML(normalized.Body)
 		if err != nil {
 			return nil, err
 		}
-		return generateDocumentPDFWithOptions(ctx, html, docReq.Options)
+		return batchDocPDFRenderer(ctx, html, docReq.Options)
 	case renderKindTemplate:
-		html, _, err := resolveTemplateRenderHTML(ctx, templateStoreFactory(), owner, normalized.Body)
+		html, templateReq, err := resolveTemplateRenderHTML(ctx, templateStoreFactory(), owner, normalized.Body)
 		if err != nil {
 			if errors.Is(err, errTemplateNotFound) {
 				return nil, &renderError{Code: "batch_template_not_found", Message: "Template not found", Status: 422}
 			}
 			return nil, err
 		}
-		return generatePDF(ctx, rewriteTfoot(ensureColgroup(injectPrintCSS(html))))
+		var opts documentRenderOptions
+		if templateReq.Options != nil {
+			opts = *templateReq.Options
+		}
+		resolved := transformBarcodes(transformRedaction(rewriteTfoot(injectPrintCSS(html)), opts.Redaction))
+		return batchHTMLPDFRenderer(ctx, resolved, opts)
 	case renderKindURL:
 		var request URLRequest
 		if err := json.Unmarshal([]byte(normalized.Body), &request); err != nil {
@@ -228,24 +279,38 @@ func renderBatchNormalizedSource(ctx context.Context, owner string, normalized n
 		if err != nil {
 			return nil, &renderError{Code: "batch_url_invalid", Message: err.Error(), Status: 422}
 		}
-		return generatePDFURL(ctx, url)
+		var opts documentRenderOptions
+		if request.Options != nil {
+			if err := validateDocumentOptions(request.Options); err != nil {
+				return nil, err
+			}
+			opts = *request.Options
+		}
+		return batchURLPDFRenderer(ctx, url, opts)
 	case renderKindUpload:
 		var request packageRenderRequest
 		if err := json.Unmarshal([]byte(normalized.Body), &request); err != nil {
 			return nil, &renderError{Code: "batch_upload_request_invalid", Message: "Invalid upload render request", Status: 422}
 		}
-		url, _, cleanup, err := preparePackage(ctx, owner, request.UploadID, request.Entrypoint)
+		var opts documentRenderOptions
+		if request.Options != nil {
+			if err := validateDocumentOptions(request.Options); err != nil {
+				return nil, err
+			}
+			opts = *request.Options
+		}
+		url, _, cleanup, err := batchPackagePreparer(ctx, owner, request.UploadID, request.Entrypoint)
 		if err != nil {
 			return nil, &renderError{Code: "batch_upload_invalid", Message: err.Error(), Status: 422}
 		}
 		defer cleanup()
-		return generatePDFURL(ctx, url)
+		return batchURLPDFRenderer(ctx, url, opts)
 	default:
 		return nil, &renderError{Code: "batch_source_unsupported", Message: "Unsupported batch render source", Status: 422}
 	}
 }
 
-func completeBatchItem(db *dynamodb.DynamoDB, owner, jobID string, key map[string]*dynamodb.AttributeValue, status, code, fileID string) error {
+func completeBatchItem(db batchWorkerDB, owner, jobID string, key map[string]*dynamodb.AttributeValue, status, code, fileID string) error {
 	values := map[string]*dynamodb.AttributeValue{":status": {S: aws.String(status)}}
 	expression := "SET #status = :status"
 	if code != "" {
@@ -272,7 +337,9 @@ func completeBatchItem(db *dynamodb.DynamoDB, owner, jobID string, key map[strin
 	}})
 	if err == nil {
 		logBatchAudit(batchAuditEvent{Event: "batch_item_transition", JobID: jobID, Status: status, ErrorCode: code, FileID: fileID})
-		enqueueBatchTerminalWebhook(context.Background(), db, owner, jobID)
+		if realDB, ok := db.(*dynamodb.DynamoDB); ok {
+			enqueueBatchTerminalWebhook(context.Background(), realDB, owner, jobID)
+		}
 	}
 	return err
 }

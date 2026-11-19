@@ -30,6 +30,7 @@ type batchRenderItem struct {
 type batchRenderOptions struct {
 	WebhookURL    string `json:"webhookUrl,omitempty"`
 	WebhookSecret string `json:"webhookSecret,omitempty"`
+	MergeOutput   bool   `json:"mergeOutput,omitempty"`
 }
 
 func parseBatchRenderRequest(body string) (batchRenderRequest, error) {

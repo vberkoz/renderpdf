@@ -15,11 +15,12 @@ const (
 )
 
 type templateRenderRequest struct {
-	TemplateID    string         `json:"templateId"`
-	Variables     map[string]any `json:"variables"`
-	Label         string         `json:"label,omitempty"`
-	WebhookURL    string         `json:"webhookUrl,omitempty"`
-	WebhookSecret string         `json:"webhookSecret,omitempty"`
+	TemplateID    string                 `json:"templateId"`
+	Variables     map[string]any         `json:"variables"`
+	Options       *documentRenderOptions `json:"options,omitempty"`
+	Label         string                 `json:"label,omitempty"`
+	WebhookURL    string                 `json:"webhookUrl,omitempty"`
+	WebhookSecret string                 `json:"webhookSecret,omitempty"`
 }
 
 func isTemplateRenderRequest(request events.APIGatewayProxyRequest) bool {
@@ -39,6 +40,11 @@ func resolveTemplateRenderHTML(ctx context.Context, store templateStore, ownerID
 	if request.Variables == nil {
 		return "", templateRenderRequest{}, &renderError{Code: missingTemplateVariableCode, Message: "variables is required", Status: 422}
 	}
+	if request.Options != nil {
+		if err := validateDocumentOptions(request.Options); err != nil {
+			return "", templateRenderRequest{}, err
+		}
+	}
 	template, err := store.Get(ctx, ownerID, request.TemplateID)
 	if err != nil {
 		return "", templateRenderRequest{}, err
@@ -57,11 +63,15 @@ func resolveTemplateRenderHTML(ctx context.Context, store templateStore, ownerID
 // lets tests assert the final HTML supplied to Chromium without requiring a
 // local Chrome installation.
 func renderTemplatePDF(ctx context.Context, store templateStore, ownerID, body string, generate func(context.Context, string) ([]byte, error)) ([]byte, error) {
-	html, _, err := resolveTemplateRenderHTML(ctx, store, ownerID, body)
+	html, templateReq, err := resolveTemplateRenderHTML(ctx, store, ownerID, body)
 	if err != nil {
 		return nil, err
 	}
-	pdf, err := generate(ctx, rewriteTfoot(ensureColgroup(injectPrintCSS(html))))
+	var redaction *redactionOptions
+	if templateReq.Options != nil {
+		redaction = templateReq.Options.Redaction
+	}
+	pdf, err := generate(ctx, transformBarcodes(transformRedaction(rewriteTfoot(injectPrintCSS(html)), redaction)))
 	if err != nil {
 		return nil, fmt.Errorf("generate template PDF: %w", err)
 	}

@@ -46,6 +46,47 @@ func accountMonthlyQuota(customerID string) (int, error) {
 	return positiveEnvInt("FREE_MONTHLY_QUOTA", 25), nil
 }
 
+func checkAccountQuotaAvailable(customerID string, now time.Time) error {
+	if customerID == "" {
+		return nil
+	}
+	planLimit, err := accountMonthlyQuota(customerID)
+	if err != nil {
+		return fmt.Errorf("load account plan: %w", err)
+	}
+	key := fmt.Sprintf("USER_QUOTA#%s#%s", customerID, now.UTC().Format("2006-01"))
+	result, err := ddbClient.GetItem(&dynamodb.GetItemInput{
+		TableName: aws.String(tableName),
+		Key: map[string]*dynamodb.AttributeValue{
+			"requestId": {S: aws.String(key)},
+			"timestamp": {N: aws.String("0")},
+		},
+		ConsistentRead: aws.Bool(true),
+	})
+	if err != nil {
+		return err
+	}
+	if result.Item == nil {
+		return nil
+	}
+	used := 0
+	storedLimit := 0
+	if result.Item["used"] != nil && result.Item["used"].N != nil {
+		fmt.Sscanf(*result.Item["used"].N, "%d", &used)
+	}
+	if result.Item["limit"] != nil && result.Item["limit"].N != nil {
+		fmt.Sscanf(*result.Item["limit"].N, "%d", &storedLimit)
+	}
+	effectiveLimit := planLimit
+	if storedLimit > effectiveLimit {
+		effectiveLimit = storedLimit
+	}
+	if used >= effectiveLimit {
+		return errAccountQuotaExceeded
+	}
+	return nil
+}
+
 func checkQuotaAfterReservation(customerID, customerEmail, key string, attrs map[string]*dynamodb.AttributeValue, now time.Time) {
 	if attrs == nil {
 		return
