@@ -15,7 +15,38 @@
 
 
     <script>
-        const dashboardViews = ['overview', 'create-render', 'keys', 'billing', 'sources', 'files', 'batches', 'logs'];
+        (function() {
+            var isLocal = ['localhost', '127.0.0.1'].includes(window.location.hostname) || window.location.protocol === 'file:';
+            var token = localStorage.getItem('id_token');
+            if (isLocal && !token) return;
+            var valid = false;
+            if (token && token.indexOf('.') !== -1) {
+                try {
+                    var parts = token.split('.');
+                    if (parts.length >= 2) {
+                        var base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+                        var payload = JSON.parse(decodeURIComponent(atob(base64).split('').map(function(c) {
+                            return '%' + c.charCodeAt(0).toString(16).padStart(2, '0');
+                        }).join('')));
+                        if (payload && (!payload.exp || payload.exp * 1000 > Date.now())) {
+                            valid = true;
+                        }
+                    }
+                } catch (e) {}
+            }
+            if (!valid) {
+                document.documentElement.style.display = 'none';
+                localStorage.removeItem('id_token');
+                localStorage.removeItem('access_token');
+                var currentUrl = window.location.pathname + window.location.search + window.location.hash;
+                if (currentUrl && currentUrl !== '/app/' && currentUrl !== '/app') {
+                    localStorage.setItem('post_login_redirect', currentUrl);
+                }
+                window.location.replace('/app/login');
+            }
+        })();
+
+        const dashboardViews = ['overview', 'create-render', 'merge', 'keys', 'billing', 'sources', 'files', 'batches', 'logs'];
         const dashboardView = new URLSearchParams(window.location.search).get('view') || 'overview';
         document.documentElement.dataset.dashboardCurrentView = dashboardViews.includes(dashboardView) ? dashboardView : 'overview';
     </script>
@@ -46,6 +77,7 @@
                 <nav id="dashboard-primary-navigation" class="dashboard-app-nav" aria-label="Dashboard navigation">
                     <a href="/app/?view=overview" data-dashboard-nav="overview"><svg class="lucide lucide-layout-dashboard" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg> Home</a>
                     <a href="/app/?view=create-render" data-dashboard-nav="create-render"><svg class="lucide lucide-file-plus-2" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 22h14a2 2 0 0 0 2-2V7l-5-5H6a2 2 0 0 0-2 2v4"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M3 15h6"/><path d="M6 12v6"/></svg> Create PDF</a>
+                    <a href="/app/?view=merge" data-dashboard-nav="merge"><svg class="lucide lucide-copy-plus" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/><line x1="15" y1="12" x2="15" y2="18"/><line x1="12" y1="15" x2="18" y2="15"/></svg> Merge PDFs</a>
                     <div class="dashboard-nav-group">
                         <p>Manage</p>
                         <a href="/app/?view=sources" data-dashboard-nav="sources"><svg class="lucide lucide-code-2" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m18 16 4-4-4-4"/><path d="m6 8-4 4 4 4"/><path d="m14.5 4-5 16"/></svg> Saved sources</a>
@@ -85,6 +117,7 @@
                 <nav class="dashboard-app-nav" aria-label="Dashboard navigation">
                     <a href="/app/?view=overview" data-dashboard-nav="overview"><svg class="lucide lucide-layout-dashboard" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg> Home</a>
                     <a href="/app/?view=create-render" data-dashboard-nav="create-render"><svg class="lucide lucide-file-plus-2" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 22h14a2 2 0 0 0 2-2V7l-5-5H6a2 2 0 0 0-2 2v4"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M3 15h6"/><path d="M6 12v6"/></svg> Create PDF</a>
+                    <a href="/app/?view=merge" data-dashboard-nav="merge"><svg class="lucide lucide-copy-plus" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/><line x1="15" y1="12" x2="15" y2="18"/><line x1="12" y1="15" x2="18" y2="15"/></svg> Merge PDFs</a>
                     <div class="dashboard-nav-group">
                         <p>Manage</p>
                         <a href="/app/?view=sources" data-dashboard-nav="sources"><svg class="lucide lucide-code-2" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m18 16 4-4-4-4"/><path d="m6 8-4 4 4 4"/><path d="m14.5 4-5 16"/></svg> Saved sources</a>
@@ -144,8 +177,8 @@
                             <h2 id="overview-usage-title">Usage</h2>
                         </header>
                         <div class="dashboard-metrics usage-metrics">
-                            <div class="usage-summary"><span>This month</span><strong id="monthlyUsage">—</strong><small id="quotaDetail"></small></div>
-                            <div class="daily-activity"><span>Today</span><strong id="pdfsToday">—</strong><small id="dailyActivityDetail"></small></div>
+                            <div class="usage-summary"><span>This month</span><strong id="monthlyUsage"><span class="dashboard-skeleton-metric" aria-hidden="true"></span><span class="visually-hidden">Loading…</span></strong><small id="quotaDetail"></small></div>
+                            <div class="daily-activity"><span>Today</span><strong id="pdfsToday"><span class="dashboard-skeleton-metric" aria-hidden="true"></span><span class="visually-hidden">Loading…</span></strong><small id="dailyActivityDetail"></small></div>
                         </div>
                     </section>
 
@@ -174,7 +207,7 @@
                             <h2 id="overview-activity-title">Recent activity</h2>
                             <a class="dashboard-button dashboard-button-secondary" href="/app/?view=logs">View activity</a>
                         </header>
-                        <div id="recentActivityList" class="logs-list" aria-live="polite"><p class="empty-state">Loading recent activity...</p></div>
+                        <div id="recentActivityList" class="logs-list" aria-live="polite"><div class="dashboard-loading-state empty-state"><span class="dashboard-spinner" aria-hidden="true"></span><span>Loading recent activity...</span></div></div>
                     </section>
                 </section>
 
@@ -183,7 +216,7 @@
                         <div>
                             <h2 id="billingPlan">Free</h2>
                             <p id="billingDetail">Free includes 25 PDFs each month. Upgrade for more capacity.</p>
-                            <p id="billingUsageDetail" class="billing-usage-detail">Current usage: —</p>
+                            <p id="billingUsageDetail" class="billing-usage-detail">Current usage: <span class="dashboard-skeleton-inline" aria-hidden="true"></span></p>
                         </div>
                         <div class="billing-actions">
                             <button id="upgradePlanBtn" class="dashboard-button dashboard-button-primary" type="button">Upgrade plan</button>
@@ -241,7 +274,7 @@
                             <h3 id="existing-api-keys-title">Existing keys</h3>
                             <p>Revoke keys you no longer use to stop requests immediately.</p>
                         </header>
-                        <div id="keysList" aria-live="polite"></div>
+                        <div id="keysList" aria-live="polite"><div class="dashboard-loading-state empty-state"><span class="dashboard-spinner" aria-hidden="true"></span><span>Loading API keys...</span></div></div>
                     </section>
                 </article>
 
@@ -264,6 +297,7 @@
                             <button class="source-choice-option" type="button" data-source-choice="stored" aria-pressed="false"><strong>Saved source</strong><span>Continue with a source prepared for repeat or batch PDFs.</span></button>
                             <button class="source-choice-option" type="button" data-source-choice="html" aria-pressed="false"><strong>Inline HTML/CSS</strong><span>Paste a validated JSON document request.</span></button>
                             <button class="source-choice-option" type="button" data-source-choice="markdown" aria-pressed="false"><strong>Markdown</strong><span>Write Markdown with data and print settings.</span></button>
+                            <button class="source-choice-option" type="button" data-source-choice="url" aria-pressed="false"><strong>Public URL</strong><span>Render any public webpage.</span></button>
                         </div>
                     </section>
 
@@ -318,11 +352,58 @@
                                 <div><h3 id="stored-source-title">Choose a saved source</h3><p>Saved sources keep their document definition private and are rendered through the batch workflow.</p></div>
                             </div>
                             <div class="stored-source-picker-row">
-                                <div class="custom-select" data-custom-select><span class="custom-select-label">Saved source</span><input id="storedSourcePickerInput" type="hidden" value=""><button class="custom-select-trigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="storedSourcePickerInput-menu"><span class="custom-select-value">Loading saved sources</span></button><div id="storedSourcePickerInput-menu" class="custom-select-menu" role="listbox" hidden><button class="custom-select-option is-active" type="button" role="option" aria-selected="true" data-custom-select-option data-value="">Loading saved sources</button></div></div>
+                                <div class="custom-select" data-custom-select><span class="custom-select-label">Saved source</span><input id="storedSourcePickerInput" type="hidden" value=""><button class="custom-select-trigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="storedSourcePickerInput-menu"><span class="custom-select-value"><span class="dashboard-spinner-inline" aria-hidden="true"></span>Loading saved sources</span></button><div id="storedSourcePickerInput-menu" class="custom-select-menu" role="listbox" hidden><button class="custom-select-option is-active" type="button" role="option" aria-selected="true" data-custom-select-option data-value=""><span class="dashboard-spinner-inline" aria-hidden="true"></span>Loading saved sources</button></div></div>
                                 <button id="continueSavedSourceBtn" class="dashboard-button dashboard-button-primary" type="button">Continue to batch</button>
                             </div>
                             <div id="storedSourceStatus" class="dashboard-notice" role="status" aria-live="polite">Select a saved source to add data and create PDFs.</div>
                         </section>
+                    </div>
+
+                    <div id="urlWorkspace" hidden>
+                        <div id="urlStatus" class="dashboard-notice" role="status" aria-live="polite" hidden></div>
+                        <div class="workflow-stage-grid">
+                            <section class="workflow-stage workflow-editor-stage" aria-labelledby="url-editor-title">
+                                <div class="workflow-stage-heading">
+                                    <span class="workflow-step-number" aria-hidden="true">2</span>
+                                    <div><h3 id="url-editor-title">Enter a public URL</h3><p>Render any publicly accessible webpage directly to a PDF.</p></div>
+                                </div>
+                                <form id="urlForm" class="url-form">
+                                    <label class="dashboard-field" for="urlInput">
+                                        <span>Page URL <em>Required</em></span>
+                                        <input id="urlInput" type="url" placeholder="https://example.com" spellcheck="false" required>
+                                        <small class="field-help">Must start with http:// or https://.</small>
+                                    </label>
+                                    <details class="editor-secondary" style="margin-top: 16px;">
+                                        <summary>Print options</summary>
+                                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px;">
+                                            <label class="dashboard-field" for="urlFormatSelect">
+                                                <span>Page format</span>
+                                                <select id="urlFormatSelect" class="dashboard-select" style="width: 100%; padding: 8px 12px; border: 1px solid var(--line, #1e2d44); border-radius: 6px; background: var(--card-bg, #151f33); color: var(--text, #f8fafc); font-size: 14px;">
+                                                    <option value="A4" selected>A4</option>
+                                                    <option value="Letter">Letter</option>
+                                                    <option value="Legal">Legal</option>
+                                                </select>
+                                            </label>
+                                            <label class="dashboard-field" for="urlMarginInput">
+                                                <span>Margin</span>
+                                                <input id="urlMarginInput" type="text" value="18mm" placeholder="18mm">
+                                            </label>
+                                        </div>
+                                    </details>
+                                </form>
+                            </section>
+
+                            <section class="workflow-stage workflow-preview-workflow" aria-labelledby="url-render-workflow-title">
+                                <div class="workflow-stage-heading">
+                                    <span class="workflow-step-number" aria-hidden="true">3</span>
+                                    <div><h3 id="url-render-workflow-title">Render PDF</h3><p>Convert the public webpage to a downloadable PDF.</p></div>
+                                </div>
+                                <div class="workflow-primary-actions">
+                                    <button id="renderUrlBtn" class="dashboard-button dashboard-button-primary" type="button">Render PDF</button>
+                                </div>
+                                <div id="urlRenderResult" class="dashboard-result" role="status" aria-live="polite" hidden></div>
+                            </section>
+                        </div>
                     </div>
 
                     <div id="documentWorkspace" hidden>
@@ -339,6 +420,23 @@
                                 <label class="dashboard-field" for="documentMarkdownInput"><span>Markdown source</span><textarea id="documentMarkdownInput" rows="12" spellcheck="false"></textarea></label>
                                 <details class="editor-secondary"><summary>Data, CSS, and print settings</summary><label class="dashboard-field" for="documentMarkdownSettingsInput"><span>Data, CSS, and options JSON</span><textarea id="documentMarkdownSettingsInput" rows="7" spellcheck="false"></textarea></label></details>
                             </div>
+                            <details id="renderOptionsDetails" class="editor-secondary" style="margin-top: 14px;">
+                                <summary>Common PDF Options (Watermark, Password, Page Numbers)</summary>
+                                <div style="display: flex; flex-direction: column; gap: 12px; padding: 12px 0;">
+                                    <label class="dashboard-field" for="optionWatermarkText">
+                                        <span>Watermark text</span>
+                                        <input id="optionWatermarkText" type="text" placeholder="e.g. DRAFT or CONFIDENTIAL" maxlength="100">
+                                    </label>
+                                    <label class="dashboard-field" for="optionPassword">
+                                        <span>Password protection</span>
+                                        <input id="optionPassword" type="password" placeholder="Protect document with password" maxlength="128">
+                                    </label>
+                                    <label class="dashboard-field" for="optionPageNumberFormat">
+                                        <span>Page numbering format</span>
+                                        <input id="optionPageNumberFormat" type="text" placeholder="e.g. Page {page} of {pages}" maxlength="64">
+                                    </label>
+                                </div>
+                            </details>
                         </section>
 
                         <section class="workflow-stage workflow-preview-workflow" aria-labelledby="document-preview-workflow-title">
@@ -361,15 +459,68 @@
                     </div>
                 </article>
 
+                <article class="workspace-panel quiet-section merge-panel" data-dashboard-view="merge" aria-labelledby="dashboardPageTitle">
+                    <header class="panel-header" style="margin-bottom: 24px;">
+                        <div>
+                            <h2 style="font-size: 20px; font-weight: 600; margin: 0 0 4px;">Concatenate PDF documents</h2>
+                            <p style="color: var(--dim, #64748b); margin: 0;">Select two or more rendered PDFs from your private files to concatenate into a unified document.</p>
+                        </div>
+                        <button id="refreshMergeFilesBtn" class="dashboard-button dashboard-button-secondary" type="button">Refresh files</button>
+                    </header>
+                    <div id="mergeNotice" class="dashboard-notice" role="status" aria-live="polite" hidden></div>
+                    <div class="workflow-stage-grid">
+                        <section class="workflow-stage" aria-labelledby="merge-files-list-title">
+                            <div class="workflow-stage-heading">
+                                <span class="workflow-step-number" aria-hidden="true">1</span>
+                                <div>
+                                    <h3 id="merge-files-list-title">Select PDFs</h3>
+                                    <p>Check the files to include in order.</p>
+                                </div>
+                            </div>
+                            <div id="mergeFilesContainer" class="merge-files-list" style="margin-top: 16px;" aria-live="polite">
+                                <div class="dashboard-loading-state empty-state"><span class="dashboard-spinner" aria-hidden="true"></span><span>Loading PDF files...</span></div>
+                            </div>
+                        </section>
+
+                        <section class="workflow-stage workflow-preview-workflow" aria-labelledby="merge-options-title">
+                            <div class="workflow-stage-heading">
+                                <span class="workflow-step-number" aria-hidden="true">2</span>
+                                <div>
+                                    <h3 id="merge-options-title">Merge options &amp; run</h3>
+                                    <p>Optional continuous numbering, watermarking, and security.</p>
+                                </div>
+                            </div>
+                            <form id="mergeOptionsForm" style="display: flex; flex-direction: column; gap: 14px; margin-top: 16px;">
+                                <label class="dashboard-field" for="mergeWatermarkInput">
+                                    <span>Watermark text <em>Optional</em></span>
+                                    <input id="mergeWatermarkInput" type="text" placeholder="e.g. MERGED or CONFIDENTIAL" maxlength="100">
+                                </label>
+                                <label class="dashboard-field" for="mergePasswordInput">
+                                    <span>Document password <em>Optional</em></span>
+                                    <input id="mergePasswordInput" type="password" placeholder="Protect merged document" maxlength="128">
+                                </label>
+                                <label class="dashboard-field" for="mergePageNumberFormat">
+                                    <span>Page numbering format <em>Optional</em></span>
+                                    <input id="mergePageNumberFormat" type="text" placeholder="Page {page} of {pages}" maxlength="64">
+                                </label>
+                            </form>
+                            <div class="workflow-primary-actions" style="margin-top: 24px;">
+                                <button id="submitMergeBtn" class="dashboard-button dashboard-button-primary" type="button" disabled>Merge PDFs</button>
+                            </div>
+                            <div id="mergeResult" class="dashboard-result" role="status" aria-live="polite" hidden></div>
+                        </section>
+                    </div>
+                </article>
+
                 <article class="workspace-panel quiet-section reusable-assets-panel" data-dashboard-view="sources">
                     <header class="panel-header panel-header-compact"><button id="refreshSourcesBtn" class="dashboard-button dashboard-button-secondary" type="button">Refresh</button></header>
                     <div id="sourcesStatus" class="dashboard-notice" role="status" aria-live="polite" hidden></div>
-                    <section class="reusable-assets-group" aria-labelledby="saved-templates-title"><header><div><h3 id="saved-templates-title">Templates</h3><p>Layouts with variable data.</p></div></header><div id="templatesManager" aria-live="polite"></div></section>
-                    <section class="reusable-assets-group" aria-labelledby="saved-document-sources-title"><header><div><h3 id="saved-document-sources-title">Document sources</h3><p>HTML and Markdown inputs for repeat renders and batches.</p></div></header><div id="sourcesManager" aria-live="polite"></div></section>
+                    <section class="reusable-assets-group" aria-labelledby="saved-templates-title"><header><div><h3 id="saved-templates-title">Templates</h3><p>Layouts with variable data.</p></div></header><div id="templatesManager" aria-live="polite"><div class="dashboard-loading-state empty-state"><span class="dashboard-spinner" aria-hidden="true"></span><span>Loading templates...</span></div></div></section>
+                    <section class="reusable-assets-group" aria-labelledby="saved-document-sources-title"><header><div><h3 id="saved-document-sources-title">Document sources</h3><p>HTML and Markdown inputs for repeat renders and batches.</p></div></header><div id="sourcesManager" aria-live="polite"><div class="dashboard-loading-state empty-state"><span class="dashboard-spinner" aria-hidden="true"></span><span>Loading saved sources...</span></div></div></section>
                 </article>
 
                 <article class="workspace-panel quiet-section files-panel" data-dashboard-view="files" aria-labelledby="dashboardPageTitle">
-                    <div id="filesManager" aria-live="polite"></div>
+                    <div id="filesManager" aria-live="polite"><div class="dashboard-loading-state empty-state"><span class="dashboard-spinner" aria-hidden="true"></span><span>Loading private files...</span></div></div>
                     <div id="filesStatus" class="dashboard-notice" role="status" aria-live="polite" hidden></div>
                     <div class="files-actions">
                         <input id="packageUploadInput" type="file" accept=".zip,application/zip" hidden>
@@ -383,7 +534,7 @@
                             <h2 id="batch-jobs-title">Existing jobs</h2>
                             <button id="refreshBatchesBtn" class="dashboard-button dashboard-button-secondary" type="button">Refresh jobs</button>
                         </header>
-                        <div id="batchesManager" aria-live="polite"></div>
+                        <div id="batchesManager" aria-live="polite"><div class="dashboard-loading-state empty-state"><span class="dashboard-spinner" aria-hidden="true"></span><span>Loading batch jobs...</span></div></div>
                     </section>
                     <div id="batchesStatus" class="dashboard-notice" role="status" aria-live="polite" hidden></div>
                     <details class="batch-composer" open>
@@ -391,7 +542,7 @@
                         <div class="batch-composer-content">
                             <section class="batch-step batch-source-step" data-batch-step="source" aria-labelledby="batch-source-title"><div><p class="panel-kicker">Step 1</p><h3 id="batch-source-title">Select a saved source</h3><p>Its document definition stays private; this batch provides only the item data.</p></div><div class="custom-select batch-source-select" data-custom-select><span class="custom-select-label">Saved source</span><input id="batchSourceSelect" type="hidden" value=""><button class="custom-select-trigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="batchSourceSelect-menu"><span class="custom-select-value">No saved sources</span></button><div id="batchSourceSelect-menu" class="custom-select-menu" role="listbox" hidden><button class="custom-select-option is-active" type="button" role="option" aria-selected="true" data-custom-select-option data-value="">No saved sources</button></div></div></section>
                             <section class="batch-step batch-data-step" data-batch-step="data" aria-labelledby="batch-data-title"><div><p class="panel-kicker">Step 2</p><h3 id="batch-data-title">Add item data</h3><p>Upload a JSON array or paste it below. Each item must match the selected source.</p></div><input id="batchDataUpload" type="file" accept="application/json,.json" hidden><label for="batchDataUpload" class="dashboard-button dashboard-button-secondary" role="button" tabindex="0">Upload JSON file</label><label class="dashboard-field batch-items-field" for="batchItemsInput"><span>Item data JSON array <em>Required</em></span><textarea id="batchItemsInput" rows="7" spellcheck="false" aria-describedby="batch-items-help">[{"data":{"customer":{"name":"Ada"}}}]</textarea><small id="batch-items-help" class="field-help">Provide 1–99 items. Uploading replaces the data currently shown.</small></label></section>
-                            <section class="batch-step batch-review" data-batch-step="review" aria-labelledby="batch-review-title"><div><p class="panel-kicker">Step 3</p><h3 id="batch-review-title">Review batch</h3><p>We’ll queue one PDF for each item.</p></div><p id="batchReview" class="dashboard-notice" role="status" aria-live="polite">Choose a saved source and add item data to review this batch.</p></section>
+                            <section class="batch-step batch-review" data-batch-step="review" aria-labelledby="batch-review-title"><div><p class="panel-kicker">Step 3</p><h3 id="batch-review-title">Review batch</h3><p>We’ll queue one PDF for each item.</p></div><div class="batch-options-row" style="margin: 8px 0 12px 0;"><label class="dashboard-checkbox-label" for="batchMergeOutput" style="display: flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer;"><input type="checkbox" id="batchMergeOutput" style="width: 16px; height: 16px; accent-color: var(--accent, #3b82f6);"><span>Merge batch items into a single unified PDF (mergeOutput: true)</span></label></div><p id="batchReview" class="dashboard-notice" role="status" aria-live="polite">Choose a saved source and add item data to review this batch.</p></section>
                             <div class="batch-submit-bar"><div><p class="panel-kicker">Step 4</p><strong>Submit batch</strong><span>PDFs are rendered in the background and available as a ZIP when complete.</span></div><button id="submitBatchBtn" class="dashboard-button dashboard-button-primary" type="button" disabled>Submit batch</button></div>
                         </div>
                     </details>
@@ -399,7 +550,7 @@
 
                 <article class="workspace-panel quiet-section logs-panel logs-panel-compact" data-dashboard-view="logs" aria-labelledby="dashboardPageTitle">
                     <div class="logs-controls" aria-label="Request filters"><div class="custom-select" data-custom-select><span class="custom-select-label">Status</span><input id="logsStatusFilter" type="hidden" value="all"><button class="custom-select-trigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="logsStatusFilter-menu"><span class="custom-select-value">All requests</span></button><div id="logsStatusFilter-menu" class="custom-select-menu" role="listbox" hidden><button class="custom-select-option is-active" type="button" role="option" aria-selected="true" data-custom-select-option data-value="all">All requests</button><button class="custom-select-option" type="button" role="option" aria-selected="false" data-custom-select-option data-value="success">Successful</button><button class="custom-select-option" type="button" role="option" aria-selected="false" data-custom-select-option data-value="error">Failed</button></div></div><div class="custom-select" data-custom-select><span class="custom-select-label">Sort</span><input id="logsSort" type="hidden" value="newest"><button class="custom-select-trigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="logsSort-menu"><span class="custom-select-value">Newest first</span></button><div id="logsSort-menu" class="custom-select-menu" role="listbox" hidden><button class="custom-select-option is-active" type="button" role="option" aria-selected="true" data-custom-select-option data-value="newest">Newest first</button><button class="custom-select-option" type="button" role="option" aria-selected="false" data-custom-select-option data-value="oldest">Oldest first</button></div></div></div>
-                    <div id="logsList" class="logs-list logs-list-request" aria-live="polite"><p class="empty-state">Loading recent requests...</p></div>
+                    <div id="logsList" class="logs-list logs-list-request" aria-live="polite"><div class="dashboard-loading-state empty-state"><span class="dashboard-spinner" aria-hidden="true"></span><span>Loading recent requests...</span></div></div>
                     <nav id="logsPagination" class="logs-pagination" aria-label="Request log pages" hidden><button id="logsPreviousPage" class="dashboard-button dashboard-button-secondary" type="button">Previous</button><span id="logsPageStatus" aria-live="polite"></span><button id="logsNextPage" class="dashboard-button dashboard-button-secondary" type="button">Next</button></nav>
                 </article>
 
@@ -416,8 +567,8 @@
                             <span class="dashboard-brand-icon" style="width: 22px; height: 22px;" aria-hidden="true"></span>
                             <span class="dashboard-brand-title" style="font-size: 15px;">RenderPDF</span>
                         </div>
-                        <p class="footer-entity">RenderPDF Studio LLC</p>
-                        <p class="footer-address">131 Continental Dr, Suite 305, Newark, DE 19713, USA</p>
+                        <p class="footer-entity">Individual Entrepreneur Vasyl Berkoz (ФОП Беркоз В. С.)</p>
+                    <p class="footer-address">Chernivtsi, Ukraine</p>
                         <p class="footer-contact">Support: <a href="mailto:support@renderpdf.vberkoz.com">support@renderpdf.vberkoz.com</a></p>
                     </div>
                     <div class="footer-links-grid">
@@ -442,7 +593,7 @@
                     </div>
                 </div>
                 <div class="footer-bottom">
-                    <p>&copy; 2026 RenderPDF Studio LLC. All rights reserved. Payments and subscriptions are securely managed by Paddle, our Merchant of Record.</p>
+                    <p>&copy; 2026 Vasyl Berkoz (RenderPDF). All rights reserved. Payments and subscriptions are securely managed by Paddle, our Merchant of Record.</p>
                 </div>
             </div>
         </footer>
@@ -583,9 +734,18 @@
 
     <script src="template-client.js" defer></script>
     <script src="custom-select.js" defer></script>
+    <script src="features/dialog.js" defer></script>
+    <script src="features/table.js" defer></script>
+    <script src="features/router.js" defer></script>
     <script src="features/create-render.js" defer></script>
+    <script src="features/create-render-preview.js" defer></script>
     <script src="features/keys.js" defer></script>
     <script src="features/billing.js" defer></script>
+    <script src="features/logs.js" defer></script>
+    <script src="features/templates.js" defer></script>
+    <script src="features/batches.js" defer></script>
+    <script src="features/assets.js" defer></script>
+    <script src="features/merge.js" defer></script>
     <script src="app.js" defer></script>
     <link rel="stylesheet" href="chat-widget.css?v=4">
     <script src="chat-widget.js?v=4" defer></script>

@@ -19,7 +19,7 @@
             <a class="stats-brand" href="/" aria-label="RenderPDF home">RenderPDF</a>
             <div class="stats-header-actions">
                 <p aria-live="polite">
-                    <span id="refreshStatus" data-state="pending">Checking access...</span>
+                    <span id="refreshStatus" data-state="pending"><span class="stats-spinner-inline" aria-hidden="true"></span>Checking access...</span>
                 </p>
                 <nav id="stats-primary-navigation" class="stats-nav" data-carbon-header-nav aria-label="Primary navigation">
                     <a href="/">Home</a>
@@ -42,10 +42,19 @@
 
         <section class="stats-controls" aria-label="Reporting controls">
             <div class="stats-control-details">
+                <div class="stats-window-selector" role="group" aria-label="Reporting window selector">
+                    <span class="stats-window-label">Window:</span>
+                    <button class="stats-window-btn" data-days="7" type="button">7 days</button>
+                    <button class="stats-window-btn is-active" data-days="30" type="button" aria-pressed="true">30 days</button>
+                    <button class="stats-window-btn" data-days="90" type="button">90 days</button>
+                </div>
                 <p>Reporting window: <strong id="reportingWindow">Last 30 days</strong></p>
                 <p>Last updated: <time id="checkedAt" aria-live="polite">Not updated yet</time></p>
             </div>
-            <button id="refreshBtn" class="button button-secondary" type="button">Refresh</button>
+            <div class="stats-controls-actions">
+                <a class="button button-secondary" href="/app/admin/#analytics" style="text-decoration: none; font-size: 13px;">Open Admin Console &rarr;</a>
+                <button id="refreshBtn" class="button button-secondary" type="button">Refresh</button>
+            </div>
         </section>
 
         <section class="stats-overview" aria-labelledby="overview-title">
@@ -90,8 +99,8 @@
                 <div class="metric-group-heading"><p>Volume</p><h3 id="volume-title">Request demand</h3></div>
                 <div class="stats-metrics" aria-label="Volume metrics">
                     <article data-metric><h4>Last 7 days</h4><p id="requestsLast7Days" class="metric-value" aria-live="polite">Loading…</p><p>PDF requests</p></article>
-                    <article data-metric><h4>Last 30 days</h4><p id="requestsLast30Days" class="metric-value" aria-live="polite">Loading…</p><p>PDF requests</p></article>
-                    <article data-metric><h4>Trial / authenticated</h4><p id="planSplit" class="metric-value" aria-live="polite">Loading…</p><p>Requests in the last 30 days</p></article>
+                    <article data-metric><h4 id="windowMetricTitle">Last 30 days</h4><p id="requestsLast30Days" class="metric-value" aria-live="polite">Loading…</p><p>PDF requests</p></article>
+                    <article data-metric><h4>Trial / authenticated</h4><p id="planSplit" class="metric-value" aria-live="polite">Loading…</p><p id="planSplitDetail">Requests in selected window</p></article>
                 </div>
             </section>
             <section class="metric-group-section" aria-labelledby="reliability-title">
@@ -166,7 +175,7 @@
         const analyticsEndpoint = document.getElementById('analyticsEndpoint');
         const accessMessage = document.getElementById('accessMessage');
         const numberFormat = new Intl.NumberFormat();
-        const REPORTING_WINDOW_DAYS = 30;
+        let currentWindowDays = 30;
         const COGNITO_DOMAIN = 'https://renderpdf-auth-653268860643.auth.us-east-1.amazoncognito.com';
         const COGNITO_CLIENT_ID = '78pkhoj4ml959gb80coslgm42t';
         const COGNITO_REDIRECT_URI = 'https://renderpdf.vberkoz.com/app/callback';
@@ -365,6 +374,25 @@
             }).format(timestamp);
         }
 
+        document.querySelectorAll('.stats-window-btn').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const days = Number(btn.dataset.days) || 30;
+                if (days === currentWindowDays) return;
+                currentWindowDays = days;
+                document.querySelectorAll('.stats-window-btn').forEach((b) => {
+                    const active = b === btn;
+                    b.classList.toggle('is-active', active);
+                    b.setAttribute('aria-pressed', active ? 'true' : 'false');
+                });
+                const windowText = `Last ${days} days`;
+                reportingWindow.textContent = windowText;
+                document.getElementById('windowLabel').textContent = windowText;
+                const windowMetricTitle = document.getElementById('windowMetricTitle');
+                if (windowMetricTitle) windowMetricTitle.textContent = windowText;
+                loadAnalytics();
+            });
+        });
+
         async function loadAnalytics() {
             const token = sessionToken();
             if (!token) {
@@ -381,7 +409,7 @@
             setBreakdownState('loading', 'Loading analytics…');
             const startedAt = performance.now();
             try {
-                const response = await fetch(`/api/v1/analytics?days=${REPORTING_WINDOW_DAYS}`, {
+                const response = await fetch(`/api/v1/analytics?days=${currentWindowDays}`, {
                     cache: 'no-store',
                     headers: {
                         Authorization: `Bearer ${token}`,
@@ -424,28 +452,64 @@
                 refreshStatus.dataset.state = 'success';
                 apiVersion.textContent = 'Analytics response received';
                 responseTime.textContent = `${duration} ms`;
-                const windowDays = Number(payload.windowDays) || REPORTING_WINDOW_DAYS;
-                reportingWindow.textContent = `Last ${windowDays} days`;
-                document.getElementById('windowLabel').textContent = `Last ${windowDays} days`;
+
+                const rendering = payload.rendering || {};
+                const funnel = payload.funnel || {};
+                const rollups = payload.dailyRollups || [];
+
+                const windowDays = Number(payload.windowDays) || currentWindowDays;
+                const windowText = `Last ${windowDays} days`;
+                reportingWindow.textContent = windowText;
+                document.getElementById('windowLabel').textContent = windowText;
+                const windowMetricTitle = document.getElementById('windowMetricTitle');
+                if (windowMetricTitle) windowMetricTitle.textContent = windowText;
                 analyticsEndpoint.textContent = `/api/v1/analytics?days=${windowDays}`;
                 setLastUpdated(new Date());
-                const hasActivity = Number(payload.requestsLast30Days || 0) > 0;
-                document.getElementById('requestsToday').textContent = numberFormat.format(payload.requestsToday || 0);
-                document.getElementById('requestsLast7Days').textContent = numberFormat.format(payload.requestsLast7Days || 0);
-                document.getElementById('requestsLast30Days').textContent = numberFormat.format(payload.requestsLast30Days || 0);
-                document.getElementById('planSplit').textContent = `${numberFormat.format(payload.trialRequests || 0)} / ${numberFormat.format(payload.authenticatedRequests || 0)}`;
-                document.getElementById('successRate').textContent = `${Number(payload.successRate || 0).toFixed(1)}%`;
-                document.getElementById('p95RenderMs').textContent = `${Math.round(payload.p95RenderMs || 0)} ms`;
-                document.getElementById('errorsTimeouts').textContent = `${numberFormat.format(payload.errors || 0)} / ${numberFormat.format(payload.timeouts || 0)}`;
-                document.getElementById('trialConversion').textContent = `${Number(payload.trialToSignupRate || 0).toFixed(1)}%`;
-                if (hasActivity) {
-                    document.querySelectorAll('[data-metric]').forEach((metric) => { metric.dataset.state = 'ready'; });
-                } else {
-                    setMetricState('empty', 'No requests yet');
+
+                const totalRenders = Number(payload.requestsLast30Days ?? payload.totalRequests ?? rendering.totalRenders ?? 0);
+
+                let reqToday = payload.requestsToday;
+                if (reqToday == null) {
+                    const todayStr = new Date().toISOString().slice(0, 10);
+                    const todayRollup = rollups.find((r) => r.date === todayStr);
+                    reqToday = todayRollup ? Number(todayRollup.renders || 0) : 0;
                 }
-                renderDailyUsage(payload.byDay);
-                renderRanks('topApiKeys', payload.topApiKeys, 'No API key usage yet');
-                renderRanks('topCustomers', payload.topCustomers, 'No authenticated usage yet');
+
+                let req7Days = payload.requestsLast7Days;
+                if (req7Days == null) {
+                    const recent7 = rollups.slice(-7);
+                    req7Days = recent7.reduce((acc, r) => acc + Number(r.renders || 0), 0);
+                }
+
+                const successRateVal = payload.successRate ?? rendering.successRate ?? 100;
+                const p95Val = payload.p95RenderMs ?? rendering.p95RenderMs ?? 0;
+                const trialConvVal = payload.trialToSignupRate ?? funnel.trialToSignupRate ?? 0;
+                const errorsVal = payload.errors ?? rendering.errors ?? 0;
+                const timeoutsVal = payload.timeouts ?? 0;
+                const trialReqs = Number(payload.trialRequests ?? funnel.playgroundSubmits ?? 0);
+                const authReqs = Number(payload.authenticatedRequests ?? (totalRenders - trialReqs > 0 ? totalRenders - trialReqs : totalRenders));
+
+                document.getElementById('requestsToday').textContent = numberFormat.format(reqToday);
+                document.getElementById('requestsLast7Days').textContent = numberFormat.format(req7Days);
+                document.getElementById('requestsLast30Days').textContent = numberFormat.format(totalRenders);
+                document.getElementById('planSplit').textContent = `${numberFormat.format(trialReqs)} / ${numberFormat.format(authReqs)}`;
+                document.getElementById('successRate').textContent = totalRenders > 0 ? `${Number(successRateVal).toFixed(1)}%` : '100.0%';
+                document.getElementById('p95RenderMs').textContent = totalRenders > 0 && p95Val > 0 ? `${Math.round(p95Val)} ms` : '—';
+                document.getElementById('errorsTimeouts').textContent = `${numberFormat.format(errorsVal)} / ${numberFormat.format(timeoutsVal)}`;
+                document.getElementById('trialConversion').textContent = `${Number(trialConvVal).toFixed(1)}%`;
+
+                document.querySelectorAll('[data-metric]').forEach((metric) => { metric.dataset.state = 'ready'; });
+
+                const byDayData = payload.byDay || rollups.map((r) => ({
+                    date: r.date,
+                    requests: Number(r.renders || 0),
+                    trialRequests: 0,
+                    apiRequests: Number(r.renders || 0),
+                }));
+
+                renderDailyUsage(byDayData);
+                renderRanks('topApiKeys', payload.topApiKeys, 'No API key usage recorded in this window');
+                renderRanks('topCustomers', payload.topCustomers, 'No authenticated usage recorded in this window');
                 renderCountryChart(payload.byCountry);
             } catch (error) {
                 apiBadge.textContent = 'Unavailable';

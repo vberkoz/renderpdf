@@ -1,0 +1,216 @@
+/* ==========================================================================
+   Batches & Saved Resources Views
+   ========================================================================== */
+.batches-panel {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+}
+
+.batch-jobs {
+  display: grid;
+  gap: 12px;
+}
+
+.batch-jobs-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.batch-jobs-header h2 {
+  margin: 0;
+  font-size: 1.15rem;
+  color: var(--text);
+}
+
+.batch-composer {
+  overflow: hidden;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-lg);
+  background: var(--card-bg);
+}
+
+.batch-composer > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 48px;
+  padding: 0 18px;
+  list-style: none;
+  cursor: pointer;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.batch-composer > summary::-webkit-details-marker {
+  display: none;
+}
+
+.batch-composer > summary::after {
+  content: '+';
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 1.1rem;
+  font-weight: 400;
+}
+
+.batch-composer[open] > summary {
+  border-bottom: 1px solid var(--line);
+}
+
+.batch-composer[open] > summary::after {
+  content: '−';
+}
+
+.batch-composer > summary:hover {
+  background: var(--panel-strong);
+}
+
+.batch-composer-content {
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+}
+
+.batch-step {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, .7fr);
+  align-items: start;
+  gap: 16px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.batch-step:last-of-type {
+  border-bottom: none;
+}
+
+.batch-step h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: 14px;
+}
+
+.batch-step p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+.batch-submit-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 0 4px;
+  border-top: 1px solid var(--line);
+  margin-top: 4px;
+}
+
+.batch-submit-bar > div {
+  display: grid;
+  gap: 2px;
+}
+
+.batch-submit-bar strong {
+  font-size: 14px;
+  color: var(--text);
+}
+
+.batch-submit-bar span {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.billing-info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+  margin-top: 14px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.billing-info-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--panel);
+}
+
+.billing-info-card h3 {
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.billing-info-card p {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.billing-info-card a {
+  color: var(--blue-light);
+  text-decoration: underline;
+}
+
+/* ==========================================================================
+   Activity Logs View
+   ========================================================================== */
+.logs-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.logs-list {
+  display: grid;
+  gap: 8px;
+}
+
+.logs-list-request {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--panel);
+  font-size: 13.5px;
+  transition: all 0.15s ease;
+}
+
+.logs-list-request:hover {
+  background: var(--panel-strong);
+  border-color: var(--card-border-hover);
+}
+
+.logs-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+#logsPageStatus {
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+

@@ -1,0 +1,219 @@
+/* ==========================================================================
+   Create PDF / Authoring Workflow
+   ========================================================================== */
+.create-render-panel {
+  display: grid;
+  gap: 18px;
+}
+
+.workflow-stage {
+  min-width: 0;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-lg);
+  background: var(--card-bg);
+  padding: 20px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+}
+
+.workflow-source-stage {
+  display: grid;
+  gap: 16px;
+  background: var(--card-bg);
+}
+
+.workflow-stage-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.workflow-stage-heading h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.02em;
+}
+
+.workflow-stage-heading p {
+  margin: 3px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.workflow-step-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--blue-dim);
+  color: var(--blue-light);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.source-choice {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.source-choice-option {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--panel);
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: break-word;
+  transition: all 0.15s ease;
+}
+
+.source-choice-option strong {
+  font-size: 13.5px;
+  color: var(--text);
+}
+
+.source-choice-option span {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.source-choice-option:hover,
+.source-choice-option:focus-visible {
+  border-color: var(--card-border-hover);
+  background: var(--panel-strong);
+  outline: none;
+}
+
+.source-choice-option.is-selected {
+  border-color: var(--blue);
+  background: var(--blue-dim);
+  box-shadow: inset 0 0 0 1px var(--blue);
+}
+
+.source-choice-option.is-selected strong {
+  color: var(--blue-light);
+}
+
+.template-editor,
+.document-json-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1.08fr) minmax(320px, .92fr);
+  max-width: 100%;
+  min-width: 0;
+  gap: 16px;
+  align-items: start;
+}
+
+.template-form,
+.document-json-editor {
+  display: grid;
+  max-width: 100%;
+  min-width: 0;
+  gap: 14px;
+  padding: 18px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-lg);
+}
+
+.template-form-row {
+  display: grid;
+  grid-template-columns: minmax(200px, 1fr) minmax(220px, 1.4fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.template-preview-stage,
+.document-json-preview-stage {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  min-height: 0;
+  padding: 18px;
+  overflow: auto;
+  background: #0b1120;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  height: min(66vh, 760px);
+}
+
+.template-preview,
+.document-json-preview {
+  display: block;
+  width: min(100%, 700px);
+  max-width: 700px;
+  min-width: 0;
+  min-height: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: #ffffff;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+.workflow-primary-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding-top: 4px;
+}
+
+.workflow-secondary-actions {
+  position: relative;
+}
+
+.workflow-secondary-actions > summary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 38px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--button-radius);
+  background: var(--panel);
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  list-style: none;
+  transition: all 0.15s ease;
+}
+
+.workflow-secondary-actions > summary::-webkit-details-marker {
+  display: none;
+}
+
+.workflow-secondary-actions > summary:hover {
+  color: var(--text);
+  border-color: var(--card-border-hover);
+}
+
+.workflow-secondary-actions > div {
+  position: absolute;
+  z-index: 20;
+  right: 0;
+  bottom: calc(100% + 8px);
+  display: grid;
+  gap: 6px;
+  min-width: max-content;
+  padding: 8px;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-md);
+  background: var(--panel);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.5);
+}
+

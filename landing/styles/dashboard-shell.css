@@ -1,0 +1,371 @@
+/* RenderPDF Client Developer Dashboard - Elevated Dark Theme (aligned with Admin UI) */
+:root:has(.dashboard-page),
+body.dashboard-page {
+  color-scheme: dark;
+  --bg: #090d16;
+  --bg-elevated: #0f172a;
+  --panel: #131d31;
+  --panel-strong: #17233b;
+  --card-bg: #151f33;
+  --card-border: #202e47;
+  --card-border-hover: #314468;
+  --text: #f8fafc;
+  --muted: #94a3b8;
+  --dim: #64748b;
+  --line: #1e2d44;
+  --line-strong: #2c3f5e;
+  
+  --accent: #3b82f6;
+  --blue: #3b82f6;
+  --blue-light: #60a5fa;
+  --blue-dim: rgba(59, 130, 246, 0.15);
+  
+  --emerald: #10b981;
+  --emerald-light: #34d399;
+  --emerald-dim: rgba(16, 185, 129, 0.15);
+  --success: #10b981;
+  
+  --amber: #f59e0b;
+  --amber-light: #fbbf24;
+  --amber-dim: rgba(245, 158, 11, 0.15);
+  --warning: #f59e0b;
+  
+  --rose: #ef4444;
+  --rose-light: #f87171;
+  --rose-dim: rgba(239, 68, 68, 0.15);
+  --error: #ef4444;
+  
+  --purple: #8b5cf6;
+  --purple-light: #a78bfa;
+  --purple-dim: rgba(139, 92, 246, 0.15);
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-pill: 9999px;
+  --control-radius: 6px;
+  --button-radius: 6px;
+  --font-sans: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --dashboard-container-width: 1400px;
+}
+
+body.dashboard-page {
+  min-height: 100vh;
+  margin: 0;
+  background-color: var(--bg);
+  background-image: radial-gradient(#1e293b 0.75px, transparent 0.75px);
+  background-size: 20px 20px;
+  color: var(--text);
+  font-family: var(--font-sans);
+  overflow-x: hidden;
+  overflow-x: clip;
+}
+
+.dashboard-app-frame {
+  display: flex;
+  min-height: 100vh;
+  flex-direction: column;
+}
+
+/* ==========================================================================
+   Header & Topbar (Sticky Elevated Container)
+   ========================================================================== */
+.dashboard-page .dashboard-topbar {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-elevated);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  backdrop-filter: blur(8px);
+}
+
+.dashboard-topbar-inner {
+  max-width: 1400px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 14px 24px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.dashboard-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+  color: var(--text);
+}
+
+.dashboard-brand-icon {
+  width: 28px;
+  height: 28px;
+  background: var(--brand-logo, url('/favicon.svg')) no-repeat center / contain;
+  border-radius: var(--radius-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+  flex-shrink: 0;
+}
+
+.dashboard-brand-title {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+
+.dashboard-badge-app {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--blue-dim);
+  color: var(--blue-light);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.dashboard-marketing-nav {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.dashboard-marketing-nav .dashboard-nav-link-btn,
+.dashboard-marketing-nav a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.dashboard-marketing-nav a:hover,
+.dashboard-marketing-nav .dashboard-nav-link-btn:hover {
+  color: var(--text);
+  background: var(--panel);
+}
+
+
+/* ==========================================================================
+   App Layout & Sidebar
+   ========================================================================== */
+.dashboard-app-layout {
+  display: grid;
+  flex: 1 0 auto;
+  grid-template-columns: 210px minmax(0, 1fr);
+  gap: 36px;
+  max-width: 1400px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 28px 24px 48px;
+  box-sizing: border-box;
+  align-items: start;
+}
+
+.dashboard-sidebar {
+  position: sticky;
+  top: 76px;
+  align-self: start;
+  padding-top: 6px;
+}
+
+.dashboard-app-nav {
+  display: grid;
+  gap: 4px;
+}
+
+.dashboard-app-nav a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 38px;
+  padding: 0 12px;
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  font-size: 13.5px;
+  font-weight: 500;
+  text-decoration: none;
+  border: 1px solid transparent;
+  transition: all 0.15s ease;
+}
+
+.dashboard-app-nav a svg {
+  width: 15px;
+  height: 15px;
+  color: var(--dim);
+  transition: color 0.15s ease;
+  flex-shrink: 0;
+}
+
+.dashboard-app-nav a:hover,
+.dashboard-app-nav a:focus-visible {
+  background: var(--panel);
+  color: var(--text);
+  outline: none;
+}
+
+.dashboard-app-nav a:hover svg {
+  color: var(--blue-light);
+}
+
+.dashboard-app-nav a.is-active,
+.dashboard-app-nav a[aria-current="page"] {
+  background: var(--blue-dim);
+  color: var(--blue-light);
+  border-color: rgba(59, 130, 246, 0.25);
+  font-weight: 600;
+}
+
+.dashboard-app-nav a.is-active svg,
+.dashboard-app-nav a[aria-current="page"] svg {
+  color: var(--blue-light);
+}
+
+.dashboard-nav-group {
+  display: grid;
+  gap: 4px;
+  margin-top: 20px;
+}
+
+.dashboard-nav-group p {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 6px;
+  padding: 0 10px;
+  color: var(--dim);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.dashboard-nav-group p::after {
+  height: 1px;
+  flex: 1;
+  background: var(--line);
+  content: "";
+}
+
+.sidebar-quickstart-card {
+  margin-top: 24px;
+  padding: 12px 14px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sidebar-quickstart-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sidebar-quickstart-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--blue-light);
+}
+
+.sidebar-quickstart-title svg {
+  color: var(--blue-light);
+}
+
+.sidebar-quickstart-text {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.sidebar-quickstart-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  margin-top: 4px;
+  padding: 7px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #ffffff;
+  background: var(--blue);
+  border: 1px solid rgba(59, 130, 246, 0.4);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-sizing: border-box;
+}
+
+.sidebar-quickstart-btn:hover {
+  background: #2563eb;
+  border-color: var(--blue-light);
+}
+
+.sidebar-quickstart-btn svg {
+  transition: transform 0.15s ease;
+}
+
+.sidebar-quickstart-btn:hover svg {
+  transform: translateX(2px);
+}
+
+.dashboard-nav-group-logout {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+#logoutBtn,
+#mobileLogoutBtn {
+  border: 1px solid transparent;
+  color: var(--muted);
+}
+
+#logoutBtn:hover,
+#logoutBtn:focus-visible,
+#mobileLogoutBtn:hover,
+#mobileLogoutBtn:focus-visible {
+  color: var(--rose-light);
+  border-color: rgba(239, 68, 68, 0.4);
+  background: var(--rose-dim);
+  outline: none;
+}
+
+#logoutBtn:hover svg,
+#logoutBtn:focus-visible svg,
+#mobileLogoutBtn:hover svg,
+#mobileLogoutBtn:focus-visible svg {
+  color: var(--rose-light);
+}
+
+.dashboard-mobile-navigation {
+  display: none;
+}
+

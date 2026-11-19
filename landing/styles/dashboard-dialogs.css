@@ -1,0 +1,327 @@
+/* ==========================================================================
+   Modals & Dialogs
+   ========================================================================== */
+.dashboard-dialog {
+  position: fixed;
+  z-index: 60;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 20px;
+  border: 0;
+  background: transparent;
+}
+
+.dashboard-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
+}
+
+.dashboard-dialog[open] {
+  display: grid;
+  place-items: center;
+}
+
+.dashboard-dialog-card {
+  display: grid;
+  gap: 16px;
+  width: min(100%, 480px);
+  padding: 24px;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+  color: var(--text);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
+}
+
+.dashboard-dialog-heading {
+  display: grid;
+  gap: 6px;
+}
+
+.dashboard-dialog-heading h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.dashboard-dialog-heading p {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 0;
+}
+
+.dashboard-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.billing-plan-dialog {
+  width: min(100%, 560px);
+  gap: 24px;
+  padding: 28px;
+}
+
+.plan-options {
+  display: grid;
+  gap: 10px;
+}
+
+.plan-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 76px;
+  gap: 18px;
+  padding: 16px 18px;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-md);
+  background: var(--card-bg);
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s ease;
+}
+
+.plan-option:hover {
+  border-color: var(--blue);
+  background: var(--panel-strong);
+  box-shadow: 0 8px 24px rgba(59, 130, 246, 0.15);
+  transform: translateY(-1px);
+}
+
+.plan-option-copy strong {
+  font-size: 15px;
+  color: var(--text);
+}
+
+.plan-option-copy span,
+.plan-option-price span {
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.plan-option-price strong {
+  font-size: 16px;
+  color: var(--text);
+}
+
+.plan-overage-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  border: 1px dashed var(--card-border-hover);
+  border-radius: var(--radius-md);
+  background: var(--panel-strong);
+}
+
+.plan-overage-card strong {
+  color: var(--text);
+  font-size: 14px;
+}
+
+.plan-overage-card span {
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.plan-billing-switch-wrap {
+  display: flex;
+  justify-content: center;
+  margin: -6px 0 2px;
+}
+
+.pricing-billing-toggle {
+  display: inline-flex;
+  background: var(--bg);
+  border: 1px solid var(--card-border);
+  padding: 3px;
+  border-radius: var(--radius-pill);
+}
+
+.dashboard-interval-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 150ms ease;
+}
+
+.dashboard-interval-btn.is-active {
+  background: var(--blue);
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(59, 130, 246, 0.3);
+}
+
+.dashboard-interval-btn .pricing-save-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: var(--radius-pill);
+  background: rgba(16, 185, 129, 0.2);
+  color: var(--emerald-light);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+/* Quickstart Modal */
+.quickstart-dialog {
+  width: min(100%, 680px);
+  max-height: calc(100vh - 40px);
+  gap: 16px;
+  padding: 24px;
+  background: var(--panel);
+  border: 1px solid var(--card-border);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
+  overflow-y: auto;
+  border-radius: var(--radius-lg);
+  color: var(--text);
+}
+
+.quickstart-key-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+}
+
+.quickstart-key-label {
+  color: var(--blue-light);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.quickstart-key-value {
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.quickstart-tablist {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 0;
+  overflow-x: auto;
+}
+
+.quickstart-tab {
+  padding: 8px 14px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.quickstart-tab:hover {
+  color: var(--text);
+}
+
+.quickstart-tab.is-active,
+.quickstart-tab[aria-selected="true"] {
+  color: var(--blue-light);
+  border-bottom-color: var(--blue);
+}
+
+.quickstart-tabpanel {
+  display: grid;
+  gap: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.quickstart-code-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-elevated);
+}
+
+.quickstart-lang-badge {
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.quickstart-copy-btn {
+  padding: 4px 10px;
+  font-size: 12px;
+  min-height: 28px;
+  background: var(--panel);
+  border-color: var(--line);
+  color: var(--text);
+}
+
+.quickstart-copy-btn:hover {
+  background: var(--panel-strong);
+  border-color: var(--card-border-hover);
+  color: #ffffff;
+}
+
+.quickstart-pre {
+  margin: 0;
+  padding: 14px;
+  max-height: 280px;
+  overflow: auto;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: #e2e8f0;
+  background: transparent;
+  white-space: pre;
+}
+
+.quickstart-docs-link {
+  color: var(--muted);
+  font-size: 13px;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: color 0.15s ease;
+}
+
+.quickstart-docs-link:hover {
+  color: var(--blue-light);
+}
+
