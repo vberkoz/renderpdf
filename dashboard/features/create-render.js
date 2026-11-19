@@ -266,6 +266,9 @@ img { max-width: 100%; box-sizing: content-box; background-color: #fff; }
       if (!allowedSourceTypes.includes(request.source.type)) {
         throw new Error(`Unsupported source type "${request.source.type}".`);
       }
+      if (request.source.type !== 'url' && (request.source.headers !== undefined || request.source.cookies !== undefined)) {
+        throw new Error('source.headers and source.cookies are only supported when source.type is "url".');
+      }
       if (request.source.type === 'markdown') {
         const unknownSourceField = Object.keys(request.source).find(
           (field) => !['type', 'content'].includes(field)
@@ -277,8 +280,53 @@ img { max-width: 100%; box-sizing: content-box; background-color: #fff; }
         if (documentByteLength(request.source.content) > 768 * 1024)
           throw new Error('source.content must not exceed 768 KB.');
       } else if (request.source.type === 'url') {
+        const unknownUrlField = Object.keys(request.source).find(
+          (field) => !['type', 'url', 'headers', 'cookies'].includes(field)
+        );
+        if (unknownUrlField) throw new Error(`Unknown source field "${unknownUrlField}".`);
         if (typeof request.source.url !== 'string' || !/^https?:\/\//i.test(request.source.url)) {
           throw new Error('source.url must be a valid HTTP or HTTPS URL.');
+        }
+        if (request.source.headers !== undefined) {
+          if (!isPlainObject(request.source.headers)) {
+            throw new Error('source.headers must be a JSON object of header names and string values.');
+          }
+          const disallowedHeaders = new Set([
+            'host', 'connection', 'keep-alive', 'proxy-authenticate', 'proxy-authorization',
+            'proxy-connection', 'te', 'trailer', 'transfer-encoding', 'upgrade', 'content-length',
+            'expect', 'x-forwarded-for', 'x-forwarded-host', 'x-forwarded-proto', 'x-forwarded-port',
+            'x-real-ip', 'x-original-url', 'x-rewrite-url', 'cf-connecting-ip', 'true-client-ip',
+            'forwarded', 'via',
+          ]);
+          const entries = Object.entries(request.source.headers);
+          if (entries.length > 32) {
+            throw new Error('source.headers must not exceed 32 entries.');
+          }
+          for (const [k, v] of entries) {
+            if (typeof v !== 'string' || /[\r\n\0]/.test(k) || /[\r\n\0]/.test(v) || !/^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/.test(k)) {
+              throw new Error(`Invalid URL header "${k}".`);
+            }
+            const lower = k.toLowerCase();
+            if (disallowedHeaders.has(lower) || lower.startsWith('proxy-') || lower.startsWith('sec-')) {
+              throw new Error(`Header "${k}" is not permitted on URL renders.`);
+            }
+          }
+        }
+        if (request.source.cookies !== undefined) {
+          if (!Array.isArray(request.source.cookies)) {
+            throw new Error('source.cookies must be an array of cookie objects.');
+          }
+          if (request.source.cookies.length > 32) {
+            throw new Error('source.cookies must not exceed 32 entries.');
+          }
+          for (const cookie of request.source.cookies) {
+            if (!isPlainObject(cookie) || typeof cookie.name !== 'string' || !cookie.name.trim() || typeof cookie.value !== 'string') {
+              throw new Error('Each cookie in source.cookies must have a string name and value.');
+            }
+            if (/[;,\r\n\0 \t]/.test(cookie.name) || /[;\r\n\0]/.test(cookie.value)) {
+              throw new Error(`Invalid cookie "${cookie.name}".`);
+            }
+          }
         }
       } else if (request.source.type === 'upload') {
         if (typeof request.source.uploadId !== 'string' || !request.source.uploadId.trim()) {

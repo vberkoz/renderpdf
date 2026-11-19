@@ -271,3 +271,54 @@ func TestSanctionedCountry(t *testing.T) {
 	}
 }
 
+func TestMergeCDPRequestHeadersSameOriginScoping(t *testing.T) {
+	targetURL := "https://portal.example.com/invoice/123"
+	custom, err := validateAndScrubURLHeaders(targetURL, map[string]string{
+		"Authorization": "Bearer secret-jwt",
+		"X-Tenant-ID":   "org_42",
+	})
+	if err != nil {
+		t.Fatalf("validateAndScrubURLHeaders failed: %v", err)
+	}
+
+	// Same-origin subresource receives merged custom headers
+	if !isSameOriginHeaderTarget(targetURL, "https://portal.example.com/assets/app.css") {
+		t.Fatalf("expected same-origin asset to match")
+	}
+	merged := mergeCDPRequestHeaders(map[string]interface{}{
+		"Accept":        "text/css",
+		"authorization": "Bearer old-token",
+	}, custom)
+
+	foundAuth := ""
+	foundTenant := ""
+	foundAccept := ""
+	for _, entry := range merged {
+		switch entry.Name {
+		case "Authorization":
+			foundAuth = entry.Value
+		case "X-Tenant-Id":
+			foundTenant = entry.Value
+		case "Accept":
+			foundAccept = entry.Value
+		}
+	}
+	if foundAuth != "Bearer secret-jwt" || foundTenant != "org_42" || foundAccept != "text/css" {
+		t.Fatalf("unexpected merged CDP headers: %#v", merged)
+	}
+
+	// Cross-origin subresources and internal targets never match same-origin header scoping
+	crossOriginTargets := []string{
+		"https://cdn.other-domain.com/lib.js",
+		"http://portal.example.com/downgrade.js",
+		"http://169.254.169.254/latest/meta-data/",
+		"http://127.0.0.1:9001/2018-06-01/runtime/invocation/next",
+	}
+	for _, subURL := range crossOriginTargets {
+		if isSameOriginHeaderTarget(targetURL, subURL) {
+			t.Fatalf("expected custom headers NOT to attach to %q", subURL)
+		}
+	}
+}
+
+

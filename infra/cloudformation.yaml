@@ -142,6 +142,20 @@ Parameters:
       - 'true'
       - 'false'
     Description: Feature flag enabling warm headless Chromium browser pool reuse across Lambda invocations (set to false to spawn a new browser per request)
+  ComplianceEngineV2:
+    Type: String
+    Default: 'true'
+    AllowedValues:
+      - 'true'
+      - 'false'
+    Description: Feature flag enabling VeraPDF-passing PDF/A-3b, Factur-X (KoSIT EN 16931), and PDF/UA-1 compliance engine v2
+  UrlAuthHeadersEnabled:
+    Type: String
+    Default: 'true'
+    AllowedValues:
+      - 'true'
+      - 'false'
+    Description: Feature flag enabling custom HTTP headers and cookies on URL renders with same-origin and SSRF scrubbing
 
 Resources:
   OperationsAlertsTopic:
@@ -992,6 +1006,8 @@ Resources:
           USER_POOL_ID: !Ref UserPoolV2
           DEFAULT_DISPLAY_HEADER_FOOTER: !Ref DefaultDisplayHeaderFooter
           CHROME_WARM_POOL: !Ref ChromeWarmPool
+          COMPLIANCE_ENGINE_V2: !Ref ComplianceEngineV2
+          URL_AUTH_HEADERS_ENABLED: !Ref UrlAuthHeadersEnabled
 
   TrialPdfFunction:
     Type: AWS::Lambda::Function
@@ -1012,6 +1028,8 @@ Resources:
           TRIAL_MAX_HTML_BYTES: '1048576'
           DEFAULT_DISPLAY_HEADER_FOOTER: !Ref DefaultDisplayHeaderFooter
           CHROME_WARM_POOL: !Ref ChromeWarmPool
+          COMPLIANCE_ENGINE_V2: !Ref ComplianceEngineV2
+          URL_AUTH_HEADERS_ENABLED: !Ref UrlAuthHeadersEnabled
 
   BatchWorkerFunction:
     Type: AWS::Lambda::Function
@@ -1040,6 +1058,8 @@ Resources:
           USER_POOL_ID: !Ref UserPoolV2
           DEFAULT_DISPLAY_HEADER_FOOTER: !Ref DefaultDisplayHeaderFooter
           CHROME_WARM_POOL: !Ref ChromeWarmPool
+          COMPLIANCE_ENGINE_V2: !Ref ComplianceEngineV2
+          URL_AUTH_HEADERS_ENABLED: !Ref UrlAuthHeadersEnabled
 
   BatchWorkerEventSource:
     Type: AWS::Lambda::EventSourceMapping

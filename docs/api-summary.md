@@ -49,7 +49,11 @@ Request shape:
       "onTop": true
     },
     "compliance": {
-      "profile": "pdfa-1b|pdfa-2b|pdfa-3b|factur-x|zugferd",
+      "profile": "pdfa-1b|pdfa-2b|pdfa-3b|pdfua-1|factur-x|zugferd",
+      "pdfua": true,
+      "title": "Invoice #INV-2026-001",
+      "language": "en-US",
+      "validateXml": true,
       "invoiceXml": "<rsm:CrossIndustryInvoice>...</rsm:CrossIndustryInvoice>",
       "invoiceProfile": "MINIMUM|BASIC WL|BASIC|EN 16931|EXTENDED",
       "xmlFilename": "factur-x.xml|zugferd-invoice.xml",
@@ -81,7 +85,7 @@ Request shape:
 | `html` | `content` (string) | `{"type": "html", "content": "<h1>{{title}}</h1>"}` (max 1 MB) |
 | `markdown` | `content` (string) | `{"type": "markdown", "content": "# {{title}}"}` |
 | `template` | `templateId` or `id` (string), opt: `variables` or `data` (obj) | `{"type": "template", "templateId": "tmpl_..."}` (cross-resolves saved sources) |
-| `url` | `url` (valid http/https URI) | `{"type": "url", "url": "https://example.com"}` |
+| `url` | `url` (valid http/https URI), opt: `headers` (obj), `cookies` (array) | `{"type": "url", "url": "https://example.com", "headers": {"Authorization": "Bearer ..."}, "cookies": [{"name": "sid", "value": "..."}]}` (same-origin scoped; SSRF/hop-by-hop headers scrubbed) |
 | `upload` | `uploadId` (string), opt: `entrypoint` (str) | `{"type": "upload", "uploadId": "upload_...", "entrypoint": "index.html"}` |
 | `stored` | `id` or `templateId` (string), opt: `data` or `variables` (obj) | `{"type": "stored", "id": "src_..."}` (cross-resolves saved templates) |
 
@@ -113,13 +117,13 @@ Templates and HTML documents can directly embed barcodes and QR codes rendered s
   - `<barcode type="code128|128|code39|39|ean|ean13|ean8|2of5|datamatrix|pdf417|qr" value="INV-2026" width="220" height="60" text="true|false" />`
   - `<div data-barcode="INV-2026" data-barcode-type="code128"></div>`
 
-### PDF/A & Invoicing Compliance (Factur-X / ZUGFeRD)
+### PDF/A, PDF/UA-1 & Invoicing Compliance (Factur-X / ZUGFeRD)
 
-- **PDF/A & Invoicing Compliance (Factur-X / ZUGFeRD)**:
-  - Supports ISO archival profiles (`pdfa-1b`, `pdfa-2b`, `pdfa-3b`) and hybrid Franco-German e-invoicing (`factur-x`, `zugferd`).
-  - Automatically injects sRGB IEC61966-2.1 OutputIntents dictionary (`GTS_PDFA1` or `GTS_PDFA3`).
-  - Injects XMP metadata with `pdfaid:part` and `pdfaid:conformance`.
-  - For `factur-x` and `zugferd`: embeds the structured invoice XML (`factur-x.xml` or `zugferd-invoice.xml`) into `/EmbeddedFiles`, associates it in `/AF` with `/AFRelationship /Data` and stream `/Subtype /text/xml`, and adds the official Factur-X Adobe XMP extension schema (`urn:factur-x:pdfa:CrossIndustryDocument:invoice:1p0#`).
+- **VeraPDF-Passing PDF/A, PDF/UA-1 & Invoicing Compliance (Factur-X / ZUGFeRD)**:
+  - Supports ISO archival profiles (`pdfa-1b`, `pdfa-2b`, `pdfa-3b`), Universal Accessibility (`pdfua-1` or `options.compliance.pdfua: true`), and hybrid Franco-German e-invoicing (`factur-x`, `zugferd`).
+  - Embeds a real 3-channel (`/N 3`) sRGB IEC61966-2.1 ICC color profile stream as `/DestOutputProfile` in `/OutputIntents` with `/S /GTS_PDFA1`.
+  - Synchronizes XMP metadata (`dc:title`, `dc:creator`, `dc:description`, `pdfaid:part`, `pdfaid:conformance`, `pdfuaid:part`) with the PDF `/Info` dictionary and trailer `/ID`, and configures Tagged PDF structure (`/MarkInfo << /Marked true >>`, `/Lang`, `/ViewerPreferences << /DisplayDocTitle true >>`, `/StructTreeRoot`).
+  - For `factur-x` and `zugferd`: validates UN/CEFACT CII XML structure against KoSIT EN 16931 rules (`CrossIndustryInvoice`, `ExchangedDocumentContext`, `ExchangedDocument/ID`, `SupplyChainTradeTransaction`), embeds the XML (`factur-x.xml` or `zugferd-invoice.xml`) into `/EmbeddedFiles` with `/Params << /Size ... /ModDate ... >>`, associates it in `/AF` with `/AFRelationship /Data` and stream `/Subtype /text/xml`, and adds the official Factur-X Adobe XMP extension schema (`urn:factur-x:pdfa:CrossIndustryDocument:invoice:1p0#`).
   - Supported invoice profiles: `MINIMUM`, `BASIC WL`, `BASIC`, `EN 16931` (default, standard EU mandate), `EXTENDED`.
   - Note: PDF/A specification strictly forbids password encryption; combining `compliance` with `password` or `ownerPassword` returns `422`.
 

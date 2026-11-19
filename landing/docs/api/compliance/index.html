@@ -98,8 +98,12 @@
                                 <li><code>pdfa-1b</code>: ISO 19005-1 Level B archival profile.</li>
                                 <li><code>pdfa-2b</code>: ISO 19005-2 Level B archival profile.</li>
                                 <li><code>pdfa-3b</code>: ISO 19005-3 Level B archival profile (allows embedded files).</li>
+                                <li><code>pdfua-1</code>: ISO 14289-1 Universal Accessibility tagged PDF profile (or combine with PDF/A via <code>pdfua: true</code>).</li>
                             </ul>
                         </p></div>
+                        <div class="property-row"><code>pdfua</code><span class="type">boolean</span><span class="optional">optional</span><p>When <code>true</code>, stamps ISO 14289-1 PDF/UA-1 accessibility metadata (<code>pdfuaid:part</code>), structure tree, <code>/MarkInfo</code>, and <code>/ViewerPreferences</code> alongside any PDF/A or Factur-X profile.</p></div>
+                        <div class="property-row"><code>title</code><span class="type">string</span><span class="optional">optional</span><p>Document title synchronized across XMP <code>dc:title</code> and the PDF <code>/Info</code> dictionary for VeraPDF compliance.</p></div>
+                        <div class="property-row"><code>language</code><span class="type">string</span><span class="optional">optional</span><p>BCP-47 document language tag (defaults to <code>"en-US"</code>) stamped on Catalog <code>/Lang</code>.</p></div>
                         <div class="property-row"><code>invoiceXml</code><span class="type">string</span><span class="required">required for factur-x / zugferd</span><p>Structured XML invoice payload adhering to the UN/CEFACT CII syntax or UBL. Can be passed as a raw XML string or a base64-encoded string.</p></div>
                         <div class="property-row"><code>invoiceProfile</code><span class="type">string</span><span class="optional">optional</span><p>Conformance profile level: <code>EN 16931</code> (default; standard EU mandate), <code>MINIMUM</code>, <code>BASIC WL</code>, <code>BASIC</code>, or <code>EXTENDED</code>.</p></div>
                         <div class="property-row"><code>xmlFilename</code><span class="type">string</span><span class="optional">optional</span><p>Name assigned to the embedded attachment stream. Defaults to <code>factur-x.xml</code> for Factur-X or <code>zugferd-invoice.xml</code> for ZUGFeRD.</p></div>

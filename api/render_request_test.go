@@ -57,6 +57,7 @@ func TestCanonicalRenderRequestNormalizesSpecializedSources(t *testing.T) {
 	}{
 		{"template", `{"version":"1","source":{"type":"template","templateId":"invoice","variables":{"name":"Ada"}}}`, renderKindTemplate},
 		{"url", `{"version":"1","source":{"type":"url","url":"https://example.com"}}`, renderKindURL},
+		{"url_with_headers_and_cookies", `{"version":"1","source":{"type":"url","url":"https://example.com","headers":{"Authorization":"Bearer token123"},"cookies":[{"name":"sid","value":"abc"}]}}`, renderKindURL},
 		{"upload", `{"version":"1","source":{"type":"upload","uploadId":"0f8fad5b-d9cb-469f-a165-70867728950e","entrypoint":"index.html"}}`, renderKindUpload},
 	}
 	for _, test := range tests {
@@ -73,6 +74,11 @@ func TestCanonicalRenderRequestRejectsInvalidSourceContract(t *testing.T) {
 	tests := []string{
 		`{"version":"2","source":{"type":"html","content":"<p>x</p>"}}`,
 		`{"version":"1","source":{"type":"html","content":"<p>x</p>","url":"https://example.com"}}`,
+		`{"version":"1","source":{"type":"html","content":"<p>x</p>","headers":{"Authorization":"Bearer x"}}}`,
+		`{"version":"1","source":{"type":"markdown","content":"# x","cookies":[{"name":"a","value":"b"}]}}`,
+		`{"version":"1","source":{"type":"template","templateId":"t1","headers":{"X-Test":"1"}}}`,
+		`{"version":"1","source":{"type":"upload","uploadId":"u1","headers":{"X-Test":"1"}}}`,
+		`{"version":"1","source":{"type":"stored","id":"s1","headers":{"X-Test":"1"}}}`,
 		`{"version":"1","source":{"type":"url","url":"https://example.com"},"css":"p{}"}`,
 		`{"version":"1","source":{"type":"unknown"}}`,
 		`{"version":"1","source":{"type":"html","content":"<p>x</p>","unexpected":true}}`,

@@ -384,3 +384,276 @@ func TestMergePDFWithCompliance(t *testing.T) {
 		t.Fatalf("expected merged PDF to contain factur-x.xml attachment, got: %v", atts)
 	}
 }
+
+func TestVeraPDFStructuralClausesAndICCProfile(t *testing.T) {
+	orig := []byte(minimalValidPDF)
+	trueVal := true
+
+	profiles := []struct {
+		name     string
+		opts     complianceOptions
+		wantPart string
+		wantUA   bool
+	}{
+		{
+			name:     "pdfa-1b",
+			opts:     complianceOptions{Profile: "pdfa-1b", Title: "Archival Part 1", Language: "en-US"},
+			wantPart: "1",
+			wantUA:   false,
+		},
+		{
+			name:     "pdfa-2b",
+			opts:     complianceOptions{Profile: "pdfa-2b", Title: "Archival Part 2", Language: "de-DE"},
+			wantPart: "2",
+			wantUA:   false,
+		},
+		{
+			name:     "pdfa-3b+pdfua",
+			opts:     complianceOptions{Profile: "pdfa-3b", PDFUA: &trueVal, Title: "Accessible Archival", Language: "fr-FR"},
+			wantPart: "3",
+			wantUA:   true,
+		},
+		{
+			name:     "pdfua-1-standalone",
+			opts:     complianceOptions{Profile: "pdfua-1", Title: "Universal Accessibility", Language: "en-GB"},
+			wantPart: "",
+			wantUA:   true,
+		},
+	}
+
+	for _, tc := range profiles {
+		t.Run(tc.name, func(t *testing.T) {
+			if err := validateDocumentOptions(&documentRenderOptions{Compliance: &tc.opts}); err != nil {
+				t.Fatalf("validateDocumentOptions(%s) failed: %v", tc.name, err)
+			}
+			out, err := applyPDFCompliance(orig, documentRenderOptions{Compliance: &tc.opts})
+			if err != nil {
+				t.Fatalf("applyPDFCompliance(%s) failed: %v", tc.name, err)
+			}
+
+			conf := model.NewDefaultConfiguration()
+			conf.ValidationMode = model.ValidationRelaxed
+			ctx, err := api.ReadValidateAndOptimize(bytes.NewReader(out), conf)
+			if err != nil {
+				t.Fatalf("ReadValidateAndOptimize(%s) failed: %v", tc.name, err)
+			}
+
+			// 1. /OutputIntents must have /S /GTS_PDFA1 and /DestOutputProfile with /N 3 and valid "acsp" ICC profile
+			oiArray, err := ctx.DereferenceArray(ctx.RootDict["OutputIntents"])
+			if err != nil || len(oiArray) != 1 {
+				t.Fatalf("expected 1 OutputIntent, got: %v (err=%v)", oiArray, err)
+			}
+			oiDict, err := ctx.DereferenceDict(oiArray[0])
+			if err != nil || oiDict == nil {
+				t.Fatalf("expected OutputIntent dict: %v", err)
+			}
+			if sName, ok := oiDict["S"].(types.Name); !ok || sName.Value() != "GTS_PDFA1" {
+				t.Fatalf("expected /S /GTS_PDFA1 for ISO 19005 compliance, got: %v", oiDict["S"])
+			}
+			destObj, ok := oiDict["DestOutputProfile"]
+			if !ok {
+				t.Fatalf("expected /DestOutputProfile in OutputIntent")
+			}
+			iccStream, _, err := ctx.DereferenceStreamDict(destObj)
+			if err != nil || iccStream == nil {
+				t.Fatalf("expected DestOutputProfile stream dict: %v", err)
+			}
+			if nVal := iccStream.IntEntry("N"); nVal == nil || *nVal != 3 {
+				t.Fatalf("expected /N 3 on sRGB DestOutputProfile stream, got: %v", nVal)
+			}
+			if err := iccStream.Decode(); err != nil {
+				t.Fatalf("decode ICC stream failed: %v", err)
+			}
+			if len(iccStream.Content) < 132 || string(iccStream.Content[36:40]) != "acsp" || string(iccStream.Content[16:20]) != "RGB " {
+				t.Fatalf("invalid ICC profile header in DestOutputProfile: len=%d", len(iccStream.Content))
+			}
+
+			// 2. Tagged PDF / PDF/UA-1 structural requirements
+			markInfo, err := ctx.DereferenceDict(ctx.RootDict["MarkInfo"])
+			if err != nil || markInfo == nil || markInfo["Marked"] != types.Boolean(true) {
+				t.Fatalf("expected /MarkInfo << /Marked true >>, got: %v", markInfo)
+			}
+			if langLit, ok := ctx.RootDict["Lang"].(types.StringLiteral); !ok || langLit.Value() != tc.opts.Language {
+				t.Fatalf("expected /Lang %q, got: %v", tc.opts.Language, ctx.RootDict["Lang"])
+			}
+			vpDict, err := ctx.DereferenceDict(ctx.RootDict["ViewerPreferences"])
+			if err != nil || vpDict == nil || vpDict["DisplayDocTitle"] != types.Boolean(true) {
+				t.Fatalf("expected /ViewerPreferences << /DisplayDocTitle true >>, got: %v", vpDict)
+			}
+			structRoot, err := ctx.DereferenceDict(ctx.RootDict["StructTreeRoot"])
+			if err != nil || structRoot == nil {
+				t.Fatalf("expected /StructTreeRoot in Catalog, got: %v", err)
+			}
+
+			// 3. XMP metadata synchronization (dc:title, pdfaid, pdfuaid) & trailer /ID
+			if len(ctx.XRefTable.ID) != 2 {
+				t.Fatalf("expected 2-element trailer /ID, got: %v", ctx.XRefTable.ID)
+			}
+			metaStream, _, err := ctx.DereferenceStreamDict(ctx.RootDict["Metadata"])
+			if err != nil || metaStream == nil {
+				t.Fatalf("expected Metadata stream: %v", err)
+			}
+			if err := metaStream.Decode(); err != nil {
+				t.Fatalf("decode Metadata stream: %v", err)
+			}
+			xmp := string(metaStream.Content)
+			if !strings.Contains(xmp, "<dc:title>") || !strings.Contains(xmp, tc.opts.Title) {
+				t.Fatalf("expected dc:title %q in XMP:\n%s", tc.opts.Title, xmp)
+			}
+			if tc.wantPart != "" && !strings.Contains(xmp, "<pdfaid:part>"+tc.wantPart+"</pdfaid:part>") {
+				t.Fatalf("expected pdfaid:part %s in XMP:\n%s", tc.wantPart, xmp)
+			}
+			if tc.wantUA && !strings.Contains(xmp, "<pdfuaid:part>1</pdfuaid:part>") {
+				t.Fatalf("expected pdfuaid:part 1 in XMP:\n%s", xmp)
+			}
+		})
+	}
+}
+
+func TestKoSITEN16931CIIValidation(t *testing.T) {
+	validCII := `<?xml version="1.0" encoding="UTF-8"?>
+<rsm:CrossIndustryInvoice xmlns:rsm="urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100" xmlns:ram="urn:un:unece:uncefact:data:standard:ReusableAggregateBusinessInformationEntity:100" xmlns:udt="urn:un:unece:uncefact:data:standard:UnqualifiedDataType:100">
+  <rsm:ExchangedDocumentContext>
+    <ram:GuidelineSpecifiedDocumentContextParameter>
+      <ram:ID>urn:cen.eu:en16931:2017</ram:ID>
+    </ram:GuidelineSpecifiedDocumentContextParameter>
+  </rsm:ExchangedDocumentContext>
+  <rsm:ExchangedDocument>
+    <ram:ID>INV-2026-900</ram:ID>
+    <ram:TypeCode>380</ram:TypeCode>
+    <ram:IssueDateTime>
+      <udt:DateTimeString format="102">20261120</udt:DateTimeString>
+    </ram:IssueDateTime>
+  </rsm:ExchangedDocument>
+  <rsm:SupplyChainTradeTransaction>
+    <ram:ApplicableHeaderTradeAgreement/>
+    <ram:ApplicableHeaderTradeDelivery/>
+    <ram:ApplicableHeaderTradeSettlement/>
+  </rsm:SupplyChainTradeTransaction>
+</rsm:CrossIndustryInvoice>`
+
+	if err := validateKoSITEN16931XML([]byte(validCII), "EN 16931"); err != nil {
+		t.Fatalf("expected valid KoSIT EN 16931 CII XML to pass, got: %v", err)
+	}
+
+	validOpts := documentRenderOptions{
+		Compliance: &complianceOptions{
+			Profile:        "factur-x",
+			InvoiceProfile: "EN 16931",
+			InvoiceXML:     validCII,
+		},
+	}
+	if err := validateDocumentOptions(&validOpts); err != nil {
+		t.Fatalf("validateDocumentOptions failed for valid CII XML: %v", err)
+	}
+
+	// Verify Factur-X embedded stream includes /Params << /Size ... /ModDate ... >>
+	out, err := applyPDFCompliance([]byte(minimalValidPDF), validOpts)
+	if err != nil {
+		t.Fatalf("applyPDFCompliance failed for valid CII XML: %v", err)
+	}
+	conf := model.NewDefaultConfiguration()
+	conf.ValidationMode = model.ValidationRelaxed
+	ctx, err := api.ReadValidateAndOptimize(bytes.NewReader(out), conf)
+	if err != nil {
+		t.Fatalf("ReadValidateAndOptimize failed: %v", err)
+	}
+	afArr, _ := ctx.DereferenceArray(ctx.RootDict["AF"])
+	fsDict, _ := ctx.DereferenceDict(afArr[0])
+	efDict, _ := ctx.DereferenceDict(fsDict["EF"])
+	fStream, _, _ := ctx.DereferenceStreamDict(efDict["F"])
+	paramsDict, err := ctx.DereferenceDict(fStream.Dict["Params"])
+	if err != nil || paramsDict == nil || paramsDict["Size"] == nil || paramsDict["ModDate"] == nil {
+		t.Fatalf("expected /Params with /Size and /ModDate on embedded Factur-X stream, got: %v", paramsDict)
+	}
+
+	trueVal := true
+	invalidCases := []struct {
+		name string
+		xml  string
+	}{
+		{
+			name: "malformed unclosed tag",
+			xml:  `<rsm:CrossIndustryInvoice><rsm:ExchangedDocument></rsm:CrossIndustryInvoice>`,
+		},
+		{
+			name: "missing ExchangedDocumentContext",
+			xml: `<rsm:CrossIndustryInvoice xmlns:rsm="urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100">
+				<rsm:ExchangedDocument><ram:ID>INV-1</ram:ID></rsm:ExchangedDocument>
+				<rsm:SupplyChainTradeTransaction/>
+			</rsm:CrossIndustryInvoice>`,
+		},
+		{
+			name: "missing ExchangedDocument/ID",
+			xml: `<rsm:CrossIndustryInvoice xmlns:rsm="urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100">
+				<rsm:ExchangedDocumentContext/>
+				<rsm:ExchangedDocument><ram:TypeCode>380</ram:TypeCode></rsm:ExchangedDocument>
+				<rsm:SupplyChainTradeTransaction/>
+			</rsm:CrossIndustryInvoice>`,
+		},
+		{
+			name: "missing SupplyChainTradeTransaction",
+			xml: `<rsm:CrossIndustryInvoice xmlns:rsm="urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100">
+				<rsm:ExchangedDocumentContext/>
+				<rsm:ExchangedDocument><ram:ID>INV-1</ram:ID></rsm:ExchangedDocument>
+			</rsm:CrossIndustryInvoice>`,
+		},
+	}
+
+	for _, tc := range invalidCases {
+		t.Run(tc.name, func(t *testing.T) {
+			opts := documentRenderOptions{
+				Compliance: &complianceOptions{
+					Profile:     "factur-x",
+					InvoiceXML:  tc.xml,
+					ValidateXML: &trueVal,
+				},
+			}
+			err := validateDocumentOptions(&opts)
+			if err == nil {
+				t.Fatalf("expected %s to fail validation", tc.name)
+			}
+			rErr, ok := err.(*renderError)
+			if !ok || rErr.Status != 422 || rErr.Code != "document_compliance_xml_invalid" {
+				t.Fatalf("expected 422 document_compliance_xml_invalid for %s, got: %#v", tc.name, err)
+			}
+		})
+	}
+
+	// Invalid BCP-47 language tag
+	badLangOpts := documentRenderOptions{
+		Compliance: &complianceOptions{
+			Profile:  "pdfa-3b",
+			Language: "not_a_valid_lang!!!",
+		},
+	}
+	if err := validateDocumentOptions(&badLangOpts); err == nil {
+		t.Fatalf("expected invalid language tag to be rejected")
+	}
+}
+
+func TestComplianceEngineV2RollbackFlag(t *testing.T) {
+	t.Setenv("COMPLIANCE_ENGINE_V2", "false")
+
+	out, err := applyPDFCompliance([]byte(minimalValidPDF), documentRenderOptions{
+		Compliance: &complianceOptions{Profile: "pdfa-3b"},
+	})
+	if err != nil {
+		t.Fatalf("applyPDFCompliance with COMPLIANCE_ENGINE_V2=false failed: %v", err)
+	}
+	conf := model.NewDefaultConfiguration()
+	conf.ValidationMode = model.ValidationRelaxed
+	ctx, err := api.ReadValidateAndOptimize(bytes.NewReader(out), conf)
+	if err != nil {
+		t.Fatalf("ReadValidateAndOptimize failed: %v", err)
+	}
+	oiArray, _ := ctx.DereferenceArray(ctx.RootDict["OutputIntents"])
+	oiDict, _ := ctx.DereferenceDict(oiArray[0])
+	if sName, ok := oiDict["S"].(types.Name); !ok || sName.Value() != "GTS_PDFA3" {
+		t.Fatalf("expected legacy GTS_PDFA3 when COMPLIANCE_ENGINE_V2=false, got: %v", oiDict["S"])
+	}
+	if _, hasDest := oiDict["DestOutputProfile"]; hasDest {
+		t.Fatalf("expected no DestOutputProfile when COMPLIANCE_ENGINE_V2=false")
+	}
+}
+

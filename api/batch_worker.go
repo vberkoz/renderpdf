@@ -279,6 +279,14 @@ func renderBatchNormalizedSource(ctx context.Context, owner string, normalized n
 		if err != nil {
 			return nil, &renderError{Code: "batch_url_invalid", Message: err.Error(), Status: 422}
 		}
+		scrubbedHeaders, err := validateAndScrubURLHeaders(url, request.Headers)
+		if err != nil {
+			return nil, err
+		}
+		validatedCookies, err := validateURLCookies(url, request.Cookies)
+		if err != nil {
+			return nil, err
+		}
 		var opts documentRenderOptions
 		if request.Options != nil {
 			if err := validateDocumentOptions(request.Options); err != nil {
@@ -286,6 +294,8 @@ func renderBatchNormalizedSource(ctx context.Context, owner string, normalized n
 			}
 			opts = *request.Options
 		}
+		opts.CustomHeaders = scrubbedHeaders
+		opts.CustomCookies = validatedCookies
 		return batchURLPDFRenderer(ctx, url, opts)
 	case renderKindUpload:
 		var request packageRenderRequest

@@ -314,3 +314,32 @@ func TestCloudFormationChromeWarmPoolFlag(t *testing.T) {
 		})
 	}
 }
+
+func TestCloudFormationP2FeatureFlags(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Join("..", "infra", "cloudformation.yaml"))
+	if err != nil {
+		t.Fatalf("read cloudformation.yaml: %v", err)
+	}
+	template := string(raw)
+
+	for _, param := range []string{"ComplianceEngineV2:", "UrlAuthHeadersEnabled:"} {
+		if !strings.Contains(template, param) {
+			t.Fatalf("expected parameter %s in cloudformation.yaml", param)
+		}
+	}
+
+	for _, fnName := range []string{"PdfFunction", "TrialPdfFunction", "BatchWorkerFunction"} {
+		t.Run(fnName, func(t *testing.T) {
+			block := extractCFNResourceBlock(t, template, fnName)
+			for _, envLine := range []string{
+				"COMPLIANCE_ENGINE_V2: !Ref ComplianceEngineV2",
+				"URL_AUTH_HEADERS_ENABLED: !Ref UrlAuthHeadersEnabled",
+			} {
+				if !strings.Contains(block, envLine) {
+					t.Fatalf("%s missing %q:\n%s", fnName, envLine, block)
+				}
+			}
+		})
+	}
+}
+

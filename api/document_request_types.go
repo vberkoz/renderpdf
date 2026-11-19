@@ -184,6 +184,8 @@ type documentRenderOptions struct {
 	ResponseFormat      string             `json:"responseFormat,omitempty"`
 	StrictVariables     *bool              `json:"strictVariables,omitempty"`
 	AllowExtraVariables *bool              `json:"allowExtraVariables,omitempty"`
+	CustomHeaders       map[string]string  `json:"-"`
+	CustomCookies       []urlCookie        `json:"-"`
 }
 
 func (o documentRenderOptions) isLandscape() bool {

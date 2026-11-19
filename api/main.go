@@ -29,6 +29,8 @@ type Request struct {
 
 type URLRequest struct {
 	URL           string                 `json:"url"`
+	Headers       map[string]string      `json:"headers,omitempty"`
+	Cookies       []urlCookie            `json:"cookies,omitempty"`
 	WebhookURL    string                 `json:"webhookUrl,omitempty"`
 	WebhookSecret string                 `json:"webhookSecret,omitempty"`
 	Options       *documentRenderOptions `json:"options,omitempty"`
@@ -218,6 +220,16 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 			analytics.ErrorType = "validation"
 			return errorResponse(400, err.Error(), corsHeaders), nil
 		}
+		scrubbedHeaders, err := validateAndScrubURLHeaders(validatedURL, req.Headers)
+		if err != nil {
+			analytics.ErrorType = "validation"
+			return renderErrorResponse(err, corsHeaders), nil
+		}
+		validatedCookies, err := validateURLCookies(validatedURL, req.Cookies)
+		if err != nil {
+			analytics.ErrorType = "validation"
+			return renderErrorResponse(err, corsHeaders), nil
+		}
 		if req.Options != nil {
 			if err := validateDocumentOptions(req.Options); err != nil {
 				analytics.ErrorType = "validation"
@@ -225,6 +237,8 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 			}
 			documentOptions = *req.Options
 		}
+		documentOptions.CustomHeaders = scrubbedHeaders
+		documentOptions.CustomCookies = validatedCookies
 		renderURL = validatedURL
 		webhookURL = req.WebhookURL
 		webhookSecret = req.WebhookSecret

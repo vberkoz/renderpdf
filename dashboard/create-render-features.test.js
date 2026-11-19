@@ -54,6 +54,69 @@ test('parseDocumentEditor accepts source with type url and options', () => {
   assert.deepStrictEqual(parsed.request.options.pageNumbers, { format: 'Page {page} of {pages}' });
 });
 
+test('parseDocumentEditor validates custom headers and cookies on url source and rejects forbidden headers', () => {
+  const authedUrlPayload = {
+    version: '1',
+    source: {
+      type: 'url',
+      url: 'https://example.com/protected-report',
+      headers: {
+        Authorization: 'Bearer secret-token',
+        'X-Report-Tenant': 'acme',
+      },
+      cookies: [
+        { name: 'session_id', value: 's_12345', domain: 'example.com', path: '/', secure: true },
+      ],
+    },
+    options: { format: 'A4', margin: '15mm' },
+  };
+  global.document.getElementById = (id) => {
+    if (id === 'documentSourceTypeInput') return { value: 'html' };
+    if (id === 'documentJsonInput') return { value: JSON.stringify(authedUrlPayload) };
+    return null;
+  };
+  const parsed = createRender.parseDocumentEditor();
+  assert.strictEqual(parsed.request.source.headers.Authorization, 'Bearer secret-token');
+  assert.strictEqual(parsed.request.source.cookies.length, 1);
+
+  const forbiddenHeaderPayload = {
+    version: '1',
+    source: {
+      type: 'url',
+      url: 'https://example.com/protected-report',
+      headers: { Host: 'internal.local' },
+    },
+  };
+  global.document.getElementById = (id) => {
+    if (id === 'documentSourceTypeInput') return { value: 'html' };
+    if (id === 'documentJsonInput') return { value: JSON.stringify(forbiddenHeaderPayload) };
+    return null;
+  };
+  assert.throws(
+    () => createRender.parseDocumentEditor(),
+    /Header "Host" is not permitted on URL renders/
+  );
+
+  const nonUrlWithHeaders = {
+    version: '1',
+    source: {
+      type: 'markdown',
+      content: '# Hello',
+      headers: { Authorization: 'Bearer x' },
+    },
+    data: {},
+  };
+  global.document.getElementById = (id) => {
+    if (id === 'documentSourceTypeInput') return { value: 'html' };
+    if (id === 'documentJsonInput') return { value: JSON.stringify(nonUrlWithHeaders) };
+    return null;
+  };
+  assert.throws(
+    () => createRender.parseDocumentEditor(),
+    /source\.headers and source\.cookies are only supported when source\.type is "url"/
+  );
+});
+
 test('parseDocumentEditor accepts source with type upload', () => {
   const uploadPayload = {
     version: '1',

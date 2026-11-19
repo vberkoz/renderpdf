@@ -38,14 +38,16 @@ type canonicalRenderRequest struct {
 // canonicalRenderSource intentionally has the union of source fields.  The
 // normalizer below rejects fields that do not belong to the selected type.
 type canonicalRenderSource struct {
-	Type       string         `json:"type"`
-	Content    string         `json:"content,omitempty"`
-	TemplateID string         `json:"templateId,omitempty"`
-	Variables  map[string]any `json:"variables,omitempty"`
-	URL        string         `json:"url,omitempty"`
-	UploadID   string         `json:"uploadId,omitempty"`
-	Entrypoint string         `json:"entrypoint,omitempty"`
-	ID         string         `json:"id,omitempty"`
+	Type       string            `json:"type"`
+	Content    string            `json:"content,omitempty"`
+	TemplateID string            `json:"templateId,omitempty"`
+	Variables  map[string]any    `json:"variables,omitempty"`
+	URL        string            `json:"url,omitempty"`
+	Headers    map[string]string `json:"headers,omitempty"`
+	Cookies    []urlCookie       `json:"cookies,omitempty"`
+	UploadID   string            `json:"uploadId,omitempty"`
+	Entrypoint string            `json:"entrypoint,omitempty"`
+	ID         string            `json:"id,omitempty"`
 }
 
 type normalizedRenderRequest struct {
@@ -115,7 +117,7 @@ func normalizeCanonicalRenderRequestWithOwner(ctx context.Context, body, ownerID
 
 	switch request.Source.Type {
 	case "html":
-		if request.Source.ID != "" || request.Source.TemplateID != "" || request.Source.Variables != nil || request.Source.URL != "" || request.Source.UploadID != "" || request.Source.Entrypoint != "" {
+		if request.Source.ID != "" || request.Source.TemplateID != "" || request.Source.Variables != nil || request.Source.URL != "" || request.Source.Headers != nil || request.Source.Cookies != nil || request.Source.UploadID != "" || request.Source.Entrypoint != "" {
 			return normalizedRenderRequest{}, &renderError{Code: "render_source_invalid", Message: "source contains fields not supported by its type", Status: 422}
 		}
 		if request.Data != nil || request.CSS != "" {
@@ -137,7 +139,7 @@ func normalizeCanonicalRenderRequestWithOwner(ctx context.Context, body, ownerID
 			result.Kind, result.Body = renderKindHTML, encoded
 		}
 	case "markdown":
-		if request.Source.ID != "" || request.Source.TemplateID != "" || request.Source.Variables != nil || request.Source.URL != "" || request.Source.UploadID != "" || request.Source.Entrypoint != "" {
+		if request.Source.ID != "" || request.Source.TemplateID != "" || request.Source.Variables != nil || request.Source.URL != "" || request.Source.Headers != nil || request.Source.Cookies != nil || request.Source.UploadID != "" || request.Source.Entrypoint != "" {
 			return normalizedRenderRequest{}, &renderError{Code: "render_source_invalid", Message: "source contains fields not supported by its type", Status: 422}
 		}
 		document := documentRenderRequest{Version: request.Version, CSS: request.CSS, Data: request.Data, Options: request.Options, Label: result.Label, WebhookURL: request.WebhookURL, WebhookSecret: request.WebhookSecret, Source: &documentRenderSource{Type: "markdown", Content: request.Source.Content}}
@@ -152,7 +154,7 @@ func normalizeCanonicalRenderRequestWithOwner(ctx context.Context, body, ownerID
 			tplID = request.Source.ID
 		}
 		if (request.Source.TemplateID != "" && request.Source.ID != "" && request.Source.TemplateID != request.Source.ID) ||
-			request.Source.Content != "" || request.Source.URL != "" || request.Source.UploadID != "" || request.Source.Entrypoint != "" || request.CSS != "" ||
+			request.Source.Content != "" || request.Source.URL != "" || request.Source.Headers != nil || request.Source.Cookies != nil || request.Source.UploadID != "" || request.Source.Entrypoint != "" || request.CSS != "" ||
 			(request.Source.Variables != nil && request.Data != nil) {
 			return normalizedRenderRequest{}, &renderError{Code: "render_source_invalid", Message: "source contains fields not supported by its type", Status: 422}
 		}
@@ -177,13 +179,13 @@ func normalizeCanonicalRenderRequestWithOwner(ctx context.Context, body, ownerID
 		if !request.Options.isZero() {
 			opts = &request.Options
 		}
-		encoded, err := marshal(URLRequest{URL: request.Source.URL, WebhookURL: request.WebhookURL, WebhookSecret: request.WebhookSecret, Options: opts})
+		encoded, err := marshal(URLRequest{URL: request.Source.URL, Headers: request.Source.Headers, Cookies: request.Source.Cookies, WebhookURL: request.WebhookURL, WebhookSecret: request.WebhookSecret, Options: opts})
 		if err != nil {
 			return normalizedRenderRequest{}, err
 		}
 		result.Kind, result.Body = renderKindURL, encoded
 	case "upload":
-		if request.Source.ID != "" || request.Source.Content != "" || request.Source.TemplateID != "" || request.Source.Variables != nil || request.Source.URL != "" || request.CSS != "" || request.Data != nil {
+		if request.Source.ID != "" || request.Source.Content != "" || request.Source.TemplateID != "" || request.Source.Variables != nil || request.Source.URL != "" || request.Source.Headers != nil || request.Source.Cookies != nil || request.CSS != "" || request.Data != nil {
 			return normalizedRenderRequest{}, &renderError{Code: "render_source_invalid", Message: "source contains fields not supported by its type", Status: 422}
 		}
 		var opts *documentRenderOptions
@@ -202,7 +204,7 @@ func normalizeCanonicalRenderRequestWithOwner(ctx context.Context, body, ownerID
 		}
 		if storedID == "" ||
 			(request.Source.ID != "" && request.Source.TemplateID != "" && request.Source.ID != request.Source.TemplateID) ||
-			request.Source.Content != "" || request.Source.URL != "" || request.Source.UploadID != "" || request.Source.Entrypoint != "" || request.CSS != "" ||
+			request.Source.Content != "" || request.Source.URL != "" || request.Source.Headers != nil || request.Source.Cookies != nil || request.Source.UploadID != "" || request.Source.Entrypoint != "" || request.CSS != "" ||
 			(request.Data != nil && request.Source.Variables != nil) || ownerID == "" {
 			return normalizedRenderRequest{}, &renderError{Code: "render_source_invalid", Message: "stored sources require source.id and may only override data and options", Status: 422}
 		}

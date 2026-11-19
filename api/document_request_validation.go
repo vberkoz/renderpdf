@@ -228,9 +228,18 @@ func validateDocumentOptions(options *documentRenderOptions) error {
 			return documentRequestError(422, "document_compliance_profile_required", "options.compliance.profile is required")
 		}
 		switch prof {
-		case "pdfa-1b", "pdfa1b", "pdfa-2b", "pdfa2b", "pdfa-3b", "pdfa3b", "factur-x", "facturx", "zugferd", "zugferd2":
+		case "pdfa-1b", "pdfa1b", "pdfa-2b", "pdfa2b", "pdfa-3b", "pdfa3b", "pdfua-1", "pdfua1", "pdfua", "factur-x", "facturx", "zugferd", "zugferd2":
 		default:
-			return documentRequestError(422, "document_compliance_profile_invalid", "options.compliance.profile must be one of: pdfa-1b, pdfa-2b, pdfa-3b, factur-x, zugferd")
+			return documentRequestError(422, "document_compliance_profile_invalid", "options.compliance.profile must be one of: pdfa-1b, pdfa-2b, pdfa-3b, pdfua-1, factur-x, zugferd")
+		}
+		if c.Language != "" {
+			lang := strings.TrimSpace(c.Language)
+			if len(lang) > 35 || !bcp47LanguagePattern.MatchString(lang) {
+				return documentRequestError(422, "document_compliance_language_invalid", "options.compliance.language must be a valid BCP-47 language tag (e.g. en-US, de-DE)")
+			}
+		}
+		if len(strings.TrimSpace(c.Title)) > 256 {
+			return documentRequestError(422, "document_compliance_title_invalid", "options.compliance.title must not exceed 256 characters")
 		}
 		if strings.HasPrefix(prof, "factur") || strings.HasPrefix(prof, "zugferd") {
 			if strings.TrimSpace(c.InvoiceXML) == "" {
@@ -240,6 +249,13 @@ func validateDocumentOptions(options *documentRenderOptions) error {
 		if c.InvoiceXML != "" {
 			if len(c.InvoiceXML) > 5242880 {
 				return documentRequestError(422, "document_compliance_xml_too_large", "options.compliance.invoiceXml must not exceed 5MB")
+			}
+			xmlBytes, err := decodeInvoiceXML(c.InvoiceXML)
+			if err != nil {
+				return documentRequestError(422, "document_compliance_xml_invalid", fmt.Sprintf("options.compliance.invoiceXml is invalid: %v", err))
+			}
+			if err := validateFacturXInvoiceXML(xmlBytes, c.InvoiceProfile, c.ValidateXML); err != nil {
+				return documentRequestError(422, "document_compliance_xml_invalid", fmt.Sprintf("options.compliance.invoiceXml failed validation: %v", err))
 			}
 		}
 		if c.InvoiceProfile != "" {

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -26,6 +27,40 @@ func defaultDisplayHeaderFooter() bool {
 		return false
 	}
 	return val
+}
+
+func mergeCDPRequestHeaders(existing network.Headers, custom map[string]string) []*fetch.HeaderEntry {
+	customLower := make(map[string]bool, len(custom))
+	keys := make([]string, 0, len(custom))
+	for k := range custom {
+		customLower[strings.ToLower(k)] = true
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	var entries []*fetch.HeaderEntry
+	if len(existing) > 0 {
+		exKeys := make([]string, 0, len(existing))
+		for k := range existing {
+			if !customLower[strings.ToLower(k)] {
+				exKeys = append(exKeys, k)
+			}
+		}
+		sort.Strings(exKeys)
+		for _, k := range exKeys {
+			entries = append(entries, &fetch.HeaderEntry{
+				Name:  k,
+				Value: fmt.Sprint(existing[k]),
+			})
+		}
+	}
+	for _, k := range keys {
+		entries = append(entries, &fetch.HeaderEntry{
+			Name:  k,
+			Value: custom[k],
+		})
+	}
+	return entries
 }
 
 func resolveDisplayHeaderFooter(html string, options documentRenderOptions) bool {
@@ -51,6 +86,7 @@ func buildCDPPrintParams(displayHeaderFooter bool, headerTemplate, footerTemplat
 
 	printAction := page.PrintToPDF().
 		WithPrintBackground(true).
+		WithGenerateTaggedPDF(true).
 		WithDisplayHeaderFooter(displayHeaderFooter).
 		WithLandscape(options.isLandscape()).
 		WithPaperWidth(paperW).
@@ -279,6 +315,7 @@ func runPDFRenderOnTarget(taskCtx context.Context, targetURL string, displayHead
 
 		reqID := event.RequestID
 		reqURL := event.Request.URL
+		reqHeaders := event.Request.Headers
 		go func() {
 			if taskCtx.Err() != nil {
 				return
@@ -288,7 +325,11 @@ func runPDFRenderOnTarget(taskCtx context.Context, targetURL string, displayHead
 				_ = fetch.FailRequest(reqID, network.ErrorReasonBlockedByClient).Do(taskCtx)
 				return
 			}
-			_ = fetch.ContinueRequest(reqID).Do(taskCtx)
+			continueReq := fetch.ContinueRequest(reqID)
+			if len(options.CustomHeaders) > 0 && isSameOriginHeaderTarget(targetURL, reqURL) {
+				continueReq = continueReq.WithHeaders(mergeCDPRequestHeaders(reqHeaders, options.CustomHeaders))
+			}
+			_ = continueReq.Do(taskCtx)
 		}()
 	})
 	stage := "navigation"
@@ -297,6 +338,33 @@ func runPDFRenderOnTarget(taskCtx context.Context, targetURL string, displayHead
 	actions := []chromedp.Action{fetch.Enable(), network.Enable(), runtime.Enable(), log.Enable()}
 	if disableJavaScript {
 		actions = append(actions, emulation.SetScriptExecutionDisabled(true))
+	}
+	if len(options.CustomCookies) > 0 {
+		actions = append(actions, chromedp.ActionFunc(func(ctx context.Context) error {
+			for _, c := range options.CustomCookies {
+				cmd := network.SetCookie(c.Name, c.Value).
+					WithDomain(c.Domain).
+					WithPath(c.Path)
+				if c.Secure != nil {
+					cmd = cmd.WithSecure(*c.Secure)
+				}
+				if c.HTTPOnly != nil {
+					cmd = cmd.WithHTTPOnly(*c.HTTPOnly)
+				}
+				switch strings.ToLower(c.SameSite) {
+				case "strict":
+					cmd = cmd.WithSameSite(network.CookieSameSiteStrict)
+				case "lax":
+					cmd = cmd.WithSameSite(network.CookieSameSiteLax)
+				case "none":
+					cmd = cmd.WithSameSite(network.CookieSameSiteNone)
+				}
+				if err := cmd.Do(ctx); err != nil {
+					return &renderError{Code: "url_cookie_set_failed", Message: "Failed to configure URL cookies", Status: 422}
+				}
+			}
+			return nil
+		}))
 	}
 	actions = append(actions,
 		chromedp.ActionFunc(func(ctx context.Context) error {
