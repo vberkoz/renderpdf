@@ -163,7 +163,7 @@ aws lambda update-function-code \
   --query 'LastUpdateStatus' \
   --output text 2>/dev/null || echo "${STACK_NAME}-batch-worker not yet created"
 
-for function_name in ${STACK_NAME}-batch-reconciler ${STACK_NAME}-batch-outbox-dispatcher; do
+for function_name in ${STACK_NAME}-batch-reconciler-zip ${STACK_NAME}-batch-outbox-dispatcher-zip; do
   aws lambda update-function-code \
     --function-name "${function_name}" \
     --zip-file "fileb://${BATCH_ZIP}" \
@@ -224,7 +224,7 @@ aws lambda wait function-updated \
   --region ${REGION} \
   --profile ${PROFILE}
 
-for function_name in ${STACK_NAME}-batch-worker ${STACK_NAME}-batch-reconciler ${STACK_NAME}-batch-outbox-dispatcher; do
+for function_name in ${STACK_NAME}-batch-worker ${STACK_NAME}-batch-reconciler-zip ${STACK_NAME}-batch-outbox-dispatcher-zip; do
   aws lambda wait function-updated \
     --function-name "${function_name}" \
     --region ${REGION} \

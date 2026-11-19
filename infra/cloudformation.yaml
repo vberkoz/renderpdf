@@ -1071,7 +1071,10 @@ Resources:
   BatchOutboxDispatcherFunction:
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: !Sub '${AppName}-batch-outbox-dispatcher'
+      # Changing this function from an image package to a ZIP requires a
+      # replacement. Use a new physical name so CloudFormation can create the
+      # replacement before deleting the old custom-named function.
+      FunctionName: !Sub '${AppName}-batch-outbox-dispatcher-zip'
       Runtime: provided.al2023
       Handler: bootstrap
       Architectures:
@@ -1101,7 +1104,10 @@ Resources:
   BatchReconcilerFunction:
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: !Sub '${AppName}-batch-reconciler'
+      # Changing this function from an image package to a ZIP requires a
+      # replacement. Use a new physical name so CloudFormation can create the
+      # replacement before deleting the old custom-named function.
+      FunctionName: !Sub '${AppName}-batch-reconciler-zip'
       Runtime: provided.al2023
       Handler: bootstrap
       Architectures:
