@@ -538,3 +538,22 @@ test('renderTranscriptContent renders escalation banner and role-specific bubble
   assert.ok(html.includes('150 in / 40 out'), 'Should display token counts');
   assert.ok(html.includes('Operator (Human)'), 'Should render operator bubble');
 });
+
+test('CANNED_RESPONSES.margins uses canonical /api/v1/render payload without unknown fields', () => {
+  assert.ok(!CANNED_RESPONSES.margins.includes('printBackground'));
+  assert.ok(!CANNED_RESPONSES.margins.includes('"html":'));
+
+  const jsonMatch = CANNED_RESPONSES.margins.match(/```json\n([\s\S]*?)\n```/);
+  assert.ok(jsonMatch, 'CANNED_RESPONSES.margins must contain a JSON code block');
+
+  const payload = JSON.parse(jsonMatch[1]);
+  assert.strictEqual(payload.version, '1');
+  assert.strictEqual(payload.source.type, 'html');
+  assert.strictEqual(typeof payload.source.content, 'string');
+  assert.ok(payload.source.content.length > 0);
+  assert.strictEqual(payload.source.html, undefined);
+  assert.strictEqual(payload.options.format, 'A4');
+  assert.strictEqual(typeof payload.options.margin, 'string');
+  assert.strictEqual(payload.options.landscape, false);
+  assert.strictEqual(payload.options.printBackground, undefined);
+});

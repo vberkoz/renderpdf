@@ -74,7 +74,7 @@
             "PDF/A and Hybrid E-Invoicing (Factur-X / ZUGFeRD EN 16931)",
             "Dynamic Vector Barcodes (Code 128, QR Code, DataMatrix, EAN)",
             "Server-side PII Redaction and Data Masking",
-            "PAdES Cryptographic Digital Signatures & AWS KMS",
+            "X.509 PKCS#7 Digital Signatures & AWS KMS",
             "Native Multi-Document PDF Merging",
             "Asynchronous Bulk Batch Generation with SQS and DynamoDB",
             "Event-driven Webhook Delivery with HMAC verification"
@@ -89,7 +89,7 @@
               "name": "How does RenderPDF handle custom CSS and web fonts?",
               "acceptedAnswer": {
                 "@type": "Answer",
-                "text": "RenderPDF runs a real headless Chromium engine under the hood, delivering pixel-perfect fidelity with modern web standards. You have full access to CSS Grid, Flexbox, print-specific CSS rules (@page, page-break properties, margins), and custom CSS variables. Web fonts are supported out of the box via Google Fonts, Adobe Fonts, or standard @font-face definitions. You can also embed base64 fonts directly in your CSS or upload ZIP packages with local font files."
+                "text": "RenderPDF runs headless Chromium with full support for CSS Grid, Flexbox, CSS custom properties, and page-break rules. Page layout behavior depends on the render mode: in sandboxed Document JSON (html with data or css) and markdown modes, author @page rules are disallowed (HTTP 422) — configure paper size, margins, and orientation via options.format, options.margin, and options.landscape. In plain html, template, url, and upload modes, @page CSS is supported when page options are omitted (explicit options override @page). Pre-installed container fonts (Inter, Roboto, Open Sans, Lato, Montserrat, IBM Plex Sans/Mono, DM Sans, and Noto Sans CJK/Arabic/Emoji) work across all modes. External font stylesheets (such as Google Fonts or @font-face URLs) and base64 data: fonts work in plain html, template, and url modes; ZIP upload packages support local font files and base64 data: fonts (external CDNs are blocked by package CSP); sandboxed Document JSON and markdown modes block external <link>, @import, and CSS url() assets."
               }
             },
             {
@@ -278,7 +278,7 @@
                             <svg class="lucide lucide-shield-alert" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
                         </div>
                         <h3>PII Redaction &amp; Masking</h3>
-                        <p>Scrub SSNs, credit cards, emails, and custom regex from the DOM before Chromium rendering. Output solid black bars (████) or custom masks for HIPAA and GDPR compliance.</p>
+                        <p>Scrub SSNs, credit cards, emails, and custom regex from the DOM before Chromium rendering. Output solid black bars (████) or custom masks to help protect sensitive personal data.</p>
                         <a class="feature-link" href="/docs/api/pdf-security/#redaction">Redaction guide <svg class="lucide lucide-arrow-up-right" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg></a>
                     </article>
 
@@ -287,7 +287,7 @@
                             <svg class="lucide lucide-key-round" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 18v3c0 .6.4 1 1 1h4v-3h3v-3h2l1.4-1.4a6.5 6.5 0 1 0-4-4Z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/></svg>
                         </div>
                         <h3>Cryptographic Signatures</h3>
-                        <p>Sign generated agreements with X.509 PKCS#7 / PAdES certificates or delegate cryptographic hash signing directly to AWS KMS for legally binding documents.</p>
+                        <p>Sign generated PDFs with X.509 PKCS#7 detached signatures or delegate cryptographic hash signing to AWS KMS for tamper-evident document integrity.</p>
                         <a class="feature-link" href="/docs/api/pdf-security/#digital-signatures">Signing options <svg class="lucide lucide-arrow-up-right" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg></a>
                     </article>
 
@@ -359,13 +359,18 @@
   -H <span class="code-string">"Authorization: Bearer $RENDERPDF_API_KEY"</span> \
   -H <span class="code-string">"Content-Type: application/json"</span> \
   -d <span class="code-string">'{
+    "version": "1",
     "source": {
       "type": "html",
       "content": "&lt;h1&gt;Invoice #1042&lt;/h1&gt;&lt;qrcode value=\"https://pay.acme.com/1042\" size=\"120\" /&gt;"
     },
     "options": {
       "format": "A4",
-      "compliance": { "profile": "factur-x", "invoiceProfile": "EN 16931" }
+      "compliance": {
+        "profile": "factur-x",
+        "invoiceProfile": "EN 16931",
+        "invoiceXml": "&lt;rsm:CrossIndustryInvoice xmlns:rsm=\"urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100\"&gt;&lt;rsm:ExchangedDocument&gt;&lt;ram:ID xmlns:ram=\"urn:un:unece:uncefact:data:standard:ReusableAggregateBusinessInformationEntity:100\"&gt;INV-1042&lt;/ram:ID&gt;&lt;/rsm:ExchangedDocument&gt;&lt;/rsm:CrossIndustryInvoice&gt;"
+      }
     }
   }'</span></code></pre>
                         <div class="code-panel-footer">
@@ -450,7 +455,7 @@ print(f<span class="code-string">"Generated PDF: {download_url}"</span>)</code><
                             <span class="pricing-save-badge">Save 20%</span>
                         </button>
                     </div>
-                    <span class="pricing-billing-caption">Annual plans provide immediate non-dilutive upfront working capital with 20% savings</span>
+                    <span class="pricing-billing-caption">Save 20% with annual billing — 2 months free on Starter and Professional plans.</span>
                 </div>
 
                 <div class="pricing-grid">
@@ -519,8 +524,8 @@ print(f<span class="code-string">"Generated PDF: {download_url}"</span>)</code><
                             <span class="faq-toggle-icon" aria-hidden="true"></span>
                         </summary>
                         <div class="faq-answer">
-                            <p>RenderPDF runs a real headless Chromium engine under the hood, delivering pixel-perfect fidelity with modern web standards. You have full access to CSS Grid, Flexbox, print-specific CSS rules (<code>@page</code>, page-break properties, margins), and custom CSS variables.</p>
-                            <p>Web fonts are supported out of the box via Google Fonts, Adobe Fonts, or standard <code>@font-face</code> definitions. You can also embed base64 fonts directly in your CSS or upload ZIP packages with local font files.</p>
+                            <p>RenderPDF runs headless Chromium with full support for CSS Grid, Flexbox, CSS custom properties, and page-break rules. Page layout behavior depends on the render mode: in sandboxed Document JSON (<code>html</code> with <code>data</code> or <code>css</code>) and <code>markdown</code> modes, author <code>@page</code> rules are disallowed (HTTP 422) — configure paper size, margins, and orientation via <code>options.format</code>, <code>options.margin</code>, and <code>options.landscape</code>. In plain <code>html</code>, <code>template</code>, <code>url</code>, and <code>upload</code> modes, <code>@page</code> CSS is supported when page <code>options</code> are omitted (explicit <code>options</code> override <code>@page</code>).</p>
+                            <p>Pre-installed container fonts (Inter, Roboto, Open Sans, Lato, Montserrat, IBM Plex Sans/Mono, DM Sans, and Noto Sans CJK/Arabic/Emoji) work across all modes. External font stylesheets (such as Google Fonts or <code>@font-face</code> URLs) and base64 <code>data:</code> fonts work in plain <code>html</code>, <code>template</code>, and <code>url</code> modes; ZIP <code>upload</code> packages support local font files and base64 <code>data:</code> fonts (external CDNs are blocked by package CSP); sandboxed Document JSON and <code>markdown</code> modes block external <code>&lt;link&gt;</code>, <code>@import</code>, and CSS <code>url()</code> assets.</p>
                         </div>
                     </details>
 

@@ -8,7 +8,7 @@ export const CANNED_RESPONSES = {
   enterprise:
     'RenderPDF offers dedicated enterprise concurrency, 99.99% custom SLA terms, and tailored volume pricing for scale exceeding 50,000 PDFs/month. Would you like to schedule a quick call, or should I email our enterprise agreement details?',
   margins:
-    'You can configure page margins and formats in your render request payload:\n```json\n{\n  "source": { "type": "html", "html": "..." },\n  "options": {\n    "format": "A4",\n    "margin": { "top": "20mm", "bottom": "20mm", "left": "15mm", "right": "15mm" },\n    "printBackground": true\n  }\n}\n```',
+    'You can configure page margins, format, and orientation in your render request payload (print backgrounds are enabled automatically):\n```json\n{\n  "version": "1",\n  "source": { "type": "html", "content": "<h1>Hello</h1>" },\n  "options": {\n    "format": "A4",\n    "margin": "18mm",\n    "landscape": false\n  }\n}\n```',
   security:
     'RenderPDF supports AES-256 PDF encryption. You can set `options.password` for the open password, `options.ownerPassword` for administrative access, and `options.permissions` to "print", "all", or "none" to restrict printing and copying.',
   investigating:

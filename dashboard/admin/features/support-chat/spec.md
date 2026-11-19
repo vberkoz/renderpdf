@@ -270,14 +270,14 @@ Follow this decision protocol for every turn:
 
 ### 5.2 Embedded Knowledge Base Modules
 1. **API Endpoints**: Canonical `/api/v1/render`, trial `/api/v1/trial/render`, templates `/api/v1/templates`, packages `/api/v1/files/upload`, batches `/api/v1/batches`.
-2. **Options**: `format` (`A4`, `Letter`, `Legal`), `margin` (`0–50mm` / `0–2in`), `headerTemplate`, `footerTemplate`, `displayHeaderFooter`, `printBackground`.
+2. **Options**: `format` (`A4`, `Letter`, `Legal`), `margin` (`0–50mm` / `0–2in`), `headerTemplate`, `footerTemplate`, `landscape`, `displayHeaderFooter`.
 3. **Security**: `password`, `ownerPassword`, `permissions` (`print`, `all`, `none`).
 4. **Quotas & Pricing**:
    - Free anonymous trial: 3 renders/day per IP (1MB HTML max).
    - Free account: 25 renders/month.
    - Starter: \$19/month (\$190/year) for 5,000 renders.
    - Pro: \$49/month (\$490/year) for 20,000 renders.
-   - Overage: \$10 for 1,000 credits.
+   - Overage: \$5 USD for 1,000 credits.
 5. **Webhooks & Async**: HMAC signatures (`X-RenderPDF-Signature`), SQS outbox delivery.
 
 ### 5.3 Operator Email Alert Template (Amazon SES)

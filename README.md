@@ -9,7 +9,7 @@ Serverless API that converts HTML to PDF using AWS Lambda (Go), API Gateway, S3,
 - Native PDF Merging (`POST /merge`) with unified pagination, watermarks, encryption, and digital signing
 - Dynamic server-side vector Barcodes & QR codes (`{{barcode}}`, `{{qrcode}}`, `<barcode>`, `<qrcode>`)
 - AST-level PII Redaction & Data Masking (`<redact>`, automated SSN/credit card/email/phone scrubbing)
-- Cryptographic PAdES / PKCS#7 Digital Signatures (X.509 certificates, PKCS#12, AWS KMS HSM integration)
+- Cryptographic X.509 PKCS#7 Digital Signatures (X.509 certificates, PKCS#12, AWS KMS HSM integration)
 - Archival (PDF/A-1b/2b/3b) & European e-Invoicing Compliance (Factur-X / ZUGFeRD with embedded XML)
 - Dynamic Wait Conditions (`waitFor`: CSS selectors, JavaScript expressions, fonts, network idle)
 - Asynchronous Batch rendering with durable DynamoDB outbox, SQS queues, and merged PDF or ZIP downloads

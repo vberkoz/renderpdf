@@ -15,10 +15,10 @@ const KNOWLEDGE_CANONICAL_RENDER = `
     "options": {
       "format": "A4",
       "margin": "18mm",
+      "landscape": false,
       "displayHeaderFooter": true,
       "headerTemplate": "<div style='font-size:10px; width:100%; text-align:center;'>Header</div>",
       "footerTemplate": "<div style='font-size:10px; width:100%; text-align:center;'>Page <span class='pageNumber'></span> of <span class='totalPages'></span></div>",
-      "printBackground": true,
       "password": "user-password",
       "ownerPassword": "admin-password",
       "permissions": "print"
@@ -28,14 +28,15 @@ const KNOWLEDGE_CANONICAL_RENDER = `
 - **Options Reference**:
   - \`format\`: Paper size. Supported: \`"A4"\` (default), \`"Letter"\`, \`"Legal"\`.
   - \`margin\`: Margins on all sides. Default: \`"18mm"\`. Supports \`mm\` (\`0–50mm\`) or \`in\` (\`0–2in\`).
-  - \`displayHeaderFooter\`: Boolean. Must be set to \`true\` to enable dynamic headerTemplate and footerTemplate.
+  - \`landscape\`: Boolean. Defaults to \`false\`. Set to \`true\` for landscape orientation.
+  - \`displayHeaderFooter\`: Boolean. Defaults to \`false\`. Set to \`true\` (or supply \`headerTemplate\` / \`footerTemplate\`) to enable print headers and footers.
   - \`headerTemplate\` & \`footerTemplate\`: Raw HTML string for headers/footers. Supported standard Chrome CSS classes:
     - \`<span class="pageNumber"></span>\`: current page number.
     - \`<span class="totalPages"></span>\`: total page count.
     - \`<span class="date"></span>\`: formatted render date.
     - \`<span class="title"></span>\`: document title.
     - \`<span class="url"></span>\`: document location.
-  - \`printBackground\`: Boolean. Defaults to true. Prints CSS background graphics and colors.
+  - Print backgrounds (CSS background colors and graphics) are always enabled automatically.
   - \`password\`: String. User open password for AES-256 PDF encryption.
   - \`ownerPassword\`: String. Master administrative password for permission management.
   - \`permissions\`: Access rights for encrypted PDFs: \`"print"\` (allow printing only), \`"all"\` (full rights), or \`"none"\` (read-only, restrict printing and copying).
@@ -98,12 +99,12 @@ const KNOWLEDGE_QUOTAS_AND_PRICING = `
   - **Allowance**: 20,000 successful renders per month.
   - **Rate Limit**: 50 requests/sec steady, 100 burst.
 - **Overage Credits**:
-  - $10 one-time purchase for 1,000 additional PDF renders.
+  - $5 USD one-time purchase for 1,000 additional PDF renders.
   - Overage credits never expire and roll over indefinitely.
   - Automatically utilized after monthly tier quota is exhausted.
 - **Enterprise Tier**:
   - For volumes exceeding 50,000 renders/month.
-  - Dedicated concurrency, custom SLAs, custom BAA / security reviews, and tailored volume pricing.
+  - Dedicated concurrency, custom SLAs, custom security reviews, and tailored volume pricing.
   - Handled by human engineering and sales team.
 `;
 

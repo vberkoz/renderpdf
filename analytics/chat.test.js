@@ -183,6 +183,11 @@ test('buildSystemPrompt includes RenderPDF knowledge modules, decision tags, and
   assert.ok(prompt.includes('Pro Tier'));
   assert.ok(prompt.includes('$49/month'));
   assert.ok(prompt.includes('Overage Credits'));
+  assert.ok(prompt.includes('$5 USD'));
+  assert.ok(prompt.includes('landscape'));
+  assert.ok(!prompt.includes('$10'));
+  assert.ok(!prompt.includes('printBackground'));
+  assert.ok(!prompt.includes('custom BAA'));
   assert.ok(prompt.includes('/batches'));
   assert.ok(prompt.includes('X-RenderPDF-Signature'));
 });

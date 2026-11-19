@@ -193,7 +193,7 @@ func parsePrivateKeyPEM(der []byte, blockType string) (crypto.Signer, error) {
 	return nil, err
 }
 
-// applyPDFSignature cryptographically signs a PDF byte stream using PAdES / PKCS#7 detached signature.
+// applyPDFSignature cryptographically signs a PDF byte stream using an X.509 PKCS#7 detached signature.
 func applyPDFSignature(pdfBytes []byte, options documentRenderOptions) ([]byte, error) {
 	if options.Signing == nil {
 		return pdfBytes, nil

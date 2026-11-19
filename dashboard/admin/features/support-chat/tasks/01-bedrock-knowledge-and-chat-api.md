@@ -38,7 +38,7 @@ Configure AWS Bedrock permissions in CloudFormation and implement the public `PO
 2. Embed concise, structured Markdown knowledge modules covering:
    - Canonical `/api/v1/render` request options (`format`, `margin`, `headerTemplate`, `footerTemplate`, `displayHeaderFooter`, `password`, `permissions`).
    - Starter template variables & migration guidance.
-   - Quotas, limits, and pricing tiers (\$19/mo Starter, \$49/mo Pro, \$10 overages).
+   - Quotas, limits, and pricing tiers (\$19/mo Starter, \$49/mo Pro, \$5 overages).
    - Async batch rendering (`/batches`) and Webhook delivery.
 3. System prompt instructs model to include decision tags:
    - `[DECISION: ANSWER]` for autonomous resolution.

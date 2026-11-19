@@ -1110,7 +1110,7 @@ components:
               description: Custom string used when replacement is set to "text"
         signing:
           type: object
-          description: PAdES / PKCS#7 cryptographic digital signature configuration
+          description: X.509 PKCS#7 cryptographic digital signature configuration
           properties:
             certificate:
               type: string

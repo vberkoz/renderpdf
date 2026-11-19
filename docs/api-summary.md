@@ -122,7 +122,7 @@ RenderPDF supports server-side PII sanitization and cryptographic PDF digital si
   - Attribute: `<span data-redact="true" data-redact-style="mask" data-redact-type="email">user@example.com</span>`
   - Automated scrubbing via `options.redaction`: `{"enabled": true, "types": ["ssn", "creditCard", "email", "phone"], "patterns": ["CUSTOM-\\d+"], "replacement": "bar|mask|text"}`.
   - Replacements: `bar` (solid black box `████████`), `mask` (masked digits e.g. `***-**-6789`), or `text` (custom string e.g. `[REDACTED]`).
-- **PAdES / PKCS#7 Digital Signatures**:
+- **X.509 PKCS#7 Digital Signatures**:
   Cryptographically sign generated or merged PDFs with X.509 certificates:
   - Direct credentials: `"signing": {"certificate": "<PEM or PKCS#12 .p12 base64>", "privateKey": "<PEM key>", "password": "...", "name": "...", "reason": "...", "location": "...", "contactInfo": "..."}`.
   - Cloud KMS: `"signing": {"certificate": "<PEM cert>", "kmsKeyId": "arn:aws:kms:...", "name": "..."}` delegates cryptographic hash signing to AWS KMS.
