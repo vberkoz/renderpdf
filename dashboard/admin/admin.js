@@ -11,16 +11,19 @@ import { initGovernanceModals } from './features/audit-logs/governance.js';
 const TABS = ['analytics', 'users', 'plans', 'audit-logs', 'chats'];
 const DEFAULT_TAB = 'analytics';
 
+let currentTab = null;
+
 /**
  * Resolves current tab from the URL hash.
  * @returns {string}
  */
-function getActiveTabFromHash() {
-  const hash = (window.location.hash || '').replace(/^#/, '').trim().toLowerCase();
-  if (!hash || hash === 'overview') {
+export function getActiveTabFromHash() {
+  const hash = (window.location.hash || '').replace(/^#/, '').trim();
+  const baseTab = hash.split('?')[0].split('&')[0].toLowerCase();
+  if (!baseTab || baseTab === 'overview') {
     return DEFAULT_TAB;
   }
-  return TABS.includes(hash) ? hash : DEFAULT_TAB;
+  return TABS.includes(baseTab) ? baseTab : DEFAULT_TAB;
 }
 
 /**
@@ -30,8 +33,16 @@ function getActiveTabFromHash() {
 async function switchTab(tabName) {
   const targetTab = TABS.includes(tabName) ? tabName : DEFAULT_TAB;
 
-  // Update URL hash if mismatched
-  if (window.location.hash !== `#${targetTab}`) {
+  // Prevent duplicate execution if already active
+  if (targetTab === currentTab) {
+    return;
+  }
+  currentTab = targetTab;
+
+  // Update URL hash if mismatched, preserving any query parameters if on targetTab
+  const currentHash = (window.location.hash || '').replace(/^#/, '').trim();
+  const currentBaseTab = currentHash.split('?')[0].split('&')[0].toLowerCase();
+  if (currentBaseTab !== targetTab) {
     history.replaceState(null, '', `#${targetTab}`);
   }
 
@@ -200,9 +211,14 @@ export async function initAdminConsole() {
       const link = e.target.closest('a[role="tab"]');
       if (!link) return;
       const href = link.getAttribute('href') || '';
-      const tab = href.replace(/^#/, '');
+      const tab = href.replace(/^#/, '').split('?')[0].split('&')[0];
       if (TABS.includes(tab)) {
-        switchTab(tab);
+        if (tab === currentTab) {
+          e.preventDefault();
+          return;
+        }
+        e.preventDefault();
+        window.location.hash = `#${tab}`;
       }
     });
   }

@@ -499,3 +499,42 @@ test('updateEscalatedBadge updates count and toggles hidden class', () => {
   assert.strictEqual(badge.textContent, '0');
   assert.strictEqual(badge.classList.contains('hidden'), true);
 });
+
+test('renderTranscriptContent renders escalation banner and role-specific bubbles', async () => {
+  const { renderTranscriptContent } = await import('./chat.js');
+  const chat = {
+    status: 'escalated',
+    escalationReason: 'complex_bug',
+    messages: [
+      {
+        messageId: 'm1',
+        role: 'user',
+        sender: 'visitor',
+        content: 'I have a rendering bug with CSS grid',
+        timestamp: Date.now() - 60000,
+      },
+      {
+        messageId: 'm2',
+        role: 'assistant',
+        sender: 'bot',
+        content: 'Could you share your HTML snippet?',
+        tokens: { input: 150, output: 40 },
+        timestamp: Date.now() - 30000,
+      },
+      {
+        messageId: 'm3',
+        role: 'assistant',
+        sender: 'operator',
+        content: 'Hi! I am taking a look at your PDF logs now.',
+        timestamp: Date.now(),
+      },
+    ],
+  };
+
+  const html = renderTranscriptContent(chat);
+  assert.ok(html.includes('Bug Report'), 'Should format complex_bug escalation reason');
+  assert.ok(html.includes('is-visitor'), 'Should render visitor bubble');
+  assert.ok(html.includes('Nova Micro (AI)'), 'Should render AI label');
+  assert.ok(html.includes('150 in / 40 out'), 'Should display token counts');
+  assert.ok(html.includes('Operator (Human)'), 'Should render operator bubble');
+});

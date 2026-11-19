@@ -146,3 +146,22 @@ test('admin.js allows admin account and populates operator info', async () => {
   const operatorEmail = getOrCreate('admin-operator-email');
   assert.strictEqual(operatorEmail.textContent, 'vberkoz@gmail.com');
 });
+
+test('getActiveTabFromHash strips deep-link parameters and resolves target tab', async () => {
+  const { getActiveTabFromHash } = await import('./admin.js');
+
+  global.window.location.hash = '#chats';
+  assert.strictEqual(getActiveTabFromHash(), 'chats');
+
+  global.window.location.hash = '#chats?id=cs_12345';
+  assert.strictEqual(getActiveTabFromHash(), 'chats');
+
+  global.window.location.hash = '#users?filter=pro';
+  assert.strictEqual(getActiveTabFromHash(), 'users');
+
+  global.window.location.hash = '#unknown_tab';
+  assert.strictEqual(getActiveTabFromHash(), 'analytics');
+
+  global.window.location.hash = '';
+  assert.strictEqual(getActiveTabFromHash(), 'analytics');
+});
