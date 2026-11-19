@@ -4,16 +4,24 @@ Serverless API that converts HTML to PDF using AWS Lambda (Go), API Gateway, S3,
 
 ## Features
 
-- Fast PDF generation using headless Chrome (chromedp)
-- Versioned HTML/CSS JSON documents with escaped data bindings
-- Serverless architecture with automatic scaling
-- Secure PDF storage with presigned S3 URLs
-- Usage tracking and analytics via DynamoDB
-- RESTful API with JSON responses
-- User authentication via AWS Cognito (Google OAuth and Email/Password)
-- API key management dashboard
+- Fast PDF generation using headless Chrome (chromedp) with versioned JSON documents and escaped data bindings
+- Six source inputs: `html`, `markdown`, `template`, `url`, `upload` (asset ZIP), and `stored`
+- Native PDF Merging (`POST /merge`) with unified pagination, watermarks, encryption, and digital signing
+- Dynamic server-side vector Barcodes & QR codes (`{{barcode}}`, `{{qrcode}}`, `<barcode>`, `<qrcode>`)
+- AST-level PII Redaction & Data Masking (`<redact>`, automated SSN/credit card/email/phone scrubbing)
+- Cryptographic PAdES / PKCS#7 Digital Signatures (X.509 certificates, PKCS#12, AWS KMS HSM integration)
+- Archival (PDF/A-1b/2b/3b) & European e-Invoicing Compliance (Factur-X / ZUGFeRD with embedded XML)
+- Dynamic Wait Conditions (`waitFor`: CSS selectors, JavaScript expressions, fonts, network idle)
+- Asynchronous Batch rendering with durable DynamoDB outbox, SQS queues, and merged PDF or ZIP downloads
+- Automated print styling & pagination (exact color fidelity, `break-inside: avoid` on `.avoid-break`, repeating table headers)
+- Webhook notifications (`pdf.completed`, `batch.completed`) with HMAC SHA-256 signatures
+- User authentication via AWS Cognito (Google OAuth, Email/Password, and automatic account linking)
+- Usage tracking, analytics, and rate-limiting via DynamoDB & API Gateway usage plans
 - AES-256 PDF encryption and password protection (owner/user passwords, print/copy permissions)
-- Custom authorizer for API security
+- Paddle Billing & subscription tiers (Starter, Pro, overage packs, customer portal)
+- Interactive Support Chat widget with Amazon Bedrock AI assistance
+- Admin Governance Console (user dossiers, plan overrides, quota adjustments, audit trail, chat inbox)
+- Live Public Stats metrics (`/stats`, `/public-stats`)
 
 ## Prerequisites
 
@@ -32,10 +40,15 @@ Canonical script location: `/Users/basilsergius/projects/renderpdf/scripts/deplo
 
 Supporting docs:
 - `/Users/basilsergius/projects/renderpdf/AGENTS.md`
+- `/Users/basilsergius/projects/renderpdf/docs/api-summary.md`
+- `/Users/basilsergius/projects/renderpdf/docs/openapi.yaml`
 - `/Users/basilsergius/projects/renderpdf/docs/repo-map.md`
 - `/Users/basilsergius/projects/renderpdf/docs/service-map.md`
 - `/Users/basilsergius/projects/renderpdf/docs/edit-surfaces.md`
 - `/Users/basilsergius/projects/renderpdf/docs/change-recipes.md`
+- `/Users/basilsergius/projects/renderpdf/docs/persistence-model.md`
+- `/Users/basilsergius/projects/renderpdf/docs/starter-templates.md`
+- `/Users/basilsergius/projects/renderpdf/docs/testing-and-mocking.md`
 - `/Users/basilsergius/projects/renderpdf/docs/VERIFICATION.md`
 - `/Users/basilsergius/projects/renderpdf/docs/ARCHITECTURE.md`
 - `/Users/basilsergius/projects/renderpdf/docs/CONTRIBUTING.md`
@@ -212,6 +225,33 @@ and `/batches/{id}/items` for status, `POST /batches/{id}/cancel` for pending wo
 `GET /batches/{id}/download` for a private ZIP of completed PDFs. Batch jobs
 are durably written before a DynamoDB Streams outbox dispatches their items to
 SQS; at-least-once delivery is safe because worker claims prevent duplicates.
+
+### Merge existing PDFs
+
+Merge multiple PDFs into a single continuous document with unified page numbers, watermarks, encryption, or digital signing using `POST /api/v1/merge` (or `POST /api/v1/pdf/merge`):
+
+```bash
+curl -X POST https://renderpdf.vberkoz.com/api/v1/merge \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -d '{
+    "version": "1",
+    "files": ["file_cover123", "https://example.com/sheet.pdf"],
+    "options": {
+      "pageNumbers": {
+        "format": "Page {page} of {total}",
+        "position": "bottom-center"
+      },
+      "watermark": {
+        "text": "FINAL",
+        "diagonal": true,
+        "opacity": 0.15
+      }
+    }
+  }'
+```
+
+Accepts owned `fileId` strings, public HTTP/HTTPS PDF URLs, or base64-encoded PDF data strings.
 
 ### Response
 

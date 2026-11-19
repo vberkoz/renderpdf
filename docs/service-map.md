@@ -7,8 +7,14 @@
 - Purpose:
   - Normalize and render HTML, Markdown, templates, public URLs, uploaded ZIP
     packages, or saved sources into a private PDF and return a signed URL.
+  - Merge multiple PDFs (`POST /api/v1/merge`, `POST /api/v1/pdf/merge`) with
+    unified page numbers, watermarks, encryption, and digital signing.
+  - Server-side enterprise extensions: vector Barcodes & QR codes, PII Redaction,
+    PAdES / PKCS#7 digital signatures, PDF/A & Factur-X e-invoicing compliance, and
+    smart wait-for condition evaluation.
 - Source:
-  - `api/main.go`
+  - `api/main.go`, `api/render_request.go`, `api/merge_api.go`, `api/compliance.go`,
+    `api/redaction.go`, `api/watermark.go`, `api/barcode.go`
 - Build/runtime entrypoints:
   - `api/Dockerfile`
   - `scripts/deploy.sh`
@@ -22,7 +28,7 @@
   - `POST /api/v1/render` with an `upload` source renders an uploaded ZIP's
     `index.html` or requested entrypoint.
   - Sources: `/api/v1/sources`; files: `/api/v1/files`; batches:
-    `/api/v1/batches`.
+    `/api/v1/batches`; merge: `/api/v1/merge`.
 
 ### Batch Processing
 
@@ -50,18 +56,26 @@
 - Maintenance:
   - `scripts/sync-api-keys.sh`
 
-### Analytics
+### Analytics, Billing & Governance
 
 - Purpose:
   - Save authenticated analytics events and aggregate PDF usage from the shared usage table.
+  - Process Paddle subscription billing webhooks, checkouts, and customer billing portal links.
+  - Power live public transparency metrics (`/api/v1/public-stats`).
+  - Provide Amazon Bedrock-powered support chat and triage escalation.
+  - Administrative operations API: user dossiers, quota adjustments, plan overrides, audit logs, and admin chat inbox.
 - Source:
-  - `analytics/index.js`
+  - `analytics/index.js`, `analytics/admin-users.js`, `analytics/admin-analytics.js`,
+    `analytics/admin-audit.js`, `analytics/chat.js`, `analytics/billing.js`,
+    `analytics/notifications.js`, `analytics/public-stats.js`
 - Build/runtime entrypoints:
   - Node.js 22 managed Lambda runtime
   - `scripts/deploy.sh`
 - API:
-  - `GET /api/v1/analytics`
-  - `POST /api/v1/analytics`
+  - `GET /api/v1/analytics`, `POST /api/v1/analytics`
+  - `POST /api/v1/billing/webhook`, `POST /api/v1/billing/checkout`, `POST /api/v1/billing/portal`
+  - `GET /api/v1/public-stats`, `POST /api/v1/chat`
+  - `/api/v1/admin/*` (users, analytics, audit-logs, chats)
 
 ### Webhook Delivery
 
@@ -77,16 +91,20 @@
 ### Dashboard
 
 - Purpose:
-  - Authenticated UI for login, key management, and API testing.
+  - Authenticated customer UI for login, key management, PDF rendering sandbox, billing, template management, and AI support chat.
+  - Dedicated Admin Console (`dashboard/admin/`) for platform operations, user support, and financial analytics.
 - Source:
   - `dashboard/login.html`
   - `dashboard/callback.html`
   - `dashboard/index.html`
   - `dashboard/app.js`
+  - `dashboard/admin/index.html`
+  - `dashboard/chat-widget.js`
 - Deployment:
   - `scripts/deploy.sh`
 - Public path:
   - `https://renderpdf.vberkoz.com/app/`
+  - `https://renderpdf.vberkoz.com/app/admin/`
 - Verification:
   - Manual flow in `docs/VERIFICATION.md`
 

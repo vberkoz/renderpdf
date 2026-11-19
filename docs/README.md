@@ -10,15 +10,23 @@
 - `/Users/basilsergius/projects/renderpdf/docs/AGENT-RULES.md`
 - `/Users/basilsergius/projects/renderpdf/docs/ARCHITECTURE.md`
 - `/Users/basilsergius/projects/renderpdf/docs/CONTRIBUTING.md`
+- `/Users/basilsergius/projects/renderpdf/docs/VERIFICATION.md`
+- `/Users/basilsergius/projects/renderpdf/docs/api-summary.md`
 - `/Users/basilsergius/projects/renderpdf/docs/change-recipes.md`
 - `/Users/basilsergius/projects/renderpdf/docs/edit-surfaces.md`
-- `/Users/basilsergius/projects/renderpdf/docs/modular-prompt-architecture.md`
+- `/Users/basilsergius/projects/renderpdf/docs/openapi.yaml`
+- `/Users/basilsergius/projects/renderpdf/docs/operations.md`
+- `/Users/basilsergius/projects/renderpdf/docs/persistence-model.md`
 - `/Users/basilsergius/projects/renderpdf/docs/repo-map.md`
 - `/Users/basilsergius/projects/renderpdf/docs/service-map.md`
-- `/Users/basilsergius/projects/renderpdf/docs/VERIFICATION.md`
+- `/Users/basilsergius/projects/renderpdf/docs/starter-templates.md`
+- `/Users/basilsergius/projects/renderpdf/docs/testing-and-mocking.md`
 
 ## Fast Paths
 
+- Need API contracts or schemas:
+  - `/Users/basilsergius/projects/renderpdf/docs/api-summary.md`
+  - `/Users/basilsergius/projects/renderpdf/docs/openapi.yaml`
 - Need repo layout:
   - `/Users/basilsergius/projects/renderpdf/docs/repo-map.md`
 - Need service entrypoints:
@@ -28,6 +36,8 @@
   - `/Users/basilsergius/projects/renderpdf/docs/change-recipes.md`
 - Need verification commands:
   - `/Users/basilsergius/projects/renderpdf/docs/VERIFICATION.md`
+- Need operational runbooks:
+  - `/Users/basilsergius/projects/renderpdf/docs/operations.md`
 
 ## Notes
 

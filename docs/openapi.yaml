@@ -23,6 +23,8 @@ tags:
     description: Anonymous rate-limited PDF rendering
   - name: Render
     description: Canonical authenticated PDF rendering
+  - name: Merge
+    description: Native multi-document PDF merging
   - name: Templates
     description: Durable customer HTML templates
   - name: Sources
@@ -145,6 +147,122 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /merge:
+    post:
+      tags:
+        - Merge
+        - Render
+      summary: Merge multiple PDFs into a unified document
+      description: |
+        Concatenates 2 to 100 PDFs (up to 50 MB total) into a single document with unified
+        continuous page numbering, watermarks, encryption, compliance, and digital signing.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MergePdfRequest'
+      responses:
+        '200':
+          description: Merged PDF generated and signed private URL returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MergeSuccessResponse'
+        '400':
+          description: Malformed JSON or unknown request attributes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Missing or invalid Bearer API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Monthly quota exhausted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation error (e.g. fewer than 2 items, exceeded 100 items, invalid item)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limit or concurrency exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal merging failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /pdf/merge:
+    post:
+      tags:
+        - Merge
+        - Render
+      summary: Merge multiple PDFs (canonical alias)
+      description: Functional alias for /merge.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MergePdfRequest'
+      responses:
+        '200':
+          description: Merged PDF generated and signed private URL returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MergeSuccessResponse'
+        '400':
+          description: Malformed JSON or unknown request attributes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Missing or invalid Bearer API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Monthly quota exhausted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limit or concurrency exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal merging failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /templates:
     get:
       tags:
@@ -152,13 +270,20 @@ paths:
       summary: List saved templates
       responses:
         '200':
-          description: List of owned templates
+          description: List of owned templates and bundled starter schemas
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/TemplateRecord'
+                type: object
+                properties:
+                  templates:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/TemplateRecord'
+                  starters:
+                    type: array
+                    items:
+                      type: object
     post:
       tags:
         - Templates
@@ -231,15 +356,8 @@ paths:
           schema:
             type: string
       responses:
-        '200':
+        '204':
           description: Template deleted
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
 
   /sources:
     get:
@@ -252,9 +370,12 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/SourceRecord'
+                type: object
+                properties:
+                  sources:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SourceRecord'
     post:
       tags:
         - Sources
@@ -325,7 +446,7 @@ paths:
           schema:
             type: string
       responses:
-        '200':
+        '204':
           description: Source deleted
 
   /files:
@@ -339,9 +460,12 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/FileRecord'
+                type: object
+                properties:
+                  files:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FileRecord'
 
   /files/upload:
     post:
@@ -352,7 +476,7 @@ paths:
         Generates a 15-minute presigned S3 PUT URL for uploading HTML/CSS/asset ZIP archives.
         The package can then be referenced in `/render` via `source.type: "upload"`.
       responses:
-        '200':
+        '201':
           description: Upload credentials
           content:
             application/json:
@@ -388,7 +512,7 @@ paths:
           schema:
             type: string
       responses:
-        '200':
+        '204':
           description: File deleted
 
   /files/{id}/download:
@@ -429,9 +553,12 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/BatchJobRecord'
+                type: object
+                properties:
+                  jobs:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/BatchJobRecord'
     post:
       tags:
         - Batches
@@ -486,9 +613,12 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/BatchItemRecord'
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/BatchItemRecord'
 
   /batches/{id}/cancel:
     post:
@@ -513,24 +643,40 @@ paths:
     get:
       tags:
         - Batches
-      summary: Get presigned download URL for ZIP archive of batch PDFs
+      summary: Get presigned download URL for ZIP archive or merged PDF of batch items
       parameters:
         - name: id
           in: path
           required: true
           schema:
             type: string
+        - name: format
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [pdf, zip]
+          description: Export format. "pdf" materializes completed item PDFs into a single merged PDF; "zip" creates a ZIP archive. Defaults to the batch job's mergeOutput setting.
       responses:
         '200':
-          description: Signed download URL for batch ZIP
+          description: Signed download URL for batch export
           content:
             application/json:
               schema:
                 type: object
                 properties:
+                  fileId:
+                    type: string
+                    example: file_batch_job_123_merged
+                  url:
+                    type: string
+                    format: uri
                   downloadUrl:
                     type: string
                     format: uri
+                  format:
+                    type: string
+                    enum: [pdf, zip]
 
   /api-keys:
     get:
@@ -543,21 +689,22 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/ApiKeyRecord'
+                type: object
+                properties:
+                  keys:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ApiKeyRecord'
     post:
       tags:
         - API Keys
       summary: Generate a new API key
       requestBody:
-        required: true
+        required: false
         content:
           application/json:
             schema:
               type: object
-              required:
-                - name
               properties:
                 name:
                   type: string
@@ -582,7 +729,7 @@ paths:
           schema:
             type: string
       responses:
-        '200':
+        '204':
           description: Key revoked
 
   /analytics:
@@ -644,7 +791,7 @@ components:
     BearerAuth:
       type: http
       scheme: bearer
-      description: API Key passed as `Authorization: Bearer <API_KEY>`
+      description: 'API Key passed as `Authorization: Bearer <API_KEY>`'
 
   schemas:
     TrialRenderRequest:
@@ -774,6 +921,226 @@ components:
           type: string
           enum: [all, print, none]
           default: all
+        pageNumbers:
+          type: object
+          description: Post-render vector page numbering stamped via pdfcpu (bypasses Chromium shadow DOM sandbox)
+          properties:
+            format:
+              type: string
+              description: Template string with {page} and optional {total} placeholders
+              default: "Page {page} of {total}"
+              example: "Page {page} of {total}"
+            position:
+              type: string
+              enum: [bottom-center, bottom-right, bottom-left, top-center, top-right, top-left]
+              default: bottom-center
+            startPage:
+              type: integer
+              description: First physical page to receive page numbers (1-indexed). Defaults to 1, or 2 if excludeCover is true.
+              example: 2
+            startNumber:
+              type: integer
+              description: Number to assign to startPage (defaults to 1)
+              example: 1
+            excludeCover:
+              type: boolean
+              description: If true, suppresses page numbers on the first page and calculates total without the cover page
+              default: false
+            fontSize:
+              type: integer
+              description: Font size in points (1-72)
+              default: 9
+            color:
+              type: string
+              description: Text color as 3 space-separated RGB floats (0.0 to 1.0) or hex code (#RRGGBB)
+              default: "0.4 0.4 0.4"
+              example: "0.3 0.3 0.3"
+        watermark:
+          type: object
+          description: Diagonal or custom vector watermark stamped across pages via pdfcpu
+          required:
+            - text
+          properties:
+            text:
+              type: string
+              maxLength: 256
+              description: Watermark display text (e.g. DRAFT, CONFIDENTIAL)
+              example: "CONFIDENTIAL"
+            diagonal:
+              type: boolean
+              default: true
+              description: If true, stamps along the native corner-to-corner page diagonal
+            rotation:
+              type: integer
+              minimum: -360
+              maximum: 360
+              description: Custom rotation angle in degrees. Overrides diagonal if set.
+              example: 45
+            opacity:
+              type: number
+              minimum: 0.0
+              maximum: 1.0
+              default: 0.15
+              description: Watermark opacity (0.0 transparent to 1.0 opaque)
+              example: 0.15
+            color:
+              type: string
+              description: Text color as 3 space-separated RGB floats (0.0 to 1.0) or hex code (#RRGGBB)
+              default: "0.5 0.5 0.5"
+              example: "#dc2626"
+            fontSize:
+              type: integer
+              minimum: 1
+              maximum: 144
+              default: 54
+              description: Font size in points
+              example: 54
+            font:
+              type: string
+              enum: [Helvetica, Times-Roman, Courier]
+              default: Helvetica
+              description: Standard PDF base font
+            pages:
+              type: string
+              description: Page range selection (e.g. all, odd, even, 1, 2-)
+              default: "all"
+              example: "all"
+            position:
+              type: string
+              enum: [center, top-center, top-left, top-right, bottom-center, bottom-left, bottom-right]
+              default: center
+            onTop:
+              type: boolean
+              default: true
+              description: If true stamps on top of page content; if false stamps behind content
+        compliance:
+          type: object
+          description: PDF/A archival or European e-invoicing (Factur-X / ZUGFeRD) compliance configuration
+          required:
+            - profile
+          properties:
+            profile:
+              type: string
+              enum: [pdfa-1b, pdfa-2b, pdfa-3b, factur-x, zugferd]
+              description: Archival profile or hybrid e-invoicing standard
+              example: "factur-x"
+            invoiceXml:
+              type: string
+              description: Structured XML invoice payload (raw string or base64 encoded). Required for factur-x and zugferd.
+              example: "<rsm:CrossIndustryInvoice>...</rsm:CrossIndustryInvoice>"
+            invoiceProfile:
+              type: string
+              enum: [MINIMUM, BASIC WL, BASIC, EN 16931, EXTENDED]
+              default: "EN 16931"
+              description: Factur-X / ZUGFeRD conformance profile
+              example: "EN 16931"
+            xmlFilename:
+              type: string
+              description: Custom embedded attachment filename (defaults to factur-x.xml or zugferd-invoice.xml)
+              example: "factur-x.xml"
+            documentType:
+              type: string
+              default: "INVOICE"
+              description: Document type descriptor for XMP metadata
+              example: "INVOICE"
+            version:
+              type: string
+              default: "1.0"
+              description: Schema version descriptor for XMP metadata
+              example: "1.0"
+        waitFor:
+          type: object
+          description: Smart wait-for triggers evaluated before triggering print-to-PDF
+          properties:
+            selector:
+              type: string
+              maxLength: 1024
+              description: CSS query selector to wait until visible before printing
+              example: "#analytics-chart svg"
+            function:
+              type: string
+              maxLength: 4096
+              description: JavaScript expression or function returning boolean to poll until truthy (disallowed in document mode)
+              example: "() => window.RENDER_READY === true"
+            networkIdle:
+              type: string
+              enum: [networkidle0, networkidle2]
+              description: Wait until in-flight network requests drop to 0 or 2 for at least 500ms
+              example: "networkidle0"
+            timeoutMs:
+              type: integer
+              minimum: 0
+              maximum: 20000
+              default: 5000
+              description: Max wait timeout in milliseconds before proceeding to render
+              example: 4000
+            fonts:
+              type: boolean
+              default: true
+              description: Whether to await document.fonts.ready and stylesheet resolution before printing
+        redaction:
+          type: object
+          description: Automated server-side PII AST sanitization before Chromium rendering
+          properties:
+            enabled:
+              type: boolean
+              default: true
+              description: Set to true to activate automated AST scrubbing
+            types:
+              type: array
+              items:
+                type: string
+                enum: [ssn, creditCard, email, phone]
+              description: Built-in PII detector categories to sanitize
+              example: ["ssn", "creditCard"]
+            patterns:
+              type: array
+              items:
+                type: string
+              description: Custom regular expression patterns to scrub
+              example: ["CONFIDENTIAL-\\d+"]
+            replacement:
+              type: string
+              enum: [bar, mask, text]
+              default: bar
+              description: Replacement style ("bar" solid black box, "mask" partial masking, "text" custom string)
+            replacementText:
+              type: string
+              default: "[REDACTED]"
+              description: Custom string used when replacement is set to "text"
+        signing:
+          type: object
+          description: PAdES / PKCS#7 cryptographic digital signature configuration
+          properties:
+            certificate:
+              type: string
+              description: Base64-encoded X.509 certificate in PEM or PKCS#12 (.p12/.pfx) format
+            privateKey:
+              type: string
+              description: Base64-encoded private key in PEM format (optional if certificate is PKCS#12 or KMS is used)
+            password:
+              type: string
+              description: Password for PKCS#12 archive or encrypted private key
+            kmsKeyId:
+              type: string
+              description: AWS KMS Key ID or ARN for delegating cryptographic hash signing to a cloud HSM
+              example: "arn:aws:kms:us-east-1:123456789012:key/..."
+            name:
+              type: string
+              description: Signer full display name
+              example: "RenderPDF Signer"
+            reason:
+              type: string
+              description: Signature reason or execution intent
+              example: "Authorized Contract Execution"
+            location:
+              type: string
+              description: Execution city or location
+              example: "Wilmington, DE"
+            contactInfo:
+              type: string
+              description: Signer contact email or telephone
+              example: "support@renderpdf.vberkoz.com"
 
     RenderSuccessResponse:
       type: object
@@ -795,11 +1162,92 @@ components:
           description: Byte size of generated PDF
           example: 48392
 
+    MergePdfRequest:
+      type: object
+      properties:
+        version:
+          type: string
+          enum: ['1']
+          default: '1'
+        files:
+          type: array
+          items:
+            type: string
+          description: Shorthand list of owned file IDs or HTTP/HTTPS URLs
+          example: ["file_01h8q7m...", "https://example.com/terms.pdf"]
+        items:
+          type: array
+          minItems: 2
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/MergeItem'
+        options:
+          $ref: '#/components/schemas/DocumentRenderOptions'
+        label:
+          type: string
+          maxLength: 120
+          description: Optional customer label for tracking in logs
+          example: 'Merged Annual Report 2026'
+        webhookUrl:
+          type: string
+          format: uri
+          description: HTTPS endpoint for asynchronous pdf.completed notification
+        webhookSecret:
+          type: string
+          description: Secret key for HMAC SHA-256 header X-RenderPDF-Signature
+
+    MergeItem:
+      type: object
+      properties:
+        fileId:
+          type: string
+          description: Owned file ID from previous render or upload
+          example: "file_01h8q..."
+        url:
+          type: string
+          format: uri
+          description: Public HTTP/HTTPS URL returning a PDF
+          example: "https://example.com/sheet.pdf"
+        data:
+          type: string
+          description: Base64-encoded PDF binary content
+
+    MergeSuccessResponse:
+      type: object
+      required:
+        - requestId
+        - fileId
+        - url
+        - size
+        - pageCount
+      properties:
+        requestId:
+          type: string
+          format: uuid
+          example: '4e292025-a13f-4e02-8a9c-0c4c47b59e31'
+        fileId:
+          type: string
+          example: "file_01h8q7m..."
+        url:
+          type: string
+          format: uri
+          description: 15-minute signed S3 private download URL
+        size:
+          type: integer
+          description: Total byte size of merged PDF
+          example: 98392
+        pageCount:
+          type: integer
+          description: Total pages in merged document
+          example: 12
+
     TemplateRecord:
       type: object
       required:
         - id
         - name
+        - type
+        - html
         - createdAt
       properties:
         id:
@@ -810,12 +1258,20 @@ components:
           example: 'Standard Invoice'
         type:
           type: string
-          example: 'custom'
+          example: 'invoice'
+          enum: [invoice, contract, certificate, receipt, custom]
         html:
           type: string
-        css:
-          type: string
+        variables:
+          type: object
+          description: Template variable schema and default values
+        version:
+          type: integer
+          example: 1
         createdAt:
+          type: string
+          format: date-time
+        updatedAt:
           type: string
           format: date-time
 
@@ -830,24 +1286,22 @@ components:
         type:
           type: string
           default: custom
+          enum: [invoice, contract, certificate, receipt, custom]
         html:
           type: string
-        css:
-          type: string
-        options:
-          $ref: '#/components/schemas/DocumentRenderOptions'
-        defaultData:
+        variables:
           type: object
+          description: Optional default variables matching placeholders
 
     SourceRecord:
       type: object
       required:
-        - sourceId
+        - id
         - name
         - sourceType
         - createdAt
       properties:
-        sourceId:
+        id:
           type: string
           example: 'src_01h...'
         name:
@@ -855,8 +1309,20 @@ components:
           example: 'Monthly Report Template'
         sourceType:
           type: string
-          enum: [html, markdown, template, upload]
+          enum: [html, markdown]
+        version:
+          type: string
+          example: '1'
+        sizeBytes:
+          type: integer
+          example: 1248
+        checksum:
+          type: string
+          example: 'sha256:...'
         createdAt:
+          type: string
+          format: date-time
+        updatedAt:
           type: string
           format: date-time
 
@@ -874,29 +1340,40 @@ components:
     FileRecord:
       type: object
       required:
-        - fileId
+        - id
         - kind
         - contentType
         - sizeBytes
         - createdAt
       properties:
-        fileId:
+        id:
           type: string
           example: 'file_01h...'
         kind:
           type: string
-          enum: [rendered_pdf, uploaded_package, batch_zip, source_definition]
+          enum: [rendered_pdf, uploaded_package, batch_zip, batch_merged_pdf]
         contentType:
           type: string
           example: 'application/pdf'
         sizeBytes:
           type: integer
           example: 52180
+        checksum:
+          type: string
+          example: 'sha256:...'
+        displayName:
+          type: string
+          example: 'Report.pdf'
+        retentionExpiresAt:
+          type: string
+          format: date-time
+        origin:
+          type: object
+          additionalProperties:
+            type: string
         createdAt:
           type: string
           format: date-time
-        expiresAt:
-          type: integer
 
     FileUploadResponse:
       type: object
@@ -954,6 +1431,10 @@ components:
               format: uri
             webhookSecret:
               type: string
+            mergeOutput:
+              type: boolean
+              default: false
+              description: If true, automatically merges all completed item PDFs into a single continuous PDF on export.
 
     BatchJobRecord:
       type: object
@@ -1007,31 +1488,33 @@ components:
     ApiKeyRecord:
       type: object
       required:
-        - id
-        - name
+        - keyId
         - createdAt
+        - isActive
       properties:
-        id:
+        keyId:
           type: string
         name:
           type: string
         createdAt:
-          type: string
-          format: date-time
-        lastUsedAt:
-          type: string
-          format: date-time
+          type: integer
+          description: Unix timestamp in seconds
+        lastUsed:
+          type: integer
+          description: Unix timestamp in seconds (omitted until key is first used)
+        isActive:
+          type: boolean
 
     ApiKeyCreatedResponse:
       type: object
       required:
-        - id
-        - key
-        - name
+        - keyId
+        - apiKey
       properties:
-        id:
+        keyId:
           type: string
-        key:
+          example: 'key_01h8abc...'
+        apiKey:
           type: string
           description: Full Bearer API key. Displayed only once upon creation.
           example: 'rpdf_live_9a8b7c6d5e4f...'
