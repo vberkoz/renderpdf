@@ -60,7 +60,7 @@ ACCOUNT_LINKER_ZIP="$(mktemp -t renderpdf-account-linker.XXXXXX).zip"
 trap 'rm -f "${ANALYTICS_ZIP}" "${WEBHOOKS_ZIP}" "${ACCOUNT_LINKER_ZIP}"' EXIT
 echo "Packaging native Node.js analytics Lambda..."
 cd "${ROOT_DIR}/analytics"
-zip -q -j "${ANALYTICS_ZIP}" index.js billing.js admin-analytics.js admin-users.js admin-audit.js notifications.js chat.js public-stats.js package.json
+zip -q -j "${ANALYTICS_ZIP}" *.js package.json -x "*.test.js" "test-*.js"
 echo "Packaging webhook worker Lambda..."
 cd "${ROOT_DIR}/webhooks"
 zip -q -j "${WEBHOOKS_ZIP}" index.js
@@ -242,9 +242,9 @@ fi
 
 if [ -n "$WEBSITE_BUCKET" ]; then
   echo "Deploying landing page to S3..."
-  aws s3 sync "${ROOT_DIR}/landing/" s3://${WEBSITE_BUCKET}/ --profile ${PROFILE} --cache-control "no-cache"
+  aws s3 sync "${ROOT_DIR}/landing/" s3://${WEBSITE_BUCKET}/ --profile ${PROFILE} --cache-control "no-cache" --follow-symlinks
   echo "Deploying dashboard app to main site..."
-  aws s3 sync "${ROOT_DIR}/dashboard/" s3://${WEBSITE_BUCKET}/app/ --profile ${PROFILE} --cache-control "no-cache"
+  aws s3 sync "${ROOT_DIR}/dashboard/" s3://${WEBSITE_BUCKET}/app/ --profile ${PROFILE} --cache-control "no-cache" --follow-symlinks
 fi
 
 if [ -n "$CLOUDFRONT_ID" ]; then

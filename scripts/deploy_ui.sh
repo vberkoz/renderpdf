@@ -47,7 +47,8 @@ echo "      Source: ${ROOT_DIR}/landing/"
 echo "      Target: s3://${WEBSITE_BUCKET}/"
 aws s3 sync "${ROOT_DIR}/landing/" "s3://${WEBSITE_BUCKET}/" \
   --profile ${PROFILE} \
-  --cache-control "no-cache"
+  --cache-control "no-cache" \
+  --follow-symlinks
 
 echo ""
 echo "[2/4] Deploying client dashboard, auth pages, and admin console..."
@@ -55,7 +56,8 @@ echo "      Source: ${ROOT_DIR}/dashboard/"
 echo "      Target: s3://${WEBSITE_BUCKET}/app/"
 aws s3 sync "${ROOT_DIR}/dashboard/" "s3://${WEBSITE_BUCKET}/app/" \
   --profile ${PROFILE} \
-  --cache-control "no-cache"
+  --cache-control "no-cache" \
+  --follow-symlinks
 
 echo ""
 echo "[3/4] Verifying critical surface presence on S3..."
