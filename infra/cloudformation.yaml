@@ -128,6 +128,13 @@ Parameters:
     Type: String
     Default: ''
     Description: Telegram chat ID destination for operational, billing, and error alerts
+  DefaultDisplayHeaderFooter:
+    Type: String
+    Default: 'false'
+    AllowedValues:
+      - 'true'
+      - 'false'
+    Description: Feature flag enabling legacy default Chromium header/footer templates when displayHeaderFooter is omitted (set to true for rollback without code redeploy)
 
 Resources:
   OperationsAlertsTopic:
@@ -644,6 +651,9 @@ Resources:
       # deleting or taking ownership of that retained artifact.
       TableName: !Sub '${AppName}-documents-v2'
       BillingMode: PAY_PER_REQUEST
+      TimeToLiveSpecification:
+        AttributeName: expiresAt
+        Enabled: true
       StreamSpecification:
         StreamViewType: NEW_IMAGE
       AttributeDefinitions:
@@ -909,6 +919,35 @@ Resources:
                   - 'arn:aws:bedrock:*::foundation-model/amazon.nova-micro-v1:0'
                   - 'arn:aws:bedrock:*::foundation-model/amazon.nova-lite-v1:0'
 
+  TrialLambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
+      Policies:
+        - PolicyName: TrialLeastPrivilegeAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 's3:PutObject'
+                  - 's3:GetObject'
+                Resource: !Sub '${PdfBucket.Arn}/files/trial/*'
+              - Effect: Allow
+                Action:
+                  - 'dynamodb:GetItem'
+                  - 'dynamodb:PutItem'
+                  - 'dynamodb:UpdateItem'
+                Resource: !GetAtt UsageTable.Arn
+
   WebhookDeadLetterQueue:
     Type: AWS::SQS::Queue
     Properties:
@@ -969,13 +1008,14 @@ Resources:
           NOTIFICATION_FROM_EMAIL: !Ref NotificationFromEmail
           SES_REGION: !Ref SesRegion
           USER_POOL_ID: !Ref UserPoolV2
+          DEFAULT_DISPLAY_HEADER_FOOTER: !Ref DefaultDisplayHeaderFooter
 
   TrialPdfFunction:
     Type: AWS::Lambda::Function
     Properties:
       FunctionName: !Sub '${AppName}-trial-generate'
       PackageType: Image
-      Role: !GetAtt LambdaExecutionRole.Arn
+      Role: !GetAtt TrialLambdaExecutionRole.Arn
       Code:
         ImageUri: !Sub '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${AppName}:latest'
       MemorySize: 3008
@@ -984,10 +1024,10 @@ Resources:
         Variables:
           BUCKET_NAME: !Ref PdfBucket
           TABLE_NAME: !Ref UsageTable
-          DOCUMENT_STORE_TABLE_NAME: !Ref DocumentStoreTable
           TRIAL_MODE_ONLY: 'true'
           TRIAL_DAILY_LIMIT: '3'
           TRIAL_MAX_HTML_BYTES: '1048576'
+          DEFAULT_DISPLAY_HEADER_FOOTER: !Ref DefaultDisplayHeaderFooter
 
   BatchWorkerFunction:
     Type: AWS::Lambda::Function
@@ -1003,9 +1043,18 @@ Resources:
         Variables:
           BATCH_WORKER: 'true'
           BUCKET_NAME: !Ref PdfBucket
+          TABLE_NAME: !Ref UsageTable
+          FREE_MONTHLY_QUOTA: !Ref FreeMonthlyQuota
+          STARTER_MONTHLY_QUOTA: !Ref StarterMonthlyQuota
+          PRO_MONTHLY_QUOTA: !Ref ProMonthlyQuota
           PACKAGE_BUCKET_NAME: !Ref PackageBucket
+          TEMPLATE_TABLE_NAME: !Ref TemplatesTable
           DOCUMENT_STORE_TABLE_NAME: !Ref DocumentStoreTable
           WEBHOOK_QUEUE_URL: !Ref WebhookQueue
+          NOTIFICATION_FROM_EMAIL: !Ref NotificationFromEmail
+          SES_REGION: !Ref SesRegion
+          USER_POOL_ID: !Ref UserPoolV2
+          DEFAULT_DISPLAY_HEADER_FOOTER: !Ref DefaultDisplayHeaderFooter
 
   BatchWorkerEventSource:
     Type: AWS::Lambda::EventSourceMapping
@@ -1206,6 +1255,27 @@ Resources:
       RestApiId: !Ref RestApi
       ParentId: !Ref ApiV1Resource
       PathPart: render
+
+  MergeResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestApi
+      ParentId: !Ref ApiV1Resource
+      PathPart: merge
+
+  PdfSubResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestApi
+      ParentId: !Ref ApiV1Resource
+      PathPart: pdf
+
+  PdfMergeResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestApi
+      ParentId: !Ref PdfSubResource
+      PathPart: merge
 
   PackageUploadResource:
     Type: AWS::ApiGateway::Resource
@@ -1430,6 +1500,13 @@ Resources:
       ParentId: !Ref DashboardResource
       PathPart: render-document
 
+  DashboardMergeResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestApi
+      ParentId: !Ref DashboardResource
+      PathPart: merge
+
 
   BillingResource:
     Type: AWS::ApiGateway::Resource
@@ -1562,6 +1639,86 @@ Resources:
     Properties:
       RestApiId: !Ref RestApi
       ResourceId: !Ref RenderResource
+      HttpMethod: POST
+      AuthorizationType: CUSTOM
+      AuthorizerId: !Ref ApiAuthorizer
+      ApiKeyRequired: true
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'
+
+  MergeOptionsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref MergeResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Methods: "'POST,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: ''
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
+  MergeMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref MergeResource
+      HttpMethod: POST
+      AuthorizationType: CUSTOM
+      AuthorizerId: !Ref ApiAuthorizer
+      ApiKeyRequired: true
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'
+
+  PdfMergeOptionsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref PdfMergeResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Methods: "'POST,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: ''
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
+  PdfMergeMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref PdfMergeResource
       HttpMethod: POST
       AuthorizationType: CUSTOM
       AuthorizerId: !Ref ApiAuthorizer
@@ -2424,6 +2581,16 @@ Resources:
       AuthorizerId: !Ref CognitoAuthorizer
       Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}
 
+  DashboardMergePostMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref DashboardMergeResource
+      HttpMethod: POST
+      AuthorizationType: COGNITO_USER_POOLS
+      AuthorizerId: !Ref CognitoAuthorizer
+      Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}
+
 
   BillingCheckoutPostMethod:
     Type: AWS::ApiGateway::Method
@@ -2478,7 +2645,7 @@ Resources:
 
   # API Gateway deployments are immutable snapshots. Bump this logical ID when
   # routes or methods change so CloudFormation publishes them to the prod stage.
-  ApiDeploymentV37:
+  ApiDeploymentV38:
     Type: AWS::ApiGateway::Deployment
     DependsOn:
       - ApiRootGetMethod
@@ -2573,6 +2740,11 @@ Resources:
       - BillingPortalPostMethod
       - BillingChangePlanPostMethod
       - BillingWebhookPostMethod
+      - MergeMethod
+      - MergeOptionsMethod
+      - PdfMergeMethod
+      - PdfMergeOptionsMethod
+      - DashboardMergePostMethod
     Properties:
       RestApiId: !Ref RestApi
       StageName: prod
