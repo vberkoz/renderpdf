@@ -3,14 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Generate production-ready PDFs in seconds with reliable HTML to PDF conversion for SaaS applications.">
+    <meta name="description" content="Developer-friendly HTML to PDF API with real headless Chromium. Built-in Factur-X e-invoicing, vector barcodes, PII redaction, and batch rendering. Start free.">
     <link rel="canonical" href="https://renderpdf.vberkoz.com/">
     
     <!-- OpenGraph / Social Sharing -->
     <meta property="og:type" content="website">
+    <meta property="og:site_name" content="RenderPDF">
     <meta property="og:url" content="https://renderpdf.vberkoz.com/">
-    <meta property="og:title" content="RenderPDF | Production-ready PDFs in seconds">
-    <meta property="og:description" content="Generate production-ready PDFs in seconds with reliable HTML to PDF conversion for SaaS applications. Fast, secure, and developer-friendly.">
+    <meta property="og:title" content="RenderPDF — Fast HTML to PDF API, E-Invoicing &amp; Batch PDF Generation">
+    <meta property="og:description" content="Developer-friendly HTML to PDF API with real headless Chromium. Built-in Factur-X e-invoicing, vector barcodes, PII redaction, and batch rendering. Fast, secure, and reliable.">
     <meta property="og:image" content="https://renderpdf.vberkoz.com/og-image.jpg">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
@@ -19,11 +20,11 @@
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:url" content="https://renderpdf.vberkoz.com/">
-    <meta name="twitter:title" content="RenderPDF | Production-ready PDFs in seconds">
-    <meta name="twitter:description" content="Generate production-ready PDFs in seconds with reliable HTML to PDF conversion for SaaS applications. Fast, secure, and developer-friendly.">
+    <meta name="twitter:title" content="RenderPDF — Fast HTML to PDF API, E-Invoicing &amp; Batch PDF Generation">
+    <meta name="twitter:description" content="Developer-friendly HTML to PDF API with real headless Chromium. Built-in Factur-X e-invoicing, vector barcodes, PII redaction, and batch rendering. Fast, secure, and reliable.">
     <meta name="twitter:image" content="https://renderpdf.vberkoz.com/og-image.jpg">
 
-    <title>RenderPDF | Production-ready PDFs in seconds</title>
+    <title>RenderPDF — Fast HTML to PDF API, E-Invoicing &amp; Batch PDF Generation</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -32,12 +33,100 @@
     <link href="/styles/base.css" rel="stylesheet">
     <link href="/styles/landing.css" rel="stylesheet">
 
+    <!-- Schema.org Structured Data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "SoftwareApplication",
+          "@id": "https://renderpdf.vberkoz.com/#software",
+          "name": "RenderPDF",
+          "url": "https://renderpdf.vberkoz.com/",
+          "applicationCategory": "DeveloperApplication",
+          "operatingSystem": "Cloud / REST API",
+          "description": "Developer-friendly HTML to PDF API with headless Chromium, Factur-X e-invoicing compliance, vector barcodes, PII redaction, and automated batch rendering.",
+          "offers": [
+            {
+              "@type": "Offer",
+              "name": "Free Tier",
+              "price": "0",
+              "priceCurrency": "USD",
+              "description": "25 free PDFs each month with standard Chromium rendering and API-key access."
+            },
+            {
+              "@type": "Offer",
+              "name": "Starter",
+              "price": "19.00",
+              "priceCurrency": "USD",
+              "description": "5,000 PDFs each month with full API access and email support."
+            },
+            {
+              "@type": "Offer",
+              "name": "Professional",
+              "price": "49.00",
+              "priceCurrency": "USD",
+              "description": "20,000 PDFs each month with priority queueing and high throughput."
+            }
+          ],
+          "featureList": [
+            "HTML, Markdown, and URL to PDF conversion via Headless Chromium",
+            "PDF/A and Hybrid E-Invoicing (Factur-X / ZUGFeRD EN 16931)",
+            "Dynamic Vector Barcodes (Code 128, QR Code, DataMatrix, EAN)",
+            "Server-side PII Redaction and Data Masking",
+            "PAdES Cryptographic Digital Signatures & AWS KMS",
+            "Native Multi-Document PDF Merging",
+            "Asynchronous Bulk Batch Generation with SQS and DynamoDB",
+            "Event-driven Webhook Delivery with HMAC verification"
+          ]
+        },
+        {
+          "@type": "FAQPage",
+          "@id": "https://renderpdf.vberkoz.com/#faq",
+          "mainEntity": [
+            {
+              "@type": "Question",
+              "name": "How does RenderPDF handle custom CSS and web fonts?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "RenderPDF runs a real headless Chromium engine under the hood, delivering pixel-perfect fidelity with modern web standards. You have full access to CSS Grid, Flexbox, print-specific CSS rules (@page, page-break properties, margins), and custom CSS variables. Web fonts are supported out of the box via Google Fonts, Adobe Fonts, or standard @font-face definitions. You can also embed base64 fonts directly in your CSS or upload ZIP packages with local font files."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Is my document data stored or shared?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Your documents are completely private. We never share, sell, or use your data to train AI models. Rendered PDFs are stored in private, AES-256 encrypted AWS S3 buckets and can only be downloaded via short-lived presigned URLs that expire after 15 minutes. All generated PDFs and temporary upload packages are governed by automatic 30-day deletion lifecycle policies—once the 30-day window passes, objects are permanently removed."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "What happens if I exceed my monthly plan quota?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "We believe in transparent, predictable billing. Once 100% of your plan's monthly PDF allowance is reached, subsequent render requests return an HTTP 429 Too Many Requests status code. You will never receive surprise overage bills or unauthorized charges. When you need more volume immediately, on-demand overage top-up packs are available for $5 USD per 1,000 PDFs directly from your dashboard with zero downtime, or you can upgrade to a higher tier instantly with prorated pricing."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Can I cancel anytime?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Yes. Subscriptions feature 1-click self-serve cancellation. You can cancel your subscription at any time directly from your dashboard—no support tickets, phone calls, or retention funnels required. After cancellation, you retain full access to your plan and remaining monthly PDF quota until the end of your current paid billing period."
+              }
+            }
+          ]
+        }
+      ]
+    }
+    </script>
+
 
 </head>
 <body>
     <a class="skip-link" href="#main-content">Skip to main content</a>
     <div class="shell">
-        <div>
         <header class="topbar">
             <a class="brand" href="/" aria-label="RenderPDF home">
                 <span class="brand-mark" aria-hidden="true"></span>
@@ -45,14 +134,15 @@
             </a>
             <nav id="landing-primary-navigation" class="topnav" data-carbon-header-nav aria-label="Primary navigation">
                 <a href="/" aria-current="page">Home</a>
+                <a href="#features">Features</a>
+                <a href="#developers">Quickstart</a>
                 <a href="#pricing">Pricing</a>
                 <a href="/docs/api/">API docs</a>
                 <a href="/stats/">Stats</a>
-                <a href="/app/">Dashboard</a>
                 <a href="https://github.com/vberkoz/renderpdf">GitHub</a>
+                <a href="/app/" class="topnav-cta">Get API Key</a>
             </nav>
         </header>
-        </div>
 
         <main id="main-content" tabindex="-1">
             <section class="hero" aria-labelledby="hero-title">
@@ -155,43 +245,192 @@
                     <div id="error" class="notice notice-error hidden" role="alert"></div>
             </section>
 
-            <section class="capabilities" aria-label="Service capabilities">
-                <article>
-                    <div class="capability-icon-wrap" aria-hidden="true">
-                        <svg class="lucide lucide-terminal" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" x2="20" y1="19" y2="19"/></svg>
-                    </div>
+            <section class="features" id="features" aria-labelledby="features-title">
+                <header class="features-header">
                     <div>
-                        <h2>REST API</h2>
-                        <p>Send HTML, URLs, templates, or document packages through one endpoint.</p>
+                        <p class="eyebrow">Enterprise-grade capabilities</p>
+                        <h2 id="features-title">Engineered for invoices, compliance, and scale.</h2>
                     </div>
-                </article>
-                <article>
-                    <div class="capability-icon-wrap" aria-hidden="true">
-                        <svg class="lucide lucide-cpu" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="16" height="16" x="4" y="4" rx="2"/><rect width="6" height="6" x="9" y="9" rx="1"/><path d="M15 2v2"/><path d="M15 20v2"/><path d="M2 15h2"/><path d="M2 9h2"/><path d="M20 15h2"/><path d="M20 9h2"/><path d="M9 2v2"/><path d="M9 20v2"/></svg>
-                    </div>
+                    <p class="features-subtitle">Turn HTML into production-ready documents with built-in European e-invoicing compliance, zero-JS vector barcodes, AST-level PII sanitization, and automated batch queues.</p>
+                </header>
+
+                <div class="features-grid">
+                    <article class="feature-card">
+                        <div class="capability-icon-wrap" aria-hidden="true">
+                            <svg class="lucide lucide-file-check" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="m9 15 2 2 4-4"/></svg>
+                        </div>
+                        <h3>Factur-X &amp; EU E-Invoicing</h3>
+                        <p>Meet European 2024–2026 e-invoicing mandates (EN 16931). Embed cross-industry XML and ISO 19005 (PDF/A-3b) compliance profiles automatically.</p>
+                        <a class="feature-link" href="/docs/api/compliance/">E-invoicing docs <svg class="lucide lucide-arrow-up-right" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg></a>
+                    </article>
+
+                    <article class="feature-card">
+                        <div class="capability-icon-wrap" aria-hidden="true">
+                            <svg class="lucide lucide-qr-code" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="5" height="5" x="3" y="3" rx="1"/><rect width="5" height="5" x="16" y="3" rx="1"/><rect width="5" height="5" x="3" y="16" rx="1"/><path d="M21 16h-3a2 2 0 0 0-2 2v3"/><path d="M21 21v.01"/><path d="M12 7v3a2 2 0 0 1-2 2H7"/><path d="M3 12h.01"/><path d="M12 3h.01"/><path d="M12 16v.01"/><path d="M16 12h1"/><path d="M21 12v.01"/><path d="M12 21v-1"/></svg>
+                        </div>
+                        <h3>Vector Barcodes &amp; QR Codes</h3>
+                        <p>Render crisp server-side vector SVGs directly from HTML tags (<code>&lt;barcode&gt;</code>, <code>&lt;qrcode&gt;</code>) or template helpers with zero client-side JavaScript.</p>
+                        <a class="feature-link" href="/docs/api/render-template/#barcodes">Barcode syntax <svg class="lucide lucide-arrow-up-right" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg></a>
+                    </article>
+
+                    <article class="feature-card">
+                        <div class="capability-icon-wrap" aria-hidden="true">
+                            <svg class="lucide lucide-shield-alert" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+                        </div>
+                        <h3>PII Redaction &amp; Masking</h3>
+                        <p>Scrub SSNs, credit cards, emails, and custom regex from the DOM before Chromium rendering. Output solid black bars (████) or custom masks for HIPAA and GDPR compliance.</p>
+                        <a class="feature-link" href="/docs/api/pdf-security/#redaction">Redaction guide <svg class="lucide lucide-arrow-up-right" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg></a>
+                    </article>
+
+                    <article class="feature-card">
+                        <div class="capability-icon-wrap" aria-hidden="true">
+                            <svg class="lucide lucide-key-round" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 18v3c0 .6.4 1 1 1h4v-3h3v-3h2l1.4-1.4a6.5 6.5 0 1 0-4-4Z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/></svg>
+                        </div>
+                        <h3>Cryptographic Signatures</h3>
+                        <p>Sign generated agreements with X.509 PKCS#7 / PAdES certificates or delegate cryptographic hash signing directly to AWS KMS for legally binding documents.</p>
+                        <a class="feature-link" href="/docs/api/pdf-security/#digital-signatures">Signing options <svg class="lucide lucide-arrow-up-right" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg></a>
+                    </article>
+
+                    <article class="feature-card">
+                        <div class="capability-icon-wrap" aria-hidden="true">
+                            <svg class="lucide lucide-layers" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/></svg>
+                        </div>
+                        <h3>Native PDF Merging</h3>
+                        <p>Concatenate up to 100 PDFs or 50 MB into a unified document with continuous page numbering, custom watermarking, and synchronized encryption in one API call.</p>
+                        <a class="feature-link" href="/docs/api/merge/">Merge API docs <svg class="lucide lucide-arrow-up-right" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg></a>
+                    </article>
+
+                    <article class="feature-card">
+                        <div class="capability-icon-wrap" aria-hidden="true">
+                            <svg class="lucide lucide-workflow" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="8" height="8" x="3" y="3" rx="2"/><path d="M7 11v4a2 2 0 0 0 2 2h4"/><rect width="8" height="8" x="13" y="13" rx="2"/></svg>
+                        </div>
+                        <h3>Bulk Batches &amp; Webhooks</h3>
+                        <p>Queue high-throughput rendering jobs backed by AWS SQS and DynamoDB. Receive HMAC-signed <code>pdf.completed</code> webhooks and download unified PDFs or ZIPs.</p>
+                        <a class="feature-link" href="/docs/api/batches/">Batch queueing <svg class="lucide lucide-arrow-up-right" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg></a>
+                    </article>
+
+                    <article class="feature-card">
+                        <div class="capability-icon-wrap" aria-hidden="true">
+                            <svg class="lucide lucide-timer" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="10" x2="14" y1="2" y2="2"/><line x1="12" x2="15" y1="14" y2="11"/><circle cx="12" cy="14" r="8"/></svg>
+                        </div>
+                        <h3>Smart Triggers &amp; JS Charts</h3>
+                        <p>Wait for client-side JavaScript charts (D3, Chart.js), DOM selectors (<code>#ready</code>), web fonts, or network idle before capturing the final document snapshot.</p>
+                        <a class="feature-link" href="/docs/api/render/">Render options <svg class="lucide lucide-arrow-up-right" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg></a>
+                    </article>
+
+                    <article class="feature-card">
+                        <div class="capability-icon-wrap" aria-hidden="true">
+                            <svg class="lucide lucide-archive" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/></svg>
+                        </div>
+                        <h3>Asset Packages &amp; Markdown</h3>
+                        <p>Upload self-contained ZIP packages containing HTML, web fonts, CSS, and high-res imagery, or render GitHub-flavored Markdown strings with zero setup.</p>
+                        <a class="feature-link" href="/docs/api/render-upload/">Asset packages <svg class="lucide lucide-arrow-up-right" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg></a>
+                    </article>
+                </div>
+            </section>
+
+            <section class="code-showcase" id="developers" aria-labelledby="developers-title">
+                <header class="code-showcase-header">
                     <div>
-                        <h2>AWS-powered</h2>
-                        <p>Run reliable rendering without managing browser workers or scaling infrastructure.</p>
+                        <p class="eyebrow">Developer experience</p>
+                        <h2 id="developers-title">Generate your first PDF in 3 lines of code.</h2>
                     </div>
-                </article>
-                <article>
-                    <div class="capability-icon-wrap" aria-hidden="true">
-                        <svg class="lucide lucide-shield-check" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>
+                    <p class="code-showcase-subtitle">Standard HTTP REST API with zero proprietary SDK lock-in. Works seamlessly with fetch, cURL, Python requests, or any modern HTTP client.</p>
+                </header>
+
+                <div class="code-showcase-box">
+                    <div class="code-tabs-header">
+                        <div class="code-tabs" role="tablist" aria-label="Programming languages">
+                            <button type="button" class="code-tab is-active" role="tab" id="tab-curl" aria-controls="panel-curl" aria-selected="true">cURL</button>
+                            <button type="button" class="code-tab" role="tab" id="tab-node" aria-controls="panel-node" aria-selected="false" tabindex="-1">Node.js</button>
+                            <button type="button" class="code-tab" role="tab" id="tab-python" aria-controls="panel-python" aria-selected="false" tabindex="-1">Python</button>
+                        </div>
+                        <div class="code-tab-actions">
+                            <span class="code-tab-lang-label" id="codeLangLabel">cURL / bash</span>
+                            <button type="button" class="code-copy-btn" id="codeCopyBtn" aria-label="Copy code snippet">
+                                <svg class="lucide lucide-copy" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                                <span>Copy</span>
+                            </button>
+                        </div>
                     </div>
-                    <div>
-                        <h2>Secure delivery &amp; encryption</h2>
-                        <p>Protect confidential financial statements and contracts with AES-256 passwords and granular permissions.</p>
+
+                    <div id="panel-curl" class="code-panel" role="tabpanel" aria-labelledby="tab-curl">
+                        <pre aria-label="cURL code example"><code><span class="code-key">curl</span> -X POST https://renderpdf.vberkoz.com/api/v1/render \
+  -H <span class="code-string">"Authorization: Bearer $RENDERPDF_API_KEY"</span> \
+  -H <span class="code-string">"Content-Type: application/json"</span> \
+  -d <span class="code-string">'{
+    "source": {
+      "type": "html",
+      "content": "&lt;h1&gt;Invoice #1042&lt;/h1&gt;&lt;qrcode value=\"https://pay.acme.com/1042\" size=\"120\" /&gt;"
+    },
+    "options": {
+      "format": "A4",
+      "compliance": { "profile": "factur-x", "invoiceProfile": "EN 16931" }
+    }
+  }'</span></code></pre>
+                        <div class="code-panel-footer">
+                            <span>Direct JSON endpoint returning 15-minute signed S3 download URL.</span>
+                            <a href="/docs/api/render/" class="code-guide-link">API reference <svg class="lucide lucide-arrow-up-right" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg></a>
+                        </div>
                     </div>
-                </article>
-                <article>
-                    <div class="capability-icon-wrap" aria-hidden="true">
-                        <svg class="lucide lucide-monitor" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg>
+
+                    <div id="panel-node" class="code-panel" role="tabpanel" aria-labelledby="tab-node" hidden>
+                        <pre aria-label="Node.js code example"><code><span class="code-key">const</span> res = <span class="code-key">await</span> fetch(<span class="code-string">'https://renderpdf.vberkoz.com/api/v1/render'</span>, {
+  method: <span class="code-string">'POST'</span>,
+  headers: {
+    <span class="code-string">'Authorization'</span>: <span class="code-string">`Bearer ${process.env.RENDERPDF_API_KEY}`</span>,
+    <span class="code-string">'Content-Type'</span>: <span class="code-string">'application/json'</span>
+  },
+  body: JSON.stringify({
+    source: {
+      type: <span class="code-string">'html'</span>,
+      content: <span class="code-string">'&lt;h1&gt;Services Agreement&lt;/h1&gt;&lt;barcode type="code128" value="AGR-2026" /&gt;'</span>
+    },
+    options: {
+      format: <span class="code-string">'Letter'</span>,
+      watermark: { text: <span class="code-string">'CONFIDENTIAL'</span>, opacity: 0.15 }
+    }
+  })
+});
+
+<span class="code-key">const</span> { url } = <span class="code-key">await</span> res.json();
+console.log(<span class="code-string">'Download PDF:'</span>, url);</code></pre>
+                        <div class="code-panel-footer">
+                            <span>Step-by-step tutorial with error handling and retry logic.</span>
+                            <a href="/guides/html-to-pdf-node-js/" class="code-guide-link">Read Node.js guide <svg class="lucide lucide-arrow-up-right" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg></a>
+                        </div>
                     </div>
-                    <div>
-                        <h2>Browser-grade rendering</h2>
-                        <p>Use modern HTML and CSS, rendered with Chromium to match your web output.</p>
+
+                    <div id="panel-python" class="code-panel" role="tabpanel" aria-labelledby="tab-python" hidden>
+                        <pre aria-label="Python code example"><code><span class="code-key">import</span> os
+<span class="code-key">import</span> requests
+
+response = requests.post(
+    <span class="code-string">"https://renderpdf.vberkoz.com/api/v1/render"</span>,
+    headers={
+        <span class="code-string">"Authorization"</span>: f<span class="code-string">"Bearer {os.environ['RENDERPDF_API_KEY']}"</span>,
+        <span class="code-string">"Content-Type"</span>: <span class="code-string">"application/json"</span>
+    },
+    json={
+        <span class="code-string">"source"</span>: {
+            <span class="code-string">"type"</span>: <span class="code-string">"html"</span>,
+            <span class="code-string">"content"</span>: <span class="code-string">"&lt;h1&gt;Boarding Pass&lt;/h1&gt;&lt;qrcode value=\"FL-8821\" size=\"140\" /&gt;"</span>
+        },
+        <span class="code-string">"options"</span>: {
+            <span class="code-string">"format"</span>: <span class="code-string">"A4"</span>,
+            <span class="code-string">"pageNumbers"</span>: { <span class="code-string">"format"</span>: <span class="code-string">"Page {page} of {total}"</span>, <span class="code-string">"position"</span>: <span class="code-string">"bottom-right"</span> }
+        }
+    }
+)
+
+download_url = response.json()[<span class="code-string">"url"</span>]
+print(f<span class="code-string">"Generated PDF: {download_url}"</span>)</code></pre>
+                        <div class="code-panel-footer">
+                            <span>Complete tutorial with async webhook support and bulk batching.</span>
+                            <a href="/guides/html-to-pdf-python/" class="code-guide-link">Read Python guide <svg class="lucide lucide-arrow-up-right" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg></a>
+                        </div>
                     </div>
-                </article>
+                </div>
             </section>
 
             <section class="pricing" id="pricing" aria-labelledby="pricing-title">
@@ -319,6 +558,19 @@
                     </details>
                 </div>
             </section>
+
+            <section class="closing-cta" aria-labelledby="cta-title">
+                <div class="closing-cta-content">
+                    <p class="eyebrow">Start in minutes</p>
+                    <h2 id="cta-title">Ready to automate your PDF generation?</h2>
+                    <p class="lead">Turn HTML into production-ready PDFs without managing headless Chrome, background queues, or font rendering bugs. 25 free renders every month, no credit card required.</p>
+                    <div class="closing-cta-actions">
+                        <a class="button button-primary" href="/app/">Create free account</a>
+                        <a class="button button-secondary" href="/docs/api/">Explore the API docs</a>
+                    </div>
+                    <p class="closing-cta-note">Instant setup · Full Chromium fidelity · AES-256 encryption · Cancel anytime</p>
+                </div>
+            </section>
         </main>
 
         <footer class="footer">
@@ -328,8 +580,8 @@
                         <span class="brand-mark" aria-hidden="true"></span>
                         <span>RenderPDF</span>
                     </div>
-                    <p class="footer-entity">RenderPDF Studio LLC</p>
-                    <p class="footer-address">131 Continental Dr, Suite 305, Newark, DE 19713, USA</p>
+                    <p class="footer-entity">Individual Entrepreneur Vasyl Berkoz (ФОП Беркоз В. С.)</p>
+                    <p class="footer-address">Chernivtsi, Ukraine</p>
                     <p class="footer-contact">Support: <a href="mailto:support@renderpdf.vberkoz.com">support@renderpdf.vberkoz.com</a></p>
                 </div>
                 <div class="footer-links-grid">
@@ -361,12 +613,13 @@
                             <a href="/privacy/">Privacy Policy</a>
                             <a href="/refund/">Refund Policy</a>
                             <a href="/cancellation/">Cancellation</a>
+                            <button type="button" class="footer-link-btn" id="openCookieSettingsBtn">Cookie Settings</button>
                         </nav>
                     </div>
                 </div>
             </div>
             <div class="footer-bottom">
-                <p>&copy; 2026 RenderPDF Studio LLC. All rights reserved. Payments and subscriptions are securely managed by Paddle, our Merchant of Record.</p>
+                <p>&copy; 2026 Vasyl Berkoz (RenderPDF). All rights reserved. Payments and subscriptions are securely managed by Paddle, our Merchant of Record.</p>
             </div>
         </footer>
     </div>
@@ -376,7 +629,13 @@
 
     <script src="/vendor/codemirror.bundle.js" defer></script>
     <script src="/custom-select.js" defer></script>
+    <script src="/templates/agreement.js" defer></script>
+    <script src="/templates/invoice.js" defer></script>
+    <script src="/templates/receipt.js" defer></script>
+    <script src="/templates/boarding-pass.js" defer></script>
+    <script src="/templates/certificate.js" defer></script>
     <script src="/playground-templates.js" defer></script>
+    <script src="/cookie-consent.js" defer></script>
     <script src="/landing.js" defer></script>
     <link rel="stylesheet" href="/chat-widget.css?v=4">
     <script src="/chat-widget.js?v=4" defer></script>

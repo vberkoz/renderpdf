@@ -15,7 +15,6 @@
 <body data-enhance-code-snippets>
     <a class="skip-link" href="#main-content">Skip to main content</a>
     <div class="shell">
-        <div>
         <header class="topbar">
             <a class="brand" href="/" aria-label="RenderPDF home">
                 <span class="brand-mark" aria-hidden="true"></span>
@@ -30,7 +29,6 @@
                 <a href="https://github.com/vberkoz/renderpdf">GitHub</a>
             </nav>
         </header>
-        </div>
 
         <main id="main-content" tabindex="-1">
             <div class="docs-layout">
@@ -49,6 +47,7 @@
                             <a href="/docs/api/render/">Render HTML</a>
                             <a href="/docs/api/render-document/">Document JSON</a>
                             <a href="/docs/api/pdf-security/">Password &amp; security</a>
+                            <a href="/docs/api/compliance/">Compliance &amp; Factur-X</a>
                             <a href="/docs/api/markdown/">Markdown</a>
                             <a href="/docs/api/render-url/">Public URL</a>
                             <a href="/docs/api/render-upload/">Local package</a>
@@ -60,6 +59,7 @@
                             <a href="/docs/api/sources/">Saved sources</a>
                             <a href="/docs/api/files/">Files &amp; downloads</a>
                             <a href="/docs/api/batches/">Batch rendering</a>
+                            <a href="/docs/api/merge/">Merge PDFs</a>
                         </details>
                         <details class="sidebar-group">
                             <summary>Delivery & errors</summary>
@@ -98,17 +98,20 @@
                         <p class="section-copy">All API-key management requests require a Cognito ID token in the <code>Authorization</code> header. Obtain it by signing in to the dashboard; API keys cannot manage other API keys.</p>
 
                         <h2>Create a key</h2>
-                        <p class="section-copy"><code>POST /api-keys</code> has no request body. The plaintext key is returned only in this response, so store it securely.</p>
+                        <p class="section-copy"><code>POST /api-keys</code> accepts an optional JSON body with a <code>name</code> label (e.g. <code>{"name": "Production"}</code>). The plaintext key is returned only in this <code>201 Created</code> response, so store it securely.</p>
                         <div class="code-block">
                             <div class="code-header"><span>cURL</span><button type="button" class="copy-button" data-copy-target="create-key-code">Copy</button></div>
                             <pre id="create-key-code"><code class="language-bash">curl -X POST https://renderpdf.vberkoz.com/api/v1/api-keys \
-  -H "Authorization: Bearer YOUR_COGNITO_ID_TOKEN"</code></pre>
+  -H "Authorization: Bearer YOUR_COGNITO_ID_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Production Backend"}'</code></pre>
                         </div>
                         <div class="code-block">
-                            <div class="code-header"><span>200 / application/json</span></div>
+                            <div class="code-header"><span>201 / application/json</span></div>
                             <pre><code class="language-json">{
-  "keyId": "5d1d...",
-  "apiKey": "sk_live_..."
+  "keyId": "key_5d1d...",
+  "apiKey": "rpdf_live_...",
+  "name": "Production Backend"
 }</code></pre>
                         </div>
 
@@ -166,8 +169,8 @@
                         <span class="brand-mark" aria-hidden="true"></span>
                         <span>RenderPDF</span>
                     </div>
-                    <p class="footer-entity">RenderPDF Studio LLC</p>
-                    <p class="footer-address">131 Continental Dr, Suite 305, Newark, DE 19713, USA</p>
+                    <p class="footer-entity">Individual Entrepreneur Vasyl Berkoz (ФОП Беркоз В. С.)</p>
+                    <p class="footer-address">Chernivtsi, Ukraine</p>
                     <p class="footer-contact">Support: <a href="mailto:support@renderpdf.vberkoz.com">support@renderpdf.vberkoz.com</a></p>
                 </div>
                 <div class="footer-links-grid">
@@ -192,7 +195,7 @@
                 </div>
             </div>
             <div class="footer-bottom">
-                <p>&copy; 2026 RenderPDF Studio LLC. All rights reserved. Payments and subscriptions are securely managed by Paddle, our Merchant of Record.</p>
+                <p>&copy; 2026 Vasyl Berkoz (RenderPDF). All rights reserved. Payments and subscriptions are securely managed by Paddle, our Merchant of Record.</p>
             </div>
         </footer>
     </div>

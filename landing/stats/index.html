@@ -40,7 +40,7 @@
                 <div class="stats-control-details">
                     <span class="stats-live-pill"><i class="stats-live-dot" aria-hidden="true"></i> Live feed</span>
                     <p>Reporting window: <strong id="reportingWindow">Last 30 days</strong></p>
-                    <p>Last updated: <time id="checkedAt" aria-live="polite">Loading…</time></p>
+                    <p>Last updated: <time id="checkedAt" aria-live="polite"><span class="stats-spinner-inline" aria-hidden="true"></span>Loading…</time></p>
                 </div>
                 <button id="refreshBtn" class="button button-secondary" type="button"><svg class="lucide lucide-rotate-cw" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg> Refresh</button>
             </section>
@@ -86,9 +86,9 @@
                 <section class="metric-group-section" aria-labelledby="volume-title">
                     <div class="metric-group-heading"><p>Volume</p><h3 id="volume-title">Document requests</h3></div>
                     <div class="stats-metrics" aria-label="Volume metrics">
-                        <article data-metric><h4>Requests today</h4><p id="requestsToday" class="metric-value" aria-live="polite">—</p><p>Across all endpoints</p></article>
-                        <article data-metric><h4>Last 7 days</h4><p id="requestsLast7Days" class="metric-value" aria-live="polite">—</p><p>Recent volume</p></article>
-                        <article data-metric><h4>Last 30 days</h4><p id="requestsLast30Days" class="metric-value" aria-live="polite">—</p><p>Rolling 30-day volume</p></article>
+                        <article data-metric><h4>Requests today</h4><p id="requestsToday" class="metric-value" aria-live="polite"><span class="stats-skeleton-val" aria-hidden="true"></span><span class="visually-hidden">Loading…</span></p><p>Across all endpoints</p></article>
+                        <article data-metric><h4>Last 7 days</h4><p id="requestsLast7Days" class="metric-value" aria-live="polite"><span class="stats-skeleton-val" aria-hidden="true"></span><span class="visually-hidden">Loading…</span></p><p>Recent volume</p></article>
+                        <article data-metric><h4>Last 30 days</h4><p id="requestsLast30Days" class="metric-value" aria-live="polite"><span class="stats-skeleton-val" aria-hidden="true"></span><span class="visually-hidden">Loading…</span></p><p>Rolling 30-day volume</p></article>
                     </div>
                 </section>
             </section>
@@ -111,7 +111,7 @@
                         <p>Global</p>
                         <h2>User countries</h2>
                         <p>Geographic request distribution</p>
-                        <div id="countries"><p>Loading telemetry...</p></div>
+                        <div id="countries"><div class="stats-loading-state"><span class="stats-spinner" aria-hidden="true"></span><span>Loading telemetry...</span></div></div>
                     </article>
                 </div>
             </section>
@@ -133,8 +133,8 @@
                             <span class="brand-mark" aria-hidden="true"></span>
                             <span>RenderPDF</span>
                         </div>
-                        <p class="footer-entity">RenderPDF Studio LLC</p>
-                        <p class="footer-address">131 Continental Dr, Suite 305, Newark, DE 19713, USA</p>
+                        <p class="footer-entity">Individual Entrepreneur Vasyl Berkoz (ФОП Беркоз В. С.)</p>
+                    <p class="footer-address">Chernivtsi, Ukraine</p>
                         <p class="footer-contact">Support: <a href="mailto:support@renderpdf.vberkoz.com">support@renderpdf.vberkoz.com</a></p>
                     </div>
                     <div class="footer-links-grid">
@@ -161,12 +161,13 @@
                     </div>
                 </div>
                 <div class="footer-bottom">
-                    <p>&copy; 2026 RenderPDF Studio LLC. All rights reserved. Payments and subscriptions are securely managed by Paddle, our Merchant of Record.</p>
+                    <p>&copy; 2026 Vasyl Berkoz (RenderPDF). All rights reserved. Payments and subscriptions are securely managed by Paddle, our Merchant of Record.</p>
                 </div>
             </footer>
         </main>
     </div>
 
+    <script src="/cookie-consent.js"></script>
     <script>
         const checkedAt = document.getElementById('checkedAt');
         const refreshBtn = document.getElementById('refreshBtn');
@@ -177,7 +178,12 @@
         const API_ORIGIN = window.location.protocol === 'file:'
             ? 'https://renderpdf.vberkoz.com'
             : window.location.origin;
-        const PUBLIC_STATS_URL = new URL('/api/v1/public-stats', API_ORIGIN).toString();
+
+        function getPublicStatsUrl() {
+            const hasConsent = Boolean(window.RenderPdfCookieConsent?.hasConsented?.());
+            const eventParam = hasConsent ? 'page_viewed' : 'none';
+            return new URL(`/api/v1/public-stats?event=${eventParam}`, API_ORIGIN).toString();
+        }
 
         function setLastUpdated(timestamp) {
             checkedAt.dateTime = timestamp.toISOString();
@@ -301,7 +307,7 @@
             refreshBtn.setAttribute('aria-busy', 'true');
             refreshBtn.classList.add('is-processing');
             try {
-                const response = await fetch(PUBLIC_STATS_URL, { cache: 'no-store' });
+                const response = await fetch(getPublicStatsUrl(), { cache: 'no-store' });
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
                 const payload = await response.json();
 

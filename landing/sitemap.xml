@@ -93,7 +93,13 @@
   </url>
   <url>
     <loc>https://renderpdf.vberkoz.com/docs/api/pdf-security/</loc>
-    <lastmod>2026-09-21</lastmod>
+    <lastmod>2026-10-20</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://renderpdf.vberkoz.com/docs/api/compliance/</loc>
+    <lastmod>2026-10-20</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -129,9 +135,15 @@
   </url>
   <url>
     <loc>https://renderpdf.vberkoz.com/docs/api/batches/</loc>
-    <lastmod>2026-09-21</lastmod>
+    <lastmod>2026-10-20</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://renderpdf.vberkoz.com/docs/api/merge/</loc>
+    <lastmod>2026-10-20</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
   </url>
   <url>
     <loc>https://renderpdf.vberkoz.com/docs/api/webhooks/</loc>

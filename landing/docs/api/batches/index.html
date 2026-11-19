@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Submit asynchronous batch render jobs for up to 99 documents with queue management and ZIP downloads.">
+    <meta name="description" content="Submit high-throughput asynchronous batch render jobs with SQS queues, merged PDF outputs, and ZIP archives.">
     <title>Batch Rendering | RenderPDF API</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <link href="/styles/base.css" rel="stylesheet">
     <link href="/styles/docs.css" rel="stylesheet">
@@ -15,7 +15,6 @@
 <body data-enhance-code-snippets>
     <a class="skip-link" href="#main-content">Skip to main content</a>
     <div class="shell">
-        <div>
         <header class="topbar">
             <a class="brand" href="/" aria-label="RenderPDF home">
                 <span class="brand-mark" aria-hidden="true"></span>
@@ -30,7 +29,6 @@
                 <a href="https://github.com/vberkoz/renderpdf">GitHub</a>
             </nav>
         </header>
-        </div>
 
         <main id="main-content" tabindex="-1">
             <div class="docs-layout">
@@ -49,6 +47,7 @@
                             <a href="/docs/api/render/">Render HTML</a>
                             <a href="/docs/api/render-document/">Document JSON</a>
                             <a href="/docs/api/pdf-security/">Password &amp; security</a>
+                            <a href="/docs/api/compliance/">Compliance &amp; Factur-X</a>
                             <a href="/docs/api/markdown/">Markdown</a>
                             <a href="/docs/api/render-url/">Public URL</a>
                             <a href="/docs/api/render-upload/">Local package</a>
@@ -60,6 +59,7 @@
                             <a href="/docs/api/sources/">Saved sources</a>
                             <a href="/docs/api/files/">Files &amp; downloads</a>
                             <a href="/docs/api/batches/" class="is-active" aria-current="page">Batch rendering</a>
+                            <a href="/docs/api/merge/">Merge PDFs</a>
                         </details>
                         <details class="sidebar-group">
                             <summary>Delivery & errors</summary>
@@ -85,24 +85,42 @@
 
                 <div class="content">
                     <section class="doc-section endpoint-section" id="batches">
-<div class="endpoint-heading">
+                        <div class="endpoint-heading">
                             <div><p class="eyebrow">Reusable assets and batch work</p><h1>Batch rendering</h1></div>
                             <div class="route"><span class="method">POST</span><code>/batches</code></div>
                         </div>
-                        <p class="section-copy">Submit up to 99 PDFs in one job. A durable DynamoDB outbox dispatches each item to SQS; retries are at-least-once, while conditional worker claims prevent duplicate PDFs.</p>
+                        <p class="section-copy">Submit up to 99 PDFs in one job. A durable DynamoDB outbox dispatches each item to SQS; retries are at-least-once, while conditional worker claims prevent duplicate PDFs. Completed documents can be downloaded as a single merged PDF or a ZIP archive.</p>
+                        
+                        <h2>Submitting a batch job</h2>
                         <div class="code-block"><pre><code class="language-json">{
   "version": "1",
-  "source": { "type": "stored", "id": "src_..." },
+  "source": { "type": "stored", "id": "src_01h8q..." },
   "items": [
     { "data": { "customer": { "name": "Ada" } } },
     { "data": { "customer": { "name": "Grace" } } }
   ],
-  "options": { "webhookUrl": "https://example.com/hooks/render" }
+  "options": {
+    "webhookUrl": "https://example.com/hooks/render",
+    "webhookSecret": "secret_key_123",
+    "mergeOutput": true
+  }
 }</code></pre></div>
-                        <div class="property-row"><code>GET /batches/{id}</code><span class="required">API key</span><p>Read job state, totals, progress, and timestamps.</p></div>
-                        <div class="property-row"><code>GET /batches/{id}/items</code><span class="required">API key</span><p>List item status and output file IDs.</p></div>
+                        <div class="property-row"><code>options.mergeOutput</code><span class="type">boolean</span><span class="optional">optional</span><p>When set to <code>true</code>, RenderPDF automatically merges all completed item PDFs into a single continuous PDF document upon download, in addition to standard ZIP packaging.</p></div>
+                        <div class="property-row"><code>GET /batches</code><span class="required">API key</span><p>List all batch jobs owned by the authenticated account, sorted newest first (returns <code>{"jobs": [...]}</code>).</p></div>
+                        <div class="property-row"><code>GET /batches/{id}</code><span class="required">API key</span><p>Read job state (<code>queued|running|completed|completed_with_errors|cancelled|failed</code>), totals, progress counts, and timestamps.</p></div>
+                        <div class="property-row"><code>GET /batches/{id}/items</code><span class="required">API key</span><p>List item status and individual output file IDs.</p></div>
                         <div class="property-row"><code>POST /batches/{id}/cancel</code><span class="required">API key</span><p>Cancel pending items; active work completes safely.</p></div>
-                        <div class="property-row"><code>GET /batches/{id}/download</code><span class="required">API key</span><p>Create or reuse a private ZIP of completed PDFs, up to 100 MiB.</p></div>
+                        
+                        <h2>Downloading batch results</h2>
+                        <div class="property-row"><code>GET /batches/{id}/download</code><span class="required">API key</span><p>Obtain a 15-minute signed S3 download URL for the completed batch output. Supports the <code>format</code> query parameter:
+                            <ul>
+                                <li><code>?format=pdf</code>: Materializes and downloads all completed items as a single unified, concatenated PDF document.</li>
+                                <li><code>?format=zip</code>: Packages all individual PDFs into a ZIP archive.</li>
+                                <li><em>(Omitted)</em>: Automatically selects <code>pdf</code> if the batch was submitted with <code>mergeOutput: true</code>, or <code>zip</code> otherwise.</li>
+                            </ul>
+                            Response format: <code>{"fileId": "...", "url": "https://...", "format": "pdf|zip"}</code>.
+                        </p></div>
+
                         <p class="section-footnote">A job-level webhook emits one terminal <code>batch.completed</code> or <code>batch.failed</code> event. Permanently failing worker items are reconciled through the batch dead-letter queue.</p>
                     </section>
                     <nav class="docs-pagination" aria-label="Documentation pagination">
@@ -110,9 +128,9 @@
                             <span class="pagination-label">&larr; Previous</span>
                             <span class="pagination-title">Files &amp; downloads</span>
                         </a>
-                        <a class="pagination-link pagination-next" href="/docs/api/webhooks/">
+                        <a class="pagination-link pagination-next" href="/docs/api/merge/">
                             <span class="pagination-label">Next &rarr;</span>
-                            <span class="pagination-title">Webhooks</span>
+                            <span class="pagination-title">Merge PDFs</span>
                         </a>
                     </nav>
                 </div>
@@ -126,8 +144,8 @@
                         <span class="brand-mark" aria-hidden="true"></span>
                         <span>RenderPDF</span>
                     </div>
-                    <p class="footer-entity">RenderPDF Studio LLC</p>
-                    <p class="footer-address">131 Continental Dr, Suite 305, Newark, DE 19713, USA</p>
+                    <p class="footer-entity">Individual Entrepreneur Vasyl Berkoz (ФОП Беркоз В. С.)</p>
+                    <p class="footer-address">Chernivtsi, Ukraine</p>
                     <p class="footer-contact">Support: <a href="mailto:support@renderpdf.vberkoz.com">support@renderpdf.vberkoz.com</a></p>
                 </div>
                 <div class="footer-links-grid">
@@ -152,7 +170,7 @@
                 </div>
             </div>
             <div class="footer-bottom">
-                <p>&copy; 2026 RenderPDF Studio LLC. All rights reserved. Payments and subscriptions are securely managed by Paddle, our Merchant of Record.</p>
+                <p>&copy; 2026 Vasyl Berkoz (RenderPDF). All rights reserved. Payments and subscriptions are securely managed by Paddle, our Merchant of Record.</p>
             </div>
         </footer>
     </div>

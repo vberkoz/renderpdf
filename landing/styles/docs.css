@@ -44,10 +44,11 @@
 .sidebar-mobile-toggle { display: none; }
 .endpoint-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
 .sidebar {
+  position: -webkit-sticky;
   position: sticky;
-  top: 18px;
+  top: 80px;
   align-self: start;
-  max-height: calc(100vh - 36px);
+  max-height: calc(100vh - 96px);
   padding: 16px;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -57,6 +58,7 @@
   background: var(--bg-elevated);
   scrollbar-width: thin;
   scrollbar-color: var(--line) transparent;
+  z-index: 40;
 }
 .sidebar::-webkit-scrollbar { width: 6px; }
 .sidebar::-webkit-scrollbar-thumb { border-radius: 6px; background: var(--line); }
@@ -77,7 +79,7 @@
 .sidebar-note p { margin: 0; color: var(--muted); }
 
 .content { display: grid; gap: 20px; min-width: 0; }
-.doc-section { display: grid; gap: 16px; scroll-margin-top: 24px; border: 1px solid var(--card-border); border-radius: var(--radius-lg); background: var(--card-bg); box-shadow: var(--shadow); padding: 28px; }
+.doc-section { display: grid; gap: 16px; scroll-margin-top: 80px; border: 1px solid var(--card-border); border-radius: var(--radius-lg); background: var(--card-bg); box-shadow: var(--shadow); padding: 28px; }
 .section-heading { display: grid; gap: 6px; max-width: 720px; }
 .section-heading p { margin: 0; color: var(--muted); font-size: .84rem; }
 .section-heading h1, .endpoint-heading h1 { margin: 0; letter-spacing: -.025em; font-size: clamp(1.75rem, 3vw, 2.3rem); color: var(--text); }
@@ -281,32 +283,12 @@
   .docs-hero, .response-grid { grid-template-columns: 1fr; }
   .docs-hero { gap: 24px; min-height: 0; }
   .docs-layout { grid-template-columns: 1fr; gap: 20px; }
-  .sidebar { position: static; max-height: none; overflow: visible; }
   .sidebar-note { display: none; }
-}
 
-@media (max-width: 760px) {
-  .docs-hero, .doc-section { padding: 18px; }
-  .docs-hero h1 { font-size: clamp(1.85rem, 8vw, 2.75rem); }
-  .endpoint-heading {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 10px;
-  }
-  .endpoint-heading h1, .section-heading h1 {
-    font-size: clamp(1.65rem, 6vw, 2.1rem);
-  }
-  .route, .endpoint-route {
-    flex-wrap: wrap;
-    font-size: 0.72rem;
-  }
-  .route code, .endpoint-route code {
-    overflow-wrap: anywhere;
-    word-break: break-word;
-  }
-
-  /* Compact Mobile Sidebar with Collapsible Toggle */
+  /* Compact Mobile/Tablet Sidebar with Collapsible Toggle */
   .sidebar {
+    position: static;
+    max-height: none;
     border-radius: var(--radius-md);
     padding: 0;
     overflow: hidden;
@@ -365,7 +347,7 @@
     display: none;
   }
   
-  /* When expanded on mobile */
+  /* When expanded on mobile/tablet */
   .sidebar.is-expanded > nav {
     display: grid;
     padding: 0 14px 14px;
@@ -379,6 +361,27 @@
   .sidebar.is-expanded > .sidebar-note {
     display: grid;
     margin: 12px 14px 14px;
+  }
+}
+
+@media (max-width: 760px) {
+  .docs-hero, .doc-section { padding: 18px; }
+  .docs-hero h1 { font-size: clamp(1.85rem, 8vw, 2.75rem); }
+  .endpoint-heading {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .endpoint-heading h1, .section-heading h1 {
+    font-size: clamp(1.65rem, 6vw, 2.1rem);
+  }
+  .route, .endpoint-route {
+    flex-wrap: wrap;
+    font-size: 0.72rem;
+  }
+  .route code, .endpoint-route code {
+    overflow-wrap: anywhere;
+    word-break: break-word;
   }
 
   /* Property rows (request body params) on mobile: badges together on line 1, text on line 2 */

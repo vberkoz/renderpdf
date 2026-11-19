@@ -259,7 +259,9 @@
                 error.classList.add('hidden');
 
                 try {
-                    fetch(new URL('/api/v1/public-stats?event=trial_render_submitted', API_ORIGIN).toString(), { cache: 'no-store' }).catch(() => {});
+                    if (window.RenderPdfCookieConsent?.hasConsented?.()) {
+                        fetch(new URL('/api/v1/public-stats?event=trial_render_submitted', API_ORIGIN).toString(), { cache: 'no-store' }).catch(() => {});
+                    }
                     const response = await fetch(TRIAL_RENDER_URL, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -283,7 +285,9 @@
                     }
 
                     const data = await response.json();
-                    fetch(new URL('/api/v1/public-stats?event=trial_render_succeeded', API_ORIGIN).toString(), { cache: 'no-store' }).catch(() => {});
+                    if (window.RenderPdfCookieConsent?.hasConsented?.()) {
+                        fetch(new URL('/api/v1/public-stats?event=trial_render_succeeded', API_ORIGIN).toString(), { cache: 'no-store' }).catch(() => {});
+                    }
                     result.innerHTML = `
                         <div>
                             <strong>PDF ready</strong>
@@ -373,9 +377,67 @@
             });
         });
 
+        const initCodeTabs = () => {
+            const tabs = document.querySelectorAll('.code-tab');
+            if (!tabs.length) return;
+            const panels = {
+                'tab-curl': { panel: document.getElementById('panel-curl'), label: 'cURL / bash' },
+                'tab-node': { panel: document.getElementById('panel-node'), label: 'Node.js 18+ (Fetch)' },
+                'tab-python': { panel: document.getElementById('panel-python'), label: 'Python 3 (Requests)' }
+            };
+            const labelEl = document.getElementById('codeLangLabel');
+            const copyBtn = document.getElementById('codeCopyBtn');
+
+            tabs.forEach((tab) => {
+                tab.addEventListener('click', () => {
+                    tabs.forEach((t) => {
+                        t.classList.remove('is-active');
+                        t.setAttribute('aria-selected', 'false');
+                        t.setAttribute('tabindex', '-1');
+                    });
+                    Object.values(panels).forEach((p) => {
+                        if (p.panel) p.panel.hidden = true;
+                    });
+
+                    tab.classList.add('is-active');
+                    tab.setAttribute('aria-selected', 'true');
+                    tab.removeAttribute('tabindex');
+
+                    const target = panels[tab.id];
+                    if (target && target.panel) {
+                        target.panel.hidden = false;
+                        if (labelEl) labelEl.textContent = target.label;
+                    }
+                });
+            });
+
+            if (copyBtn) {
+                copyBtn.addEventListener('click', async () => {
+                    const activeTab = document.querySelector('.code-tab.is-active');
+                    const activePanel = activeTab && panels[activeTab.id] ? panels[activeTab.id].panel : null;
+                    if (!activePanel) return;
+                    const code = activePanel.querySelector('pre')?.textContent || '';
+                    try {
+                        if (navigator.clipboard && navigator.clipboard.writeText) {
+                            await navigator.clipboard.writeText(code);
+                        }
+                        const span = copyBtn.querySelector('span');
+                        if (span) {
+                            const prev = span.textContent;
+                            span.textContent = 'Copied!';
+                            setTimeout(() => { span.textContent = prev; }, 2000);
+                        }
+                    } catch (_) {}
+                });
+            }
+        };
+        initCodeTabs();
+
         const loadLiveTelemetry = async () => {
             try {
-                const res = await fetch(new URL('/api/v1/public-stats?event=page_viewed', API_ORIGIN).toString(), { cache: 'no-store' });
+                const hasConsent = Boolean(window.RenderPdfCookieConsent?.hasConsented?.());
+                const telemetryEvent = hasConsent ? 'page_viewed' : 'none';
+                const res = await fetch(new URL(`/api/v1/public-stats?event=${telemetryEvent}`, API_ORIGIN).toString(), { cache: 'no-store' });
                 if (!res.ok) return;
                 const stats = await res.json();
                 const speedEl = document.getElementById('renderSpeedVal');
@@ -391,6 +453,12 @@
             }
         };
         loadLiveTelemetry();
+
+        window.addEventListener('renderpdf:consent', (event) => {
+            if (event.detail?.status === 'accepted') {
+                fetch(new URL('/api/v1/public-stats?event=page_viewed', API_ORIGIN).toString(), { cache: 'no-store' }).catch(() => {});
+            }
+        });
     }
 
     if (typeof document !== 'undefined') {

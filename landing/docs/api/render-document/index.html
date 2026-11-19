@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Structured HTML/CSS JSON document rendering with escaped data bindings and custom page options.">
+    <meta name="description" content="Send structured HTML/CSS JSON documents with data bindings, vector barcodes, watermarks, and print options.">
     <title>Document JSON | RenderPDF API</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -15,7 +15,6 @@
 <body data-enhance-code-snippets>
     <a class="skip-link" href="#main-content">Skip to main content</a>
     <div class="shell">
-        <div>
         <header class="topbar">
             <a class="brand" href="/" aria-label="RenderPDF home">
                 <span class="brand-mark" aria-hidden="true"></span>
@@ -30,7 +29,6 @@
                 <a href="https://github.com/vberkoz/renderpdf">GitHub</a>
             </nav>
         </header>
-        </div>
 
         <main id="main-content" tabindex="-1">
             <div class="docs-layout">
@@ -49,6 +47,7 @@
                             <a href="/docs/api/render/">Render HTML</a>
                             <a href="/docs/api/render-document/" class="is-active" aria-current="page">Document JSON</a>
                             <a href="/docs/api/pdf-security/">Password &amp; security</a>
+                            <a href="/docs/api/compliance/">Compliance &amp; Factur-X</a>
                             <a href="/docs/api/markdown/">Markdown</a>
                             <a href="/docs/api/render-url/">Public URL</a>
                             <a href="/docs/api/render-upload/">Local package</a>
@@ -60,6 +59,7 @@
                             <a href="/docs/api/sources/">Saved sources</a>
                             <a href="/docs/api/files/">Files &amp; downloads</a>
                             <a href="/docs/api/batches/">Batch rendering</a>
+                            <a href="/docs/api/merge/">Merge PDFs</a>
                         </details>
                         <details class="sidebar-group">
                             <summary>Delivery & errors</summary>
@@ -85,33 +85,106 @@
 
                 <div class="content">
                     <section class="doc-section endpoint-section" id="render-document">
-<div class="endpoint-heading">
+                        <div class="endpoint-heading">
                             <div>
                                 <p class="eyebrow">Render inputs</p>
                                 <h1>Render an HTML/CSS JSON document</h1>
                             </div>
                             <div class="route"><span class="method">POST</span><code>/render</code></div>
                         </div>
-                        <p class="section-copy">Send HTML structure, CSS, and dynamic values separately. The authenticated endpoint validates the versioned contract, escapes bound values, builds a complete HTML document, and returns the standard PDF response.</p>
-                        <div class="property-row"><code>version</code><span class="type">string</span><span class="required">required</span><p>Contract version. The only supported value is <code>"1"</code>.</p></div>
-                        <div class="property-row"><code>html</code><span class="type">string</span><span class="required">required unless source is supplied</span><p>A non-empty HTML fragment containing optional <code>{{path.to.value}}</code> bindings.</p></div>
+                        <p class="section-copy">Send HTML structure, CSS, dynamic values, vector barcodes, and post-processing options separately. The authenticated endpoint validates the versioned contract, escapes bound values, builds a complete HTML document, and returns the standard PDF response.</p>
+                        
+                        <h2>Document contract fields</h2>
+                        <div class="property-row"><code>version</code><span class="type">string</span><span class="required">required</span><p>Contract version. Must be <code>"1"</code>.</p></div>
+                        <div class="property-row"><code>html</code><span class="type">string</span><span class="required">required unless source is supplied</span><p>A non-empty HTML fragment containing optional <code>{{path.to.value}}</code> bindings and barcode tags.</p></div>
                         <div class="property-row"><code>source</code><span class="type">object</span><span class="optional">optional</span><p>Mutually exclusive with <code>html</code>. The Markdown shape is <code>{ type: "markdown", content: "..." }</code>; it is converted to HTML with raw HTML disabled.</p></div>
-                        <div class="property-row"><code>css</code><span class="type">string</span><span class="optional">optional</span><p>Document CSS supported by headless Chrome, subject to the restrictions below.</p></div>
+                        <div class="property-row"><code>css</code><span class="type">string</span><span class="optional">optional</span><p>Document CSS supported by headless Chrome, subject to the safety restrictions below.</p></div>
                         <div class="property-row"><code>data</code><span class="type">object</span><span class="required">required</span><p>Nested values for every binding. Missing values, unused leaves, and malformed bindings return <code>422</code>; inserted values are HTML-escaped.</p></div>
-                        <div class="property-row"><code>options</code><span class="type">object</span><span class="optional">optional</span><p>Layout and document security settings. <code>format</code> may be <code>A4</code>, <code>Letter</code>, or <code>Legal</code>. <code>margin</code> accepts <code>0–50mm</code> or <code>0–2in</code> (defaults: <code>A4</code> and <code>18mm</code>). <code>headerTemplate</code> and <code>footerTemplate</code> accept HTML up to 64 KiB; <code>displayHeaderFooter</code> toggles headers and footers. <code>password</code> and <code>ownerPassword</code> set AES-256 encryption; <code>permissions</code> restricts user rights (<code>all</code>, <code>print</code>, or <code>none</code>). See <a href="/docs/api/pdf-security/">Document password &amp; security permissions</a> below.</p></div>
+                        
+                        <h2>Layout, security &amp; watermarking options (`options`)</h2>
+                        <div class="property-row"><code>format</code><span class="type">string</span><p>Paper format: <code>A4</code> (default), <code>Letter</code>, or <code>Legal</code>.</p></div>
+                        <div class="property-row"><code>margin</code><span class="type">string</span><p>Margin in mm (<code>0–50mm</code>) or in (<code>0–2in</code>). Defaults: <code>18mm</code>.</p></div>
+                        <div class="property-row"><code>headerTemplate</code> / <code>footerTemplate</code><span class="type">string</span><p>HTML templates for headers and footers (up to 64 KiB). Toggled with <code>displayHeaderFooter: true</code>.</p></div>
+                        <div class="property-row"><code>pageNumbers</code><span class="type">object</span><p>Post-render vector page numbering stamped via pdfcpu:
+                            <ul>
+                                <li><code>format</code>: Template string with <code>{page}</code> and optional <code>{total}</code> (default: <code>"Page {page} of {total}"</code>).</li>
+                                <li><code>position</code>: <code>bottom-center</code>, <code>bottom-right</code>, <code>bottom-left</code>, <code>top-center</code>, <code>top-right</code>, <code>top-left</code>.</li>
+                                <li><code>startPage</code>: First physical page to receive page numbers (1-indexed).</li>
+                                <li><code>startNumber</code>: Number to assign to startPage (defaults to 1).</li>
+                                <li><code>excludeCover</code>: Suppress numbering on cover page and adjust total count (default: false).</li>
+                                <li><code>fontSize</code>: Font size in points (1–72, default: 9).</li>
+                                <li><code>color</code>: 3 RGB floats (e.g. <code>"0.4 0.4 0.4"</code>) or hex code.</li>
+                            </ul>
+                        </p></div>
+                        <div class="property-row"><code>watermark</code><span class="type">object</span><p>Diagonal or rotated vector watermark stamped across document pages:
+                            <ul>
+                                <li><code>text</code>: Watermark string (e.g. <code>"CONFIDENTIAL"</code>).</li>
+                                <li><code>diagonal</code>: Corner-to-corner diagonal (default: true).</li>
+                                <li><code>rotation</code>: Custom angle from -360 to 360 degrees. Overrides diagonal.</li>
+                                <li><code>opacity</code>: Float between 0.0 and 1.0 (default: 0.15).</li>
+                                <li><code>color</code>: RGB floats or hex color (e.g. <code>"#dc2626"</code>).</li>
+                                <li><code>fontSize</code>: Font size in points (default: 54).</li>
+                                <li><code>font</code>: <code>Helvetica</code>, <code>Times-Roman</code>, or <code>Courier</code>.</li>
+                                <li><code>position</code>: <code>center</code>, <code>top-center</code>, <code>top-left</code>, <code>top-right</code>, <code>bottom-center</code>, <code>bottom-left</code>, <code>bottom-right</code>.</li>
+                                <li><code>pages</code>: <code>"all"</code>, <code>"odd"</code>, <code>"even"</code>, <code>"1"</code>, or <code>"2-"</code>.</li>
+                            </ul>
+                        </p></div>
+                        <div class="property-row"><code>waitFor</code><span class="type">object</span><p>Smart wait triggers evaluated before printing:
+                            <ul>
+                                <li><code>selector</code>: CSS selector to await until visible (e.g. <code>"#chart svg"</code>).</li>
+                                <li><code>networkIdle</code>: <code>"networkidle0"</code> or <code>"networkidle2"</code>.</li>
+                                <li><code>timeoutMs</code>: Milliseconds timeout (default: 5000).</li>
+                                <li><code>fonts</code>: Wait for web fonts before rendering (default: true).</li>
+                            </ul>
+                        </p></div>
+                        <div class="property-row"><code>password</code>, <code>ownerPassword</code>, <code>permissions</code><p>AES-256 PDF encryption. See <a href="/docs/api/pdf-security/#encryption">Security &amp; Passwords</a>.</p></div>
+                        <div class="property-row"><code>redaction</code><p>AST-level PII sanitization. See <a href="/docs/api/pdf-security/#redaction">PII Redaction</a>.</p></div>
+                        <div class="property-row"><code>signing</code><p>Cryptographic digital signatures. See <a href="/docs/api/pdf-security/#signatures">Digital Signatures</a>.</p></div>
+                        <div class="property-row"><code>compliance</code><p>Factur-X &amp; PDF/A archival compliance. See <a href="/docs/api/compliance/">Compliance &amp; Factur-X</a>.</p></div>
+
+                        <h2 id="barcodes">Vector barcodes &amp; QR codes in HTML</h2>
+                        <p class="section-copy">Embed resolution-independent vector barcodes and QR codes directly in your HTML content without loading client-side JavaScript libraries:</p>
+                        <ul>
+                            <li><code>&lt;qrcode value="https://pay.acme.com/1042" size="140" level="H" color="#000" background="#fff" /&gt;</code></li>
+                            <li><code>&lt;barcode type="code128" value="INV-2026" width="220" height="60" text="true" /&gt;</code></li>
+                            <li><code>&lt;div data-qrcode="https://example.com" data-qr-size="120px"&gt;&lt;/div&gt;</code></li>
+                            <li><code>&lt;div data-barcode="PKG-9944" data-barcode-type="code128"&gt;&lt;/div&gt;</code></li>
+                        </ul>
+                        <p class="section-copy">Supported types: <code>code128</code>, <code>code39</code>, <code>ean13</code>, <code>ean8</code>, <code>2of5</code>, <code>datamatrix</code>, <code>pdf417</code>, <code>qr</code>.</p>
+
+                        <h2>cURL example</h2>
                         <div class="code-block">
-                            <div class="code-header"><span>cURL</span><button type="button" class="copy-button" data-copy-target="render-document-code">Copy</button></div>
+                            <div class="code-header"><span>cURL · Document JSON with watermark and barcode</span><button type="button" class="copy-button" data-copy-target="render-document-code">Copy</button></div>
                             <pre id="render-document-code"><code class="language-bash">curl -X POST https://renderpdf.vberkoz.com/api/v1/render \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -d '{
-    "version":"1",
-    "source":{"type":"html","content":"&lt;main&gt;&lt;h1&gt;{{report.title}}&lt;/h1&gt;&lt;p&gt;{{customer.name}}&lt;/p&gt;&lt;/main&gt;"},
-    "css":"body { font-family: Arial, sans-serif; } h1 { color: #123456; }",
-    "data":{"report":{"title":"Monthly report"},"customer":{"name":"Ada &amp; Sons"}},
-    "options":{"format":"A4","margin":"18mm"}
+    "version": "1",
+    "source": {
+      "type": "html",
+      "content": "&lt;main&gt;&lt;h1&gt;{{report.title}}&lt;/h1&gt;&lt;p&gt;Customer: {{customer.name}}&lt;/p&gt;&lt;barcode type=\"code128\" value=\"RPT-2026\" width=\"200\" height=\"50\" text=\"true\" /&gt;&lt;/main&gt;"
+    },
+    "css": "body { font-family: Arial, sans-serif; } h1 { color: #123456; }",
+    "data": {
+      "report": { "title": "Monthly report" },
+      "customer": { "name": "Ada & Sons" }
+    },
+    "options": {
+      "format": "A4",
+      "margin": "18mm",
+      "pageNumbers": {
+        "format": "Page {page} of {total}",
+        "position": "bottom-center"
+      },
+      "watermark": {
+        "text": "CONFIDENTIAL",
+        "diagonal": true,
+        "opacity": 0.1
+      }
+    }
   }'</code></pre>
                         </div>
+
                         <h2>CSS, limits, and security</h2>
                         <p class="section-copy">Page size and margin are generated from <code>options</code>; <code>@page</code> in HTML or CSS is rejected. CSS <code>@import</code>, <code>url()</code>, unsafe legacy expressions, scripts, event-handler attributes, <code>iframe</code>, <code>embed</code>, <code>object</code>, <code>applet</code>, local files, and local or remote assets are rejected. JavaScript is disabled. Normal <code>http</code>, <code>https</code>, <code>mailto</code>, and <code>#anchor</code> links remain allowed.</p>
                         <div class="limits-grid">
@@ -120,7 +193,7 @@
                             <div><span>Data</span><strong>256 KiB / 10 levels</strong></div>
                         </div>
                         
-                        <p class="section-footnote">Optional <code>webhookUrl</code> and <code>webhookSecret</code> fields use the same signed <code>pdf.completed</code> delivery flow as other authenticated render endpoints. See <a href="/docs/api/pdf-security/">Document password &amp; security permissions</a> for AES-256 encryption.</p>
+                        <p class="section-footnote">Optional <code>webhookUrl</code> and <code>webhookSecret</code> fields use the same signed <code>pdf.completed</code> delivery flow as other authenticated render endpoints.</p>
                     </section>
                     <nav class="docs-pagination" aria-label="Documentation pagination">
                         <a class="pagination-link pagination-prev" href="/docs/api/render/">
@@ -143,8 +216,8 @@
                         <span class="brand-mark" aria-hidden="true"></span>
                         <span>RenderPDF</span>
                     </div>
-                    <p class="footer-entity">RenderPDF Studio LLC</p>
-                    <p class="footer-address">131 Continental Dr, Suite 305, Newark, DE 19713, USA</p>
+                    <p class="footer-entity">Individual Entrepreneur Vasyl Berkoz (ФОП Беркоз В. С.)</p>
+                    <p class="footer-address">Chernivtsi, Ukraine</p>
                     <p class="footer-contact">Support: <a href="mailto:support@renderpdf.vberkoz.com">support@renderpdf.vberkoz.com</a></p>
                 </div>
                 <div class="footer-links-grid">
@@ -169,7 +242,7 @@
                 </div>
             </div>
             <div class="footer-bottom">
-                <p>&copy; 2026 RenderPDF Studio LLC. All rights reserved. Payments and subscriptions are securely managed by Paddle, our Merchant of Record.</p>
+                <p>&copy; 2026 Vasyl Berkoz (RenderPDF). All rights reserved. Payments and subscriptions are securely managed by Paddle, our Merchant of Record.</p>
             </div>
         </footer>
     </div>

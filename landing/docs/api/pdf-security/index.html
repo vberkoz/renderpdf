@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="AES-256 PDF encryption, owner and user password protection, and printing/copying permission restrictions.">
-    <title>Password & Security | RenderPDF API</title>
+    <meta name="description" content="AES-256 PDF encryption, server-side PII data redaction, and PAdES/PKCS#7 cryptographic digital signatures.">
+    <title>Password, Redaction &amp; Security | RenderPDF API</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -15,7 +15,6 @@
 <body data-enhance-code-snippets>
     <a class="skip-link" href="#main-content">Skip to main content</a>
     <div class="shell">
-        <div>
         <header class="topbar">
             <a class="brand" href="/" aria-label="RenderPDF home">
                 <span class="brand-mark" aria-hidden="true"></span>
@@ -30,7 +29,6 @@
                 <a href="https://github.com/vberkoz/renderpdf">GitHub</a>
             </nav>
         </header>
-        </div>
 
         <main id="main-content" tabindex="-1">
             <div class="docs-layout">
@@ -49,6 +47,7 @@
                             <a href="/docs/api/render/">Render HTML</a>
                             <a href="/docs/api/render-document/">Document JSON</a>
                             <a href="/docs/api/pdf-security/" class="is-active" aria-current="page">Password &amp; security</a>
+                            <a href="/docs/api/compliance/">Compliance &amp; Factur-X</a>
                             <a href="/docs/api/markdown/">Markdown</a>
                             <a href="/docs/api/render-url/">Public URL</a>
                             <a href="/docs/api/render-upload/">Local package</a>
@@ -60,6 +59,7 @@
                             <a href="/docs/api/sources/">Saved sources</a>
                             <a href="/docs/api/files/">Files &amp; downloads</a>
                             <a href="/docs/api/batches/">Batch rendering</a>
+                            <a href="/docs/api/merge/">Merge PDFs</a>
                         </details>
                         <details class="sidebar-group">
                             <summary>Delivery & errors</summary>
@@ -85,19 +85,23 @@
 
                 <div class="content">
                     <section class="doc-section endpoint-section" id="pdf-security">
-<div class="endpoint-heading">
+                        <div class="endpoint-heading">
                             <div>
-                                <p class="eyebrow">Render inputs</p>
-                                <h1>Document password &amp; security permissions</h1>
+                                <p class="eyebrow">Enterprise &amp; security</p>
+                                <h1>Document security, redaction &amp; signatures</h1>
                             </div>
                             <div class="route"><span class="method">POST</span><code>/render</code></div>
                         </div>
-                        <p class="section-copy">Protect sensitive and confidential PDFs with industry-standard AES-256 encryption. Adding <code>options.password</code> prevents unauthorized access to vital enterprise records, such as financial statements, legal contracts, and payroll slips. You can also designate an <code>ownerPassword</code> for administrative rights and set <code>permissions</code> to restrict user rights.</p>
-                        <div class="property-row"><code>password</code><span class="type">string</span><span class="optional">optional</span><p>User password required to open and decrypt the document (up to 128 characters). Vital for safeguarding confidential financial statements, client contracts, and employee payroll slips.</p></div>
-                        <div class="property-row"><code>ownerPassword</code><span class="type">string</span><span class="optional">optional</span><p>Owner password required to modify document permissions or remove protection (up to 128 characters). Defaults to <code>password</code> if omitted.</p></div>
-                        <div class="property-row"><code>permissions</code><span class="type">string</span><span class="optional">optional</span><p>Permissions granted to users who open the PDF: <code>all</code> (default; full printing, copying, and modification rights), <code>print</code> (allows high-resolution printing only; prevents content extraction and modification), or <code>none</code> (view-only; prevents printing, copying, and modification).</p></div>
+                        <p class="section-copy">Protect confidential PDFs with military-grade AES-256 encryption, sanitize sensitive PII from document ASTs before Chromium execution, and cryptographically sign contracts with X.509 digital certificates or AWS KMS.</p>
+
+                        <h2 id="encryption">AES-256 password protection &amp; permissions</h2>
+                        <p class="section-copy">Adding <code>options.password</code> locks the PDF with standard AES-256 encryption. Set an optional <code>ownerPassword</code> for administrative rights and restrict printing or copying with <code>permissions</code>.</p>
+                        <div class="property-row"><code>password</code><span class="type">string</span><span class="optional">optional</span><p>User password required to open and decrypt the document (up to 128 characters).</p></div>
+                        <div class="property-row"><code>ownerPassword</code><span class="type">string</span><span class="optional">optional</span><p>Owner password required to change permissions or remove protection. Defaults to <code>password</code> if omitted.</p></div>
+                        <div class="property-row"><code>permissions</code><span class="type">string</span><span class="optional">optional</span><p>Permissions granted to users: <code>all</code> (default; full printing and text copying), <code>print</code> (allows high-resolution printing; prevents text extraction), or <code>none</code> (view-only; prevents printing and copying).</p></div>
+
                         <div class="code-block">
-                            <div class="code-header"><span>cURL · Password-protected contract or payroll slip</span><button type="button" class="copy-button" data-copy-target="render-password-code">Copy</button></div>
+                            <div class="code-header"><span>cURL · Password-protected document</span><button type="button" class="copy-button" data-copy-target="render-password-code">Copy</button></div>
                             <pre id="render-password-code"><code class="language-bash">curl -X POST https://renderpdf.vberkoz.com/api/v1/render \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_API_KEY" \
@@ -107,23 +111,104 @@
     "data": { "employee": { "name": "Jane Doe" }, "payroll": { "netPay": "$5,420.00" } },
     "options": {
       "format": "A4",
-      "margin": "18mm",
       "password": "JanePayroll2026!",
       "ownerPassword": "FinanceMasterKey999!",
       "permissions": "print"
     }
   }'</code></pre>
                         </div>
-                        <p class="section-footnote">Security options are configured under <code>options</code> in <a href="/docs/api/render-document/">Document JSON</a> or <a href="/docs/api/render/">Render</a> requests.</p>
+
+                        <h2 id="redaction">Server-side PII redaction &amp; masking</h2>
+                        <p class="section-copy">Unlike client-side visual overlays that merely draw black boxes over selectable text, RenderPDF performs <strong>AST-level document sanitization</strong> <em>before</em> Chromium rendering or PDF generation. The underlying sensitive characters are excised completely, preventing text extraction, copying, or reverse-engineering from vector streams.</p>
+
+                        <h3>HTML tags &amp; attributes</h3>
+                        <p class="section-copy">You can mark elements for redaction directly in your HTML content:</p>
+                        <ul>
+                            <li><code>&lt;redact style="bar|mask|text" type="ssn|creditCard|email|phone"&gt;123-45-6789&lt;/redact&gt;</code></li>
+                            <li><code>&lt;span data-redact="true" data-redact-style="mask" data-redact-type="email"&gt;user@example.com&lt;/span&gt;</code></li>
+                        </ul>
+
+                        <h3>Automated pattern scrubbing (`options.redaction`)</h3>
+                        <p class="section-copy">Automatically scrub PII matching built-in detectors or custom regular expressions across the entire document:</p>
+                        <div class="property-row"><code>enabled</code><span class="type">boolean</span><span class="required">required</span><p>Set to <code>true</code> to activate automated AST scrubbing.</p></div>
+                        <div class="property-row"><code>types</code><span class="type">array of strings</span><span class="optional">optional</span><p>Built-in PII patterns to sanitize: <code>"ssn"</code>, <code>"creditCard"</code>, <code>"email"</code>, <code>"phone"</code>.</p></div>
+                        <div class="property-row"><code>patterns</code><span class="type">array of strings</span><span class="optional">optional</span><p>Custom regex patterns to match and excise (e.g. <code>["CONFIDENTIAL-\\d+", "ACCT-\\w+"]</code>).</p></div>
+                        <div class="property-row"><code>replacement</code><span class="type">string</span><span class="optional">optional</span><p>Redaction style:
+                            <ul>
+                                <li><code>bar</code> (default): Renders an opaque solid black block (████) containing zero underlying glyphs.</li>
+                                <li><code>mask</code>: Masks leading digits while preserving trailing characters (e.g. <code>***-**-6789</code>, <code>****-****-****-4242</code>, <code>u***@example.com</code>).</li>
+                                <li><code>text</code>: Replaces the match with the custom string specified in <code>replacementText</code>.</li>
+                            </ul>
+                        </p></div>
+                        <div class="property-row"><code>replacementText</code><span class="type">string</span><span class="optional">optional</span><p>Custom string used when <code>replacement: "text"</code> (defaults to <code>"[REDACTED]"</code>).</p></div>
+
+                        <div class="code-block">
+                            <div class="code-header"><span>cURL · Automated PII redaction</span><button type="button" class="copy-button" data-copy-target="render-redaction-code">Copy</button></div>
+                            <pre id="render-redaction-code"><code class="language-bash">curl -X POST https://renderpdf.vberkoz.com/api/v1/render \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -d '{
+    "version": "1",
+    "source": {
+      "type": "html",
+      "content": "&lt;main&gt;&lt;h1&gt;Patient Record&lt;/h1&gt;&lt;p&gt;SSN: 123-45-6789&lt;/p&gt;&lt;p&gt;Email: patient@clinic.org&lt;/p&gt;&lt;p&gt;Case: CASE-998811&lt;/p&gt;&lt;/main&gt;"
+    },
+    "options": {
+      "format": "A4",
+      "redaction": {
+        "enabled": true,
+        "types": ["ssn", "email"],
+        "patterns": ["CASE-\\d+"],
+        "replacement": "bar"
+      }
+    }
+  }'</code></pre>
+                        </div>
+
+                        <h2 id="digital-signatures">Cryptographic digital signatures (PAdES / PKCS#7)</h2>
+                        <span id="signatures"></span>
+                        <p class="section-copy">Stamp legal contracts, NDAs, and official agreements with cryptographic X.509 digital signatures. Verifiable in Adobe Acrobat Reader and PDF viewers with tamper-evident seal and certification status.</p>
+
+                        <div class="property-row"><code>certificate</code><span class="type">string</span><span class="optional">optional</span><p>Base64-encoded X.509 certificate in PEM or PKCS#12 (<code>.p12</code>/<code>.pfx</code>) format.</p></div>
+                        <div class="property-row"><code>privateKey</code><span class="type">string</span><span class="optional">optional</span><p>Base64-encoded private key in PEM format (required if certificate is PEM and not using KMS).</p></div>
+                        <div class="property-row"><code>password</code><span class="type">string</span><span class="optional">optional</span><p>Password to decrypt the PKCS#12 archive or encrypted private key.</p></div>
+                        <div class="property-row"><code>kmsKeyId</code><span class="type">string</span><span class="optional">optional</span><p>AWS KMS Key ID, Key ARN, or Alias (e.g. <code>arn:aws:kms:us-east-1:123456789012:key/...</code>). Delegates cryptographic hash signing to a cloud HSM, ensuring private keys never leave secure hardware.</p></div>
+                        <div class="property-row"><code>name</code><span class="type">string</span><span class="optional">optional</span><p>Signer full name displayed in signature properties (e.g. <code>"RenderPDF Legal Representative"</code>).</p></div>
+                        <div class="property-row"><code>reason</code><span class="type">string</span><span class="optional">optional</span><p>Signing reason or document execution intent (e.g. <code>"Execution of Master Services Agreement"</code>).</p></div>
+                        <div class="property-row"><code>location</code><span class="type">string</span><span class="optional">optional</span><p>City, state, or country of signature execution.</p></div>
+                        <div class="property-row"><code>contactInfo</code><span class="type">string</span><span class="optional">optional</span><p>Signer contact email or phone.</p></div>
+
+                        <div class="code-block">
+                            <div class="code-header"><span>cURL · Digitally signed contract</span><button type="button" class="copy-button" data-copy-target="render-signing-code">Copy</button></div>
+                            <pre id="render-signing-code"><code class="language-bash">curl -X POST https://renderpdf.vberkoz.com/api/v1/render \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -d '{
+    "version": "1",
+    "source": {
+      "type": "html",
+      "content": "&lt;main&gt;&lt;h1&gt;Services Agreement&lt;/h1&gt;&lt;p&gt;Signed and certified electronically.&lt;/p&gt;&lt;/main&gt;"
+    },
+    "options": {
+      "format": "A4",
+      "signing": {
+        "certificate": "MIIDXTCCAkWgAwIBAgIJ...",
+        "privateKey": "MIIEvQIBADANBgkqhkiG...",
+        "name": "Jane Smith",
+        "reason": "Authorized Agreement Signature"
+      }
+    }
+  }'</code></pre>
+                        </div>
                     </section>
                     <nav class="docs-pagination" aria-label="Documentation pagination">
                         <a class="pagination-link pagination-prev" href="/docs/api/render-document/">
                             <span class="pagination-label">&larr; Previous</span>
                             <span class="pagination-title">Document JSON</span>
                         </a>
-                        <a class="pagination-link pagination-next" href="/docs/api/markdown/">
+                        <a class="pagination-link pagination-next" href="/docs/api/compliance/">
                             <span class="pagination-label">Next &rarr;</span>
-                            <span class="pagination-title">Markdown</span>
+                            <span class="pagination-title">Compliance &amp; Factur-X</span>
                         </a>
                     </nav>
                 </div>
@@ -137,8 +222,8 @@
                         <span class="brand-mark" aria-hidden="true"></span>
                         <span>RenderPDF</span>
                     </div>
-                    <p class="footer-entity">RenderPDF Studio LLC</p>
-                    <p class="footer-address">131 Continental Dr, Suite 305, Newark, DE 19713, USA</p>
+                    <p class="footer-entity">Individual Entrepreneur Vasyl Berkoz (ФОП Беркоз В. С.)</p>
+                    <p class="footer-address">Chernivtsi, Ukraine</p>
                     <p class="footer-contact">Support: <a href="mailto:support@renderpdf.vberkoz.com">support@renderpdf.vberkoz.com</a></p>
                 </div>
                 <div class="footer-links-grid">
@@ -163,7 +248,7 @@
                 </div>
             </div>
             <div class="footer-bottom">
-                <p>&copy; 2026 RenderPDF Studio LLC. All rights reserved. Payments and subscriptions are securely managed by Paddle, our Merchant of Record.</p>
+                <p>&copy; 2026 Vasyl Berkoz (RenderPDF). All rights reserved. Payments and subscriptions are securely managed by Paddle, our Merchant of Record.</p>
             </div>
         </footer>
     </div>

@@ -15,7 +15,6 @@
 <body>
     <a class="skip-link" href="#main-content">Skip to main content</a>
     <div class="shell">
-        <div>
             <header class="topbar">
                 <a class="brand" href="/" aria-label="RenderPDF home">
                     <span class="brand-mark" aria-hidden="true"></span>
@@ -30,7 +29,6 @@
                     <a href="https://github.com/vberkoz/renderpdf">GitHub</a>
                 </nav>
             </header>
-        </div>
 
         <main id="main-content" tabindex="-1">
             <section class="legal-hero" aria-labelledby="privacy-title">
@@ -60,14 +58,18 @@
 
                 <div class="legal-content">
                     <section id="overview" class="legal-section" aria-labelledby="overview-heading">
-                        <h2 id="overview-heading">1. Overview and Data Controller</h2>
-                        <p>RenderPDF Studio LLC ("RenderPDF", "we", "us", or "our") is dedicated to safeguarding your privacy and personal data. This Privacy Policy explains how we collect, process, store, retain, and protect personal information when you visit our website, use our API, or interact with our developer dashboard.</p>
-                        <p>For the purposes of the General Data Protection Regulation (GDPR), the UK Data Protection Act, and applicable privacy regulations, the Data Controller responsible for your personal data is:</p>
+                        <h2 id="overview-heading">1. Overview, Data Controller &amp; Data Processor Role</h2>
+                        <p>Individual Entrepreneur Vasyl Berkoz (ФОП Беркоз Василь Сергійович), operating RenderPDF ("RenderPDF", "we", "us", or "our"), is dedicated to safeguarding your privacy and personal data. This Privacy Policy explains how we collect, process, store, retain, and protect personal information when you visit our website, use our API, or interact with our developer dashboard.</p>
+                        <p>For the purposes of the General Data Protection Regulation (GDPR), the UK Data Protection Act, and applicable global privacy regulations:</p>
+                        <ul>
+                            <li><strong>RenderPDF as Data Controller:</strong> We act as a Data Controller for your account registration details (email, display name, OAuth identifier) and telemetry required to maintain service security and account quotas.</li>
+                            <li><strong>RenderPDF as Data Processor:</strong> For customer document payloads, HTML, dynamic JSON data, and generated PDFs processed via our APIs, our Customers are the Data Controllers, and RenderPDF operates strictly as a Data Processor under your instructions.</li>
+                        </ul>
                         <div class="legal-callout">
                             <div class="legal-callout-icon" aria-hidden="true"><svg class="lucide lucide-info" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg></div>
                             <div class="legal-callout-content">
-                                <strong>Data Controller</strong>
-                                <p>RenderPDF Studio LLC<br>131 Continental Dr, Suite 305, Newark, DE 19713, USA<br>Dedicated Privacy Contact: <a href="mailto:support@renderpdf.vberkoz.com">support@renderpdf.vberkoz.com</a></p>
+                                <strong>Data Controller Contact</strong>
+                                <p>Individual Entrepreneur Vasyl Berkoz (ФОП Беркоз Василь Сергійович)<br>Operating from: Chernivtsi, Ukraine<br>Dedicated Privacy Contact: <a href="mailto:support@renderpdf.vberkoz.com">support@renderpdf.vberkoz.com</a></p>
                             </div>
                         </div>
                     </section>
@@ -198,13 +200,13 @@
                         <p>If you have any questions, concerns, or requests regarding this Privacy Policy or our data protection practices, please contact us:</p>
                         <div class="legal-card-grid">
                             <div class="legal-card">
-                                <span class="legal-card-title">Company Name</span>
-                                <p><strong>RenderPDF Studio LLC</strong></p>
-                                <p>Attn: Privacy &amp; Data Protection</p>
+                                <span class="legal-card-title">Data Controller</span>
+                                <p><strong>Individual Entrepreneur Vasyl Berkoz</strong></p>
+                                <p>ФОП Беркоз Василь Сергійович</p>
                             </div>
                             <div class="legal-card">
-                                <span class="legal-card-title">Mailing Address</span>
-                                <p>131 Continental Dr, Suite 305<br>Newark, DE 19713<br>United States of America</p>
+                                <span class="legal-card-title">Operating Location</span>
+                                <p>Chernivtsi, Ukraine<br>Postal Region 58000</p>
                             </div>
                             <div class="legal-card">
                                 <span class="legal-card-title">Dedicated Support Email</span>
@@ -224,8 +226,8 @@
                         <span class="brand-mark" aria-hidden="true"></span>
                         <span>RenderPDF</span>
                     </div>
-                    <p class="footer-entity">RenderPDF Studio LLC</p>
-                    <p class="footer-address">131 Continental Dr, Suite 305, Newark, DE 19713, USA</p>
+                    <p class="footer-entity">Individual Entrepreneur Vasyl Berkoz (ФОП Беркоз В. С.)</p>
+                    <p class="footer-address">Chernivtsi, Ukraine</p>
                     <p class="footer-contact">Support: <a href="mailto:support@renderpdf.vberkoz.com">support@renderpdf.vberkoz.com</a></p>
                 </div>
                 <div class="footer-links-grid">
@@ -245,14 +247,16 @@
                             <a href="/privacy/">Privacy Policy</a>
                             <a href="/refund/">Refund Policy</a>
                             <a href="/cancellation/">Cancellation</a>
+                            <button type="button" class="footer-link-btn" id="openCookieSettingsBtn" data-open-cookie-settings>Cookie Settings</button>
                         </nav>
                     </div>
                 </div>
             </div>
             <div class="footer-bottom">
-                <p>&copy; 2026 RenderPDF Studio LLC. All rights reserved. Payments and subscriptions are securely managed by Paddle, our Merchant of Record.</p>
+                <p>&copy; 2026 Vasyl Berkoz (RenderPDF). All rights reserved. Payments and subscriptions are securely managed by Paddle, our Merchant of Record.</p>
             </div>
         </footer>
     </div>
+    <script src="/cookie-consent.js" defer></script>
 </body>
 </html>

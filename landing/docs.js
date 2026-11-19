@@ -91,6 +91,15 @@
         });
     });
 
+    // Ensure group containing active page is open
+    const activeDocLink = document.querySelector('.sidebar nav a.is-active, .sidebar nav a[aria-current="page"]');
+    if (activeDocLink) {
+        const parentGroup = activeDocLink.closest('.sidebar-group');
+        if (parentGroup) {
+            parentGroup.open = true;
+        }
+    }
+
     // 5. Mobile documentation navigation drawer toggle
     const sidebar = document.querySelector('.sidebar');
     if (sidebar) {
@@ -115,5 +124,13 @@
         
         sidebar.classList.add('has-mobile-toggle');
         sidebar.insertBefore(toggle, sidebar.firstChild);
+    }
+
+    // 6. Ensure cookie consent manager is loaded
+    if (!window.RenderPdfCookieConsent && !document.querySelector('script[src*="cookie-consent.js"]')) {
+        const script = document.createElement('script');
+        script.src = '/cookie-consent.js';
+        script.defer = true;
+        document.head.appendChild(script);
     }
 })();
