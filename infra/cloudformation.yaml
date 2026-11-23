@@ -2637,7 +2637,7 @@ Resources:
   FreeUsagePlanBootstrapKey:
     Type: AWS::ApiGateway::ApiKey
     Properties:
-      Name: !Sub '${AppName}-free-bootstrap-key'
+      Name: !Sub '${AppName}-free-bootstrap-key-v2'
       Description: 'Pre-propagated fallback key used during newly-created key propagation window'
       Enabled: true
 
@@ -2651,7 +2651,7 @@ Resources:
   StarterUsagePlanBootstrapKey:
     Type: AWS::ApiGateway::ApiKey
     Properties:
-      Name: !Sub '${AppName}-starter-bootstrap-key'
+      Name: !Sub '${AppName}-starter-bootstrap-key-v2'
       Description: 'Pre-propagated fallback key used during newly-created key propagation window'
       Enabled: true
 
@@ -2665,7 +2665,7 @@ Resources:
   ProUsagePlanBootstrapKey:
     Type: AWS::ApiGateway::ApiKey
     Properties:
-      Name: !Sub '${AppName}-pro-bootstrap-key'
+      Name: !Sub '${AppName}-pro-bootstrap-key-v2'
       Description: 'Pre-propagated fallback key used during newly-created key propagation window'
       Enabled: true
 
