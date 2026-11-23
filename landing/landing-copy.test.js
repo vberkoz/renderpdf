@@ -163,3 +163,39 @@ test('retired chat, waitlist, stats, debug, and admin surfaces are removed and r
   assert.ok(opsMd.includes('Stage 2: Backend & CloudFormation Cleanup + DynamoDB TTL Preservation'));
   assert.ok(opsMd.includes('expiresAt'));
 });
+
+test('public discovery artifacts (llms.txt and openapi.yaml) exist, stay synced, and are linked', () => {
+  const repoRoot = path.resolve(__dirname, '..');
+  const llmsPath = path.join(__dirname, 'llms.txt');
+  const landingOpenApiPath = path.join(__dirname, 'openapi.yaml');
+  const docsOpenApiPath = path.join(repoRoot, 'docs', 'openapi.yaml');
+  const docsApiIndexHtml = fs.readFileSync(path.join(__dirname, 'docs', 'api', 'index.html'), 'utf8');
+  const sitemapXml = fs.readFileSync(path.join(__dirname, 'sitemap.xml'), 'utf8');
+
+  assert.ok(fs.existsSync(llmsPath), 'landing/llms.txt must exist');
+  assert.ok(fs.existsSync(landingOpenApiPath), 'landing/openapi.yaml must exist');
+
+  const llmsTxt = fs.readFileSync(llmsPath, 'utf8');
+  assert.ok(llmsTxt.includes('https://renderpdf.vberkoz.com/api/v1'));
+  assert.ok(llmsTxt.includes('/openapi.yaml'));
+  assert.ok(llmsTxt.includes('/trial/render'));
+  assert.ok(llmsTxt.includes('/quota'));
+  assert.ok(llmsTxt.includes('Idempotency-Key'));
+
+  const landingOpenApi = fs.readFileSync(landingOpenApiPath, 'utf8');
+  const docsOpenApi = fs.readFileSync(docsOpenApiPath, 'utf8');
+  assert.strictEqual(
+    landingOpenApi.trimEnd(),
+    docsOpenApi.trimEnd(),
+    'landing/openapi.yaml must stay in sync with docs/openapi.yaml'
+  );
+  assert.ok(landingOpenApi.includes('operationId: renderPdf'));
+  assert.ok(landingOpenApi.includes('operationId: getAccountQuota'));
+
+  assert.ok(indexHtml.includes('/openapi.yaml'), 'landing/index.html must link to /openapi.yaml');
+  assert.ok(indexHtml.includes('/llms.txt'), 'landing/index.html must link to /llms.txt');
+  assert.ok(docsApiIndexHtml.includes('/openapi.yaml'), 'landing/docs/api/index.html must link to /openapi.yaml');
+  assert.ok(docsApiIndexHtml.includes('/llms.txt'), 'landing/docs/api/index.html must link to /llms.txt');
+  assert.ok(sitemapXml.includes('https://renderpdf.vberkoz.com/llms.txt'));
+  assert.ok(sitemapXml.includes('https://renderpdf.vberkoz.com/openapi.yaml'));
+});

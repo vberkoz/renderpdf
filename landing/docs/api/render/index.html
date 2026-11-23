@@ -3,14 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="dark">
+    <script>try{document.querySelector('meta[name="color-scheme"]').content=localStorage.getItem('ds-scheme')||'dark';}catch(e){}</script>
     <meta name="description" content="Render HTML into PDF using the canonical authenticated /render endpoint with format, watermark, wait-for, and security options.">
     <title>Render HTML | RenderPDF API</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter+Tight:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <link href="/styles/base.css" rel="stylesheet">
     <link href="/styles/docs.css" rel="stylesheet">
+    <script src="/theme.js" defer></script>
 </head>
 <body data-enhance-code-snippets>
     <a class="skip-link" href="#main-content">Skip to main content</a>
@@ -27,6 +30,7 @@
                 <a href="/app/">Dashboard</a>
                 <a href="https://github.com/vberkoz/renderpdf">GitHub</a>
             </nav>
+            <button type="button" class="theme-toggle" data-action="theme" aria-label="Toggle color theme" title="Toggle light/dark theme"><svg class="lucide when-dark" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg><svg class="lucide when-light" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg></button>
         </header>
 
         <main id="main-content" tabindex="-1">
@@ -91,7 +95,7 @@
                             </div>
                             <div class="route"><span class="method">POST</span><code>/render</code></div>
                         </div>
-                        <p class="section-copy">The canonical authenticated endpoint selects HTML, Markdown, saved templates or sources, public URLs, or uploaded packages with <code>source.type</code>, then stores the PDF privately and returns a signed download URL.</p>
+                        <p class="section-copy">The canonical authenticated endpoint selects HTML, Markdown, saved templates or sources, public URLs, or uploaded packages with <code>source.type</code>, then stores the PDF privately and returns a signed download URL. Send an optional <code>Idempotency-Key</code> header to safely retry requests for 24 hours without double-billing.</p>
 
                         <h2>Request body</h2>
                         <div class="property-row">
@@ -104,7 +108,7 @@
                             <code>source</code>
                             <span class="type">object</span>
                             <span class="required">required</span>
-                            <p>A versioned source object. Use <code>{ "type": "html", "content": "..." }</code> for controlled HTML/CSS documents, or <code>markdown</code>, <code>template</code>, <code>url</code>, <code>upload</code>, or <code>stored</code> for the matching source mode.</p>
+                            <p>A versioned source object. Use <code>{ "type": "html", "content": "..." }</code> for controlled HTML/CSS documents, or <code>markdown</code>, <code>template</code>, <code>url</code>, <code>upload</code>, or <code>stored</code> for the matching source mode. When top-level <code>data</code> or <code>css</code> is supplied with <code>source.type: "html"</code>, external asset attributes (<code>src</code>, <code>srcset</code>, <code>link</code>), <code>&lt;script&gt;</code>, <code>&lt;iframe&gt;</code>, and CSS <code>url()</code>/<code>@import</code>/<code>@page</code> are rejected (<code>422</code>) — use inline <code>&lt;svg&gt;</code>, <code>{{qrcode}}</code>/<code>{{barcode}}</code> helpers, <code>url</code>, or <code>upload</code>.</p>
                         </div>
                         <div class="property-row">
                             <code>css</code>
@@ -140,6 +144,7 @@
                         <h2>Render options (`options`)</h2>
                         <div class="property-row"><code>format</code><span class="type">string</span><p>Paper format: <code>A4</code> (default), <code>Letter</code>, or <code>Legal</code>.</p></div>
                         <div class="property-row"><code>margin</code><span class="type">string</span><p>Page margin in mm (<code>0–50mm</code>) or in (<code>0–2in</code>). Default: <code>18mm</code>.</p></div>
+                        <div class="property-row"><code>landscape</code><span class="type">boolean</span><p>Render pages in landscape orientation (default: <code>false</code>).</p></div>
                         <div class="property-row"><code>pageNumbers</code><span class="type">object</span><p>Vector page numbers stamped across pages: <code>format</code> (e.g. <code>"Page {page} of {total}"</code>), <code>position</code> (<code>bottom-center|bottom-right|bottom-left|top-center|top-right|top-left</code>), <code>startPage</code>, <code>startNumber</code>, <code>excludeCover</code> (boolean), <code>fontSize</code>, <code>color</code>.</p></div>
                         <div class="property-row"><code>watermark</code><span class="type">object</span><p>Vector watermark stamped via pdfcpu:
                             <ul>

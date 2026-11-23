@@ -211,6 +211,9 @@ func handleFileRequest(ctx context.Context, r events.APIGatewayProxyRequest, h m
 	if err != nil {
 		return fileError(err, h)
 	}
+	if r.HTTPMethod == http.MethodGet && len(parts) == 1 {
+		return sourceJSON(http.StatusOK, value, h)
+	}
 	if r.HTTPMethod == http.MethodGet && len(parts) == 2 && parts[1] == "download" {
 		url, err := presignPrivateDownload(value.Bucket, value.ObjectKey)
 		if err != nil {

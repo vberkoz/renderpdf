@@ -8,11 +8,31 @@
     );
   }
 
-  const requestLogState = { logs: [], page: 1, pageSize: 5 };
+  const requestLogState = {
+    logs: [],
+    page: 1,
+    pageSize: 5,
+    nextCursor: null,
+    total: 0,
+    hasServerPagination: false,
+    loadingMore: false,
+  };
 
-  function renderLogs(logs) {
-    requestLogState.logs = logs || [];
+  function getLoadDashboard() {
+    if (typeof global.loadDashboard === 'function') return global.loadDashboard;
+    if (typeof loadDashboard === 'function') return loadDashboard;
+    return null;
+  }
+
+  function renderLogs(logs, pagination = null) {
+    requestLogState.logs = (logs || []).slice();
     requestLogState.page = 1;
+    requestLogState.nextCursor = pagination?.nextCursor ?? null;
+    requestLogState.total = Number.isFinite(pagination?.total)
+      ? pagination.total
+      : requestLogState.logs.length;
+    requestLogState.hasServerPagination = Boolean(pagination);
+    requestLogState.loadingMore = false;
     updateVisibleLogs();
   }
 
@@ -39,7 +59,9 @@
       main.append(title, detail);
       const meta = document.createElement('span');
       meta.textContent =
-        log.status === 'success' ? `${(log.size / 1024).toFixed(1)} KB` : log.errorType || log.status;
+        log.status === 'success' && Number.isFinite(log.size)
+          ? `${(log.size / 1024).toFixed(1)} KB`
+          : log.errorType || log.status;
       item.append(main, meta);
       container.appendChild(item);
     });
@@ -56,7 +78,13 @@
     const status = document.getElementById('logsStatusFilter')?.value || 'all';
     const sort = document.getElementById('logsSort')?.value || 'newest';
     const logs = requestLogState.logs
-      .filter((log) => status === 'all' || log.status === status)
+      .filter((log) =>
+        status === 'all'
+          ? true
+          : status === 'error'
+            ? log.status !== 'success'
+            : log.status === status
+      )
       .sort((a, b) =>
         sort === 'oldest'
           ? (a.timestamp || 0) - (b.timestamp || 0)
@@ -67,7 +95,10 @@
       if (pagination) pagination.hidden = true;
       return;
     }
-    const pageCount = Math.ceil(logs.length / requestLogState.pageSize);
+    const totalCount = requestLogState.hasServerPagination
+      ? Math.max(logs.length, requestLogState.total)
+      : logs.length;
+    const pageCount = Math.ceil(totalCount / requestLogState.pageSize);
     requestLogState.page = Math.min(requestLogState.page, pageCount);
     const start = (requestLogState.page - 1) * requestLogState.pageSize;
     logs.slice(start, start + requestLogState.pageSize).forEach((log) => {
@@ -81,29 +112,113 @@
       main.append(title, details);
       const meta = document.createElement('span');
       meta.textContent =
-        log.status === 'success' ? `${(log.size / 1024).toFixed(1)} KB` : log.errorType || log.status;
+        log.status === 'success' && Number.isFinite(log.size)
+          ? `${(log.size / 1024).toFixed(1)} KB`
+          : log.errorType || log.status;
       item.append(main, meta);
       container.appendChild(item);
     });
-    if (pagination) pagination.hidden = pageCount < 2;
-    if (previous) previous.disabled = requestLogState.page === 1;
-    if (next) next.disabled = requestLogState.page === pageCount;
+    if (pagination) pagination.hidden = pageCount < 2 && !requestLogState.nextCursor;
+    if (previous) previous.disabled = requestLogState.loadingMore || requestLogState.page === 1;
+    if (next) next.disabled = requestLogState.loadingMore || (requestLogState.page >= pageCount && !requestLogState.nextCursor);
     if (pageStatus) pageStatus.textContent = `${requestLogState.page} / ${pageCount}`;
   }
 
+  function showLogFetchError(message) {
+    const container = document.getElementById('logsList');
+    if (!container || typeof document.createElement !== 'function') return;
+    const notice = document.createElement('p');
+    notice.className = 'dashboard-notice';
+    if (notice.dataset) notice.dataset.state = 'error';
+    if (typeof notice.setAttribute === 'function') notice.setAttribute('role', 'status');
+    notice.textContent = message;
+    if (typeof container.prepend === 'function') {
+      container.prepend(notice);
+    } else if (typeof container.appendChild === 'function') {
+      container.appendChild(notice);
+    }
+  }
+
   function initializeLogExplorer() {
-    const refresh = () => {
+    const refresh = async () => {
+      const status = document.getElementById('logsStatusFilter')?.value || 'all';
+      const sort = document.getElementById('logsSort')?.value || 'newest';
+      const loadFn = getLoadDashboard();
+      if (requestLogState.hasServerPagination && loadFn && !requestLogState.loadingMore) {
+        requestLogState.loadingMore = true;
+        updateVisibleLogs();
+        let fetchFailed = false;
+        try {
+          const data = await loadFn({ cursor: 0, status, sort });
+          renderLogs((data && data.logs) || [], (data && data.logsPagination) || { nextCursor: null, total: 0 });
+          return;
+        } catch {
+          fetchFailed = true;
+        } finally {
+          requestLogState.loadingMore = false;
+        }
+        if (fetchFailed) {
+          updateVisibleLogs();
+          showLogFetchError('Could not load request logs. Please try again.');
+          return;
+        }
+      }
       requestLogState.page = 1;
       updateVisibleLogs();
     };
     document.getElementById('logsStatusFilter')?.addEventListener('change', refresh);
     document.getElementById('logsSort')?.addEventListener('change', refresh);
     document.getElementById('logsPreviousPage')?.addEventListener('click', () => {
-      requestLogState.page -= 1;
-      updateVisibleLogs();
+      if (requestLogState.page > 1) {
+        requestLogState.page -= 1;
+        updateVisibleLogs();
+      }
     });
-    document.getElementById('logsNextPage')?.addEventListener('click', () => {
-      requestLogState.page += 1;
+    document.getElementById('logsNextPage')?.addEventListener('click', async () => {
+      const nextPage = requestLogState.page + 1;
+      const nextStart = (nextPage - 1) * requestLogState.pageSize;
+      const status = document.getElementById('logsStatusFilter')?.value || 'all';
+      const sort = document.getElementById('logsSort')?.value || 'newest';
+      const currentMatches = requestLogState.logs.filter((log) =>
+        status === 'all'
+          ? true
+          : status === 'error'
+            ? log.status !== 'success'
+            : log.status === status
+      );
+      const loadFn = getLoadDashboard();
+      if (
+        nextStart >= currentMatches.length &&
+        requestLogState.nextCursor &&
+        loadFn &&
+        !requestLogState.loadingMore
+      ) {
+        requestLogState.loadingMore = true;
+        updateVisibleLogs();
+        let fetchFailed = false;
+        try {
+          const data = await loadFn({ cursor: requestLogState.nextCursor, status, sort });
+          const more = (data && data.logs) || [];
+          const seen = new Set(requestLogState.logs.map((l) => l.requestId).filter(Boolean));
+          more.forEach((l) => {
+            if (!l.requestId || !seen.has(l.requestId)) requestLogState.logs.push(l);
+          });
+          requestLogState.nextCursor = data?.logsPagination?.nextCursor ?? null;
+          if (Number.isFinite(data?.logsPagination?.total)) {
+            requestLogState.total = data.logsPagination.total;
+          }
+        } catch {
+          fetchFailed = true;
+        } finally {
+          requestLogState.loadingMore = false;
+        }
+        if (fetchFailed) {
+          updateVisibleLogs();
+          showLogFetchError('Could not load more request logs. Please try again.');
+          return;
+        }
+      }
+      requestLogState.page = nextPage;
       updateVisibleLogs();
     });
   }

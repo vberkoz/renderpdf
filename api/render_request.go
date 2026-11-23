@@ -91,7 +91,7 @@ func normalizeCanonicalRenderRequestWithOwner(ctx context.Context, body, ownerID
 	decoder := json.NewDecoder(strings.NewReader(body))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(&request); err != nil {
-		return normalizedRenderRequest{}, &renderError{Code: "render_request_invalid", Message: "Invalid render request", Status: 400}
+		return normalizedRenderRequest{}, decodeStrictJSONError("render_request_invalid", "Invalid render request", err)
 	}
 	if err := decoder.Decode(&struct{}{}); err != io.EOF {
 		return normalizedRenderRequest{}, &renderError{Code: "render_request_invalid", Message: "Invalid render request", Status: 400}

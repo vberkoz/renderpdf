@@ -3,14 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="dark">
+    <script>try{document.querySelector('meta[name="color-scheme"]').content=localStorage.getItem('ds-scheme')||'dark';}catch(e){}</script>
     <meta name="description" content="Submit high-throughput asynchronous batch render jobs with SQS queues, merged PDF outputs, and ZIP archives.">
     <title>Batch Rendering | RenderPDF API</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter+Tight:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <link href="/styles/base.css" rel="stylesheet">
     <link href="/styles/docs.css" rel="stylesheet">
+    <script src="/theme.js" defer></script>
 </head>
 <body data-enhance-code-snippets>
     <a class="skip-link" href="#main-content">Skip to main content</a>
@@ -27,6 +30,7 @@
                 <a href="/app/">Dashboard</a>
                 <a href="https://github.com/vberkoz/renderpdf">GitHub</a>
             </nav>
+            <button type="button" class="theme-toggle" data-action="theme" aria-label="Toggle color theme" title="Toggle light/dark theme"><svg class="lucide when-dark" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg><svg class="lucide when-light" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg></button>
         </header>
 
         <main id="main-content" tabindex="-1">
@@ -88,7 +92,7 @@
                             <div><p class="eyebrow">Reusable assets and batch work</p><h1>Batch rendering</h1></div>
                             <div class="route"><span class="method">POST</span><code>/batches</code></div>
                         </div>
-                        <p class="section-copy">Submit up to 99 PDFs in one job. A durable DynamoDB outbox dispatches each item to SQS; retries are at-least-once, while conditional worker claims prevent duplicate PDFs. Completed documents can be downloaded as a single merged PDF or a ZIP archive.</p>
+                        <p class="section-copy">Submit up to 99 PDFs in one job (returns <code>201 Created</code>; supports <code>Idempotency-Key</code>). A durable DynamoDB outbox dispatches each item to SQS; retries are at-least-once, while conditional worker claims prevent duplicate PDFs. Completed documents can be downloaded as a single merged PDF or a ZIP archive.</p>
                         
                         <h2>Submitting a batch job</h2>
                         <div class="code-block"><pre><code class="language-json">{
@@ -106,8 +110,8 @@
 }</code></pre></div>
                         <div class="property-row"><code>options.mergeOutput</code><span class="type">boolean</span><span class="optional">optional</span><p>When set to <code>true</code>, RenderPDF automatically merges all completed item PDFs into a single continuous PDF document upon download, in addition to standard ZIP packaging.</p></div>
                         <div class="property-row"><code>GET /batches</code><span class="required">API key</span><p>List all batch jobs owned by the authenticated account, sorted newest first (returns <code>{"jobs": [...]}</code>).</p></div>
-                        <div class="property-row"><code>GET /batches/{id}</code><span class="required">API key</span><p>Read job state (<code>queued|running|completed|completed_with_errors|cancelled|failed</code>), totals, progress counts, and timestamps.</p></div>
-                        <div class="property-row"><code>GET /batches/{id}/items</code><span class="required">API key</span><p>List item status and individual output file IDs.</p></div>
+                        <div class="property-row"><code>GET /batches/{id}</code><span class="required">API key</span><p>Read job state (<code>queued|running|cancelling|completed|completed_with_errors|cancelled|failed</code>), totals, progress counts, and timestamps.</p></div>
+                        <div class="property-row"><code>GET /batches/{id}/items</code><span class="required">API key</span><p>List item status, individual output file IDs, and <code>errorCode</code> / <code>errorMessage</code> for failed items.</p></div>
                         <div class="property-row"><code>POST /batches/{id}/cancel</code><span class="required">API key</span><p>Cancel pending items; active work completes safely.</p></div>
                         
                         <h2>Downloading batch results</h2>

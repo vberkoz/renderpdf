@@ -43,7 +43,7 @@ type batchWebhookData struct {
 // stable event ID as documented by X-RenderPDF-Event-ID.
 func enqueueBatchTerminalWebhook(ctx context.Context, db *dynamodb.DynamoDB, owner, jobID string) {
 	job, err := readBatch(owner, jobID, db)
-	if err != nil || (job.Status != "completed" && job.Status != "cancelled") {
+	if err != nil || !isTerminalBatchStatus(job.Status) {
 		return
 	}
 	raw, err := db.GetItemWithContext(ctx, &dynamodb.GetItemInput{TableName: aws.String(batchTable()), Key: batchJobKey(owner, jobID), ConsistentRead: aws.Bool(true)})

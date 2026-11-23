@@ -149,7 +149,7 @@ func parseMergeRequest(body string) (mergeRequest, error) {
 	decoder := json.NewDecoder(strings.NewReader(body))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(&req); err != nil {
-		return req, &renderError{Code: "merge_request_invalid", Message: "Invalid merge request body", Status: 400}
+		return req, decodeStrictJSONError("merge_request_invalid", "Invalid merge request body", err)
 	}
 	if err := decoder.Decode(&struct{}{}); err != io.EOF {
 		return req, &renderError{Code: "merge_request_invalid", Message: "Invalid merge request body", Status: 400}
@@ -222,19 +222,43 @@ func handleMergeRequest(ctx context.Context, r events.APIGatewayProxyRequest, h 
 		return errorResponse(http.StatusMethodNotAllowed, "Method not allowed", h)
 	}
 
+	idemKey, idemErr := extractIdempotencyKey(r.Headers)
+	if idemErr != nil {
+		return renderErrorResponse(idemErr, h)
+	}
+	now := time.Now().UTC()
+	var idemLocked bool
+	if replayed, handled, acquired := claimIdempotencyKey(owner, "POST:/api/v1/merge", idemKey, r.Body, h, now); handled {
+		return *replayed
+	} else if acquired {
+		idemLocked = true
+		defer func() {
+			if idemLocked {
+				releaseIdempotencyLock(owner, "POST:/api/v1/merge", idemKey)
+			}
+		}()
+	}
+
 	req, err := parseMergeRequest(r.Body)
 	if err != nil {
 		return renderErrorResponse(err, h)
 	}
 
 	customerEmail := authorizerValue(r, "email")
-	reservedQuota, quotaErr := reserveAccountQuota(owner, customerEmail, time.Now().UTC())
+	reservedQuota, quotaErr := reserveAccountQuota(owner, customerEmail, now)
 	if quotaErr != nil {
 		if quotaErr == errAccountQuotaExceeded {
+			setAccountQuotaExceededHeaders(owner, h, now)
 			return errorResponse(http.StatusTooManyRequests, "Monthly PDF quota reached", h)
 		}
 		fmt.Printf("Account quota error during merge: %v\n", quotaErr)
 		return errorResponse(http.StatusServiceUnavailable, "Account quota is temporarily unavailable", h)
+	}
+	setAccountQuotaHeaders(reservedQuota, h)
+
+	refundQuota := func() {
+		refundAccountQuota(reservedQuota)
+		restoreAccountQuotaRemainingHeader(reservedQuota, h)
 	}
 
 	httpClient := mergeHTTPClientFactory()
@@ -248,7 +272,7 @@ func handleMergeRequest(ctx context.Context, r events.APIGatewayProxyRequest, h 
 		if item.FileID != "" {
 			file, err := fileStoreFactory().Get(ctx, owner, item.FileID)
 			if err != nil {
-				refundAccountQuota(reservedQuota)
+				refundQuota()
 				return errorResponseWithCode(http.StatusNotFound, "file_not_found", fmt.Sprintf("File %q not found", item.FileID), h)
 			}
 			obj, err := s3Client.GetObjectWithContext(ctx, &s3.GetObjectInput{
@@ -256,7 +280,7 @@ func handleMergeRequest(ctx context.Context, r events.APIGatewayProxyRequest, h 
 				Key:    aws.String(file.ObjectKey),
 			})
 			if err != nil {
-				refundAccountQuota(reservedQuota)
+				refundQuota()
 				return errorResponse(http.StatusServiceUnavailable, fmt.Sprintf("Could not load file %q: %v", item.FileID, err), h)
 			}
 			content, fetchErr = io.ReadAll(obj.Body)
@@ -264,12 +288,12 @@ func handleMergeRequest(ctx context.Context, r events.APIGatewayProxyRequest, h 
 		} else if item.URL != "" {
 			validatedURL, valErr := mergeURLValidator(item.URL)
 			if valErr != nil {
-				refundAccountQuota(reservedQuota)
+				refundQuota()
 				return errorResponseWithCode(http.StatusUnprocessableEntity, "url_invalid", fmt.Sprintf("Item %d: %v", i+1, valErr), h)
 			}
 			httpReq, reqErr := http.NewRequestWithContext(ctx, http.MethodGet, validatedURL, nil)
 			if reqErr != nil {
-				refundAccountQuota(reservedQuota)
+				refundQuota()
 				return errorResponseWithCode(http.StatusUnprocessableEntity, "url_invalid", fmt.Sprintf("Item %d: %v", i+1, reqErr), h)
 			}
 			resp, httpErr := httpClient.Do(httpReq)
@@ -277,7 +301,7 @@ func handleMergeRequest(ctx context.Context, r events.APIGatewayProxyRequest, h 
 				if resp != nil && resp.Body != nil {
 					resp.Body.Close()
 				}
-				refundAccountQuota(reservedQuota)
+				refundQuota()
 				if errors.Is(httpErr, errMergeRedirectBlocked) {
 					return errorResponseWithCode(http.StatusUnprocessableEntity, "url_redirect_blocked", fmt.Sprintf("Item %d redirects are not allowed", i+1), h)
 				}
@@ -285,7 +309,7 @@ func handleMergeRequest(ctx context.Context, r events.APIGatewayProxyRequest, h 
 			}
 			if resp.StatusCode != http.StatusOK {
 				resp.Body.Close()
-				refundAccountQuota(reservedQuota)
+				refundQuota()
 				if resp.StatusCode >= 300 && resp.StatusCode < 400 {
 					return errorResponseWithCode(http.StatusUnprocessableEntity, "url_redirect_blocked", fmt.Sprintf("Item %d returned redirect HTTP %d", i+1, resp.StatusCode), h)
 				}
@@ -300,25 +324,25 @@ func handleMergeRequest(ctx context.Context, r events.APIGatewayProxyRequest, h 
 				decoded, decErr = base64.URLEncoding.DecodeString(item.Data)
 			}
 			if decErr != nil {
-				refundAccountQuota(reservedQuota)
+				refundQuota()
 				return errorResponseWithCode(http.StatusUnprocessableEntity, "data_invalid", fmt.Sprintf("Item %d base64 decoding failed", i+1), h)
 			}
 			content = decoded
 		}
 
 		if fetchErr != nil {
-			refundAccountQuota(reservedQuota)
+			refundQuota()
 			return errorResponse(http.StatusServiceUnavailable, fmt.Sprintf("Failed reading item %d: %v", i+1, fetchErr), h)
 		}
 
 		if len(content) < 5 || !bytes.HasPrefix(content, []byte("%PDF-")) {
-			refundAccountQuota(reservedQuota)
+			refundQuota()
 			return errorResponseWithCode(http.StatusUnprocessableEntity, "invalid_pdf_format", fmt.Sprintf("Item %d is not a valid PDF", i+1), h)
 		}
 
 		totalInputBytes += int64(len(content))
 		if totalInputBytes > maxMergeInputBytes {
-			refundAccountQuota(reservedQuota)
+			refundQuota()
 			return errorResponseWithCode(http.StatusRequestEntityTooLarge, "merge_inputs_too_large", fmt.Sprintf("Total inputs exceed %d MB limit", maxMergeInputBytes/(1024*1024)), h)
 		}
 
@@ -327,12 +351,12 @@ func handleMergeRequest(ctx context.Context, r events.APIGatewayProxyRequest, h 
 
 	mergedBytes, pageCount, err := mergePDFStreams(pdfSlices, req.Options)
 	if err != nil {
-		refundAccountQuota(reservedQuota)
+		refundQuota()
 		return errorResponseWithCode(http.StatusUnprocessableEntity, "merge_failed", fmt.Sprintf("PDF merge failed: %v", err), h)
 	}
 
 	if err := ensurePrivateFileStorage(ctx, owner, int64(len(mergedBytes))); err != nil {
-		refundAccountQuota(reservedQuota)
+		refundQuota()
 		return renderErrorResponse(err, h)
 	}
 
@@ -344,7 +368,7 @@ func handleMergeRequest(ctx context.Context, r events.APIGatewayProxyRequest, h 
 		Body:        bytes.NewReader(mergedBytes),
 		ContentType: aws.String("application/pdf"),
 	}); err != nil {
-		refundAccountQuota(reservedQuota)
+		refundQuota()
 		return errorResponseWithCode(http.StatusInternalServerError, "storage_failed", "PDF storage is temporarily unavailable", h)
 	}
 
@@ -360,6 +384,7 @@ func handleMergeRequest(ctx context.Context, r events.APIGatewayProxyRequest, h 
 		displayName = "merged.pdf"
 	}
 	fileID := "file_" + requestID
+	h["X-File-Id"] = fileID
 	if err := fileStoreFactory().Create(ctx, storedFile{
 		ID:                 fileID,
 		Kind:               "merged_pdf",
@@ -398,5 +423,9 @@ func handleMergeRequest(ctx context.Context, r events.APIGatewayProxyRequest, h 
 		PageCount: pageCount,
 	}
 
-	return sourceJSON(http.StatusOK, resp, h)
+	out := sourceJSON(http.StatusOK, resp, h)
+	if saveIdempotencyResponse(owner, "POST:/api/v1/merge", idemKey, r.Body, out, now) {
+		idemLocked = false
+	}
+	return out
 }

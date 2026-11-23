@@ -13,6 +13,10 @@ import (
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/dynamodb"
+	"github.com/aws/aws-sdk-go/service/s3"
 )
 
 func TestIsMergeRequest(t *testing.T) {
@@ -350,5 +354,66 @@ func TestHandleMergeRequestDeprecationHeaders(t *testing.T) {
 	}, canonicalHeaders)
 	if _, ok := canonicalResp.Headers["Deprecation"]; ok {
 		t.Fatalf("canonical %s must not emit Deprecation header: %#v", mergeResource, canonicalResp.Headers)
+	}
+}
+
+func TestMergeIdempotencyKeyReplay(t *testing.T) {
+	prevClient, prevTable, prevBucket, prevS3 := ddbClient, tableName, bucketName, s3Client
+	prevFileFactory := fileStoreFactory
+	t.Cleanup(func() {
+		ddbClient, tableName, bucketName, s3Client = prevClient, prevTable, prevBucket, prevS3
+		fileStoreFactory = prevFileFactory
+	})
+
+	t.Setenv("FREE_MONTHLY_QUOTA", "25")
+	tableName = "renderpdf-usage"
+	bucketName = "renderpdf-pdfs"
+	mockDDB := &idempotentMockDDB{items: make(map[string]map[string]*dynamodb.AttributeValue)}
+	ddbClient = mockDDB
+	fileStoreFactory = func() fileStore { return &countingFileStore{} }
+
+	var s3Puts atomic.Int32
+	s3Srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPut {
+			s3Puts.Add(1)
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer s3Srv.Close()
+	sessLocal, _ := session.NewSession(&aws.Config{
+		Endpoint:         aws.String(s3Srv.URL),
+		Region:           aws.String("us-east-1"),
+		Credentials:      credentials.NewStaticCredentials("test", "test", ""),
+		S3ForcePathStyle: aws.Bool(true),
+	})
+	s3Client = s3.New(sessLocal)
+
+	b64PDF := base64.StdEncoding.EncodeToString([]byte(minimalValidPDF))
+	body, _ := json.Marshal(map[string]any{
+		"items": []map[string]string{
+			{"data": b64PDF},
+			{"data": b64PDF},
+		},
+	})
+	req := events.APIGatewayProxyRequest{
+		HTTPMethod: http.MethodPost,
+		Path:       mergeResource,
+		Headers:    map[string]string{"Idempotency-Key": "idem-merge-1"},
+		Body:       string(body),
+		RequestContext: events.APIGatewayProxyRequestContext{
+			Authorizer: map[string]interface{}{"userId": "customer-merge-idem"},
+		},
+	}
+
+	first := handleMergeRequest(context.Background(), req, map[string]string{"Content-Type": "application/json"})
+	if first.StatusCode != http.StatusOK {
+		t.Fatalf("first merge status=%d body=%s", first.StatusCode, first.Body)
+	}
+	second := handleMergeRequest(context.Background(), req, map[string]string{"Content-Type": "application/json"})
+	if second.StatusCode != http.StatusOK || second.Headers["X-Idempotent-Replay"] != "true" {
+		t.Fatalf("second merge replay failed: status=%d headers=%#v body=%s", second.StatusCode, second.Headers, second.Body)
+	}
+	if second.Body != first.Body || s3Puts.Load() != 1 || mockDDB.used != 1 {
+		t.Fatalf("merge idempotency re-executed: s3Puts=%d used=%d first=%s second=%s", s3Puts.Load(), mockDDB.used, first.Body, second.Body)
 	}
 }

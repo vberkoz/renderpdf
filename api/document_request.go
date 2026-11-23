@@ -60,7 +60,7 @@ func parseDocumentRenderRequest(body string) (documentRenderRequest, error) {
 	decoder := json.NewDecoder(strings.NewReader(body))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(&request); err != nil {
-		return documentRenderRequest{}, &renderError{Code: "document_request_invalid", Message: "Invalid document render request", Status: 400}
+		return documentRenderRequest{}, decodeStrictJSONError("document_request_invalid", "Invalid document render request", err)
 	}
 	if err := decoder.Decode(&struct{}{}); err != io.EOF {
 		return documentRenderRequest{}, &renderError{Code: "document_request_invalid", Message: "Invalid document render request", Status: 400}

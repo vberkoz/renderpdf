@@ -67,6 +67,10 @@ async function apiRequest(path, options = {}) {
   if (response.status === 401) {
     clearSession();
     if (typeof window !== 'undefined' && window.location) {
+      try {
+        const loc = window.location;
+        localStorage.setItem('post_login_redirect', (loc.pathname || '') + (loc.search || ''));
+      } catch (error) {}
       window.location.href = '/app/login';
     }
     throw new Error('Your session has expired');
@@ -135,13 +139,27 @@ function dashboardTemplateRequest(path, options = {}) {
 
 browserWindow.managedRequest = dashboardTemplateRequest;
 
-function loadDashboard() {
+function loadDashboard(options = {}) {
   const req = (typeof globalThis !== 'undefined' && globalThis.apiRequest) || apiRequest;
   const hdrs = (typeof globalThis !== 'undefined' && globalThis.authHeaders) || authHeaders;
-  return req('/dashboard', {
+  const params = new URLSearchParams();
+  if (options && options.limit != null) params.set('limit', String(options.limit));
+  if (options && options.cursor != null && options.cursor !== '') {
+    params.set('cursor', String(options.cursor));
+  }
+  if (options && options.status && options.status !== 'all') {
+    params.set('status', String(options.status));
+  }
+  if (options && options.sort && options.sort !== 'newest') {
+    params.set('sort', String(options.sort));
+  }
+  const qs = params.toString();
+  return req(qs ? `/dashboard?${qs}` : '/dashboard', {
     headers: hdrs(),
   });
 }
+
+browserWindow.loadDashboard = loadDashboard;
 
 function renderDashboard(data) {
   const usage = data.usage || {};
@@ -171,27 +189,64 @@ function renderDashboard(data) {
   }
 
   if (typeof renderLogs === 'function') {
-    renderLogs(data.logs);
+    renderLogs(data.logs, data.logsPagination);
   }
   if (typeof renderRecentActivity === 'function') {
     renderRecentActivity(data.logs);
   }
 }
 
+let refreshDashboardPromise = null;
+
 async function refreshDashboard(preserveNotice = false) {
+  if (refreshDashboardPromise) return refreshDashboardPromise;
   const billingStatus = typeof document !== 'undefined' ? document.getElementById('billingStatus') : null;
-  try {
-    const loadFn = (typeof globalThis !== 'undefined' && globalThis.loadDashboard) || loadDashboard;
-    const renderFn = (typeof globalThis !== 'undefined' && globalThis.renderDashboard) || renderDashboard;
-    renderFn(await loadFn());
-    if (!preserveNotice) setNotice(billingStatus);
-  } catch (error) {
-    setNotice(billingStatus, `Could not load dashboard data. ${error.message}`, 'error');
-    const recentActivityList = typeof document !== 'undefined' ? document.getElementById('recentActivityList') : null;
-    if (recentActivityList) {
-      recentActivityList.innerHTML = '<p class="empty-state">Could not load recent activity. Please try again later.</p>';
-    }
+  const existingRetry =
+    billingStatus && typeof billingStatus.querySelector === 'function'
+      ? billingStatus.querySelector('[data-action="retry-dashboard"]')
+      : null;
+  if (existingRetry) {
+    existingRetry.disabled = true;
+    existingRetry.setAttribute('aria-busy', 'true');
   }
+  refreshDashboardPromise = (async () => {
+    try {
+      const loadFn = (typeof globalThis !== 'undefined' && globalThis.loadDashboard) || loadDashboard;
+      const renderFn = (typeof globalThis !== 'undefined' && globalThis.renderDashboard) || renderDashboard;
+      renderFn(await loadFn());
+      if (!preserveNotice) setNotice(billingStatus);
+      else if (existingRetry && typeof existingRetry.remove === 'function') existingRetry.remove();
+    } catch (error) {
+      setNotice(billingStatus, `Could not load dashboard data. ${error.message}`, 'error');
+      if (
+        billingStatus &&
+        typeof document !== 'undefined' &&
+        typeof document.createElement === 'function' &&
+        typeof billingStatus.appendChild === 'function'
+      ) {
+        const retryBtn = document.createElement('button');
+        retryBtn.type = 'button';
+        retryBtn.className = 'dashboard-button dashboard-button-secondary dashboard-notice-retry';
+        if (retryBtn.dataset) retryBtn.dataset.action = 'retry-dashboard';
+        retryBtn.textContent = 'Retry';
+        if (typeof retryBtn.addEventListener === 'function') {
+          retryBtn.addEventListener('click', async () => {
+            retryBtn.disabled = true;
+            if (typeof retryBtn.setAttribute === 'function') retryBtn.setAttribute('aria-busy', 'true');
+            await refreshDashboard();
+          });
+        }
+        billingStatus.appendChild(retryBtn);
+      }
+      const recentActivityList = typeof document !== 'undefined' ? document.getElementById('recentActivityList') : null;
+      if (recentActivityList) {
+        recentActivityList.innerHTML = '<p class="empty-state">Could not load recent activity. Please try again later.</p>';
+      }
+    } finally {
+      refreshDashboardPromise = null;
+    }
+  })();
+  return refreshDashboardPromise;
 }
 
 browserWindow.refreshDashboard = refreshDashboard;
@@ -209,6 +264,28 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined' && checkAut
 
   if (typeof initializeDashboardNavigation === 'function') {
     initializeDashboardNavigation();
+  }
+
+  const appFrame = document.querySelector('.dashboard-app-frame');
+  const appLayout = document.querySelector('.dashboard-app-layout');
+  const railToggle = document.querySelector('[data-action="nav"]');
+  if (appLayout && railToggle) {
+    const syncRailState = (isCollapsed) => {
+      for (const el of [appFrame, appLayout]) {
+        if (!el) continue;
+        if (isCollapsed) el.dataset.nav = 'collapsed';
+        else delete el.dataset.nav;
+      }
+      railToggle.setAttribute('aria-expanded', String(!isCollapsed));
+    };
+    try {
+      if (localStorage.getItem('ds-rail') === 'collapsed') syncRailState(true);
+    } catch {}
+    railToggle.addEventListener('click', () => {
+      const nextCollapsed = appLayout.dataset.nav !== 'collapsed';
+      syncRailState(nextCollapsed);
+      try { localStorage.setItem('ds-rail', nextCollapsed ? 'collapsed' : 'open'); } catch {}
+    });
   }
 
   const generateButton = document.getElementById('generateKeyBtn');
@@ -371,7 +448,33 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined' && checkAut
         if (typeof generateKey === 'function') {
           const data = await generateKey();
           if (typeof showNewlyGeneratedKey === 'function') showNewlyGeneratedKey(data, false);
-          if (typeof loadKeys === 'function') await loadKeys();
+          const keysContainer = document.getElementById('keysList');
+          const existingKeys = Array.isArray(browserWindow.currentKeys) ? browserWindow.currentKeys : [];
+          const hasRenderedRows = Boolean(
+            keysContainer &&
+              typeof keysContainer.querySelector === 'function' &&
+              keysContainer.querySelector('tbody tr')
+          );
+          if (
+            data &&
+            data.keyId &&
+            existingKeys.length > 0 &&
+            hasRenderedRows &&
+            typeof renderKeys === 'function'
+          ) {
+            renderKeys([
+              {
+                keyId: data.keyId,
+                name: data.name || 'Default API Key',
+                createdAt: data.createdAt || Math.floor(Date.now() / 1000),
+                lastUsed: data.lastUsed || null,
+                isActive: true,
+              },
+              ...existingKeys,
+            ]);
+          } else if (typeof loadKeys === 'function') {
+            await loadKeys();
+          }
         }
       } catch (error) {
         setNotice(keysStatus, `Could not create an API key. ${error.message}`, 'error');

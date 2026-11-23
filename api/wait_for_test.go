@@ -3,11 +3,15 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"testing"
 	"time"
 
 	"github.com/aws/aws-lambda-go/events"
+	"github.com/chromedp/cdproto/cdp"
 	"github.com/chromedp/cdproto/network"
+	"github.com/chromedp/cdproto/target"
+	"github.com/chromedp/chromedp"
 )
 
 func TestWaitForOptionsNormalizationAndDefaults(t *testing.T) {
@@ -309,5 +313,64 @@ func TestWaitForOptionsFullConfiguration(t *testing.T) {
 	}
 	if !req.Options.getWaitForFonts() {
 		t.Fatal("expected waitForFonts to be true")
+	}
+}
+
+func TestHasExplicitWaitForTrigger(t *testing.T) {
+	fontsTrue := true
+	tests := []struct {
+		name string
+		opts documentRenderOptions
+		want bool
+	}{
+		{name: "empty defaults", opts: documentRenderOptions{}, want: false},
+		{name: "fonts only true", opts: documentRenderOptions{WaitForFonts: &fontsTrue}, want: false},
+		{name: "nested fonts only", opts: documentRenderOptions{WaitFor: &waitForOptions{Fonts: &fontsTrue, TimeoutMs: 5000}}, want: false},
+		{name: "flat selector", opts: documentRenderOptions{WaitForSelector: "#ready"}, want: true},
+		{name: "nested selector", opts: documentRenderOptions{WaitFor: &waitForOptions{Selector: "#ready"}}, want: true},
+		{name: "flat function", opts: documentRenderOptions{WaitForFunction: "() => true"}, want: true},
+		{name: "nested function", opts: documentRenderOptions{WaitFor: &waitForOptions{Function: "() => true"}}, want: true},
+		{name: "networkidle0", opts: documentRenderOptions{WaitFor: &waitForOptions{NetworkIdle: "networkidle0"}}, want: true},
+		{name: "networkidle2 uppercase", opts: documentRenderOptions{NetworkIdle: "NETWORKIDLE2"}, want: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.opts.hasExplicitWaitForTrigger(); got != tt.want {
+				t.Fatalf("hasExplicitWaitForTrigger() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestCdpExecutorContext(t *testing.T) {
+	plainExec := cdpExecutorContext(context.Background())
+	if err := cdp.Execute(plainExec, target.CommandCloseTarget, nil, nil); !errors.Is(err, cdp.ErrInvalidContext) {
+		t.Fatalf("expected cdp.ErrInvalidContext for plain context, got: %v", err)
+	}
+
+	taskCtx, cancel := chromedp.NewContext(context.Background())
+	defer cancel()
+
+	noTargetExec := cdpExecutorContext(taskCtx)
+	if err := cdp.Execute(noTargetExec, target.CommandCloseTarget, nil, nil); !errors.Is(err, cdp.ErrInvalidContext) {
+		t.Fatalf("expected cdp.ErrInvalidContext when chromedp Target is nil, got: %v", err)
+	}
+
+	c := chromedp.FromContext(taskCtx)
+	c.Target = &chromedp.Target{}
+
+	// Raw taskCtx lacks a cdp.Executor, which previously caused EventRequestPaused handlers to fail silently.
+	if err := cdp.Execute(taskCtx, target.CommandCloseTarget, nil, nil); !errors.Is(err, cdp.ErrInvalidContext) {
+		t.Fatalf("expected cdp.ErrInvalidContext on raw taskCtx, got: %v", err)
+	}
+
+	execCtx := cdpExecutorContext(taskCtx)
+	if got := cdp.ExecutorFromContext(execCtx); got != c.Target {
+		t.Fatalf("ExecutorFromContext() = %v, want %v", got, c.Target)
+	}
+	err := cdp.Execute(execCtx, target.CommandCloseTarget, nil, nil)
+	if err == nil || errors.Is(err, cdp.ErrInvalidContext) {
+		t.Fatalf("expected Target.Execute response instead of ErrInvalidContext, got: %v", err)
 	}
 }

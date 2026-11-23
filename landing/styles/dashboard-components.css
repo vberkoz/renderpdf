@@ -1,22 +1,23 @@
 /* ==========================================================================
-   Data Tables
+   Data Tables, Controls & CodeMirror — DENSE//DS
    ========================================================================== */
 .dashboard-table-wrap {
   width: 100%;
+  max-width: 100%;
+  container-type: inline-size;
   overflow-x: auto;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-md);
-  background: var(--card-bg);
+  border: 1px solid var(--ln);
+  border-radius: var(--r);
+  background: var(--bg-1);
 }
-
 .dashboard-table {
   width: 100%;
   border-spacing: 0;
   border-collapse: separate;
   table-layout: fixed;
-  font-size: 13.5px;
+  font-size: var(--row-fs);
+  line-height: 1.35;
 }
-
 .dashboard-table caption {
   position: absolute;
   width: 1px;
@@ -26,265 +27,208 @@
   clip: rect(0 0 0 0);
   white-space: nowrap;
 }
-
 .dashboard-table th {
-  padding: 12px 16px;
-  background: var(--bg-elevated);
-  border-bottom: 1px solid var(--line);
-  color: var(--muted);
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
+  height: var(--th-h);
+  padding: 0 var(--row-px);
+  background: var(--bg-2);
+  border-bottom: 1px solid var(--ln);
+  color: var(--fg-1);
+  font: 600 11px/1 var(--f-cond);
+  letter-spacing: .06em;
   text-align: left;
   text-transform: uppercase;
 }
-
 .dashboard-table td {
-  padding: 14px 16px;
-  border-bottom: 1px solid var(--line);
-  color: var(--text);
+  padding: 5px var(--row-px);
+  border-bottom: 1px solid var(--ln);
+  color: var(--fg-0);
   vertical-align: middle;
 }
+.dashboard-table tbody tr:hover td { background: var(--bg-2); }
+.dashboard-table tbody tr:last-child td { border-bottom: 0; }
+.dashboard-table th:first-child, .dashboard-table td:first-child { padding-left: 10px; }
+.dashboard-table th:last-child, .dashboard-table td:last-child { padding-right: 10px; }
 
-.dashboard-table tbody tr:hover td {
-  background: rgba(255, 255, 255, 0.02);
-}
+#keysList .dashboard-table th:nth-child(1), #keysList .dashboard-table td:nth-child(1) { width: 28%; }
+#keysList .dashboard-table th:nth-child(2), #keysList .dashboard-table td:nth-child(2) { width: 18%; }
+#keysList .dashboard-table th:nth-child(3), #keysList .dashboard-table td:nth-child(3) { width: 20%; }
+#keysList .dashboard-table th:nth-child(4), #keysList .dashboard-table td:nth-child(4) { width: 20%; }
+#keysList .dashboard-table th:nth-child(5), #keysList .dashboard-table td:nth-child(5) { width: 14%; }
 
-.dashboard-table tbody tr:last-child td {
-  border-bottom: 0;
-}
-
-.dashboard-table th:first-child,
-.dashboard-table td:first-child {
-  padding-left: 16px;
-}
-
-.dashboard-table th:last-child,
-.dashboard-table td:last-child {
-  padding-right: 16px;
-}
-
-#keysList .dashboard-table th:nth-child(1), #keysList .dashboard-table td:nth-child(1) { width: 44%; }
-#keysList .dashboard-table th:nth-child(2), #keysList .dashboard-table td:nth-child(2) { width: 24%; }
-#keysList .dashboard-table th:nth-child(3), #keysList .dashboard-table td:nth-child(3) { width: 16%; }
-#keysList .dashboard-table th:nth-child(4), #keysList .dashboard-table td:nth-child(4) { width: 16%; }
-
-.dashboard-table-primary {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-}
-
+.dashboard-table-primary { display: grid; gap: 2px; min-width: 0; }
 .dashboard-table-primary code {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 13px;
-  background: var(--bg);
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  padding: 2px 7px;
-  color: var(--blue-light);
-  font-family: var(--font-mono);
+  font: 400 11px/1.3 var(--f-mono);
+  background: var(--bg-0);
+  border: 1px solid var(--ln);
+  border-radius: var(--r);
+  padding: 1px 5px;
+  color: var(--ac);
   width: fit-content;
   max-width: 100%;
 }
-
-.dashboard-table-primary span {
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 500;
-}
+.dashboard-table-primary span { color: var(--fg-2); font-size: 11px; font-weight: 500; }
 
 .dashboard-table-state {
-  color: var(--emerald-light);
-  font-size: 12.5px;
+  color: var(--ok);
+  font-size: 11px;
   font-weight: 600;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
 }
-
 .dashboard-table-state::before {
   content: "";
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--emerald);
-  box-shadow: 0 0 6px var(--emerald);
+  background: var(--ok);
 }
 
-.dashboard-table .dashboard-table-actions-cell {
-  text-align: right;
-}
-
+.dashboard-table .dashboard-table-actions-cell { text-align: right; }
 .dashboard-table-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
+  gap: 4px;
   white-space: nowrap;
   align-items: center;
 }
 
-/* ==========================================================================
-   Buttons & Controls
-   ========================================================================== */
+/* Buttons */
 .dashboard-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  font-size: 13px;
-  font-weight: 600;
-  border-radius: var(--button-radius);
-  padding: 8px 16px;
+  gap: 4px;
+  height: 24px;
+  min-height: 24px;
+  font: 500 12px/1 var(--f-ui);
+  border-radius: var(--r);
+  padding: 0 8px;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background-color .1s, border-color .1s, color .1s;
   text-decoration: none;
   white-space: nowrap;
-  border: 1px solid transparent;
+  border: 1px solid var(--ln-2);
 }
-
 .dashboard-button-primary {
-  background: var(--blue);
-  color: #ffffff;
-  border-color: var(--blue);
+  background: var(--ac-solid);
+  color: var(--on-ac);
+  border-color: var(--ac-solid);
 }
-
 .dashboard-button-primary:hover {
-  background: #2563eb;
-  border-color: #2563eb;
-  box-shadow: 0 0 14px rgba(59, 130, 246, 0.4);
+  background: color-mix(in srgb, var(--ac-solid) 86%, #fff);
+  border-color: color-mix(in srgb, var(--ac-solid) 86%, #fff);
+  color: var(--on-ac);
 }
-
-.dashboard-button-secondary,
+.dashboard-button-secondary, .table-action {
+  background: var(--bg-2);
+  color: var(--fg-0);
+  border: 1px solid var(--ln-2);
+}
+.dashboard-button-secondary:hover, .table-action:hover {
+  background: var(--bg-3);
+  border-color: var(--ln-3);
+  color: var(--fg-0);
+}
+.dashboard-button-danger, .table-action.danger {
+  background: var(--er-bg);
+  color: var(--er);
+  border: 1px solid color-mix(in srgb, var(--er) 35%, transparent);
+}
+.dashboard-button-danger:hover, .table-action.danger:hover {
+  background: color-mix(in srgb, var(--er) 18%, var(--bg-1));
+  border-color: var(--er);
+  color: var(--er);
+}
 .table-action {
-  background: var(--panel);
-  color: var(--text);
-  border: 1px solid var(--line);
-}
-
-.dashboard-button-secondary:hover,
-.table-action:hover {
-  background: var(--panel-strong);
-  border-color: var(--card-border-hover);
-  color: #ffffff;
-}
-
-.dashboard-button-danger,
-.table-action.danger {
-  background: var(--rose-dim);
-  color: var(--rose-light);
-  border: 1px solid rgba(239, 68, 68, 0.3);
-}
-
-.dashboard-button-danger:hover,
-.table-action.danger:hover {
-  background: rgba(239, 68, 68, 0.25);
-  border-color: rgba(239, 68, 68, 0.5);
-  color: #fca5a5;
-}
-
-.table-action {
-  height: 32px;
-  min-height: 32px;
-  padding: 0 12px;
-  font-size: 12.5px;
-  border-radius: var(--button-radius);
+  height: 20px;
+  min-height: 20px;
+  padding: 0 6px;
+  font-size: 11px;
+  border-radius: var(--r);
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.15s ease;
 }
-
 .dashboard-button.copied {
-  background: var(--emerald) !important;
+  background: var(--ok) !important;
   color: #ffffff !important;
-  border-color: #059669 !important;
+  border-color: var(--ok) !important;
 }
 
-/* ==========================================================================
-   Form Inputs & Labels
-   ========================================================================== */
-.dashboard-field {
-  display: grid;
-  gap: 7px;
-  min-width: 0;
+/* Form Inputs & Labels */
+.dashboard-field { display: grid; gap: 4px; min-width: 0; }
+.dashboard-field label, .dashboard-field > span {
+  color: var(--fg-1);
+  font: 600 10.5px/1.1 var(--f-cond);
+  letter-spacing: .07em;
+  text-transform: uppercase;
 }
-
-.dashboard-field label,
-.dashboard-field > span {
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 500;
-}
-
-.dashboard-field em {
-  color: var(--rose-light);
-  font-style: normal;
-}
+.dashboard-field em { color: var(--er); font-style: normal; }
 
 .dashboard-page input[type="text"],
 .dashboard-page input[type="password"],
 .dashboard-page input[type="email"],
 .dashboard-page input[type="number"],
-.dashboard-page textarea,
-.dashboard-page select {
-  background: var(--bg);
-  border: 1px solid var(--card-border);
-  border-radius: var(--radius-sm);
-  color: var(--text);
-  padding: 8px 12px;
-  font-size: 13.5px;
-  font-family: var(--font-sans);
-  box-sizing: border-box;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+.dashboard-page input[type="url"],
+.dashboard-page select,
+.dashboard-select {
+  width: 100%;
+  height: 24px;
+  min-height: 24px;
+  background: var(--bg-0);
+  border: 1px solid var(--ln-2);
+  border-radius: var(--r);
+  color: var(--fg-0);
+  padding: 0 6px;
+  font: 400 12px/1 var(--f-ui);
 }
-
+.dashboard-page textarea {
+  width: 100%;
+  background: var(--bg-0);
+  border: 1px solid var(--ln-2);
+  border-radius: var(--r);
+  color: var(--fg-0);
+  padding: 4px 6px;
+  font: 400 11.5px/1.45 var(--f-mono);
+}
 .dashboard-page input:focus,
 .dashboard-page textarea:focus,
 .dashboard-page select:focus {
-  border-color: var(--blue);
-  outline: none;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25);
+  border-color: var(--ac);
+  outline: 2px solid var(--ac);
+  outline-offset: 1px;
+  box-shadow: 0 0 0 1px var(--ac);
 }
 
-/* ==========================================================================
-   CodeMirror Dark Theme Integration
-   ========================================================================== */
+/* CodeMirror */
 .dashboard-field .CodeMirror {
   width: 100%;
   min-width: 0;
   min-height: 242px;
   overflow: hidden;
-  border: 1px solid var(--card-border);
-  border-radius: var(--radius-md);
-  background: var(--bg);
-  color: var(--text);
-  font-family: var(--font-mono);
-  font-size: 13px;
-  line-height: 1.65;
+  border: 1px solid var(--ln-2);
+  border-radius: var(--r);
+  background: var(--bg-0);
+  color: var(--fg-0);
+  font-family: var(--f-mono);
+  font-size: 11.5px;
+  line-height: 1.5;
 }
-
 .dashboard-field .CodeMirror-focused {
-  border-color: var(--blue);
+  border-color: var(--ac);
   outline: none;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25);
+  box-shadow: 0 0 0 1px var(--ac);
 }
-
 .dashboard-field .CodeMirror-gutters {
-  border-right: 1px solid var(--line);
-  background: var(--bg-elevated);
-  color: var(--dim);
+  border-right: 1px solid var(--ln);
+  background: var(--bg-2);
+  color: var(--fg-2);
 }
-
-.dashboard-field .CodeMirror-linenumber {
-  color: var(--dim);
-}
-
-.dashboard-field .CodeMirror-cursor {
-  border-left: 2px solid var(--blue-light);
-}
+.dashboard-field .CodeMirror-linenumber { color: var(--fg-2); }
+.dashboard-field .CodeMirror-cursor { border-left: 1.5px solid var(--ac); }
 
 #documentJsonField .CodeMirror { height: 480px; min-height: 480px; }
 #documentMarkdownInput + .CodeMirror { height: 300px; min-height: 300px; }
@@ -297,10 +241,8 @@
   max-height: 200px;
   overflow: hidden;
 }
-
 .template-form #templateHtmlInput + .CodeMirror .CodeMirror-scroll,
 .template-form #templateVariablesInput + .CodeMirror .CodeMirror-scroll {
   overflow: auto !important;
   overscroll-behavior: contain;
 }
-

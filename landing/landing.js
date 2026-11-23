@@ -35,35 +35,63 @@
         }
         const playgroundHTML = () => htmlEditor ? htmlEditor.getValue() : htmlInput.value;
         const htmlPreview = document.getElementById('htmlPreview');
+        const heroQuotaStatus = document.getElementById('heroQuotaStatus');
+        const heroQuotaRemaining = document.getElementById('heroQuotaRemaining');
+        const heroQuotaLabel = document.getElementById('heroQuotaLabel');
         const quotaStatus = document.getElementById('quotaStatus');
         const quotaRemaining = document.getElementById('quotaRemaining');
         const quotaLabel = document.getElementById('quotaLabel');
         const QUOTA_URL = new URL('/api/v1/trial/quota', API_ORIGIN).toString();
+        let trialLimit = 3;
+        let quotaRequestVersion = 0;
 
-        const displayQuota = (remaining) => {
-            if (!quotaRemaining || !quotaLabel || !quotaStatus) return;
-            const value = Math.max(0, Number.parseInt(remaining, 10) || 0);
-            quotaRemaining.textContent = value;
-            quotaLabel.textContent = value === 1
-                ? 'free PDF left today'
-                : 'free PDFs left today';
-            quotaStatus.classList.toggle('quota-empty', value === 0);
+        const displayQuota = (remaining, limit) => {
+            if (limit !== undefined && limit !== null) {
+                const parsedLimit = Number.parseInt(limit, 10);
+                if (!Number.isNaN(parsedLimit) && parsedLimit > 0) {
+                    trialLimit = parsedLimit;
+                }
+            }
+            const parsed = Number.parseInt(remaining, 10);
+            if (Number.isNaN(parsed)) return;
+            const value = Math.max(0, parsed);
+            if (quotaRemaining && quotaLabel && quotaStatus) {
+                quotaRemaining.textContent = String(value);
+                quotaLabel.textContent = value === 1
+                    ? 'free PDF left today'
+                    : 'free PDFs left today';
+                quotaStatus.classList.toggle('quota-empty', value === 0);
+            }
+            if (heroQuotaRemaining && heroQuotaLabel && heroQuotaStatus) {
+                heroQuotaRemaining.textContent = String(value);
+                heroQuotaLabel.textContent = value === 0
+                    ? 'free renders left today. Sign in for 25 free PDFs/month.'
+                    : (value === 1
+                        ? 'free render left today. No account or API key required.'
+                        : 'free renders left today. No account or API key required.');
+                heroQuotaStatus.classList.toggle('quota-empty', value === 0);
+            }
         };
 
         const loadQuota = async () => {
+            const requestVersion = ++quotaRequestVersion;
             try {
                 const response = await fetch(QUOTA_URL, { cache: 'no-store' });
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
                 const quota = await response.json();
-                displayQuota(quota.remaining);
+                if (requestVersion !== quotaRequestVersion) return;
+                displayQuota(quota.remaining, quota.limit);
             } catch (err) {
-                if (quotaLabel) {
-                    quotaLabel.textContent = 'free PDFs left today';
-                }
+                // Keep the last known quota state on transient errors.
             }
         };
 
         loadQuota();
+        window.addEventListener('pageshow', (event) => {
+            if (event?.persisted) {
+                loadQuota();
+            }
+        });
 
         const previewHead = `
             <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data: https:; style-src 'unsafe-inline' https:; font-src data: https:; script-src 'unsafe-inline'">
@@ -258,6 +286,7 @@
                 result.classList.add('hidden');
                 error.classList.add('hidden');
 
+                let hasRemainingHeader = false;
                 try {
                     if (window.RenderPdfCookieConsent?.hasConsented?.()) {
                         fetch(new URL('/api/v1/public-stats?event=trial_render_submitted', API_ORIGIN).toString(), { cache: 'no-store' }).catch(() => {});
@@ -268,9 +297,12 @@
                         body: JSON.stringify({ html: playgroundHTML() })
                     });
 
-                    const remaining = response.headers.get('X-Trial-Remaining');
+                    const remaining = response.headers?.get?.('X-Trial-Remaining') ?? null;
+                    const limit = response.headers?.get?.('X-Trial-Limit') ?? null;
                     if (remaining !== null) {
-                        displayQuota(remaining);
+                        hasRemainingHeader = true;
+                        quotaRequestVersion += 1;
+                        displayQuota(remaining, limit);
                     }
 
                     if (!response.ok) {
@@ -282,6 +314,10 @@
                         err.status = response.status;
                         err.code = payload.code;
                         throw err;
+                    }
+
+                    if (!hasRemainingHeader) {
+                        loadQuota();
                     }
 
                     const data = await response.json();
@@ -303,17 +339,21 @@
                         (err.message && err.message.toLowerCase().includes('limit reached'));
 
                     if (isLimitReached) {
-                        displayQuota(0);
+                        quotaRequestVersion += 1;
+                        displayQuota(0, trialLimit);
                         error.innerHTML = `
                             <div>
                                 <strong>Daily trial limit reached</strong>
-                                <span>You have reached the limit of 3 free trial renders for today. Register or log in to continue rendering PDFs with 25 free documents every month.</span>
+                                <span>You have reached the limit of ${trialLimit} free trial renders for today. Register or log in to continue rendering PDFs with 25 free documents every month.</span>
                             </div>
                             <div class="notice-actions">
                                 <a href="/app/" class="button button-primary">Register or log in</a>
                             </div>
                         `;
                     } else {
+                        if (err.status && !hasRemainingHeader) {
+                            loadQuota();
+                        }
                         error.innerHTML = `<strong>Could not generate PDF</strong><span>${err.message}</span>`;
                     }
                     error.classList.remove('hidden');

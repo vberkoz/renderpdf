@@ -63,6 +63,7 @@ trap 'rm -rf "${ANALYTICS_ZIP}" "${WEBHOOKS_ZIP}" "${ACCOUNT_LINKER_ZIP}" "${BAT
 echo "Packaging lightweight Go batch ZIP Lambda..."
 cd "${ROOT_DIR}/api"
 CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -tags lambda.norpc -ldflags="-s -w" -o "${BATCH_BUILD_DIR}/bootstrap" .
+chmod 755 "${BATCH_BUILD_DIR}/bootstrap"
 zip -q -j "${BATCH_ZIP}" "${BATCH_BUILD_DIR}/bootstrap"
 echo "Packaging native Node.js analytics Lambda..."
 cd "${ROOT_DIR}/analytics"
@@ -105,6 +106,13 @@ push_image_with_retry "${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/${STACK_NAM
 
 docker tag ${STACK_NAME}-apikeys:latest ${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/${STACK_NAME}-apikeys:latest
 push_image_with_retry "${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/${STACK_NAME}-apikeys:latest"
+
+LAMBDA_ARTIFACT_BUCKET="${STACK_NAME}-pdfs-${ACCOUNT_ID}"
+LAMBDA_BATCH_ZIP_KEY="lambda/batch-bootstrap.zip"
+echo "Uploading lightweight Go batch ZIP artifact to s3://${LAMBDA_ARTIFACT_BUCKET}/${LAMBDA_BATCH_ZIP_KEY}..."
+aws s3 cp "${BATCH_ZIP}" "s3://${LAMBDA_ARTIFACT_BUCKET}/${LAMBDA_BATCH_ZIP_KEY}" \
+  --region ${REGION} \
+  --profile ${PROFILE}
 
 echo "Deploying CloudFormation stack..."
 if [ -f "${PARAMETERS_FILE}" ]; then

@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -15,18 +16,76 @@ type APIErrorResponse struct {
 	Error     string `json:"error"`
 	Code      string `json:"code"`
 	RequestID string `json:"requestId,omitempty"`
+	Field     string `json:"field,omitempty"`
+	Retryable *bool  `json:"retryable,omitempty"`
+	Details   any    `json:"details,omitempty"`
 }
 
 // renderError is intentionally safe to return to API clients. The underlying
 // Chrome error remains in Lambda logs, where it is useful for diagnosis but
 // does not expose URLs, HTML, or browser internals to callers.
 type renderError struct {
-	Code    string
-	Message string
-	Status  int
+	Code      string
+	Message   string
+	Status    int
+	Field     string
+	Retryable *bool
+	Details   any
 }
 
 func (e *renderError) Error() string { return e.Message }
+
+func boolPtr(v bool) *bool { return &v }
+
+func defaultErrorRetryable(status int) *bool {
+	switch status {
+	case 429, 500, 502, 503, 504:
+		return boolPtr(true)
+	case 400, 401, 403, 404, 405, 409, 413, 422:
+		return boolPtr(false)
+	default:
+		return nil
+	}
+}
+
+func ensureRetryAfterHeader(status int, headers map[string]string) {
+	if headers == nil {
+		return
+	}
+	if status != 429 && status != 503 {
+		return
+	}
+	if headerValue(headers, "Retry-After") == "" {
+		headers["Retry-After"] = "10"
+	}
+}
+
+func decodeStrictJSONError(code, defaultMsg string, err error) *renderError {
+	if err != nil {
+		const unknownPrefix = "json: unknown field "
+		if idx := strings.Index(err.Error(), unknownPrefix); idx >= 0 {
+			field := strings.Trim(strings.TrimSpace(err.Error()[idx+len(unknownPrefix):]), "\"")
+			if field != "" {
+				return &renderError{
+					Code:    code,
+					Message: fmt.Sprintf("%s: unknown field %q", defaultMsg, field),
+					Status:  400,
+					Field:   field,
+				}
+			}
+		}
+		var typeErr *json.UnmarshalTypeError
+		if errors.As(err, &typeErr) && typeErr.Field != "" {
+			return &renderError{
+				Code:    code,
+				Message: fmt.Sprintf("%s: invalid type for field %q", defaultMsg, typeErr.Field),
+				Status:  400,
+				Field:   typeErr.Field,
+			}
+		}
+	}
+	return &renderError{Code: code, Message: defaultMsg, Status: 400}
+}
 
 // marshalJSONWithoutEscape serializes data to JSON without escaping HTML
 // characters ('&', '<', '>'), preventing presigned S3 URLs from having '&' converted
@@ -56,7 +115,13 @@ func errorResponse(status int, message string, headers map[string]string) events
 }
 
 func errorResponseWithCode(status int, code, message string, headers map[string]string) events.APIGatewayProxyResponse {
-	return jsonResponse(status, APIErrorResponse{Error: message, Code: code, RequestID: responseRequestID(headers)}, headers)
+	ensureRetryAfterHeader(status, headers)
+	return jsonResponse(status, APIErrorResponse{
+		Error:     message,
+		Code:      code,
+		RequestID: responseRequestID(headers),
+		Retryable: defaultErrorRetryable(status),
+	}, headers)
 }
 
 func defaultErrorCode(status int) string {
@@ -99,11 +164,26 @@ func renderErrorResponse(err error, headers map[string]string) events.APIGateway
 		if status == 0 {
 			status = 422
 		}
-		return errorResponseWithCode(status, renderErr.Code, renderErr.Message, headers)
+		ensureRetryAfterHeader(status, headers)
+		retryable := renderErr.Retryable
+		if retryable == nil {
+			retryable = defaultErrorRetryable(status)
+		}
+		return jsonResponse(status, APIErrorResponse{
+			Error:     renderErr.Message,
+			Code:      renderErr.Code,
+			RequestID: responseRequestID(headers),
+			Field:     renderErr.Field,
+			Retryable: retryable,
+			Details:   renderErr.Details,
+		}, headers)
 	}
 	// Do not return a raw Chrome failure: it can include document URLs and
 	// browser implementation details. The specific failures above are returned
 	// as renderError values.
+	if err != nil {
+		fmt.Printf("PDF rendering failed (code=rendering_failed, requestId=%s): %v\n", responseRequestID(headers), err)
+	}
 	return errorResponseWithCode(500, "rendering_failed", "PDF rendering failed", headers)
 }
 

@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/chromedp/cdproto/cdp"
 	"github.com/chromedp/cdproto/emulation"
 	"github.com/chromedp/cdproto/fetch"
 	"github.com/chromedp/cdproto/log"
@@ -20,6 +21,13 @@ import (
 	"github.com/chromedp/cdproto/runtime"
 	"github.com/chromedp/chromedp"
 )
+
+func cdpExecutorContext(ctx context.Context) context.Context {
+	if c := chromedp.FromContext(ctx); c != nil && c.Target != nil {
+		return cdp.WithExecutor(ctx, c.Target)
+	}
+	return ctx
+}
 
 func defaultDisplayHeaderFooter() bool {
 	val, err := strconv.ParseBool(strings.TrimSpace(os.Getenv("DEFAULT_DISPLAY_HEADER_FOOTER")))
@@ -191,6 +199,35 @@ func generatePDFURLWithDocumentOptions(ctx context.Context, targetURL string, op
 	return applyPDFPostProcessing(pdfBytes, options)
 }
 
+func shouldUseWarmPool(targetURL string, options documentRenderOptions) bool {
+	if !chromeWarmPoolEnabled() {
+		return false
+	}
+	if len(options.CustomCookies) > 0 || len(options.CustomHeaders) > 0 {
+		return false
+	}
+	trimmed := strings.TrimSpace(targetURL)
+	if parsed, err := url.Parse(trimmed); err == nil {
+		scheme := strings.ToLower(parsed.Scheme)
+		if scheme == "http" || scheme == "https" {
+			host := strings.ToLower(parsed.Hostname())
+			if host != "127.0.0.1" && host != "localhost" && host != "::1" {
+				return false
+			}
+		}
+	} else {
+		lower := strings.ToLower(trimmed)
+		if strings.HasPrefix(lower, "http://") || strings.HasPrefix(lower, "https://") {
+			return false
+		}
+	}
+	return true
+}
+
+func clearWarmTabState(ctx context.Context) error {
+	return chromedp.Run(ctx, network.ClearBrowserCookies(), network.ClearBrowserCache())
+}
+
 func generatePDFURLWithCustomSettings(ctx context.Context, targetURL string, displayHeaderFooter bool, headerTemplate, footerTemplate string, disableJavaScript bool, options documentRenderOptions) ([]byte, error) {
 	chromePath, err := prepareChrome()
 	if err != nil {
@@ -198,7 +235,7 @@ func generatePDFURLWithCustomSettings(ctx context.Context, targetURL string, dis
 	}
 	fmt.Printf("Using Chrome at: %s\n", chromePath)
 
-	if chromeWarmPoolEnabled() {
+	if shouldUseWarmPool(targetURL, options) {
 		return generatePDFURLWithWarmPool(ctx, chromePath, targetURL, displayHeaderFooter, headerTemplate, footerTemplate, disableJavaScript, options)
 	}
 	return generatePDFURLWithColdBrowser(ctx, chromePath, targetURL, displayHeaderFooter, headerTemplate, footerTemplate, disableJavaScript, options)
@@ -215,6 +252,9 @@ func generatePDFURLWithWarmPool(ctx context.Context, chromePath, targetURL strin
 		}
 
 		runCtx, runCancel := context.WithTimeout(tabCtx, 24*time.Second)
+		if diag := renderDiagnosticsFromContext(ctx); diag != nil {
+			runCtx = withRenderDiagnostics(runCtx, diag)
+		}
 		stopWatch := context.AfterFunc(ctx, runCancel)
 
 		if err := chromedp.Run(runCtx); err != nil {
@@ -230,18 +270,40 @@ func generatePDFURLWithWarmPool(ctx context.Context, chromePath, targetURL strin
 			return nil, fmt.Errorf("failed to start browser: %v: %s", err, browserOutput.String())
 		}
 
+		if err := clearWarmTabState(runCtx); err != nil {
+			stopWatch()
+			runCancel()
+			releaseTab(true)
+			if attempt == 0 && !errors.Is(err, context.DeadlineExceeded) && ctx.Err() == nil {
+				continue
+			}
+			return nil, fmt.Errorf("failed to sanitize warm tab: %v", err)
+		}
+
 		buf, renderErr := runPDFRenderOnTarget(runCtx, targetURL, displayHeaderFooter, headerTemplate, footerTemplate, disableJavaScript, options)
 		stopWatch()
 		runCancel()
+
+		cleanupFailed := false
+		if tabCtx.Err() == nil {
+			cleanupCtx, cleanupCancel := context.WithTimeout(tabCtx, 2*time.Second)
+			if cleanErr := clearWarmTabState(cleanupCtx); cleanErr != nil {
+				cleanupFailed = true
+			}
+			cleanupCancel()
+		} else {
+			cleanupFailed = true
+		}
+
 		if renderErr != nil {
-			failedBrowser := tabCtx.Err() != nil || isWarmBrowserCrashError(renderErr)
+			failedBrowser := cleanupFailed || tabCtx.Err() != nil || isWarmBrowserCrashError(renderErr)
 			releaseTab(failedBrowser)
 			if attempt == 0 && failedBrowser && ctx.Err() == nil && !errors.Is(renderErr, context.DeadlineExceeded) {
 				continue
 			}
 			return nil, renderErr
 		}
-		releaseTab(false)
+		releaseTab(cleanupFailed)
 		return buf, nil
 	}
 	return nil, &renderError{Code: "render_failed", Message: "Render failed"}
@@ -288,13 +350,19 @@ func generatePDFURLWithColdBrowser(ctx context.Context, chromePath, targetURL st
 	}
 	fmt.Println("Browser started successfully")
 
+	if diag := renderDiagnosticsFromContext(ctx); diag != nil {
+		taskCtx = withRenderDiagnostics(taskCtx, diag)
+	}
 	return runPDFRenderOnTarget(taskCtx, targetURL, displayHeaderFooter, headerTemplate, footerTemplate, disableJavaScript, options)
 }
 
 func runPDFRenderOnTarget(taskCtx context.Context, targetURL string, displayHeaderFooter bool, headerTemplate, footerTemplate string, disableJavaScript bool, options documentRenderOptions) ([]byte, error) {
 
 	var buf []byte
-	diagnostics := newRenderDiagnostics()
+	diagnostics := renderDiagnosticsFromContext(taskCtx)
+	if diagnostics == nil {
+		diagnostics = newRenderDiagnostics()
+	}
 	chromedp.ListenTarget(taskCtx, diagnostics.listen)
 	netTracker := newNetworkIdleTracker()
 	chromedp.ListenTarget(taskCtx, netTracker.listen)
@@ -308,7 +376,8 @@ func runPDFRenderOnTarget(taskCtx context.Context, targetURL string, displayHead
 				if taskCtx.Err() != nil {
 					return
 				}
-				_ = fetch.FailRequest(reqID, network.ErrorReasonBlockedByClient).Do(taskCtx)
+				execCtx := cdpExecutorContext(taskCtx)
+				_ = fetch.FailRequest(reqID, network.ErrorReasonBlockedByClient).Do(execCtx)
 			}(event.RequestID)
 			return
 		}
@@ -320,16 +389,18 @@ func runPDFRenderOnTarget(taskCtx context.Context, targetURL string, displayHead
 			if taskCtx.Err() != nil {
 				return
 			}
+			execCtx := cdpExecutorContext(taskCtx)
 			if !isSafeNetworkURL(reqURL) {
 				fmt.Printf("SSRF filter: blocked request to %s\n", reqURL)
-				_ = fetch.FailRequest(reqID, network.ErrorReasonBlockedByClient).Do(taskCtx)
+				diagnostics.recordSSRFBlocked(reqURL)
+				_ = fetch.FailRequest(reqID, network.ErrorReasonBlockedByClient).Do(execCtx)
 				return
 			}
 			continueReq := fetch.ContinueRequest(reqID)
 			if len(options.CustomHeaders) > 0 && isSameOriginHeaderTarget(targetURL, reqURL) {
 				continueReq = continueReq.WithHeaders(mergeCDPRequestHeaders(reqHeaders, options.CustomHeaders))
 			}
-			_ = continueReq.Do(taskCtx)
+			_ = continueReq.Do(execCtx)
 		}()
 	})
 	stage := "navigation"
@@ -471,7 +542,7 @@ func runPDFRenderOnTarget(taskCtx context.Context, targetURL string, displayHead
 							void document.body.offsetHeight;
 
 							if (document.fonts && document.fonts.ready) {
-								await document.fonts.ready;
+								await Promise.race([document.fonts.ready, new Promise(resolve => setTimeout(resolve, 2000))]);
 							}
 
 							const images = Array.from(document.images || []);
@@ -488,7 +559,7 @@ func runPDFRenderOnTarget(taskCtx context.Context, targetURL string, displayHead
 
 							void document.body.offsetHeight;
 							if (document.fonts && document.fonts.ready) {
-								await document.fonts.ready;
+								await Promise.race([document.fonts.ready, new Promise(resolve => setTimeout(resolve, 2000))]);
 							}
 						} catch (e) {}
 					})()`).WithAwaitPromise(true).Do(c)
@@ -513,7 +584,10 @@ func runPDFRenderOnTarget(taskCtx context.Context, targetURL string, displayHead
 								} catch (e) {}
 							}
 
-							await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+							await Promise.race([
+								new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))),
+								new Promise(r => setTimeout(r, 250))
+							]);
 						} catch (e) {}
 					})()`).WithAwaitPromise(true).Do(c)
 					return err
@@ -550,6 +624,10 @@ func runPDFRenderOnTarget(taskCtx context.Context, targetURL string, displayHead
 			if len(waitActions) > 0 {
 				if err := chromedp.Run(waitCtx, waitActions...); err != nil {
 					if errors.Is(err, context.DeadlineExceeded) || errors.Is(waitCtx.Err(), context.DeadlineExceeded) {
+						if !options.hasExplicitWaitForTrigger() && ctx.Err() == nil {
+							fmt.Printf("Automatic readiness check timed out after %v, proceeding to PDF generation\n", waitTimeout)
+							return nil
+						}
 						return &renderError{Code: "wait_for_timeout", Message: "Timeout waiting for page readiness trigger"}
 					}
 					return &renderError{Code: "wait_for_failed", Message: fmt.Sprintf("Wait condition failed: %v", err)}
@@ -575,16 +653,25 @@ func runPDFRenderOnTarget(taskCtx context.Context, targetURL string, displayHead
 	if err != nil {
 		fmt.Printf("chromedp.Run failed at stage %s: %v\n", stage, err)
 
+		attachDetails := func(rErr *renderError) *renderError {
+			if rErr != nil && rErr.Details == nil {
+				if details := diagnostics.details(); len(details) > 0 {
+					rErr.Details = details
+				}
+			}
+			return rErr
+		}
+
 		var rErr *renderError
 		if errors.As(err, &rErr) {
-			return nil, rErr
+			return nil, attachDetails(rErr)
 		}
 
 		if stage == "navigation" {
 			if errors.Is(err, context.DeadlineExceeded) {
-				return nil, &renderError{Code: "navigation_timeout", Message: "Navigation timed out"}
+				return nil, attachDetails(&renderError{Code: "navigation_timeout", Message: "Navigation timed out", Status: 504})
 			}
-			return nil, &renderError{Code: "navigation_failed", Message: "Page navigation failed"}
+			return nil, attachDetails(&renderError{Code: "navigation_failed", Message: "Page navigation failed"})
 		}
 
 		if stage == "pdf_generation" {
@@ -592,16 +679,16 @@ func runPDFRenderOnTarget(taskCtx context.Context, targetURL string, displayHead
 				return nil, diagErr
 			}
 			if errors.Is(err, context.DeadlineExceeded) {
-				return nil, &renderError{Code: "pdf_generation_timeout", Message: "PDF generation timed out"}
+				return nil, attachDetails(&renderError{Code: "pdf_generation_timeout", Message: "PDF generation timed out", Status: 504})
 			}
-			return nil, &renderError{Code: "pdf_generation_failed", Message: "Failed to generate PDF"}
+			return nil, attachDetails(&renderError{Code: "pdf_generation_failed", Message: "Failed to generate PDF"})
 		}
 
 		if errors.Is(err, context.DeadlineExceeded) {
-			return nil, &renderError{Code: "chromium_timeout", Message: "Rendering operation timed out"}
+			return nil, attachDetails(&renderError{Code: "chromium_timeout", Message: "Rendering operation timed out", Status: 504})
 		}
 
-		return nil, &renderError{Code: "render_failed", Message: "Render failed"}
+		return nil, attachDetails(&renderError{Code: "render_failed", Message: "Render failed"})
 	}
 
 	fmt.Printf("PDF generated successfully, size: %d bytes\n", len(buf))

@@ -24,11 +24,21 @@
   function renderTable(container, { columns = [], rows = [], empty, loading, caption }) {
     if (!container) return;
     if (loading) {
-      container.innerHTML = `<p class="dashboard-table-empty" role="status" aria-live="polite">${loading}</p>`;
+      const message = document.createElement('p');
+      message.className = 'dashboard-table-empty';
+      message.setAttribute('role', 'status');
+      message.setAttribute('aria-live', 'polite');
+      message.textContent = loading;
+      container.replaceChildren(message);
       return;
     }
     if (!rows.length) {
-      container.innerHTML = `<p class="dashboard-table-empty" role="status" aria-live="polite">${empty}</p>`;
+      const message = document.createElement('p');
+      message.className = 'dashboard-table-empty';
+      message.setAttribute('role', 'status');
+      message.setAttribute('aria-live', 'polite');
+      message.textContent = empty;
+      container.replaceChildren(message);
       return;
     }
 
@@ -70,7 +80,13 @@
       tbody.appendChild(tr);
     });
     table.appendChild(tbody);
-    container.replaceChildren(table);
+    const wrap = document.createElement('div');
+    wrap.className = 'dashboard-table-wrap';
+    wrap.tabIndex = 0;
+    wrap.setAttribute('role', 'region');
+    wrap.setAttribute('aria-label', caption || 'Data table');
+    wrap.appendChild(table);
+    container.replaceChildren(wrap);
   }
 
   const moduleExports = {

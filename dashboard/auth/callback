@@ -3,14 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="dark">
+    <script>try{document.querySelector('meta[name="color-scheme"]').content=localStorage.getItem('ds-scheme')||'dark';}catch(e){}</script>
     <meta name="description" content="Completing your secure RenderPDF sign-in.">
     <title>RenderPDF | Completing sign-in</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter+Tight:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <link href="/styles/base.css" rel="stylesheet">
     <link href="/styles/auth.css" rel="stylesheet">
+    <script src="/theme.js" defer></script>
 </head>
 <body class="auth-page callback-page">
     <a class="skip-link" href="#main-content">Skip to main content</a>
@@ -24,6 +27,7 @@
                 <a href="/">Home</a>
                 <a href="/docs/api/">API docs</a>
             </nav>
+            <button type="button" class="theme-toggle" data-action="theme" aria-label="Toggle color theme" title="Toggle light/dark theme"><svg class="lucide when-dark" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg><svg class="lucide when-light" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg></button>
         </header></div>
 
         <main id="main-content" class="auth-main callback-main" tabindex="-1">
@@ -64,12 +68,19 @@
     </div>
 
     <script>
+        const COGNITO_DOMAIN = 'https://renderpdf-auth-653268860643.auth.us-east-1.amazoncognito.com';
+        const DEFAULT_CLIENT_ID = '78pkhoj4ml959gb80coslgm42t';
+        const REDIRECT_URI = 'https://renderpdf.vberkoz.com/app/callback';
+
+        const searchParams = new URLSearchParams(window.location.search);
         const hash = window.location.hash.substring(1);
-        const params = new URLSearchParams(hash);
-        const idToken = params.get('id_token');
-        const accessToken = params.get('access_token');
-        const error = params.get('error');
-        const errorDescription = params.get('error_description');
+        const hashParams = new URLSearchParams(hash);
+        const code = searchParams.get('code');
+        const state = searchParams.get('state');
+        const idToken = hashParams.get('id_token');
+        const accessToken = hashParams.get('access_token');
+        const error = searchParams.get('error') || hashParams.get('error');
+        const errorDescription = searchParams.get('error_description') || hashParams.get('error_description');
 
         const callbackCard = document.getElementById('callbackCard');
         const statusTitle = document.getElementById('statusTitle');
@@ -84,19 +95,68 @@
             document.title = 'RenderPDF | Sign-in error';
         };
 
-        if (window.location.hash) {
+        const completeSignIn = (tokens) => {
+            localStorage.setItem('id_token', tokens.id_token);
+            localStorage.setItem('access_token', tokens.access_token);
+            const destination = localStorage.getItem('post_login_redirect') || '/app/';
+            localStorage.removeItem('post_login_redirect');
+            callbackCard.dataset.state = 'success';
+            statusTitle.textContent = 'Account verified';
+            statusMessage.textContent = 'Opening your RenderPDF workspace now.';
+            window.setTimeout(() => window.location.replace(destination), 350);
+        };
+
+        if (window.location.search || window.location.hash) {
             window.history.replaceState(null, '', window.location.pathname);
         }
 
         if (error) {
             showFailure('Sign-in could not be completed', errorDescription || error);
+        } else if (code) {
+            (async () => {
+                const expectedState = sessionStorage.getItem('pkce_state');
+                const codeVerifier = sessionStorage.getItem('pkce_code_verifier');
+                const clientId = sessionStorage.getItem('pkce_client_id') || DEFAULT_CLIENT_ID;
+                sessionStorage.removeItem('pkce_state');
+                sessionStorage.removeItem('pkce_code_verifier');
+                sessionStorage.removeItem('pkce_client_id');
+
+                if (expectedState && state !== expectedState) {
+                    showFailure('Invalid authentication state', 'The sign-in state could not be verified. Please start again.');
+                    return;
+                }
+                if (!codeVerifier) {
+                    showFailure('Invalid authentication session', 'The sign-in verifier was missing or expired. Please start again.');
+                    return;
+                }
+
+                try {
+                    const response = await fetch(`${COGNITO_DOMAIN}/oauth2/token`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                        body: new URLSearchParams({
+                            grant_type: 'authorization_code',
+                            client_id: clientId,
+                            code,
+                            redirect_uri: REDIRECT_URI,
+                            code_verifier: codeVerifier,
+                        }).toString(),
+                    });
+                    const payload = await response.json().catch(() => ({}));
+                    if (!response.ok || !payload.id_token || !payload.access_token) {
+                        showFailure(
+                            'Sign-in could not be completed',
+                            payload.error_description || payload.error || 'Token exchange failed. Please start again.'
+                        );
+                        return;
+                    }
+                    completeSignIn(payload);
+                } catch (err) {
+                    showFailure('Sign-in could not be completed', 'Network error completing authentication. Please try again.');
+                }
+            })();
         } else if (idToken && accessToken) {
-            localStorage.setItem('id_token', idToken);
-            localStorage.setItem('access_token', accessToken);
-            callbackCard.dataset.state = 'success';
-            statusTitle.textContent = 'Account verified';
-            statusMessage.textContent = 'Opening your RenderPDF workspace now.';
-            window.setTimeout(() => window.location.replace('/app/'), 350);
+            completeSignIn({ id_token: idToken, access_token: accessToken });
         } else {
             showFailure('Invalid authentication response', 'The sign-in response did not include the required account tokens. Please start again.');
         }

@@ -49,6 +49,16 @@ aws s3 sync "${ROOT_DIR}/landing/" "s3://${WEBSITE_BUCKET}/" \
   --cache-control "no-cache" \
   --follow-symlinks
 
+aws s3 cp "${ROOT_DIR}/landing/llms.txt" "s3://${WEBSITE_BUCKET}/llms.txt" \
+  --profile ${PROFILE} \
+  --content-type "text/plain; charset=utf-8" \
+  --cache-control "no-cache"
+
+aws s3 cp "${ROOT_DIR}/landing/openapi.yaml" "s3://${WEBSITE_BUCKET}/openapi.yaml" \
+  --profile ${PROFILE} \
+  --content-type "application/yaml; charset=utf-8" \
+  --cache-control "no-cache"
+
 echo ""
 echo "[2/4] Deploying client dashboard and auth pages..."
 echo "      Source: ${ROOT_DIR}/dashboard/"
@@ -70,6 +80,8 @@ done
 echo ""
 echo "[3/4] Verifying critical surface presence on S3..."
 aws s3 ls "s3://${WEBSITE_BUCKET}/index.html" --profile ${PROFILE} >/dev/null && echo "  ✔ Landing page (/)"
+aws s3 ls "s3://${WEBSITE_BUCKET}/llms.txt" --profile ${PROFILE} >/dev/null && echo "  ✔ AI agent guide (/llms.txt)"
+aws s3 ls "s3://${WEBSITE_BUCKET}/openapi.yaml" --profile ${PROFILE} >/dev/null && echo "  ✔ OpenAPI 3.1 spec (/openapi.yaml)"
 aws s3 ls "s3://${WEBSITE_BUCKET}/docs/api/index.html" --profile ${PROFILE} >/dev/null && echo "  ✔ API Documentation (/docs/api/)"
 aws s3 ls "s3://${WEBSITE_BUCKET}/app/login.html" --profile ${PROFILE} >/dev/null && echo "  ✔ Auth Login (/app/login)"
 aws s3 ls "s3://${WEBSITE_BUCKET}/app/callback.html" --profile ${PROFILE} >/dev/null && echo "  ✔ Auth Callback (/app/callback)"

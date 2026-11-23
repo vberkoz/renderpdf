@@ -5,10 +5,13 @@ import (
 	"errors"
 	"io"
 	"os"
+	"reflect"
 	"sort"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/chromedp/chromedp"
 )
 
 func TestChromeWarmPoolFlagGating(t *testing.T) {
@@ -228,5 +231,68 @@ func TestChromeWarmPool500RequestSoakZeroTmpLeakAndLatencyDrop(t *testing.T) {
 
 	if warmP95*2 > coldP95 {
 		t.Fatalf("expected warm P95 (%s) to drop >= 50%% vs cold P95 (%s)", warmP95, coldP95)
+	}
+}
+
+func TestDefaultOpenWarmTabUsesDefaultBrowserContext(t *testing.T) {
+	parentCtx, parentCancel := chromedp.NewContext(context.Background())
+	defer parentCancel()
+
+	// Simulate an already-allocated Browser on the parent context so NewContext treats
+	// the child context as a tab rather than a root browser allocator.
+	parentChrome := chromedp.FromContext(parentCtx)
+	parentChrome.Browser = &chromedp.Browser{}
+
+	tabCtx, closeTab := defaultOpenWarmTab(parentCtx)
+	defer closeTab()
+
+	tabChrome := chromedp.FromContext(tabCtx)
+	if tabChrome == nil {
+		t.Fatal("expected non-nil chromedp context from defaultOpenWarmTab")
+	}
+	if tabChrome.Browser != parentChrome.Browser {
+		t.Fatal("expected tab context to inherit warm browser instance")
+	}
+	if !reflect.ValueOf(tabChrome).Elem().FieldByName("createBrowserContextParams").IsNil() {
+		t.Fatal("defaultOpenWarmTab must not set WithNewBrowserContext (crashes --single-process Chromium)")
+	}
+	if tabChrome.BrowserContextID != "" {
+		t.Fatalf("BrowserContextID = %q, want empty default browser context", tabChrome.BrowserContextID)
+	}
+}
+
+func TestShouldUseWarmPoolIsolation(t *testing.T) {
+	t.Setenv("CHROME_WARM_POOL", "true")
+
+	if !shouldUseWarmPool("data:text/html,<h1>Hi</h1>", documentRenderOptions{}) {
+		t.Fatal("expected data: URL without cookies/headers to use warm pool")
+	}
+	if !shouldUseWarmPool("file:///tmp/renderpdf-package-123/index.html", documentRenderOptions{}) {
+		t.Fatal("expected file:// package URL without cookies/headers to use warm pool")
+	}
+	if !shouldUseWarmPool("http://127.0.0.1:8080/index.html", documentRenderOptions{}) {
+		t.Fatal("expected loopback URL without cookies/headers to use warm pool")
+	}
+
+	if shouldUseWarmPool("https://example.com/invoice", documentRenderOptions{}) {
+		t.Fatal("expected external https:// URL to bypass warm pool")
+	}
+	if shouldUseWarmPool("http://example.com/invoice", documentRenderOptions{}) {
+		t.Fatal("expected external http:// URL to bypass warm pool")
+	}
+	if shouldUseWarmPool("data:text/html,<h1>Hi</h1>", documentRenderOptions{
+		CustomCookies: []urlCookie{{Name: "session", Value: "secret", Domain: "example.com"}},
+	}) {
+		t.Fatal("expected custom cookies to bypass warm pool")
+	}
+	if shouldUseWarmPool("data:text/html,<h1>Hi</h1>", documentRenderOptions{
+		CustomHeaders: map[string]string{"Authorization": "Bearer secret"},
+	}) {
+		t.Fatal("expected custom headers to bypass warm pool")
+	}
+
+	t.Setenv("CHROME_WARM_POOL", "false")
+	if shouldUseWarmPool("data:text/html,<h1>Hi</h1>", documentRenderOptions{}) {
+		t.Fatal("expected CHROME_WARM_POOL=false to disable warm pool")
 	}
 }

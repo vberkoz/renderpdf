@@ -3,14 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="dark">
+    <script>try{document.querySelector('meta[name="color-scheme"]').content=localStorage.getItem('ds-scheme')||'dark';}catch(e){}</script>
     <meta name="description" content="Create, list, and revoke RenderPDF API keys using Cognito ID tokens.">
     <title>Manage API Keys | RenderPDF API</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter+Tight:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <link href="/styles/base.css" rel="stylesheet">
     <link href="/styles/docs.css" rel="stylesheet">
+    <script src="/theme.js" defer></script>
 </head>
 <body data-enhance-code-snippets>
     <a class="skip-link" href="#main-content">Skip to main content</a>
@@ -27,6 +30,7 @@
                 <a href="/app/">Dashboard</a>
                 <a href="https://github.com/vberkoz/renderpdf">GitHub</a>
             </nav>
+            <button type="button" class="theme-toggle" data-action="theme" aria-label="Toggle color theme" title="Toggle light/dark theme"><svg class="lucide when-dark" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg><svg class="lucide when-light" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg></button>
         </header>
 
         <main id="main-content" tabindex="-1">
@@ -97,7 +101,7 @@
                         <p class="section-copy">All API-key management requests require a Cognito ID token in the <code>Authorization</code> header. Obtain it by signing in to the dashboard; API keys cannot manage other API keys.</p>
 
                         <h2>Create a key</h2>
-                        <p class="section-copy"><code>POST /api-keys</code> accepts an optional JSON body with a <code>name</code> label (e.g. <code>{"name": "Production"}</code>). The plaintext key is returned only in this <code>201 Created</code> response, so store it securely.</p>
+                        <p class="section-copy"><code>POST /api-keys</code> accepts an optional JSON body with a <code>name</code> label (e.g. <code>{"name": "Production"}</code>). The plaintext key is returned only in this <code>200 OK</code> response, so store it securely.</p>
                         <div class="code-block">
                             <div class="code-header"><span>cURL</span><button type="button" class="copy-button" data-copy-target="create-key-code">Copy</button></div>
                             <pre id="create-key-code"><code class="language-bash">curl -X POST https://renderpdf.vberkoz.com/api/v1/api-keys \
@@ -106,7 +110,7 @@
   -d '{"name": "Production Backend"}'</code></pre>
                         </div>
                         <div class="code-block">
-                            <div class="code-header"><span>201 / application/json</span></div>
+                            <div class="code-header"><span>200 / application/json</span></div>
                             <pre><code class="language-json">{
   "keyId": "key_5d1d...",
   "apiKey": "rpdf_live_...",

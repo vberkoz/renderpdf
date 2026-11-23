@@ -5,9 +5,17 @@ Agents: Consult this file first. Inspect [openapi.yaml](file:///Users/basilsergi
 
 ## Authentication & Headers
 
-- **Auth**: `Authorization: Bearer <API_KEY>` (required for all routes except `/trial/*`).
+- **Auth**: `Authorization: Bearer <API_KEY>` (required for all routes except `/trial/*`, `/api-keys`, and `/analytics`).
+- **Cognito Auth**: `Authorization: Bearer <COGNITO_ID_TOKEN>` (required for `/api-keys` and `/analytics`).
 - **Content-Type**: `application/json` (standard JSON body for requests).
-- **Accept**: `application/json` (default) or `application/pdf` (returns binary PDF response directly).
+- **Accept**: `application/json` (default) or `application/pdf` (returns binary PDF response directly on `POST /render`).
+- **Idempotency-Key**: Optional header (1–256 printable ASCII chars) on `POST /render`, `POST /merge`, and `POST /batches`. Replays identical 2xx responses for 24h (`X-Idempotent-Replay: true`) without double-billing or duplicating jobs; mismatched payloads return `409 idempotency_key_conflict`.
+- **Quota & Retry Headers**:
+  - `X-Quota-Limit` / `X-Quota-Remaining`: Emitted on authenticated `/quota`, `/render`, `/merge`, and `/batches` responses.
+  - `X-Trial-Limit` / `X-Trial-Remaining`: Emitted on `/trial/render` and `/trial/quota`.
+  - `Retry-After`: Emitted in seconds on `429` (rate limit / quota exhaustion) and `503` responses.
+  - `X-File-Id`: Stored file ID returned on non-zero-retention `/render` and `/merge` responses.
+  - `X-Request-Id`: Unique request ID for tracing and support.
 
 ## Canonical Render: `POST /render`
 
@@ -21,6 +29,7 @@ Request shape:
   "options": {
     "format": "A4|Letter|Legal",
     "margin": "18mm",
+    "landscape": false,
     "displayHeaderFooter": false,
     "headerTemplate": "<span>...</span>",
     "footerTemplate": "<span>...</span>",
@@ -82,7 +91,7 @@ Request shape:
 
 | Type | Required Fields | Example / Description |
 |---|---|---|
-| `html` | `content` (string) | `{"type": "html", "content": "<h1>{{title}}</h1>"}` (max 1 MB) |
+| `html` | `content` (string) | `{"type": "html", "content": "<h1>{{title}}</h1>"}` (max 1 MB). When `data` or `css` is supplied, external assets (`src`, `srcset`, `link`), `<script>`, `<iframe>`, and CSS `url()`/`@import`/`@page` are disallowed (`422`) — use inline SVG, `{{qrcode}}`/`{{barcode}}`, `url`, or `upload`. |
 | `markdown` | `content` (string) | `{"type": "markdown", "content": "# {{title}}"}` |
 | `template` | `templateId` or `id` (string), opt: `variables` or `data` (obj) | `{"type": "template", "templateId": "tmpl_..."}` (cross-resolves saved sources) |
 | `url` | `url` (valid http/https URI), opt: `headers` (obj), `cookies` (array) | `{"type": "url", "url": "https://example.com", "headers": {"Authorization": "Bearer ..."}, "cookies": [{"name": "sid", "value": "..."}]}` (same-origin scoped; SSRF/hop-by-hop headers scrubbed) |
@@ -90,10 +99,29 @@ Request shape:
 | `stored` | `id` or `templateId` (string), opt: `data` or `variables` (obj) | `{"type": "stored", "id": "src_..."}` (cross-resolves saved templates) |
 
 **Response**:
-- `200 OK` (default JSON): `{"requestId": "uuid", "url": "https://signed-s3...", "size": 48392}` (signed URL expires in 15m)
-- `200 OK` (`options.zeroRetention: true` with JSON): `{"requestId": "uuid", "size": 48392, "data": "<base64-pdf>", "zeroRetention": true}` (0 S3 writes, 0 DocumentStore records)
-- `200 OK` (`Accept: application/pdf` or `options.responseFormat: "binary"`): binary `application/pdf` payload (`X-Request-Id`, `Content-Disposition: inline; filename="..."`, and `X-Retention-Policy: zero-retention` when `zeroRetention: true`)
-- Status codes: `400` Malformed JSON, `401` Unauthorized, `403` Quota exceeded, `422` Validation failure, `429` Rate limit, `500` Chromium/internal error.
+- `200 OK` (default JSON): `{"requestId": "uuid", "fileId": "file_uuid", "url": "https://signed-s3...", "size": 48392, "pageCount": 2, "warnings": [...]}` (signed URL expires in 15m; `warnings` omitted when empty)
+- `200 OK` (`options.zeroRetention: true` with JSON): `{"requestId": "uuid", "size": 48392, "pageCount": 2, "data": "<base64-pdf>", "zeroRetention": true}` (0 S3 writes, 0 DocumentStore records)
+- `200 OK` (`Accept: application/pdf` or `options.responseFormat: "binary"`): binary `application/pdf` payload (`X-Request-Id`, `X-File-Id`, `Content-Disposition: inline; filename="..."`, and `X-Retention-Policy: zero-retention` when `zeroRetention: true`)
+- Status codes: `400` Malformed JSON or unknown field (returns `field`), `401` Missing auth, `403` Invalid/inactive API key or restricted region, `409` Storage limit or `Idempotency-Key` conflict, `422` Validation/render failure, `429` Monthly quota or rate limit exceeded (`Retry-After` set), `500` Internal error, `503` Service unavailable (`Retry-After` set), `504` Render timeout.
+
+## Errors (`APIErrorResponse`)
+
+```json
+{
+  "error": "Invalid render request: unknown field \"foo\"",
+  "code": "render_request_invalid",
+  "requestId": "uuid",
+  "field": "foo",
+  "retryable": false,
+  "details": {}
+}
+```
+- `retryable`: `true` for `429`, `500`, `502`, `503`, `504`; `false` for `400`, `401`, `403`, `404`, `405`, `409`, `413`, `422`.
+- `details` / `warnings`: Optional bounded diagnostic context (e.g. `ssrf_blocked` subresource URLs, `failedAssetUrls`, `jsErrors`, `cssErrors`).
+
+## Account Quota: `GET /quota`
+
+- `GET /quota`: Check authenticated monthly PDF allowance (`200 OK` -> `{"limit": 25, "used": 4, "remaining": 21, "period": "2026-11"}` plus `X-Quota-Limit` and `X-Quota-Remaining` headers).
 
 ### Safe Control Blocks (`{{#each}}`, `{{#if}}`, `{{#unless}}`)
 
@@ -171,12 +199,12 @@ Request shape:
 ## Batches (Asynchronous Bulk PDF)
 
 - `GET /batches`: List batch jobs (`200 OK` -> `{"jobs": [BatchJobRecord]}`).
-- `POST /batches`: Submit batch (1–99 items) (`202 Accepted` -> `BatchJobRecord`).
+- `POST /batches`: Submit batch (1–99 items) (`201 Created` -> `BatchJobRecord`; supports `Idempotency-Key` header).
   - Shape: `{"version": "1", "source": {"type": "stored", "id": "src_..."}, "items": [{"data": {...}}, {"definition": {...}}], "options": {"webhookUrl": "...", "webhookSecret": "...", "mergeOutput": true}}`.
   - Batch can apply a shared stored `source` with per-item `data` bindings, or individual item `definition` objects.
   - Setting `"mergeOutput": true` automatically merges all completed item PDFs into a single unified PDF upon export.
-- `GET /batches/{id}`: Batch status & item counts (`200 OK` -> `BatchJobRecord` with statuses: `queued|running|completed|completed_with_errors|cancelled|failed`).
-- `GET /batches/{id}/items`: Item results (`200 OK` -> `{"items": [BatchItemRecord]}` with `status`, `outputFileId`, errors).
+- `GET /batches/{id}`: Batch status & item counts (`200 OK` -> `BatchJobRecord` with statuses: `queued|running|cancelling|completed|completed_with_errors|cancelled|failed`).
+- `GET /batches/{id}/items`: Item results (`200 OK` -> `{"items": [BatchItemRecord]}` with `status`, `outputFileId`, `errorCode`, `errorMessage`).
 - `POST /batches/{id}/cancel`: Cancel pending items (`200 OK` -> `BatchJobRecord`).
 - `GET /batches/{id}/download`: Get download URL for batch export (`200 OK` -> `{"fileId": "...", "url": "https://...", "format": "zip|pdf"}`).
   - Query parameter `?format=pdf` forces a merged PDF export; `?format=zip` forces a ZIP archive. Default follows the job's `mergeOutput` option.
@@ -213,9 +241,9 @@ Request shape:
 - `DELETE /files/{id}`: Delete file and S3 object (`204 No Content`).
 - `GET /files/{id}/download`: Get 15-min signed download URL (`200 OK` -> `{"url": "..."}`).
 
-## API Keys (`/api-keys`) & Analytics (`/analytics`)
+## API Keys (`/api-keys`) & Analytics (`/analytics`) — Cognito JWT Auth
 
-- `GET /api-keys`: List API keys (`200 OK` -> `{"keys": [ApiKeyRecord]}`).
-- `POST /api-keys`: Create API key (`201 Created` -> `{"keyId": "...", "apiKey": "rpdf_live_...", "name": "..."}`).
+- `GET /api-keys`: List API keys (`200 OK` -> `{"keys": [ApiKeyRecord], "nextCursor": "...", "limit": 50}`; optional query `?limit=1..100&cursor=<token>`).
+- `POST /api-keys`: Create API key (`200 OK` -> `{"keyId": "...", "apiKey": "rpdf_live_...", "name": "..."}`).
 - `DELETE /api-keys/{id}`: Revoke API key (`204 No Content`).
 - `POST /analytics`: Log client analytics event (`200 OK` -> `{"success": true}`). Body: `{"eventName": "...", "metadata": {...}}`.

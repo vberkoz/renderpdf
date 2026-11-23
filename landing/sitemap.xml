@@ -36,6 +36,18 @@
 
   <!-- API Documentation & Guides -->
   <url>
+    <loc>https://renderpdf.vberkoz.com/llms.txt</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://renderpdf.vberkoz.com/openapi.yaml</loc>
+    <lastmod>2026-11-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
     <loc>https://renderpdf.vberkoz.com/docs/api/</loc>
     <lastmod>2026-09-21</lastmod>
     <changefreq>weekly</changefreq>

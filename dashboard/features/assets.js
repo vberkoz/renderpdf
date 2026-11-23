@@ -219,6 +219,7 @@
           remove.onclick = async () => {
             if (
               !(await callConfirmAction({
+                kicker: 'Template',
                 title: `Delete “${template.name}”?`,
                 description: 'This template will be permanently deleted.',
                 confirmLabel: 'Delete template',
@@ -295,6 +296,7 @@
         remove.onclick = async () => {
           if (
             !(await callConfirmAction({
+              kicker: 'Saved source',
               title: `Delete “${source.name}”?`,
               description:
                 'This saved source will be permanently deleted and cannot be used in future renders or batches.',
@@ -445,6 +447,7 @@
           const name = displayName;
           if (
             !(await callConfirmAction({
+              kicker: 'Private file',
               title: `Delete “${name}”?`,
               description:
                 'This private file will be permanently deleted and can no longer be downloaded.',

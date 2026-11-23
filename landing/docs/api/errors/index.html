@@ -3,14 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="dark">
+    <script>try{document.querySelector('meta[name="color-scheme"]').content=localStorage.getItem('ds-scheme')||'dark';}catch(e){}</script>
     <meta name="description" content="Comprehensive error codes, troubleshooting guidance, and retry strategies for the RenderPDF API.">
     <title>Errors | RenderPDF API</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter+Tight:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <link href="/styles/base.css" rel="stylesheet">
     <link href="/styles/docs.css" rel="stylesheet">
+    <script src="/theme.js" defer></script>
 </head>
 <body data-enhance-code-snippets>
     <a class="skip-link" href="#main-content">Skip to main content</a>
@@ -27,6 +30,7 @@
                 <a href="/app/">Dashboard</a>
                 <a href="https://github.com/vberkoz/renderpdf">GitHub</a>
             </nav>
+            <button type="button" class="theme-toggle" data-action="theme" aria-label="Toggle color theme" title="Toggle light/dark theme"><svg class="lucide when-dark" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg><svg class="lucide when-light" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg></button>
         </header>
 
         <main id="main-content" tabindex="-1">
@@ -87,14 +91,16 @@
 <div class="section-heading">
                             <p class="eyebrow">Delivery and errors</p>
                             <h1>Errors</h1>
-                            <p>Error responses are JSON and always include a human-readable <code>error</code> message plus a stable <code>code</code> for programmatic handling. When a request reaches the API service, it also includes <code>requestId</code>; retain it when contacting support.</p>
+                            <p>Error responses are JSON (including API Gateway <code>401</code>, <code>403</code>, and <code>429</code> responses) and include a human-readable <code>error</code> message, a stable <code>code</code>, <code>requestId</code>, and a <code>retryable</code> boolean. Decoding/validation failures also include <code>field</code> when tied to a specific attribute or header, and render failures may include bounded <code>details</code>.</p>
                         </div>
                         <div class="code-block compact">
-                            <div class="code-header"><span>422 / application/json</span></div>
+                            <div class="code-header"><span>400 / application/json</span></div>
                             <pre><code class="language-json">{
-  "error": "An image failed to load while rendering the page",
-  "code": "image_loading_failed",
-  "requestId": "7db7..."
+  "error": "Invalid render request: unknown field \"paperSize\"",
+  "code": "render_request_invalid",
+  "requestId": "7db7...",
+  "field": "paperSize",
+  "retryable": false
 }</code></pre>
                         </div>
                         <div class="error-table" aria-label="API errors">
@@ -104,9 +110,10 @@
                             <tbody>
                             <tr><td><code>400</code></td><td><code>invalid_request</code></td><td>Invalid JSON, missing HTML, an empty document, or an invalid render URL.</td></tr>
                             <tr><td><code>400</code></td><td><code>document_request_invalid</code></td><td>Malformed document JSON, wrong field types, trailing JSON, or unknown fields.</td></tr>
-                            <tr><td><code>401</code></td><td><code>authentication_required</code></td><td>Authentication is required for the requested route.</td></tr>
-                            <tr><td><code>403</code></td><td>—</td><td>Missing, invalid, or inactive API key; this response is produced by API Gateway before the request reaches the service.</td></tr>
+                            <tr><td><code>401</code></td><td><code>authentication_required</code></td><td>Missing <code>Authorization: Bearer &lt;API_KEY&gt;</code> header (returned as structured JSON by API Gateway or service).</td></tr>
+                            <tr><td><code>403</code></td><td><code>access_denied</code></td><td>Missing, invalid, or inactive API key, or restricted region (returns structured JSON with <code>Authorization: Bearer &lt;API_KEY&gt;</code> guidance).</td></tr>
                             <tr><td><code>404</code></td><td><code>not_found</code></td><td>The requested endpoint is unavailable or does not exist in this deployment mode.</td></tr>
+                            <tr><td><code>409</code></td><td><code>idempotency_key_conflict / file_storage_limit_reached</code></td><td>An <code>Idempotency-Key</code> was reused with a different payload, or private file storage/batch concurrency limits were reached.</td></tr>
                             <tr><td><code>413</code></td><td><code>payload_too_large</code></td><td>Trial HTML exceeds the 1 MB limit.</td></tr>
                             <tr><td><code>413</code></td><td><code>document_*_too_large</code></td><td>Document request, HTML, CSS, data, or compiled renderer input exceeds its documented limit.</td></tr>
                             <tr><td><code>422</code></td><td><code>document_binding_*</code></td><td>A document binding is missing, unused, or malformed.</td></tr>
@@ -127,10 +134,10 @@
                         </div>
                         <h2>Handling failures</h2>
                         <div class="headers-list">
-                            <div><code>400 / 413 / 422</code><span>Correct the request or document before trying again. Do not retry unchanged input.</span></div>
-                            <div><code>403</code><span>Check that the API key is present, active, and sent as <code>Authorization: Bearer &lt;key&gt;</code>.</span></div>
-                            <div><code>429 / 503 / 504</code><span>Wait and retry with exponential backoff. Preserve the original input so the retry is identical.</span></div>
-                            <div><code>500</code><span>Retry once for a transient failure; if it persists, retain the response and request details for support.</span></div>
+                            <div><code>400 / 409 / 413 / 422</code><span><code>retryable: false</code>. Correct the offending <code>field</code>, payload, or <code>Idempotency-Key</code> before retrying.</span></div>
+                            <div><code>401 / 403</code><span><code>retryable: false</code>. Check that the API key is active and sent as <code>Authorization: Bearer &lt;key&gt;</code>.</span></div>
+                            <div><code>429 / 503 / 504</code><span><code>retryable: true</code>. Respect the <code>Retry-After</code> header (seconds) and retry with exponential backoff; reuse <code>Idempotency-Key</code> for safe retries.</span></div>
+                            <div><code>500</code><span><code>retryable: true</code>. Retry once for a transient failure; if it persists, retain <code>requestId</code> for support.</span></div>
                         </div>
                         <p class="section-footnote">The renderer may log further diagnostic detail, but API responses deliberately omit page content, URLs, and browser internals.</p>
                     </section>

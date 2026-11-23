@@ -38,8 +38,9 @@ func TestDerivedBatchStatus(t *testing.T) {
 	}{
 		{"queued", batchJobReply{ItemCount: 2, QueuedCount: 2}, "queued"},
 		{"running", batchJobReply{ItemCount: 2, QueuedCount: 1, RunningCount: 1}, "running"},
-		{"completed with failures", batchJobReply{ItemCount: 2, SucceededCount: 1, FailedCount: 1}, "completed"},
-		{"retry exhaustion is terminal", batchJobReply{ItemCount: 1, FailedCount: 1}, "completed"},
+		{"completed with failures", batchJobReply{ItemCount: 2, SucceededCount: 1, FailedCount: 1}, "completed_with_errors"},
+		{"retry exhaustion is terminal", batchJobReply{ItemCount: 1, FailedCount: 1}, "failed"},
+		{"all succeeded", batchJobReply{ItemCount: 2, SucceededCount: 2}, "completed"},
 		{"cancelling", batchJobReply{ItemCount: 2, RunningCount: 1, CancelRequested: true}, "cancelling"},
 		{"cancelled", batchJobReply{ItemCount: 2, CancelledCount: 2, CancelRequested: true}, "cancelled"},
 	}
@@ -414,5 +415,55 @@ func TestRenderBatchNormalizedSourcePropagatesOptions(t *testing.T) {
 		if !errors.As(err, &rErr) || rErr.Status != 422 {
 			t.Fatalf("expected 422 renderError for %s, got %#v", bad.Kind, err)
 		}
+	}
+}
+
+type fakeBatchQueryDB struct {
+	out *dynamodb.QueryOutput
+	err error
+}
+
+func (f *fakeBatchQueryDB) Query(*dynamodb.QueryInput) (*dynamodb.QueryOutput, error) {
+	return f.out, f.err
+}
+
+func TestCompleteBatchItemAndListBatchItemsPersistsErrorMessage(t *testing.T) {
+	workerDB := newTestBatchWorkerDB()
+	key := batchItemKey("job_err", 1)
+	if err := completeBatchItem(workerDB, "owner-1", "job_err", key, "failed", "document_margin_invalid", "margin must be 0..50mm", ""); err != nil {
+		t.Fatalf("completeBatchItem failed: %v", err)
+	}
+	if len(workerDB.transactInputs) != 1 {
+		t.Fatalf("expected 1 transact write, got %d", len(workerDB.transactInputs))
+	}
+	itemUpdate := workerDB.transactInputs[0].TransactItems[0].Update
+	if got := aws.StringValue(itemUpdate.ExpressionAttributeValues[":msg"].S); got != "margin must be 0..50mm" {
+		t.Fatalf("persisted errorMessage = %q, want %q", got, "margin must be 0..50mm")
+	}
+
+	listResp := listBatchItems("job_err", map[string]string{"Content-Type": "application/json"}, &fakeBatchQueryDB{
+		out: &dynamodb.QueryOutput{
+			Items: []map[string]*dynamodb.AttributeValue{
+				{
+					"itemId":       {S: aws.String("item_1")},
+					"ordinal":      {N: aws.String("1")},
+					"status":       {S: aws.String("failed")},
+					"errorCode":    {S: aws.String("document_margin_invalid")},
+					"errorMessage": {S: aws.String("margin must be 0..50mm")},
+				},
+			},
+		},
+	})
+	if listResp.StatusCode != 200 {
+		t.Fatalf("listBatchItems status = %d, want 200", listResp.StatusCode)
+	}
+	var decoded struct {
+		Items []batchItemReply `json:"items"`
+	}
+	if err := json.Unmarshal([]byte(listResp.Body), &decoded); err != nil {
+		t.Fatalf("decode listBatchItems: %v", err)
+	}
+	if len(decoded.Items) != 1 || decoded.Items[0].ErrorMessage != "margin must be 0..50mm" || decoded.Items[0].ErrorCode != "document_margin_invalid" {
+		t.Fatalf("unexpected batch items reply: %#v", decoded.Items)
 	}
 }

@@ -18,6 +18,13 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/google/uuid"
+	pdfapi "github.com/pdfcpu/pdfcpu/pkg/api"
+	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu/model"
+)
+
+const (
+	quotaResource          = "/api/v1/quota"
+	dashboardQuotaResource = "/api/v1/dashboard/quota"
 )
 
 type Request struct {
@@ -37,11 +44,14 @@ type URLRequest struct {
 }
 
 type Response struct {
-	RequestID     string `json:"requestId"`
-	URL           string `json:"url,omitempty"`
-	Size          int64  `json:"size"`
-	Data          string `json:"data,omitempty"`
-	ZeroRetention bool   `json:"zeroRetention,omitempty"`
+	RequestID     string          `json:"requestId"`
+	FileID        string          `json:"fileId,omitempty"`
+	URL           string          `json:"url,omitempty"`
+	Size          int64           `json:"size"`
+	PageCount     int             `json:"pageCount,omitempty"`
+	Data          string          `json:"data,omitempty"`
+	ZeroRetention bool            `json:"zeroRetention,omitempty"`
+	Warnings      []renderWarning `json:"warnings,omitempty"`
 }
 
 var (
@@ -66,14 +76,37 @@ func addDeprecationHeaders(headers map[string]string, successorPath string) {
 	headers["Link"] = fmt.Sprintf("<%s>; rel=\"successor-version\"", successorPath)
 }
 
+func isAccountQuotaRequest(request events.APIGatewayProxyRequest) bool {
+	p := strings.TrimSuffix(request.Path, "/")
+	if p == "" {
+		p = strings.TrimSuffix(request.Resource, "/")
+	}
+	return p == quotaResource || p == dashboardQuotaResource
+}
+
+func countPDFPages(pdfBytes []byte) int {
+	if len(pdfBytes) == 0 {
+		return 0
+	}
+	conf := model.NewDefaultConfiguration()
+	conf.ValidationMode = model.ValidationRelaxed
+	if count, err := pdfapi.PageCount(bytes.NewReader(pdfBytes), conf); err == nil && count > 0 {
+		return count
+	}
+	if bytes.HasPrefix(pdfBytes, []byte("%PDF-")) {
+		return 1
+	}
+	return 0
+}
+
 func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 	requestID := uuid.NewString()
 	corsHeaders := map[string]string{
 		"Content-Type":                  "application/json",
 		"Access-Control-Allow-Origin":   "*",
-		"Access-Control-Allow-Headers":  "Content-Type,Accept,X-Amz-Date,Authorization,X-Amz-Security-Token",
+		"Access-Control-Allow-Headers":  "Content-Type,Accept,X-Amz-Date,Authorization,X-Amz-Security-Token,Idempotency-Key",
 		"Access-Control-Allow-Methods":  "GET,POST,OPTIONS",
-		"Access-Control-Expose-Headers": "X-Request-Id,X-Trial-Limit,X-Trial-Remaining,X-File-Id,X-Retention-Policy",
+		"Access-Control-Expose-Headers": "X-Request-Id,X-Trial-Limit,X-Trial-Remaining,X-Quota-Limit,X-Quota-Remaining,Retry-After,X-File-Id,X-Retention-Policy,X-Idempotent-Replay",
 		"X-Request-Id":                  requestID,
 	}
 	if request.HTTPMethod == "OPTIONS" {
@@ -84,6 +117,28 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 	}
 	if trialModeOnly() && !isTrialRequest(request) && !isTrialQuotaRequest(request) {
 		return errorResponse(404, "Not found", corsHeaders), nil
+	}
+	if isAccountQuotaRequest(request) {
+		if request.HTTPMethod != "GET" {
+			return errorResponse(405, "Method not allowed", corsHeaders), nil
+		}
+		customerID := authorizerValue(request, "userId")
+		if customerID == "" {
+			return errorResponse(401, "Authentication is required", corsHeaders), nil
+		}
+		corsHeaders["Cache-Control"] = "no-store, max-age=0"
+		quota, err := currentAccountQuota(customerID, time.Now().UTC())
+		if err != nil {
+			fmt.Printf("Account quota lookup failed: %v\n", err)
+			return errorResponse(503, "Account quota is temporarily unavailable", corsHeaders), nil
+		}
+		setAccountQuotaHeaders(quota, corsHeaders)
+		return jsonResponse(200, map[string]any{
+			"limit":     quota.Limit,
+			"used":      quota.Used,
+			"remaining": quota.Remaining,
+			"period":    quota.Period,
+		}, corsHeaders), nil
 	}
 	if isTemplateRequest(request) {
 		return handleTemplateRequest(ctx, request, corsHeaders, templateStoreFactory()), nil
@@ -101,6 +156,7 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		return handleMergeRequest(ctx, request, corsHeaders), nil
 	}
 	if isTrialQuotaRequest(request) {
+		corsHeaders["Cache-Control"] = "no-store, max-age=0"
 		quota, err := currentTrialQuota(trialViewerIP(request), time.Now().UTC())
 		if err != nil {
 			fmt.Printf("Trial quota lookup failed: %v\n", err)
@@ -165,6 +221,16 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 	if isTemplateRender && analytics.CustomerID == "" {
 		analytics.ErrorType = "unauthorized"
 		return errorResponse(401, "Authentication is required", corsHeaders), nil
+	}
+
+	var idemKey string
+	if !isTrial && analytics.CustomerID != "" && request.HTTPMethod == "POST" {
+		var idemErr *renderError
+		idemKey, idemErr = extractIdempotencyKey(request.Headers)
+		if idemErr != nil {
+			analytics.ErrorType = "validation"
+			return renderErrorResponse(idemErr, corsHeaders), nil
+		}
 	}
 
 	var html, renderURL, packageURL, webhookURL, webhookSecret, displayName string
@@ -300,6 +366,10 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		analytics.ErrorType = "validation"
 		return errorResponseWithCode(422, "zero_retention_webhook_unsupported", "webhooks are not supported when options.zeroRetention is true because no download URL is persisted", corsHeaders), nil
 	}
+	if documentOptions.isZeroRetention() && idemKey != "" {
+		analytics.ErrorType = "validation"
+		return errorResponseWithCode(422, "zero_retention_idempotency_unsupported", "Idempotency-Key is not supported when options.zeroRetention is true because no response data is persisted", corsHeaders), nil
+	}
 	if webhookURL != "" {
 		if isTrial {
 			analytics.ErrorType = "validation"
@@ -311,6 +381,32 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 			return errorResponse(400, err.Error(), corsHeaders), nil
 		}
 		webhookURL = validatedWebhookURL
+	}
+	binaryResponse := wantsBinaryPDFResponse(request, documentOptions)
+	var idemPayload string
+	var idemLocked bool
+	if !isTrial && analytics.CustomerID != "" && request.HTTPMethod == "POST" && idemKey != "" {
+		format := "json"
+		if binaryResponse {
+			format = "binary"
+		}
+		idemPayload = format + "\n" + request.Body
+		if replayed, handled, acquired := claimIdempotencyKey(analytics.CustomerID, "POST:/api/v1/render", idemKey, idemPayload, corsHeaders, time.Now().UTC()); handled {
+			if replayed.StatusCode >= 200 && replayed.StatusCode < 300 {
+				analytics.Status = "success"
+				analytics.ErrorType = ""
+			} else {
+				analytics.ErrorType = "validation"
+			}
+			return *replayed, nil
+		} else if acquired {
+			idemLocked = true
+			defer func() {
+				if idemLocked {
+					releaseIdempotencyLock(analytics.CustomerID, "POST:/api/v1/render", idemKey)
+				}
+			}()
+		}
 	}
 	var quota *trialQuota
 	if isTrial {
@@ -333,6 +429,7 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 				analytics.ErrorType = "rate_limit"
 				corsHeaders["X-Trial-Limit"] = fmt.Sprintf("%d", trialDailyLimit())
 				corsHeaders["X-Trial-Remaining"] = "0"
+				corsHeaders["Retry-After"] = fmt.Sprintf("%d", secondsUntilUTCMidnight(time.Now().UTC()))
 				return errorResponse(429, "Daily trial limit reached", corsHeaders), nil
 			}
 			analytics.ErrorType = "quota"
@@ -344,11 +441,13 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 	}
 	var reservedAccountQuota *accountQuota
 	if !isTrial {
+		now := time.Now().UTC()
 		customerEmail := authorizerValue(request, "email")
-		reservedQuota, quotaErr := reserveAccountQuota(analytics.CustomerID, customerEmail, time.Now().UTC())
+		reservedQuota, quotaErr := reserveAccountQuota(analytics.CustomerID, customerEmail, now)
 		if quotaErr != nil {
 			if errors.Is(quotaErr, errAccountQuotaExceeded) {
 				analytics.ErrorType = "rate_limit"
+				setAccountQuotaExceededHeaders(analytics.CustomerID, corsHeaders, now)
 				return errorResponse(429, "Monthly PDF quota reached", corsHeaders), nil
 			}
 			analytics.ErrorType = "quota"
@@ -356,26 +455,29 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 			return errorResponse(503, "Account quota is temporarily unavailable", corsHeaders), nil
 		}
 		reservedAccountQuota = reservedQuota
+		setAccountQuotaHeaders(reservedAccountQuota, corsHeaders)
 	}
 
 	renderStartedAt := time.Now()
+	diag := newRenderDiagnostics()
+	renderCtx := withRenderDiagnostics(ctx, diag)
 	var pdfBytes []byte
 	var err error
 	if isDocumentRender {
-		pdfBytes, err = generateDocumentPDFWithOptions(ctx, html, documentOptions)
+		pdfBytes, err = generateDocumentPDFWithOptions(renderCtx, html, documentOptions)
 	} else if isURLRender {
-		pdfBytes, err = generatePDFURLWithDocumentOptions(ctx, renderURL, documentOptions)
+		pdfBytes, err = generatePDFURLWithDocumentOptions(renderCtx, renderURL, documentOptions)
 	} else if isPackageRender {
-		pdfBytes, err = generatePDFURLWithDocumentOptions(ctx, packageURL, documentOptions)
+		pdfBytes, err = generatePDFURLWithDocumentOptions(renderCtx, packageURL, documentOptions)
 	} else {
 		html = injectPrintCSS(html)
 		html = rewriteTfoot(html)
 		html = transformBarcodes(html)
-		pdfBytes, err = renderHTMLPDF(ctx, html, documentOptions)
+		pdfBytes, err = renderHTMLPDF(renderCtx, html, documentOptions)
 	}
 	analytics.RenderMs = maxInt64(1, time.Since(renderStartedAt).Milliseconds())
 	if err != nil {
-		fmt.Printf("PDF generation failed: %v\n", err)
+		fmt.Printf("PDF generation failed for %s: %v\n", requestID, err)
 		if renderErr, ok := err.(*renderError); ok {
 			analytics.ErrorType = renderErr.Code
 			if renderErr.Status == 504 {
@@ -390,13 +492,15 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		refundTrialQuota(quota)
 		refundAccountQuota(reservedAccountQuota)
 		restoreTrialRemainingHeader(quota, corsHeaders)
+		restoreAccountQuotaRemainingHeader(reservedAccountQuota, corsHeaders)
 		return renderErrorResponse(err, corsHeaders), nil
 	}
 
-	binaryResponse := wantsBinaryPDFResponse(request, documentOptions)
 	if displayName == "" {
 		displayName = normalized.Label
 	}
+	pageCount := countPDFPages(pdfBytes)
+	warnings := diag.warnings()
 
 	if documentOptions.isZeroRetention() {
 		analytics.Status = "success"
@@ -409,8 +513,10 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		resp := Response{
 			RequestID:     requestID,
 			Size:          int64(len(pdfBytes)),
+			PageCount:     pageCount,
 			Data:          base64.StdEncoding.EncodeToString(pdfBytes),
 			ZeroRetention: true,
+			Warnings:      warnings,
 		}
 		return jsonResponse(200, resp, corsHeaders), nil
 	}
@@ -425,6 +531,7 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 			refundTrialQuota(quota)
 			refundAccountQuota(reservedAccountQuota)
 			restoreTrialRemainingHeader(quota, corsHeaders)
+			restoreAccountQuotaRemainingHeader(reservedAccountQuota, corsHeaders)
 			return renderErrorResponse(err, corsHeaders), nil
 		}
 	}
@@ -435,6 +542,7 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		refundTrialQuota(quota)
 		refundAccountQuota(reservedAccountQuota)
 		restoreTrialRemainingHeader(quota, corsHeaders)
+		restoreAccountQuotaRemainingHeader(reservedAccountQuota, corsHeaders)
 		return errorResponseWithCode(500, "storage_failed", "PDF storage is temporarily unavailable", corsHeaders), nil
 	}
 
@@ -447,6 +555,7 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 	fileID := ""
 	if !isTrial {
 		fileID = "file_" + requestID
+		corsHeaders["X-File-Id"] = fileID
 		checksum := sha256.Sum256(pdfBytes)
 		expiresAt := time.Now().UTC().Add(maxPDFRetentionDays * 24 * time.Hour)
 		if err := fileStoreFactory().Create(ctx, storedFile{ID: fileID, Kind: "rendered_pdf", ContentType: "application/pdf", SizeBytes: int64(len(pdfBytes)), Checksum: "sha256:" + hex.EncodeToString(checksum[:]), DisplayName: displayName, RetentionExpiresAt: &expiresAt, Origin: map[string]string{"requestId": requestID}, OwnerID: analytics.CustomerID, Bucket: bucketName, ObjectKey: key, CreatedAt: time.Now().UTC()}); err != nil {
@@ -457,7 +566,14 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 	analytics.ErrorType = ""
 	analytics.PDFBytes = int64(len(pdfBytes))
 
-	resp := Response{RequestID: requestID, URL: url, Size: int64(len(pdfBytes))}
+	resp := Response{
+		RequestID: requestID,
+		FileID:    fileID,
+		URL:       url,
+		Size:      int64(len(pdfBytes)),
+		PageCount: pageCount,
+		Warnings:  warnings,
+	}
 	if webhookURL != "" {
 		if err := enqueueWebhook(ctx, webhookEvent{
 			ID: requestID, URL: webhookURL, Secret: webhookSecret, PDFURL: url,
@@ -470,9 +586,17 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 	}
 
 	if binaryResponse {
-		return binaryPDFResponse(pdfBytes, displayName, fileID, corsHeaders), nil
+		out := binaryPDFResponse(pdfBytes, displayName, fileID, corsHeaders)
+		if saveIdempotencyResponseWithObject(analytics.CustomerID, "POST:/api/v1/render", idemKey, idemPayload, out, bucketName, key, time.Now().UTC()) {
+			idemLocked = false
+		}
+		return out, nil
 	}
-	return jsonResponse(200, resp, corsHeaders), nil
+	out := jsonResponse(200, resp, corsHeaders)
+	if saveIdempotencyResponseWithObject(analytics.CustomerID, "POST:/api/v1/render", idemKey, idemPayload, out, "", "", time.Now().UTC()) {
+		idemLocked = false
+	}
+	return out, nil
 }
 
 func headerValue(headers map[string]string, name string) string {

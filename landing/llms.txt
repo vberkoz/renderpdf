@@ -1,0 +1,88 @@
+# RenderPDF
+
+> Serverless HTML, Markdown, URL, and template-to-PDF API powered by headless Chromium with Factur-X e-invoicing, PDF/A compliance, vector barcodes, and async batch processing.
+
+- Base URL: `https://renderpdf.vberkoz.com/api/v1`
+- OpenAPI 3.1 Spec: https://renderpdf.vberkoz.com/openapi.yaml
+- Interactive / Human API Docs: https://renderpdf.vberkoz.com/docs/api/
+
+## Zero-Setup Trial (No API Key Required)
+
+- `POST /trial/render` — Render raw HTML (max 1 MB) without signup. Rate-limited to 3 PDFs per UTC day per source IP; failed renders are automatically refunded.
+  - Body: `{"html": "<h1>Hello World</h1>"}`
+  - Response (`200 OK`): `{"requestId": "uuid", "url": "https://...", "size": 12345, "pageCount": 1}`
+  - Headers: `X-Trial-Limit`, `X-Trial-Remaining`, and `Retry-After` (seconds until UTC midnight on `429`, or `10` on `503`).
+- `GET /trial/quota` — Check remaining trial quota without consuming a render (`{"limit": 3, "remaining": 2}`).
+
+## Authentication & Quota
+
+- Send your API key as `Authorization: Bearer <API_KEY>` on all authenticated routes.
+- `GET /quota` — Check monthly PDF allowance (`{"limit": 25, "used": 4, "remaining": 21, "period": "2026-11"}`).
+- Every authenticated render/merge/batch response includes `X-Quota-Limit` and `X-Quota-Remaining`.
+- `POST /api-keys` (returns `200 OK`), `GET /api-keys`, `DELETE /api-keys/{id}`, and `/analytics` require a Cognito ID token (`Authorization: Bearer <COGNITO_ID_TOKEN>`).
+
+## Canonical Rendering: `POST /render`
+
+Request shape:
+```json
+{
+  "version": "1",
+  "source": { "type": "html", "content": "<h1>{{title}}</h1>" },
+  "css": "body { font-family: Arial, sans-serif; }",
+  "data": { "title": "Invoice #1042" },
+  "options": {
+    "format": "A4",
+    "margin": "18mm",
+    "landscape": false,
+    "zeroRetention": false,
+    "responseFormat": "json"
+  }
+}
+```
+
+### Supported `source.type` Modes
+- `html`: `{"type": "html", "content": "..."}`. When `data` or `css` is also provided (Document JSON mode), `<script>`, `<iframe>`, `<link>`, event handlers (`on*`), asset attributes (`src`, `srcset`, `poster`, `data`, `background`), and CSS `url()`/`@import`/`@page` are rejected (`422`) — use inline `<svg>`, built-in `{{qrcode}}`/`{{barcode}}` helpers, or `url`/`upload` for external assets.
+- `markdown`: `{"type": "markdown", "content": "# {{title}}"}` (GitHub-Flavored Markdown with auto-escaped bindings).
+- `template`: `{"type": "template", "templateId": "tmpl_...", "variables": {...}}`
+- `url`: `{"type": "url", "url": "https://example.com", "headers": {...}, "cookies": [...]}` (SSRF-protected; custom headers are scoped to the target origin).
+- `upload`: `{"type": "upload", "uploadId": "upload_...", "entrypoint": "index.html"}` (ZIP bundle from `POST /files/upload`).
+- `stored`: `{"type": "stored", "id": "src_...", "variables": {...}}` (reusable saved source or template).
+
+### Response Modes & Fields
+- Default (`200 OK`, `application/json`): `{"requestId": "uuid", "fileId": "file_uuid", "url": "https://signed-s3...", "size": 48392, "pageCount": 2}` (plus optional `warnings` array for non-fatal diagnostics such as `ssrf_blocked`).
+- Zero retention (`options.zeroRetention: true`): skips S3 and DynamoDB file storage (`0` writes), sets `X-Retention-Policy: zero-retention`, and returns base64 `data` in JSON (`{"requestId", "size", "pageCount", "data", "zeroRetention": true}`) or binary bytes when combined with `Accept: application/pdf` / `options.responseFormat: "binary"`.
+- Direct binary PDF: send `Accept: application/pdf` or `"responseFormat": "binary"` to receive `application/pdf` bytes directly with `X-File-Id` and `X-Request-Id`.
+
+## Idempotency (`Idempotency-Key`)
+
+- Pass `Idempotency-Key: <1-256 printable ASCII chars>` on billable `POST /render`, `POST /merge`, and `POST /batches`.
+- Identical retries within 24 hours replay the original `2xx` response with `X-Idempotent-Replay: true` without double-charging quota or duplicating jobs.
+- Reusing a key with a different payload returns `409 Conflict` (`code: "idempotency_key_conflict"`).
+
+## Merging, Batches & Files
+
+- `POST /merge` (`200 OK`): Merge 2–100 PDFs (`files` shorthand or `items` with `fileId`, `url`, or base64 `data`; max 50 MB total). (`POST /pdf/merge` is deprecated.)
+- `POST /batches` (`201 Created`): Submit 1–99 items asynchronously (`source` + `items`, or per-item `definition`).
+  - Poll `GET /batches/{id}` (statuses: `queued`, `running`, `cancelling`, `completed`, `completed_with_errors`, `cancelled`, `failed`).
+  - Inspect item outcomes at `GET /batches/{id}/items` (`outputFileId`, `errorCode`, `errorMessage`).
+  - Cancel remaining work at `POST /batches/{id}/cancel`.
+  - Download ZIP or merged PDF via `GET /batches/{id}/download?format=pdf|zip`.
+- `GET /files`, `GET /files/{id}`, `GET /files/{id}/download`, `DELETE /files/{id}`, `POST /files/upload` (`201 Created`).
+- `GET/POST /templates`, `GET/PUT/DELETE /templates/{id}`, `GET/POST /sources`, `GET/PUT/DELETE /sources/{id}`.
+
+## Errors & Diagnostics
+
+All error responses (including API Gateway `401`/`403`/`429` responses) return structured JSON:
+```json
+{
+  "error": "Invalid render request: unknown field \"foo\"",
+  "code": "render_request_invalid",
+  "requestId": "uuid",
+  "field": "foo",
+  "retryable": false,
+  "details": {}
+}
+```
+- `field` identifies the offending JSON attribute or header on `400` decoding/validation errors.
+- `retryable` is `true` for `429`, `500`, `502`, `503`, `504` and `false` for `400`, `401`, `403`, `404`, `405`, `409`, `413`, `422`.
+- Respect the `Retry-After` header (in seconds) before retrying `429` or `503` responses.

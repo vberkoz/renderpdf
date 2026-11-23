@@ -3,14 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="dark">
+    <script>try{document.querySelector('meta[name="color-scheme"]').content=localStorage.getItem('ds-scheme')||'dark';}catch(e){}</script>
     <meta name="description" content="RenderPDF API quick start guide: render your first PDF in seconds with or without an API key.">
     <title>RenderPDF API | Quick Start</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter+Tight:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <link href="/styles/base.css" rel="stylesheet">
     <link href="/styles/docs.css" rel="stylesheet">
+    <script src="/theme.js" defer></script>
 </head>
 <body data-enhance-code-snippets>
     <a class="skip-link" href="#main-content">Skip to main content</a>
@@ -27,6 +30,7 @@
                 <a href="/app/">Dashboard</a>
                 <a href="https://github.com/vberkoz/renderpdf">GitHub</a>
             </nav>
+            <button type="button" class="theme-toggle" data-action="theme" aria-label="Toggle color theme" title="Toggle light/dark theme"><svg class="lucide when-dark" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg><svg class="lucide when-light" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg></button>
         </header>
 
         <main id="main-content" tabindex="-1">
@@ -48,6 +52,7 @@
                         <span class="trial-badge"><svg class="lucide lucide-sparkles" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg> No key needed</span>
                     </div>
                     <p>Render your first PDF before creating an account.</p>
+                    <p style="margin-top:0.5rem;font-size:0.875rem;">Machine-readable specs: <a href="/openapi.yaml">OpenAPI 3.1 YAML</a> · <a href="/llms.txt">llms.txt</a></p>
                 </div>
             </section>
 
@@ -175,6 +180,8 @@
                         <nav aria-label="Product navigation">
                             <a href="/">Home</a>
                             <a href="/#pricing">Pricing</a>
+                            <a href="/openapi.yaml">OpenAPI spec</a>
+                            <a href="/llms.txt">llms.txt</a>
                             <a href="/app/">Dashboard</a>
                             <a href="https://stats.uptimerobot.com/UNP4h7ipig" target="_blank" rel="noopener noreferrer">System status</a>
                         </nav>

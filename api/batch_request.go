@@ -38,7 +38,7 @@ func parseBatchRenderRequest(body string) (batchRenderRequest, error) {
 	decoder := json.NewDecoder(strings.NewReader(body))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(&request); err != nil {
-		return request, &renderError{Code: "batch_request_invalid", Message: "Invalid batch request", Status: 400}
+		return request, decodeStrictJSONError("batch_request_invalid", "Invalid batch request", err)
 	}
 	if err := decoder.Decode(&struct{}{}); err != io.EOF {
 		return request, &renderError{Code: "batch_request_invalid", Message: "Invalid batch request", Status: 400}

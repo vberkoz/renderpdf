@@ -1,0 +1,1992 @@
+openapi: 3.1.0
+info:
+  title: RenderPDF API
+  description: |
+    Production serverless HTML-to-PDF generation service.
+    Converts HTML, Markdown, URLs, uploaded ZIP packages, and stored templates
+    into high-fidelity PDFs with custom formatting, AES-256 encryption, and webhooks.
+  version: 1.0.0
+  contact:
+    name: RenderPDF Support
+    email: support@renderpdf.vberkoz.com
+    url: https://renderpdf.vberkoz.com
+
+servers:
+  - url: https://renderpdf.vberkoz.com/api/v1
+    description: Production API
+
+security:
+  - BearerAuth: []
+
+tags:
+  - name: Trial
+    description: Anonymous rate-limited PDF rendering
+  - name: Render
+    description: Canonical authenticated PDF rendering
+  - name: Quota
+    description: Account quota and usage visibility
+  - name: Merge
+    description: Native multi-document PDF merging
+  - name: Templates
+    description: Durable customer HTML templates
+  - name: Sources
+    description: Saved reusable document definitions
+  - name: Files
+    description: Rendered PDFs and uploaded package management
+  - name: Batches
+    description: Asynchronous bulk PDF generation
+  - name: API Keys
+    description: Bearer API key management
+  - name: Analytics
+    description: Usage tracking and analytics
+
+paths:
+  /trial/render:
+    post:
+      operationId: renderTrialPdf
+      tags:
+        - Trial
+      summary: Render PDF without an API key (trial)
+      description: |
+        Anonymous rendering endpoint rate-limited by source IP (3 PDFs per UTC day).
+        Accepts up to 1 MB of HTML. Webhooks, custom fonts, and private uploads are not supported on trial.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TrialRenderRequest'
+      responses:
+        '200':
+          description: PDF rendered successfully
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+            X-Trial-Limit:
+              $ref: '#/components/headers/X-Trial-Limit'
+            X-Trial-Remaining:
+              $ref: '#/components/headers/X-Trial-Remaining'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RenderSuccessResponse'
+        '400':
+          description: Invalid request payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Trial rate limit exceeded (3 PDFs / day)
+          headers:
+            X-Trial-Limit:
+              $ref: '#/components/headers/X-Trial-Limit'
+            X-Trial-Remaining:
+              $ref: '#/components/headers/X-Trial-Remaining'
+            Retry-After:
+              $ref: '#/components/headers/Retry-After'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /trial/quota:
+    get:
+      operationId: getTrialQuota
+      tags:
+        - Trial
+      summary: Check remaining trial quota
+      description: Returns the remaining anonymous render quota for the caller's IP.
+      security: []
+      responses:
+        '200':
+          description: Quota details
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+            X-Trial-Limit:
+              $ref: '#/components/headers/X-Trial-Limit'
+            X-Trial-Remaining:
+              $ref: '#/components/headers/X-Trial-Remaining'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrialQuotaResponse'
+
+  /quota:
+    get:
+      operationId: getAccountQuota
+      tags:
+        - Quota
+      summary: Check monthly account quota
+      description: Returns the authenticated account's monthly PDF limit, usage, remaining allowance, and UTC billing period (`YYYY-MM`).
+      responses:
+        '200':
+          description: Account monthly quota details
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+            X-Quota-Limit:
+              $ref: '#/components/headers/X-Quota-Limit'
+            X-Quota-Remaining:
+              $ref: '#/components/headers/X-Quota-Remaining'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountQuotaResponse'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Invalid or inactive API key, or restricted region
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /render:
+    post:
+      operationId: renderPdf
+      tags:
+        - Render
+      summary: Render PDF (authenticated canonical endpoint)
+      description: |
+        The single authenticated render endpoint supporting inline HTML, Markdown,
+        stored templates, public URLs, uploaded ZIP packages, and saved sources.
+        Pass `Accept: application/pdf` or `options.responseFormat: "binary"` for direct binary PDF bytes.
+        Pass `Idempotency-Key` to safely retry requests for up to 24 hours without double-billing.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKeyParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CanonicalRenderRequest'
+      responses:
+        '200':
+          description: PDF generated successfully
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+            X-File-Id:
+              $ref: '#/components/headers/X-File-Id'
+            X-Quota-Limit:
+              $ref: '#/components/headers/X-Quota-Limit'
+            X-Quota-Remaining:
+              $ref: '#/components/headers/X-Quota-Remaining'
+            X-Retention-Policy:
+              $ref: '#/components/headers/X-Retention-Policy'
+            X-Idempotent-Replay:
+              $ref: '#/components/headers/X-Idempotent-Replay'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RenderSuccessResponse'
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '400':
+          description: Malformed JSON, unknown request attributes, or invalid Idempotency-Key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Missing Authorization header
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Invalid or inactive API key, or restricted region
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Private file storage limit reached or Idempotency-Key payload conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation error (e.g. unescaped data binding, disallowed CSS, invalid margin, render failure)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Monthly PDF quota exhausted or API Gateway rate limit exceeded
+          headers:
+            Retry-After:
+              $ref: '#/components/headers/Retry-After'
+            X-Quota-Limit:
+              $ref: '#/components/headers/X-Quota-Limit'
+            X-Quota-Remaining:
+              $ref: '#/components/headers/X-Quota-Remaining'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal rendering or storage failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Dependent service temporarily unavailable
+          headers:
+            Retry-After:
+              $ref: '#/components/headers/Retry-After'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '504':
+          description: Navigation or Chromium render timeout
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /merge:
+    post:
+      operationId: mergePdfs
+      tags:
+        - Merge
+        - Render
+      summary: Merge multiple PDFs into a unified document
+      description: |
+        Concatenates 2 to 100 PDFs (up to 50 MB total) into a single document with unified
+        continuous page numbering, watermarks, AES-256 encryption, and PDF/A or Factur-X compliance.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKeyParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MergePdfRequest'
+      responses:
+        '200':
+          description: Merged PDF generated and signed private URL returned
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+            X-File-Id:
+              $ref: '#/components/headers/X-File-Id'
+            X-Quota-Limit:
+              $ref: '#/components/headers/X-Quota-Limit'
+            X-Quota-Remaining:
+              $ref: '#/components/headers/X-Quota-Remaining'
+            X-Idempotent-Replay:
+              $ref: '#/components/headers/X-Idempotent-Replay'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MergeSuccessResponse'
+        '400':
+          description: Malformed JSON or unknown request attributes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Missing Authorization header
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Invalid or inactive API key, or restricted region
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Private file storage limit reached or Idempotency-Key payload conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation error (e.g. fewer than 2 items, exceeded 100 items, invalid item)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Monthly PDF quota exhausted or rate limit exceeded
+          headers:
+            Retry-After:
+              $ref: '#/components/headers/Retry-After'
+            X-Quota-Limit:
+              $ref: '#/components/headers/X-Quota-Limit'
+            X-Quota-Remaining:
+              $ref: '#/components/headers/X-Quota-Remaining'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal merging failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /pdf/merge:
+    post:
+      operationId: mergePdfsLegacy
+      deprecated: true
+      tags:
+        - Merge
+        - Render
+      summary: Merge multiple PDFs (deprecated alias)
+      description: Deprecated functional alias for `/merge`. Emits RFC 8594 `Deprecation`, `Sunset`, and `Link` headers pointing to `/api/v1/merge`.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKeyParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MergePdfRequest'
+      responses:
+        '200':
+          description: Merged PDF generated and signed private URL returned
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+            X-File-Id:
+              $ref: '#/components/headers/X-File-Id'
+            X-Quota-Limit:
+              $ref: '#/components/headers/X-Quota-Limit'
+            X-Quota-Remaining:
+              $ref: '#/components/headers/X-Quota-Remaining'
+            X-Idempotent-Replay:
+              $ref: '#/components/headers/X-Idempotent-Replay'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MergeSuccessResponse'
+        '400':
+          description: Malformed JSON or unknown request attributes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Missing Authorization header
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Invalid or inactive API key, or restricted region
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Monthly PDF quota exhausted or rate limit exceeded
+          headers:
+            Retry-After:
+              $ref: '#/components/headers/Retry-After'
+            X-Quota-Limit:
+              $ref: '#/components/headers/X-Quota-Limit'
+            X-Quota-Remaining:
+              $ref: '#/components/headers/X-Quota-Remaining'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal merging failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /templates:
+    get:
+      operationId: listTemplates
+      tags:
+        - Templates
+      summary: List saved templates
+      responses:
+        '200':
+          description: List of owned templates and bundled starter schemas
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  templates:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/TemplateRecord'
+                  starters:
+                    type: array
+                    items:
+                      type: object
+    post:
+      operationId: createTemplate
+      tags:
+        - Templates
+      summary: Create reusable template
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TemplateCreateInput'
+      responses:
+        '201':
+          description: Template created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateRecord'
+
+  /templates/{id}:
+    get:
+      operationId: getTemplate
+      tags:
+        - Templates
+      summary: Get template by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Template details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateRecord'
+        '404':
+          description: Template not found
+    put:
+      operationId: updateTemplate
+      tags:
+        - Templates
+      summary: Update template
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TemplateCreateInput'
+      responses:
+        '200':
+          description: Template updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateRecord'
+    delete:
+      operationId: deleteTemplate
+      tags:
+        - Templates
+      summary: Delete template
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Template deleted
+
+  /sources:
+    get:
+      operationId: listSources
+      tags:
+        - Sources
+      summary: List saved document definitions
+      responses:
+        '200':
+          description: List of saved sources
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sources:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SourceRecord'
+    post:
+      operationId: createSource
+      tags:
+        - Sources
+      summary: Save reusable document definition
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SourceCreateInput'
+      responses:
+        '201':
+          description: Source saved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SourceRecord'
+
+  /sources/{id}:
+    get:
+      operationId: getSource
+      tags:
+        - Sources
+      summary: Get source definition
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Source definition
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SourceRecord'
+    put:
+      operationId: updateSource
+      tags:
+        - Sources
+      summary: Update source definition
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SourceCreateInput'
+      responses:
+        '200':
+          description: Source updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SourceRecord'
+    delete:
+      operationId: deleteSource
+      tags:
+        - Sources
+      summary: Delete source definition
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Source deleted
+
+  /files:
+    get:
+      operationId: listFiles
+      tags:
+        - Files
+      summary: List customer files (rendered PDFs, uploads, batch ZIPs)
+      responses:
+        '200':
+          description: List of files
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  files:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FileRecord'
+
+  /files/upload:
+    post:
+      operationId: createFileUpload
+      tags:
+        - Files
+      summary: Request presigned ZIP package upload URL
+      description: |
+        Generates a 15-minute presigned S3 PUT URL for uploading HTML/CSS/asset ZIP archives.
+        The package can then be referenced in `/render` via `source.type: "upload"`.
+      responses:
+        '201':
+          description: Upload credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileUploadResponse'
+
+  /files/{id}:
+    get:
+      operationId: getFile
+      tags:
+        - Files
+      summary: Get file metadata
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: File metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileRecord'
+        '404':
+          description: File not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      operationId: deleteFile
+      tags:
+        - Files
+      summary: Delete file record and S3 object
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: File deleted
+
+  /files/{id}/download:
+    get:
+      operationId: getFileDownloadUrl
+      tags:
+        - Files
+      summary: Get signed private download URL
+      description: Returns a 15-minute signed S3 download URL for the requested file.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Download URL
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  url:
+                    type: string
+                    format: uri
+
+  /batches:
+    get:
+      operationId: listBatches
+      tags:
+        - Batches
+      summary: List asynchronous batch render jobs
+      responses:
+        '200':
+          description: List of batch jobs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jobs:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/BatchJobRecord'
+    post:
+      operationId: createBatch
+      tags:
+        - Batches
+      summary: Submit asynchronous batch render job (1–99 items)
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKeyParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchCreateRequest'
+      responses:
+        '201':
+          description: Batch job created
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/X-Request-Id'
+            X-Quota-Limit:
+              $ref: '#/components/headers/X-Quota-Limit'
+            X-Quota-Remaining:
+              $ref: '#/components/headers/X-Quota-Remaining'
+            X-Idempotent-Replay:
+              $ref: '#/components/headers/X-Idempotent-Replay'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchJobRecord'
+        '409':
+          description: Concurrent batch job limit reached or Idempotency-Key conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Monthly PDF quota exhausted
+          headers:
+            Retry-After:
+              $ref: '#/components/headers/Retry-After'
+            X-Quota-Limit:
+              $ref: '#/components/headers/X-Quota-Limit'
+            X-Quota-Remaining:
+              $ref: '#/components/headers/X-Quota-Remaining'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /batches/{id}:
+    get:
+      operationId: getBatch
+      tags:
+        - Batches
+      summary: Get batch job status
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Batch job details and item counts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchJobRecord'
+
+  /batches/{id}/items:
+    get:
+      operationId: listBatchItems
+      tags:
+        - Batches
+      summary: List items for a batch job
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of batch items
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/BatchItemRecord'
+
+  /batches/{id}/cancel:
+    post:
+      operationId: cancelBatch
+      tags:
+        - Batches
+      summary: Cancel remaining pending items in a batch job
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Cancellation initiated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchJobRecord'
+
+  /batches/{id}/download:
+    get:
+      operationId: getBatchDownloadUrl
+      tags:
+        - Batches
+      summary: Get presigned download URL for ZIP archive or merged PDF of batch items
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: format
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [pdf, zip]
+          description: Export format. "pdf" materializes completed item PDFs into a single merged PDF; "zip" creates a ZIP archive. Defaults to the batch job's mergeOutput setting.
+      responses:
+        '200':
+          description: Signed download URL for batch export
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  fileId:
+                    type: string
+                    example: file_batch_job_123_merged
+                  url:
+                    type: string
+                    format: uri
+                  format:
+                    type: string
+                    enum: [pdf, zip]
+
+  /api-keys:
+    get:
+      operationId: listApiKeys
+      tags:
+        - API Keys
+      summary: List active API keys
+      security:
+        - CognitoAuth: []
+      responses:
+        '200':
+          description: List of API keys
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  keys:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ApiKeyRecord'
+    post:
+      operationId: createApiKey
+      tags:
+        - API Keys
+      summary: Generate a new API key
+      security:
+        - CognitoAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  example: Production Backend
+      responses:
+        '200':
+          description: Created API key record
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiKeyCreatedResponse'
+
+  /api-keys/{id}:
+    delete:
+      operationId: revokeApiKey
+      tags:
+        - API Keys
+      summary: Revoke an API key
+      security:
+        - CognitoAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Key revoked
+
+  /analytics:
+    get:
+      operationId: getAnalytics
+      tags:
+        - Analytics
+      summary: Get aggregate PDF usage statistics
+      description: |
+        Returns aggregated PDF usage metrics, latency, and counts from the usage table.
+        Caller must be authorized with admin group or the configured StatsAllowedEmail.
+      security:
+        - CognitoAuth: []
+      responses:
+        '200':
+          description: Aggregate statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  totalRequests:
+                    type: integer
+                  totalBytes:
+                    type: integer
+                  periodDays:
+                    type: integer
+        '403':
+          description: Access denied (non-admin caller)
+    post:
+      operationId: recordAnalyticsEvent
+      tags:
+        - Analytics
+      summary: Record client analytics event
+      description: Persists customer journey and activation events with a 90-day TTL.
+      security:
+        - CognitoAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - eventName
+              properties:
+                eventName:
+                  type: string
+                  example: trial_render_click
+                metadata:
+                  type: object
+      responses:
+        '200':
+          description: Event recorded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      description: 'API Key passed as `Authorization: Bearer <API_KEY>`'
+    CognitoAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: 'Amazon Cognito ID token passed as `Authorization: Bearer <COGNITO_ID_TOKEN>` (required for /api-keys, /analytics, and /dashboard/* routes)'
+
+  parameters:
+    IdempotencyKeyParam:
+      name: Idempotency-Key
+      in: header
+      required: false
+      description: Optional idempotency key (1–256 printable ASCII chars). Retried requests with the same key and identical payload replay the original 2xx response for 24 hours without double-billing.
+      schema:
+        type: string
+        maxLength: 256
+
+  headers:
+    X-Request-Id:
+      description: Unique request identifier generated by the API for tracing and support.
+      schema:
+        type: string
+        format: uuid
+    X-Quota-Limit:
+      description: Monthly PDF render allowance for the authenticated account.
+      schema:
+        type: integer
+    X-Quota-Remaining:
+      description: Remaining monthly PDF renders for the authenticated account.
+      schema:
+        type: integer
+    X-Trial-Limit:
+      description: Maximum daily anonymous trial renders per source IP.
+      schema:
+        type: integer
+    X-Trial-Remaining:
+      description: Remaining daily anonymous trial renders for the source IP.
+      schema:
+        type: integer
+    Retry-After:
+      description: Seconds to wait before retrying after a 429 or 503 response.
+      schema:
+        type: integer
+    X-File-Id:
+      description: Stored file record identifier when the PDF is persisted (omitted on zero-retention or trial renders).
+      schema:
+        type: string
+    X-Retention-Policy:
+      description: Present with value `zero-retention` when `options.zeroRetention` is `true`.
+      schema:
+        type: string
+    X-Idempotent-Replay:
+      description: Present with value `true` when the response was replayed from an `Idempotency-Key` record.
+      schema:
+        type: string
+
+  schemas:
+    TrialRenderRequest:
+      type: object
+      required:
+        - html
+      properties:
+        html:
+          type: string
+          description: Raw HTML snippet or page to render (max 1 MB)
+          example: '<h1>Hello World</h1>'
+
+    TrialQuotaResponse:
+      type: object
+      required:
+        - limit
+        - remaining
+      properties:
+        limit:
+          type: integer
+          example: 3
+        remaining:
+          type: integer
+          example: 2
+
+    AccountQuotaResponse:
+      type: object
+      required:
+        - limit
+        - used
+        - remaining
+        - period
+      properties:
+        limit:
+          type: integer
+          example: 25
+        used:
+          type: integer
+          example: 4
+        remaining:
+          type: integer
+          example: 21
+        period:
+          type: string
+          description: UTC billing month in `YYYY-MM` format
+          example: '2026-11'
+
+    CanonicalRenderRequest:
+      type: object
+      required:
+        - version
+        - source
+      properties:
+        version:
+          type: string
+          enum: ['1']
+          description: Contract version (must be "1")
+          example: '1'
+        source:
+          $ref: '#/components/schemas/RenderSource'
+        css:
+          type: string
+          description: Custom CSS stylesheet (max 128 KiB). @page, @import, and external url() rejected.
+          example: 'body { font-family: Arial, sans-serif; }'
+        data:
+          type: object
+          description: Key-value bindings for {{path.to.value}} placeholders (max 256 KiB, max 10 depth)
+          additionalProperties: true
+        options:
+          $ref: '#/components/schemas/DocumentRenderOptions'
+        label:
+          type: string
+          maxLength: 120
+          description: Optional customer label for tracking in logs
+          example: 'Invoice #1042'
+        webhookUrl:
+          type: string
+          format: uri
+          description: HTTPS endpoint for asynchronous pdf.completed notification
+          example: 'https://webhook.site/uuid'
+        webhookSecret:
+          type: string
+          description: Secret key for HMAC SHA-256 header X-RenderPDF-Signature
+
+    RenderSource:
+      oneOf:
+        - $ref: '#/components/schemas/HtmlRenderSource'
+        - $ref: '#/components/schemas/MarkdownRenderSource'
+        - $ref: '#/components/schemas/TemplateRenderSource'
+        - $ref: '#/components/schemas/UrlRenderSource'
+        - $ref: '#/components/schemas/UploadRenderSource'
+        - $ref: '#/components/schemas/StoredRenderSource'
+      discriminator:
+        propertyName: type
+        mapping:
+          html: '#/components/schemas/HtmlRenderSource'
+          markdown: '#/components/schemas/MarkdownRenderSource'
+          template: '#/components/schemas/TemplateRenderSource'
+          url: '#/components/schemas/UrlRenderSource'
+          upload: '#/components/schemas/UploadRenderSource'
+          stored: '#/components/schemas/StoredRenderSource'
+
+    HtmlRenderSource:
+      type: object
+      required:
+        - type
+        - content
+      additionalProperties: false
+      description: |
+        Inline HTML source. Note: when top-level `data` or `css` is supplied (Document JSON mode),
+        RenderPDF enforces strict deterministic HTML/CSS safety: `<script>`, `<iframe>`, `<link>`,
+        event-handler attributes (`on*`), asset attributes (`src`, `srcset`, `poster`, `data`, `background`),
+        and CSS `url()`, `@import`, or `@page` rules are disallowed (422). Use inline `<svg>`,
+        server-side `{{qrcode}}` / `{{barcode}}` helpers, or `source.type: "url"` / `"upload"` for external assets.
+      properties:
+        type:
+          type: string
+          enum: [html]
+        content:
+          type: string
+          example: '<h1>{{title}}</h1>'
+
+    MarkdownRenderSource:
+      type: object
+      required:
+        - type
+        - content
+      additionalProperties: false
+      description: Inline GitHub-Flavored Markdown source compiled with safe escaping and print stylesheet.
+      properties:
+        type:
+          type: string
+          enum: [markdown]
+        content:
+          type: string
+          example: '# {{title}}'
+
+    TemplateRenderSource:
+      type: object
+      required:
+        - type
+      additionalProperties: false
+      description: Saved template rendered by ID (provide `templateId` or `id`, and optional `variables` or top-level `data`).
+      properties:
+        type:
+          type: string
+          enum: [template]
+        templateId:
+          type: string
+          example: 'tmpl_01h...'
+        id:
+          type: string
+          description: Alias for `templateId`
+        variables:
+          type: object
+          additionalProperties: true
+
+    UrlCookie:
+      type: object
+      required:
+        - name
+        - value
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+        value:
+          type: string
+        domain:
+          type: string
+        path:
+          type: string
+        secure:
+          type: boolean
+        httpOnly:
+          type: boolean
+        sameSite:
+          type: string
+          enum: [Strict, Lax, None]
+
+    UrlRenderSource:
+      type: object
+      required:
+        - type
+        - url
+      additionalProperties: false
+      description: Public HTTP/HTTPS URL source. Private/loopback/metadata IPs are blocked by SSRF protections.
+      properties:
+        type:
+          type: string
+          enum: [url]
+        url:
+          type: string
+          format: uri
+          example: 'https://example.com/invoice'
+        headers:
+          type: object
+          additionalProperties:
+            type: string
+          description: Optional custom headers scoped strictly to the target origin (hop-by-hop headers scrubbed).
+        cookies:
+          type: array
+          items:
+            $ref: '#/components/schemas/UrlCookie'
+          description: Optional cookies scoped to the target origin.
+
+    UploadRenderSource:
+      type: object
+      required:
+        - type
+        - uploadId
+      additionalProperties: false
+      description: Previously uploaded ZIP asset bundle from `POST /files/upload`.
+      properties:
+        type:
+          type: string
+          enum: [upload]
+        uploadId:
+          type: string
+        entrypoint:
+          type: string
+          default: 'index.html'
+          example: 'index.html'
+
+    StoredRenderSource:
+      type: object
+      required:
+        - type
+      additionalProperties: false
+      description: Saved source definition (`src_...`) or template (`tmpl_...`) invoked by `id` (or `templateId`).
+      properties:
+        type:
+          type: string
+          enum: [stored]
+        id:
+          type: string
+          example: 'src_01h...'
+        templateId:
+          type: string
+          description: Optional alias for `id` when referencing a stored template
+        variables:
+          type: object
+          additionalProperties: true
+          description: Optional variable overrides merged with stored defaults
+
+    DocumentRenderOptions:
+      type: object
+      properties:
+        format:
+          type: string
+          enum: [A4, Letter, Legal]
+          default: A4
+        margin:
+          type: string
+          description: Margin in mm (0-50mm) or in (0-2in)
+          default: 18mm
+          example: '15mm'
+        landscape:
+          type: boolean
+          default: false
+          description: Render pages in landscape orientation
+        displayHeaderFooter:
+          type: boolean
+          default: false
+        headerTemplate:
+          type: string
+          description: HTML template for print header (supports <span class="pageNumber"></span>)
+        footerTemplate:
+          type: string
+          description: HTML template for print footer
+        password:
+          type: string
+          description: User/Open password for AES-256 PDF encryption
+        ownerPassword:
+          type: string
+          description: Owner/Master password for AES-256 PDF encryption
+        permissions:
+          type: string
+          enum: [all, print, none]
+          default: all
+        zeroRetention:
+          type: boolean
+          default: false
+          description: Skip S3 storage and DynamoDB file metadata persistence; return PDF inline (base64 JSON `data` or binary `application/pdf`). Cannot be combined with `webhookUrl`.
+        responseFormat:
+          type: string
+          enum: [json, binary, pdf]
+          default: json
+          description: Force JSON metadata (`json`) or raw `application/pdf` binary response (`binary` / `pdf`).
+        strictVariables:
+          type: boolean
+          default: true
+          description: Reject unreferenced keys in `data` / `variables` on flat templates (default `true`).
+        allowExtraVariables:
+          type: boolean
+          default: false
+          description: Allow unreferenced keys in `data` / `variables` (overrides `strictVariables`).
+        pageNumbers:
+          type: object
+          description: Post-render vector page numbering stamped via pdfcpu (bypasses Chromium shadow DOM sandbox)
+          properties:
+            format:
+              type: string
+              description: Template string with {page} and optional {total} placeholders
+              default: "Page {page} of {total}"
+              example: "Page {page} of {total}"
+            position:
+              type: string
+              enum: [bottom-center, bottom-right, bottom-left, top-center, top-right, top-left]
+              default: bottom-center
+            startPage:
+              type: integer
+              description: First physical page to receive page numbers (1-indexed). Defaults to 1, or 2 if excludeCover is true.
+              example: 2
+            startNumber:
+              type: integer
+              description: Number to assign to startPage (defaults to 1)
+              example: 1
+            excludeCover:
+              type: boolean
+              description: If true, suppresses page numbers on the first page and calculates total without the cover page
+              default: false
+            fontSize:
+              type: integer
+              description: Font size in points (1-72)
+              default: 9
+            color:
+              type: string
+              description: Text color as 3 space-separated RGB floats (0.0 to 1.0) or hex code (#RRGGBB)
+              default: "0.4 0.4 0.4"
+              example: "0.3 0.3 0.3"
+        watermark:
+          type: object
+          description: Diagonal or custom vector watermark stamped across pages via pdfcpu
+          required:
+            - text
+          properties:
+            text:
+              type: string
+              maxLength: 256
+              description: Watermark display text (e.g. DRAFT, CONFIDENTIAL)
+              example: "CONFIDENTIAL"
+            diagonal:
+              type: boolean
+              default: true
+              description: If true, stamps along the native corner-to-corner page diagonal
+            rotation:
+              type: integer
+              minimum: -360
+              maximum: 360
+              description: Custom rotation angle in degrees. Overrides diagonal if set.
+              example: 45
+            opacity:
+              type: number
+              minimum: 0.0
+              maximum: 1.0
+              default: 0.15
+              description: Watermark opacity (0.0 transparent to 1.0 opaque)
+              example: 0.15
+            color:
+              type: string
+              description: Text color as 3 space-separated RGB floats (0.0 to 1.0) or hex code (#RRGGBB)
+              default: "0.5 0.5 0.5"
+              example: "#dc2626"
+            fontSize:
+              type: integer
+              minimum: 1
+              maximum: 144
+              default: 54
+              description: Font size in points
+              example: 54
+            font:
+              type: string
+              enum: [Helvetica, Times-Roman, Courier]
+              default: Helvetica
+              description: Standard PDF base font
+            pages:
+              type: string
+              description: Page range selection (e.g. all, odd, even, 1, 2-)
+              default: "all"
+              example: "all"
+            position:
+              type: string
+              enum: [center, top-center, top-left, top-right, bottom-center, bottom-left, bottom-right]
+              default: center
+            onTop:
+              type: boolean
+              default: true
+              description: If true stamps on top of page content; if false stamps behind content
+        compliance:
+          type: object
+          description: PDF/A archival, PDF/UA accessibility, or European e-invoicing (Factur-X / ZUGFeRD) compliance configuration
+          properties:
+            profile:
+              type: string
+              enum: [pdfa-1b, pdfa-2b, pdfa-3b, pdfua-1, factur-x, zugferd]
+              description: Archival, accessibility, or hybrid e-invoicing standard
+              example: "factur-x"
+            pdfua:
+              type: boolean
+              default: false
+              description: Enable PDF/UA-1 accessibility metadata and tagged PDF enrichment
+            title:
+              type: string
+              description: Document title written into PDF `/Info` and XMP `dc:title` metadata
+            language:
+              type: string
+              description: BCP-47 language tag (e.g. `en-US`, `de-DE`) written to root `/Lang`
+              example: "en-US"
+            validateXml:
+              type: boolean
+              default: true
+              description: Validate embedded Factur-X / ZUGFeRD CII XML structure before embedding
+            invoiceXml:
+              type: string
+              description: Structured XML invoice payload (raw string or base64 encoded). Required for factur-x and zugferd.
+              example: "<rsm:CrossIndustryInvoice>...</rsm:CrossIndustryInvoice>"
+            invoiceProfile:
+              type: string
+              enum: [MINIMUM, BASIC WL, BASIC, EN 16931, EXTENDED]
+              default: "EN 16931"
+              description: Factur-X / ZUGFeRD conformance profile
+              example: "EN 16931"
+            xmlFilename:
+              type: string
+              description: Custom embedded attachment filename (defaults to factur-x.xml or zugferd-invoice.xml)
+              example: "factur-x.xml"
+            documentType:
+              type: string
+              default: "INVOICE"
+              description: Document type descriptor for XMP metadata
+              example: "INVOICE"
+            version:
+              type: string
+              default: "1.0"
+              description: Schema version descriptor for XMP metadata
+              example: "1.0"
+        waitFor:
+          type: object
+          description: Smart wait-for triggers evaluated before triggering print-to-PDF
+          properties:
+            selector:
+              type: string
+              maxLength: 1024
+              description: CSS query selector to wait until visible before printing
+              example: "#analytics-chart svg"
+            function:
+              type: string
+              maxLength: 4096
+              description: JavaScript expression or function returning boolean to poll until truthy (disallowed in document mode)
+              example: "() => window.RENDER_READY === true"
+            networkIdle:
+              type: string
+              enum: [networkidle0, networkidle2]
+              description: Wait until in-flight network requests drop to 0 or 2 for at least 500ms
+              example: "networkidle0"
+            timeoutMs:
+              type: integer
+              minimum: 0
+              maximum: 20000
+              default: 5000
+              description: Max wait timeout in milliseconds before proceeding to render
+              example: 4000
+            fonts:
+              type: boolean
+              default: true
+              description: Whether to await document.fonts.ready and stylesheet resolution before printing
+
+    RenderWarning:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+          example: 'ssrf_blocked'
+        message:
+          type: string
+          example: 'Blocked subresource request to disallowed or non-public URL'
+        url:
+          type: string
+          example: 'http://169.254.169.254/latest/meta-data'
+
+    RenderSuccessResponse:
+      type: object
+      required:
+        - requestId
+        - size
+      properties:
+        requestId:
+          type: string
+          format: uuid
+          example: '4e292025-a13f-4e02-8a9c-0c4c47b59e31'
+        fileId:
+          type: string
+          description: Stored file identifier (present on authenticated non-zero-retention renders)
+          example: 'file_4e292025-a13f-4e02-8a9c-0c4c47b59e31'
+        url:
+          type: string
+          format: uri
+          description: 15-minute signed S3 private download URL (omitted when zeroRetention is true)
+        size:
+          type: integer
+          description: Byte size of generated PDF
+          example: 48392
+        pageCount:
+          type: integer
+          description: Number of pages in the generated PDF
+          example: 2
+        data:
+          type: string
+          format: byte
+          description: Base64-encoded PDF bytes (returned only when options.zeroRetention is true)
+        zeroRetention:
+          type: boolean
+          description: True when S3 and DynamoDB file storage were skipped
+        warnings:
+          type: array
+          description: Non-fatal diagnostic warnings captured during rendering (e.g. blocked SSRF subresources or failed optional assets)
+          items:
+            $ref: '#/components/schemas/RenderWarning'
+
+    MergePdfRequest:
+      type: object
+      properties:
+        version:
+          type: string
+          enum: ['1']
+          default: '1'
+        files:
+          type: array
+          items:
+            type: string
+          description: Shorthand list of owned file IDs or HTTP/HTTPS URLs
+          example: ["file_01h8q7m...", "https://example.com/terms.pdf"]
+        items:
+          type: array
+          minItems: 2
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/MergeItem'
+        options:
+          $ref: '#/components/schemas/DocumentRenderOptions'
+        label:
+          type: string
+          maxLength: 120
+          description: Optional customer label for tracking in logs
+          example: 'Merged Annual Report 2026'
+        webhookUrl:
+          type: string
+          format: uri
+          description: HTTPS endpoint for asynchronous pdf.completed notification
+        webhookSecret:
+          type: string
+          description: Secret key for HMAC SHA-256 header X-RenderPDF-Signature
+
+    MergeItem:
+      type: object
+      properties:
+        fileId:
+          type: string
+          description: Owned file ID from previous render or upload
+          example: "file_01h8q..."
+        url:
+          type: string
+          format: uri
+          description: Public HTTP/HTTPS URL returning a PDF
+          example: "https://example.com/sheet.pdf"
+        data:
+          type: string
+          description: Base64-encoded PDF binary content
+
+    MergeSuccessResponse:
+      type: object
+      required:
+        - requestId
+        - fileId
+        - url
+        - size
+        - pageCount
+      properties:
+        requestId:
+          type: string
+          format: uuid
+          example: '4e292025-a13f-4e02-8a9c-0c4c47b59e31'
+        fileId:
+          type: string
+          example: "file_01h8q7m..."
+        url:
+          type: string
+          format: uri
+          description: 15-minute signed S3 private download URL
+        size:
+          type: integer
+          description: Total byte size of merged PDF
+          example: 98392
+        pageCount:
+          type: integer
+          description: Total pages in merged document
+          example: 12
+
+    TemplateRecord:
+      type: object
+      required:
+        - id
+        - name
+        - type
+        - html
+        - createdAt
+      properties:
+        id:
+          type: string
+          example: 'tmpl_01h8q...'
+        name:
+          type: string
+          example: 'Standard Invoice'
+        type:
+          type: string
+          example: 'invoice'
+          enum: [invoice, contract, certificate, receipt, custom]
+        html:
+          type: string
+        variables:
+          type: object
+          description: Template variable schema and default values
+        version:
+          type: integer
+          example: 1
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    TemplateCreateInput:
+      type: object
+      required:
+        - name
+        - html
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+          default: custom
+          enum: [invoice, contract, certificate, receipt, custom]
+        html:
+          type: string
+        variables:
+          type: object
+          description: Optional default variables matching placeholders
+
+    SourceRecord:
+      type: object
+      required:
+        - id
+        - name
+        - sourceType
+        - createdAt
+      properties:
+        id:
+          type: string
+          example: 'src_01h...'
+        name:
+          type: string
+          example: 'Monthly Report Template'
+        sourceType:
+          type: string
+          enum: [html, markdown]
+        version:
+          type: string
+          example: '1'
+        sizeBytes:
+          type: integer
+          example: 1248
+        checksum:
+          type: string
+          example: 'sha256:...'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    SourceCreateInput:
+      type: object
+      required:
+        - name
+        - definition
+      properties:
+        name:
+          type: string
+        definition:
+          $ref: '#/components/schemas/CanonicalRenderRequest'
+
+    FileRecord:
+      type: object
+      required:
+        - id
+        - kind
+        - contentType
+        - sizeBytes
+        - createdAt
+      properties:
+        id:
+          type: string
+          example: 'file_01h...'
+        kind:
+          type: string
+          enum: [rendered_pdf, uploaded_package, batch_zip, batch_merged_pdf]
+        contentType:
+          type: string
+          example: 'application/pdf'
+        sizeBytes:
+          type: integer
+          example: 52180
+        checksum:
+          type: string
+          example: 'sha256:...'
+        displayName:
+          type: string
+          example: 'Report.pdf'
+        retentionExpiresAt:
+          type: string
+          format: date-time
+        origin:
+          type: object
+          additionalProperties:
+            type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    FileUploadResponse:
+      type: object
+      required:
+        - uploadId
+        - uploadUrl
+        - expiresIn
+      properties:
+        uploadId:
+          type: string
+          example: 'upload_01h...'
+        uploadUrl:
+          type: string
+          format: uri
+        expiresIn:
+          type: integer
+          example: 900
+
+    BatchCreateRequest:
+      type: object
+      required:
+        - version
+        - items
+      properties:
+        version:
+          type: string
+          enum: ['1']
+        source:
+          type: object
+          required:
+            - type
+            - id
+          properties:
+            type:
+              type: string
+              enum: [stored]
+            id:
+              type: string
+        items:
+          type: array
+          minItems: 1
+          maxItems: 99
+          items:
+            type: object
+            properties:
+              data:
+                type: object
+              definition:
+                $ref: '#/components/schemas/CanonicalRenderRequest'
+        options:
+          type: object
+          properties:
+            webhookUrl:
+              type: string
+              format: uri
+            webhookSecret:
+              type: string
+            mergeOutput:
+              type: boolean
+              default: false
+              description: If true, automatically merges all completed item PDFs into a single continuous PDF on export.
+
+    BatchJobRecord:
+      type: object
+      required:
+        - jobId
+        - status
+        - itemCount
+        - queuedCount
+        - succeededCount
+        - failedCount
+      properties:
+        jobId:
+          type: string
+          example: 'job_01h...'
+        status:
+          type: string
+          enum: [queued, running, cancelling, completed, completed_with_errors, cancelled, failed]
+        itemCount:
+          type: integer
+        queuedCount:
+          type: integer
+        runningCount:
+          type: integer
+        succeededCount:
+          type: integer
+        failedCount:
+          type: integer
+        cancelledCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    BatchItemRecord:
+      type: object
+      required:
+        - itemId
+        - ordinal
+        - status
+      properties:
+        itemId:
+          type: string
+        ordinal:
+          type: integer
+        status:
+          type: string
+          enum: [queued, running, succeeded, failed, cancelled]
+        outputFileId:
+          type: string
+        errorCode:
+          type: string
+        errorMessage:
+          type: string
+
+    ApiKeyRecord:
+      type: object
+      required:
+        - keyId
+        - createdAt
+        - isActive
+      properties:
+        keyId:
+          type: string
+        name:
+          type: string
+        createdAt:
+          type: integer
+          description: Unix timestamp in seconds
+        lastUsed:
+          type: integer
+          description: Unix timestamp in seconds (omitted until key is first used)
+        isActive:
+          type: boolean
+
+    ApiKeyCreatedResponse:
+      type: object
+      required:
+        - keyId
+        - apiKey
+      properties:
+        keyId:
+          type: string
+          example: 'key_01h8abc...'
+        apiKey:
+          type: string
+          description: Full Bearer API key. Displayed only once upon creation.
+          example: 'rpdf_live_9a8b7c6d5e4f...'
+        name:
+          type: string
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+        - code
+      properties:
+        error:
+          type: string
+          description: Human-readable error message
+          example: 'Invalid render request: unknown field "foo"'
+        code:
+          type: string
+          description: Stable machine-readable error code
+          example: 'render_request_invalid'
+        requestId:
+          type: string
+          format: uuid
+          description: Request trace identifier
+          example: '4e292025-a13f-4e02-8a9c-0c4c47b59e31'
+        field:
+          type: string
+          description: Offending JSON field name or header when applicable
+          example: 'foo'
+        retryable:
+          type: boolean
+          description: Whether retrying the unchanged request after backoff is safe
+          example: false
+        details:
+          description: Optional structured diagnostic context (e.g. blocked SSRF URLs or asset failures)
+          type: object
+          additionalProperties: true

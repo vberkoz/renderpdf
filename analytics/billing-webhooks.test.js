@@ -490,6 +490,60 @@ test('readCustomerDashboard uses max of quotaRecord.limit and baseQuota (Pro 20,
   }
 });
 
+test('readCustomerDashboard supports server-side pagination and limits for logs', async () => {
+  const originalSend = analytics.ddb.send;
+  const now = new Date();
+  const todayPartition = `USAGE#${now.toISOString().slice(0, 10)}`;
+
+  analytics.ddb.send = async (command) => {
+    if (command.constructor.name === 'GetItemCommand') {
+      const key = command.input?.Key?.requestId?.S || '';
+      if (key.startsWith('BILLING#')) return {};
+      if (key.startsWith('USER_QUOTA#')) return { Item: { used: { N: '4' }, limit: { N: '25' } } };
+    }
+    if (command.constructor.name === 'QueryCommand') {
+      if (command.input?.ExpressionAttributeValues?.[':pk']?.S === todayPartition) {
+        return {
+          Items: [100, 200, 300, 400].map((ts, i) => ({
+            entityType: { S: 'PDF_REQUEST' },
+            customerId: { S: 'user-paged-logs' },
+            requestId: { S: `req_${i + 1}` },
+            timestamp: { N: String(ts) },
+            status: { S: 'success' },
+          })),
+        };
+      }
+      return { Items: [] };
+    }
+    return {};
+  };
+
+  try {
+    const res = await analytics.handler({
+      resource: '/api/v1/dashboard',
+      httpMethod: 'GET',
+      queryStringParameters: { limit: '2', cursor: '1' },
+      requestContext: {
+        authorizer: { claims: { sub: 'user-paged-logs' } },
+      },
+    });
+    assert.strictEqual(res.statusCode, 200);
+    const body = JSON.parse(res.body);
+    assert.deepStrictEqual(
+      body.logs.map((l) => l.requestId),
+      ['req_3', 'req_2']
+    );
+    assert.deepStrictEqual(body.logsPagination, {
+      limit: 2,
+      cursor: 1,
+      nextCursor: '3',
+      total: 4,
+    });
+  } finally {
+    analytics.ddb.send = originalSend;
+  }
+});
+
 test('direct sync does not use condition expression that could reject synchronous syncs', async () => {
   const originalSend = analytics.ddb.send;
   const commands = [];

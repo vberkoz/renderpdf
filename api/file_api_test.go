@@ -1,9 +1,14 @@
 package main
 
 import (
+	"context"
+	"encoding/json"
+	"net/http"
 	"strconv"
 	"testing"
 	"time"
+
+	"github.com/aws/aws-lambda-go/events"
 )
 
 func TestFileItemWritesNumericExpiresAtAndRetentionExpiresAt(t *testing.T) {
@@ -71,5 +76,81 @@ func TestSourceItemNeverSetsExpiresAt(t *testing.T) {
 
 	if _, exists := item["expiresAt"]; exists {
 		t.Fatalf("saved SOURCE items must remain permanent without expiresAt, got %#v", item["expiresAt"])
+	}
+}
+
+type memoryFileStore struct {
+	files map[string]storedFile
+}
+
+func (m *memoryFileStore) Create(_ context.Context, v storedFile) error {
+	m.files[v.OwnerID+"/"+v.ID] = v
+	return nil
+}
+
+func (m *memoryFileStore) Get(_ context.Context, owner, id string) (storedFile, error) {
+	v, ok := m.files[owner+"/"+id]
+	if !ok {
+		return storedFile{}, errFileNotFound
+	}
+	return v, nil
+}
+
+func (m *memoryFileStore) List(_ context.Context, owner string) ([]storedFile, error) {
+	var out []storedFile
+	for _, v := range m.files {
+		if v.OwnerID == owner {
+			out = append(out, v)
+		}
+	}
+	return out, nil
+}
+
+func (m *memoryFileStore) Delete(_ context.Context, owner, id string) error {
+	delete(m.files, owner+"/"+id)
+	return nil
+}
+
+func TestHandleFileRequestGetByIDAndNotFound(t *testing.T) {
+	created := time.Date(2026, 11, 20, 12, 0, 0, 0, time.UTC)
+	store := &memoryFileStore{
+		files: map[string]storedFile{
+			"owner-1/file_abc": {
+				ID:          "file_abc",
+				Kind:        "rendered_pdf",
+				ContentType: "application/pdf",
+				SizeBytes:   4200,
+				Checksum:    "sha256:deadbeef",
+				DisplayName: "Invoice.pdf",
+				OwnerID:     "owner-1",
+				CreatedAt:   created,
+			},
+		},
+	}
+
+	req := events.APIGatewayProxyRequest{
+		HTTPMethod: http.MethodGet,
+		Path:       "/api/v1/files/file_abc",
+		RequestContext: events.APIGatewayProxyRequestContext{
+			Authorizer: map[string]interface{}{"userId": "owner-1"},
+		},
+	}
+	resp := handleFileRequest(context.Background(), req, map[string]string{"Content-Type": "application/json"}, store)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("GET /files/file_abc status = %d, want 200; body=%s", resp.StatusCode, resp.Body)
+	}
+	var got storedFile
+	if err := json.Unmarshal([]byte(resp.Body), &got); err != nil {
+		t.Fatalf("decode file response: %v", err)
+	}
+	if got.ID != "file_abc" || got.Kind != "rendered_pdf" || got.SizeBytes != 4200 || got.DisplayName != "Invoice.pdf" {
+		t.Fatalf("unexpected file record: %#v", got)
+	}
+
+	missingReq := req
+	missingReq.Path = "/api/v1/files/file_missing"
+	missingResp := handleFileRequest(context.Background(), missingReq, map[string]string{"Content-Type": "application/json"}, store)
+	if missingResp.StatusCode != http.StatusNotFound {
+		t.Fatalf("GET missing file status = %d, want 404; body=%s", missingResp.StatusCode, missingResp.Body)
 	}
 }

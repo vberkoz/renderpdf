@@ -789,6 +789,7 @@ Resources:
       ClientName: !Sub '${AppName}-client'
       UserPoolId: !Ref UserPoolV2
       AllowedOAuthFlows:
+        - code
         - implicit
       AllowedOAuthScopes:
         - email
@@ -809,6 +810,7 @@ Resources:
       ClientName: !Sub '${AppName}-email-client'
       UserPoolId: !Ref UserPoolV2
       AllowedOAuthFlows:
+        - code
         - implicit
       AllowedOAuthScopes:
         - email
@@ -1081,8 +1083,8 @@ Resources:
         - x86_64
       Role: !GetAtt LambdaExecutionRole.Arn
       Code:
-        ZipFile: |
-          placeholder-compiled-go-binary-updated-by-deploy-script
+        S3Bucket: !Ref PdfBucket
+        S3Key: lambda/batch-bootstrap.zip
       MemorySize: 256
       Timeout: 30
       Environment:
@@ -1114,8 +1116,8 @@ Resources:
         - x86_64
       Role: !GetAtt LambdaExecutionRole.Arn
       Code:
-        ZipFile: |
-          placeholder-compiled-go-binary-updated-by-deploy-script
+        S3Bucket: !Ref PdfBucket
+        S3Key: lambda/batch-bootstrap.zip
       MemorySize: 256
       Timeout: 30
       Environment:
@@ -1194,6 +1196,9 @@ Resources:
           FREE_USAGE_PLAN_ID: !Ref FreeUsagePlan
           STARTER_USAGE_PLAN_ID: !Ref StarterUsagePlan
           PRO_USAGE_PLAN_ID: !Ref ProUsagePlan
+          FREE_USAGE_PLAN_KEY_ID: !Ref FreeUsagePlanBootstrapKey
+          STARTER_USAGE_PLAN_KEY_ID: !Ref StarterUsagePlanBootstrapKey
+          PRO_USAGE_PLAN_KEY_ID: !Ref ProUsagePlanBootstrapKey
 
   ApiKeysFunction:
     Type: AWS::Lambda::Function
@@ -1281,6 +1286,13 @@ Resources:
       RestApiId: !Ref RestApi
       ParentId: !Ref ApiV1Resource
       PathPart: merge
+
+  QuotaResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestApi
+      ParentId: !Ref ApiV1Resource
+      PathPart: quota
 
   PdfSubResource:
     Type: AWS::ApiGateway::Resource
@@ -1424,6 +1436,9 @@ Resources:
   DashboardFilesResource:
     Type: AWS::ApiGateway::Resource
     Properties: {RestApiId: !Ref RestApi, ParentId: !Ref DashboardResource, PathPart: files}
+  DashboardQuotaResource:
+    Type: AWS::ApiGateway::Resource
+    Properties: {RestApiId: !Ref RestApi, ParentId: !Ref DashboardResource, PathPart: quota}
   DashboardFileItemResource:
     Type: AWS::ApiGateway::Resource
     Properties: {RestApiId: !Ref RestApi, ParentId: !Ref DashboardFilesResource, PathPart: '{id}'}
@@ -1590,7 +1605,7 @@ Resources:
         IntegrationResponses:
           - StatusCode: 200
             ResponseParameters:
-              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,Accept,X-Amz-Date,Authorization,X-Amz-Security-Token,Idempotency-Key'"
               method.response.header.Access-Control-Allow-Methods: "'POST,OPTIONS'"
               method.response.header.Access-Control-Allow-Origin: "'*'"
             ResponseTemplates:
@@ -1630,7 +1645,7 @@ Resources:
         IntegrationResponses:
           - StatusCode: 200
             ResponseParameters:
-              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,Accept,X-Amz-Date,Authorization,X-Amz-Security-Token,Idempotency-Key'"
               method.response.header.Access-Control-Allow-Methods: "'POST,OPTIONS'"
               method.response.header.Access-Control-Allow-Origin: "'*'"
             ResponseTemplates:
@@ -1670,7 +1685,7 @@ Resources:
         IntegrationResponses:
           - StatusCode: 200
             ResponseParameters:
-              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,Accept,X-Amz-Date,Authorization,X-Amz-Security-Token,Idempotency-Key'"
               method.response.header.Access-Control-Allow-Methods: "'POST,OPTIONS'"
               method.response.header.Access-Control-Allow-Origin: "'*'"
             ResponseTemplates:
@@ -1736,9 +1751,50 @@ Resources:
   FileDownloadGetMethod:
     Type: AWS::ApiGateway::Method
     Properties: {RestApiId: !Ref RestApi, ResourceId: !Ref FileDownloadResource, HttpMethod: GET, AuthorizationType: CUSTOM, AuthorizerId: !Ref ApiAuthorizer, ApiKeyRequired: true, Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}}
+  FileGetMethod:
+    Type: AWS::ApiGateway::Method
+    Properties: {RestApiId: !Ref RestApi, ResourceId: !Ref FileItemResource, HttpMethod: GET, AuthorizationType: CUSTOM, AuthorizerId: !Ref ApiAuthorizer, ApiKeyRequired: true, Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}}
   FileDeleteMethod:
     Type: AWS::ApiGateway::Method
     Properties: {RestApiId: !Ref RestApi, ResourceId: !Ref FileItemResource, HttpMethod: DELETE, AuthorizationType: CUSTOM, AuthorizerId: !Ref ApiAuthorizer, ApiKeyRequired: true, Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}}
+  QuotaOptionsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref QuotaResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,Accept,X-Amz-Date,Authorization,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Methods: "'GET,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: ''
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+  QuotaGetMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref QuotaResource
+      HttpMethod: GET
+      AuthorizationType: CUSTOM
+      AuthorizerId: !Ref ApiAuthorizer
+      ApiKeyRequired: true
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'
 
   SourcesOptionsMethod:
     Type: AWS::ApiGateway::Method
@@ -1832,7 +1888,7 @@ Resources:
         IntegrationResponses:
           - StatusCode: 200
             ResponseParameters:
-              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,Accept,X-Amz-Date,Authorization,X-Amz-Security-Token,Idempotency-Key'"
               method.response.header.Access-Control-Allow-Methods: "'POST,OPTIONS'"
               method.response.header.Access-Control-Allow-Origin: "'*'"
       MethodResponses:
@@ -2236,9 +2292,15 @@ Resources:
   DashboardFileDownloadGetMethod:
     Type: AWS::ApiGateway::Method
     Properties: {RestApiId: !Ref RestApi, ResourceId: !Ref DashboardFileDownloadResource, HttpMethod: GET, AuthorizationType: COGNITO_USER_POOLS, AuthorizerId: !Ref CognitoAuthorizer, Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}}
+  DashboardFileGetMethod:
+    Type: AWS::ApiGateway::Method
+    Properties: {RestApiId: !Ref RestApi, ResourceId: !Ref DashboardFileItemResource, HttpMethod: GET, AuthorizationType: COGNITO_USER_POOLS, AuthorizerId: !Ref CognitoAuthorizer, Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}}
   DashboardFileDeleteMethod:
     Type: AWS::ApiGateway::Method
     Properties: {RestApiId: !Ref RestApi, ResourceId: !Ref DashboardFileItemResource, HttpMethod: DELETE, AuthorizationType: COGNITO_USER_POOLS, AuthorizerId: !Ref CognitoAuthorizer, Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}}
+  DashboardQuotaGetMethod:
+    Type: AWS::ApiGateway::Method
+    Properties: {RestApiId: !Ref RestApi, ResourceId: !Ref DashboardQuotaResource, HttpMethod: GET, AuthorizationType: COGNITO_USER_POOLS, AuthorizerId: !Ref CognitoAuthorizer, Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}}
   DashboardBatchesPostMethod:
     Type: AWS::ApiGateway::Method
     Properties: {RestApiId: !Ref RestApi, ResourceId: !Ref DashboardBatchesResource, HttpMethod: POST, AuthorizationType: COGNITO_USER_POOLS, AuthorizerId: !Ref CognitoAuthorizer, Integration: {Type: AWS_PROXY, IntegrationHttpMethod: POST, Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PdfFunction.Arn}/invocations'}}
@@ -2380,9 +2442,59 @@ Resources:
         IntegrationHttpMethod: POST
         Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AnalyticsFunction.Arn}/invocations'
 
+  GatewayResponseUnauthorized:
+    Type: AWS::ApiGateway::GatewayResponse
+    Properties:
+      RestApiId: !Ref RestApi
+      ResponseType: UNAUTHORIZED
+      StatusCode: '401'
+      ResponseParameters:
+        gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+        gatewayresponse.header.Access-Control-Allow-Headers: "'Content-Type,Accept,Authorization,Idempotency-Key'"
+      ResponseTemplates:
+        application/json: '{"error":"Authentication is required. Pass your API key as Authorization: Bearer <API_KEY>.","code":"authentication_required","requestId":"$context.requestId","retryable":false}'
+
+  GatewayResponseAccessDenied:
+    Type: AWS::ApiGateway::GatewayResponse
+    Properties:
+      RestApiId: !Ref RestApi
+      ResponseType: ACCESS_DENIED
+      StatusCode: '403'
+      ResponseParameters:
+        gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+        gatewayresponse.header.Access-Control-Allow-Headers: "'Content-Type,Accept,Authorization,Idempotency-Key'"
+      ResponseTemplates:
+        application/json: '{"error":"Invalid, inactive, or missing API key. Pass a valid key as Authorization: Bearer <API_KEY>.","code":"access_denied","requestId":"$context.requestId","retryable":false}'
+
+  GatewayResponseThrottled:
+    Type: AWS::ApiGateway::GatewayResponse
+    Properties:
+      RestApiId: !Ref RestApi
+      ResponseType: THROTTLED
+      StatusCode: '429'
+      ResponseParameters:
+        gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+        gatewayresponse.header.Access-Control-Allow-Headers: "'Content-Type,Accept,Authorization,Idempotency-Key'"
+        gatewayresponse.header.Retry-After: "'1'"
+      ResponseTemplates:
+        application/json: '{"error":"Rate limit exceeded. Retry after backoff.","code":"rate_limited","requestId":"$context.requestId","retryable":true}'
+
+  GatewayResponseQuotaExceeded:
+    Type: AWS::ApiGateway::GatewayResponse
+    Properties:
+      RestApiId: !Ref RestApi
+      ResponseType: QUOTA_EXCEEDED
+      StatusCode: '429'
+      ResponseParameters:
+        gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+        gatewayresponse.header.Access-Control-Allow-Headers: "'Content-Type,Accept,Authorization,Idempotency-Key'"
+        gatewayresponse.header.Retry-After: "'60'"
+      ResponseTemplates:
+        application/json: '{"error":"Usage plan quota exceeded.","code":"rate_limited","requestId":"$context.requestId","retryable":true}'
+
   # API Gateway deployments are immutable snapshots. Bump this logical ID when
   # routes or methods change so CloudFormation publishes them to the prod stage.
-  ApiDeploymentV38:
+  ApiDeploymentV39:
     Type: AWS::ApiGateway::Deployment
     DependsOn:
       - ApiRootGetMethod
@@ -2390,9 +2502,13 @@ Resources:
       - ApiV1Resource
       - RenderMethod
       - RenderOptionsMethod
+      - QuotaResource
+      - QuotaOptionsMethod
+      - QuotaGetMethod
       - FilesGetMethod
       - FileUploadPostMethod
       - FileDownloadGetMethod
+      - FileGetMethod
       - FileDeleteMethod
       - BatchesPostMethod
       - BatchesGetMethod
@@ -2441,7 +2557,10 @@ Resources:
       - DashboardFilesGetMethod
       - DashboardFileUploadPostMethod
       - DashboardFileDownloadGetMethod
+      - DashboardFileGetMethod
       - DashboardFileDeleteMethod
+      - DashboardQuotaResource
+      - DashboardQuotaGetMethod
       - DashboardBatchesPostMethod
       - DashboardBatchesGetMethod
       - DashboardBatchGetMethod
@@ -2502,6 +2621,60 @@ Resources:
       ApiStages:
         - ApiId: !Ref RestApi
           Stage: prod
+
+  BootstrapPropagationUsagePlan:
+    Type: AWS::ApiGateway::UsagePlan
+    Properties:
+      UsagePlanName: !Sub '${AppName}-bootstrap-propagation-plan'
+      Description: 'Isolated high-burst throttling plan for short-lived newly-created API key propagation window'
+      Throttle:
+        RateLimit: 100
+        BurstLimit: 200
+      ApiStages:
+        - ApiId: !Ref RestApi
+          Stage: prod
+
+  FreeUsagePlanBootstrapKey:
+    Type: AWS::ApiGateway::ApiKey
+    Properties:
+      Name: !Sub '${AppName}-free-bootstrap-key'
+      Description: 'Pre-propagated fallback key used during newly-created key propagation window'
+      Enabled: true
+
+  FreeUsagePlanBootstrapKeyAttachment:
+    Type: AWS::ApiGateway::UsagePlanKey
+    Properties:
+      KeyId: !Ref FreeUsagePlanBootstrapKey
+      KeyType: API_KEY
+      UsagePlanId: !Ref BootstrapPropagationUsagePlan
+
+  StarterUsagePlanBootstrapKey:
+    Type: AWS::ApiGateway::ApiKey
+    Properties:
+      Name: !Sub '${AppName}-starter-bootstrap-key'
+      Description: 'Pre-propagated fallback key used during newly-created key propagation window'
+      Enabled: true
+
+  StarterUsagePlanBootstrapKeyAttachment:
+    Type: AWS::ApiGateway::UsagePlanKey
+    Properties:
+      KeyId: !Ref StarterUsagePlanBootstrapKey
+      KeyType: API_KEY
+      UsagePlanId: !Ref BootstrapPropagationUsagePlan
+
+  ProUsagePlanBootstrapKey:
+    Type: AWS::ApiGateway::ApiKey
+    Properties:
+      Name: !Sub '${AppName}-pro-bootstrap-key'
+      Description: 'Pre-propagated fallback key used during newly-created key propagation window'
+      Enabled: true
+
+  ProUsagePlanBootstrapKeyAttachment:
+    Type: AWS::ApiGateway::UsagePlanKey
+    Properties:
+      KeyId: !Ref ProUsagePlanBootstrapKey
+      KeyType: API_KEY
+      UsagePlanId: !Ref BootstrapPropagationUsagePlan
 
   LambdaApiPermission:
     Type: AWS::Lambda::Permission

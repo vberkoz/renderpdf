@@ -178,7 +178,28 @@ async function readCustomerDashboard(request) {
     }
   }
 
-  usage.logs.sort((a, b) => b.timestamp - a.timestamp);
+  const query = request?.queryStringParameters || {};
+  const rawLimit = Number(query.limit);
+  const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(100, Math.floor(rawLimit)) : 25;
+  const rawCursor = Number(query.cursor ?? query.offset);
+  const cursor = Number.isFinite(rawCursor) && rawCursor >= 0 ? Math.floor(rawCursor) : 0;
+  const statusFilter =
+    typeof query.status === 'string' && ['success', 'error', 'failed'].includes(query.status)
+      ? query.status
+      : '';
+  const sortOrder = query.sort === 'oldest' ? 'oldest' : 'newest';
+
+  usage.logs.sort((a, b) =>
+    sortOrder === 'oldest' ? a.timestamp - b.timestamp : b.timestamp - a.timestamp
+  );
+  const filteredLogs = statusFilter
+    ? usage.logs.filter((log) =>
+        statusFilter === 'success' ? log.status === 'success' : log.status !== 'success'
+      )
+    : usage.logs;
+  const pagedLogs = filteredLogs.slice(cursor, cursor + limit);
+  const nextCursor = cursor + limit < filteredLogs.length ? String(cursor + limit) : null;
+
   return customerResponse(200, {
     usage: {
       pdfsToday: usage.today,
@@ -189,7 +210,13 @@ async function readCustomerDashboard(request) {
       resetsAt: nextMonthStart(now).toISOString(),
     },
     billing: billing ? publicBilling(billing) : { status: 'free', plan: 'Free' },
-    logs: usage.logs.slice(0, 25),
+    logs: pagedLogs,
+    logsPagination: {
+      limit,
+      cursor,
+      nextCursor,
+      total: filteredLogs.length,
+    },
   });
 }
 

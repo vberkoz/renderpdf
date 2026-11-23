@@ -65,3 +65,92 @@ func TestResolveUsagePlanID(t *testing.T) {
 		})
 	}
 }
+
+func TestResolveUsageIdentifierKey(t *testing.T) {
+	hashed := strings.Repeat("a", 64)
+	freeKey := "rpdf-plan-free-123-bootstrap"
+	starterKey := "rpdf-plan-starter-123-bootstrap"
+	proKey := "rpdf-plan-pro-123-bootstrap"
+	now := int64(1795360500)
+
+	tests := []struct {
+		name             string
+		createdAt        int64
+		hadApiGatewayKey bool
+		tier             string
+		freeVal          string
+		starterVal       string
+		proVal           string
+		want             string
+	}{
+		{
+			name:             "new key within grace window on free tier",
+			createdAt:        now - 34,
+			hadApiGatewayKey: true,
+			tier:             "free",
+			freeVal:          freeKey,
+			starterVal:       starterKey,
+			proVal:           proKey,
+			want:             freeKey,
+		},
+		{
+			name:             "new key within grace window on starter tier",
+			createdAt:        now - 34,
+			hadApiGatewayKey: true,
+			tier:             "starter",
+			freeVal:          freeKey,
+			starterVal:       starterKey,
+			proVal:           proKey,
+			want:             starterKey,
+		},
+		{
+			name:             "new key within grace window on pro tier",
+			createdAt:        now - 10,
+			hadApiGatewayKey: true,
+			tier:             "pro",
+			freeVal:          freeKey,
+			starterVal:       starterKey,
+			proVal:           proKey,
+			want:             proKey,
+		},
+		{
+			name:             "lazily healed old key without apiGatewayKeyId",
+			createdAt:        now - 3600,
+			hadApiGatewayKey: false,
+			tier:             "starter",
+			freeVal:          freeKey,
+			starterVal:       starterKey,
+			proVal:           proKey,
+			want:             starterKey,
+		},
+		{
+			name:             "mature key past grace window uses hashed key",
+			createdAt:        now - apiKeyPropagationGraceSeconds,
+			hadApiGatewayKey: true,
+			tier:             "starter",
+			freeVal:          freeKey,
+			starterVal:       starterKey,
+			proVal:           proKey,
+			want:             hashed,
+		},
+		{
+			name:             "empty bootstrap keys fall back to hashed key",
+			createdAt:        now - 5,
+			hadApiGatewayKey: false,
+			tier:             "starter",
+			freeVal:          "",
+			starterVal:       "",
+			proVal:           "",
+			want:             hashed,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := resolveUsageIdentifierKey(hashed, tt.createdAt, now, tt.hadApiGatewayKey, tt.tier, tt.freeVal, tt.starterVal, tt.proVal)
+			if got != tt.want {
+				t.Fatalf("resolveUsageIdentifierKey() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}

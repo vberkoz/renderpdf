@@ -160,7 +160,9 @@ func defaultLaunchWarmBrowser(chromePath, userDataDir string, output io.Writer) 
 }
 
 func defaultOpenWarmTab(browserCtx context.Context) (context.Context, func()) {
-	return chromedp.NewContext(browserCtx, chromedp.WithNewBrowserContext())
+	// Single-process Chromium in Lambda crashes on Target.createBrowserContext,
+	// so open tabs within the default browser context instead of isolating each tab.
+	return chromedp.NewContext(browserCtx)
 }
 
 func (p *warmChromePool) acquireTab(chromePath string) (context.Context, func(failed bool), *boundedSyncBuffer, error) {

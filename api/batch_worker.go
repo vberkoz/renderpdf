@@ -131,7 +131,7 @@ func failRetryExhaustedBatchItem(ctx context.Context, message batchQueueMessage)
 	}
 	now := time.Now().UTC().Format(time.RFC3339Nano)
 	_, err = db.TransactWriteItemsWithContext(ctx, &dynamodb.TransactWriteItemsInput{TransactItems: []*dynamodb.TransactWriteItem{
-		{Update: &dynamodb.Update{TableName: aws.String(batchTable()), Key: key, UpdateExpression: aws.String("SET #status = :failed, errorCode = :code"), ConditionExpression: aws.String("#status = :active"), ExpressionAttributeNames: map[string]*string{"#status": aws.String("status")}, ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{":failed": {S: aws.String("failed")}, ":code": {S: aws.String("batch_retry_exhausted")}, ":active": {S: aws.String(status)}}}},
+		{Update: &dynamodb.Update{TableName: aws.String(batchTable()), Key: key, UpdateExpression: aws.String("SET #status = :failed, errorCode = :code, errorMessage = :msg"), ConditionExpression: aws.String("#status = :active"), ExpressionAttributeNames: map[string]*string{"#status": aws.String("status")}, ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{":failed": {S: aws.String("failed")}, ":code": {S: aws.String("batch_retry_exhausted")}, ":msg": {S: aws.String("Batch item exceeded maximum retry attempts")}, ":active": {S: aws.String(status)}}}},
 		{Update: &dynamodb.Update{TableName: aws.String(batchTable()), Key: batchJobKey(message.OwnerID, message.JobID), UpdateExpression: aws.String("ADD " + activeCounter + " :minus, failedCount :plus SET updatedAt = :now"), ConditionExpression: aws.String(activeCounter + " >= :one"), ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{":minus": {N: aws.String("-1")}, ":plus": {N: aws.String("1")}, ":one": {N: aws.String("1")}, ":now": {S: aws.String(now)}}}},
 	}})
 	if err != nil {
@@ -170,11 +170,11 @@ func processBatchItem(ctx context.Context, message batchQueueMessage) error {
 	}
 	var request batchRenderRequest
 	if err := json.Unmarshal([]byte(aws.StringValue(job.Item["request"].S)), &request); err != nil {
-		return completeBatchItem(db, message.OwnerID, message.JobID, key, "failed", "batch_request_invalid", "")
+		return completeBatchItem(db, message.OwnerID, message.JobID, key, "failed", "batch_request_invalid", "Invalid batch request payload", "")
 	}
 	var input batchRenderItem
 	if err := json.Unmarshal([]byte(aws.StringValue(item.Item["input"].S)), &input); err != nil {
-		return completeBatchItem(db, message.OwnerID, message.JobID, key, "failed", "batch_item_invalid", "")
+		return completeBatchItem(db, message.OwnerID, message.JobID, key, "failed", "batch_item_invalid", "Invalid batch item payload", "")
 	}
 	var render canonicalRenderRequest
 	if request.Source != nil {
@@ -185,12 +185,12 @@ func processBatchItem(ctx context.Context, message batchQueueMessage) error {
 	body, _ := json.Marshal(render)
 	normalized, err := normalizeCanonicalRenderRequestWithOwner(ctx, string(body), message.OwnerID)
 	if err != nil {
-		return completeBatchItem(db, message.OwnerID, message.JobID, key, "failed", "batch_item_validation_failed", "")
+		return completeBatchItem(db, message.OwnerID, message.JobID, key, "failed", "batch_item_validation_failed", err.Error(), "")
 	}
 	reservedQuota, quotaErr := reserveAccountQuota(message.OwnerID, "", time.Now().UTC())
 	if quotaErr != nil {
 		if errors.Is(quotaErr, errAccountQuotaExceeded) {
-			return completeBatchItem(db, message.OwnerID, message.JobID, key, "failed", "monthly_quota_exceeded", "")
+			return completeBatchItem(db, message.OwnerID, message.JobID, key, "failed", "monthly_quota_exceeded", "Monthly PDF quota reached", "")
 		}
 		return quotaErr
 	}
@@ -198,7 +198,11 @@ func processBatchItem(ctx context.Context, message batchQueueMessage) error {
 	if err != nil {
 		refundAccountQuota(reservedQuota)
 		if renderErr, ok := err.(*renderError); ok && renderErr.Status >= 400 && renderErr.Status < 500 {
-			return completeBatchItem(db, message.OwnerID, message.JobID, key, "failed", "batch_item_validation_failed", "")
+			code := renderErr.Code
+			if code == "" {
+				code = "batch_item_validation_failed"
+			}
+			return completeBatchItem(db, message.OwnerID, message.JobID, key, "failed", code, renderErr.Message, "")
 		}
 		return err
 	}
@@ -206,7 +210,7 @@ func processBatchItem(ctx context.Context, message batchQueueMessage) error {
 	objectKey := renderedPDFObjectKey(message.OwnerID, fileID)
 	if err := ensurePrivateFileStorage(ctx, message.OwnerID, int64(len(pdf))); err != nil {
 		refundAccountQuota(reservedQuota)
-		return completeBatchItem(db, message.OwnerID, message.JobID, key, "failed", "file_storage_limit_reached", "")
+		return completeBatchItem(db, message.OwnerID, message.JobID, key, "failed", "file_storage_limit_reached", "Private file storage limit reached", "")
 	}
 	if _, err = s3Client.PutObject(&s3.PutObjectInput{Bucket: aws.String(bucketName), Key: aws.String(objectKey), Body: bytes.NewReader(pdf)}); err != nil {
 		refundAccountQuota(reservedQuota)
@@ -225,7 +229,7 @@ func processBatchItem(ctx context.Context, message batchQueueMessage) error {
 		}
 	}
 	logBatchAudit(batchAuditEvent{Event: "batch_item_rendered", JobID: message.JobID, FileID: fileID, Status: "succeeded", PDFBytes: int64(len(pdf)), DurationMs: time.Since(startedAt).Milliseconds()})
-	return completeBatchItem(db, message.OwnerID, message.JobID, key, "succeeded", "", fileID)
+	return completeBatchItem(db, message.OwnerID, message.JobID, key, "succeeded", "", "", fileID)
 }
 
 // renderBatchNormalizedSource deliberately mirrors the source-specific portion
@@ -320,12 +324,16 @@ func renderBatchNormalizedSource(ctx context.Context, owner string, normalized n
 	}
 }
 
-func completeBatchItem(db batchWorkerDB, owner, jobID string, key map[string]*dynamodb.AttributeValue, status, code, fileID string) error {
+func completeBatchItem(db batchWorkerDB, owner, jobID string, key map[string]*dynamodb.AttributeValue, status, code, errorMessage, fileID string) error {
 	values := map[string]*dynamodb.AttributeValue{":status": {S: aws.String(status)}}
 	expression := "SET #status = :status"
 	if code != "" {
 		values[":code"] = &dynamodb.AttributeValue{S: aws.String(code)}
 		expression += ", errorCode = :code"
+	}
+	if errorMessage != "" {
+		values[":msg"] = &dynamodb.AttributeValue{S: aws.String(truncateDiagnosticText(errorMessage))}
+		expression += ", errorMessage = :msg"
 	}
 	if fileID != "" {
 		values[":file"] = &dynamodb.AttributeValue{S: aws.String(fileID)}

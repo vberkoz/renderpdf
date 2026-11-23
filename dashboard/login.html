@@ -3,15 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="dark">
+    <script>try{document.querySelector('meta[name="color-scheme"]').content=localStorage.getItem('ds-scheme')||'dark';}catch(e){}</script>
     <meta name="description" content="Sign in to RenderPDF to create API keys and manage your PDF workflow.">
     <title>RenderPDF | Sign in</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter+Tight:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <link href="/styles/base.css" rel="stylesheet">
     <link href="/styles/auth.css" rel="stylesheet">
 
+    <script src="/theme.js" defer></script>
 </head>
 <body class="auth-page">
     <a class="skip-link" href="#main-content">Skip to main content</a>
@@ -28,6 +31,7 @@
                 <a href="/app/">Dashboard</a>
                 <a href="https://github.com/vberkoz/renderpdf">GitHub</a>
             </nav>
+            <button type="button" class="theme-toggle" data-action="theme" aria-label="Toggle color theme" title="Toggle light/dark theme"><svg class="lucide when-dark" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg><svg class="lucide when-light" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg></button>
         </header></div>
 
         <main id="main-content" class="auth-main" tabindex="-1">
@@ -67,6 +71,8 @@
                     <span>Need an account?</span>
                     <button id="emailSignUpBtn" class="auth-text-link" type="button">Sign up with email <svg class="lucide lucide-arrow-right" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
                 </div>
+
+                <p id="loginError" class="notice notice-error" role="status" aria-live="polite" hidden></p>
 
                 <p class="auth-fineprint"><svg class="lucide lucide-shield-check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg> Sign in with your Google account or email and password. Supports corporate email (Microsoft 365, Google Workspace, custom domains) and privacy providers (Proton, Fastmail).</p>
             </section>
@@ -118,34 +124,121 @@
         const EMAIL_CLIENT_ID = '5gqa1riu69sek3sj7nscrq956l';
         const REDIRECT_URI = 'https://renderpdf.vberkoz.com/app/callback';
 
-        const googleAuthParams = `client_id=${GOOGLE_CLIENT_ID}&response_type=token&scope=email+openid+profile&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&identity_provider=Google`;
-        const emailAuthParams = `client_id=${EMAIL_CLIENT_ID}&response_type=token&scope=email+openid+profile&redirect_uri=${encodeURIComponent(REDIRECT_URI)}`;
+        const loginError = document.getElementById('loginError');
+        const authButtons = ['loginBtn', 'emailLoginBtn', 'emailSignUpBtn'].map((id) => document.getElementById(id)).filter(Boolean);
+        let redirectTimer = null;
 
-        document.getElementById('loginBtn').addEventListener('click', () => {
-            const button = document.getElementById('loginBtn');
+        const base64UrlEncode = (bytes) => {
+            let binary = '';
+            bytes.forEach((b) => { binary += String.fromCharCode(b); });
+            return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+        };
+
+        const generateOAuthState = () => {
+            const bytes = new Uint8Array(16);
+            window.crypto.getRandomValues(bytes);
+            return base64UrlEncode(bytes);
+        };
+
+        const createPkcePair = async () => {
+            const bytes = new Uint8Array(32);
+            window.crypto.getRandomValues(bytes);
+            const verifier = base64UrlEncode(bytes);
+            const digest = await window.crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
+            const challenge = base64UrlEncode(new Uint8Array(digest));
+            return { verifier, challenge };
+        };
+
+        const findButtonTextNode = (button) =>
+            Array.from(button.childNodes).find((node) => node.nodeType === Node.TEXT_NODE && node.textContent.trim());
+
+        const showLoginError = (message) => {
+            if (!loginError) return;
+            loginError.textContent = message;
+            loginError.hidden = !message;
+        };
+
+        const resetAuthButtons = () => {
+            if (redirectTimer) {
+                window.clearTimeout(redirectTimer);
+                redirectTimer = null;
+            }
+            authButtons.forEach((button) => {
+                button.disabled = false;
+                button.removeAttribute('aria-busy');
+                button.classList.remove('is-processing');
+                const textNode = findButtonTextNode(button);
+                if (textNode && button.dataset.originalLabel) {
+                    textNode.textContent = button.dataset.originalLabel;
+                }
+            });
+        };
+
+        const startAuthRedirect = async (buttonId, endpointPath, clientId, extraParams = {}) => {
+            const button = document.getElementById(buttonId);
+            if (!button) return;
+            showLoginError('');
+            const textNode = findButtonTextNode(button);
+            if (textNode && !button.dataset.originalLabel) {
+                button.dataset.originalLabel = textNode.textContent;
+            }
             button.disabled = true;
             button.setAttribute('aria-busy', 'true');
             button.classList.add('is-processing');
-            button.textContent = 'Redirecting…';
-            window.location.href = `${COGNITO_DOMAIN}/oauth2/authorize?${googleAuthParams}`;
+            if (textNode) {
+                textNode.textContent = buttonId === 'emailSignUpBtn' ? 'Redirecting… ' : ' Redirecting…';
+            }
+            if (redirectTimer) window.clearTimeout(redirectTimer);
+            redirectTimer = window.setTimeout(() => {
+                resetAuthButtons();
+                showLoginError('Could not redirect to sign-in. Please check your connection and try again.');
+            }, 8000);
+            try {
+                const { verifier, challenge } = await createPkcePair();
+                const state = generateOAuthState();
+                sessionStorage.setItem('pkce_code_verifier', verifier);
+                sessionStorage.setItem('pkce_state', state);
+                sessionStorage.setItem('pkce_client_id', clientId);
+                const params = new URLSearchParams({
+                    client_id: clientId,
+                    response_type: 'code',
+                    scope: 'email openid profile',
+                    redirect_uri: REDIRECT_URI,
+                    code_challenge: challenge,
+                    code_challenge_method: 'S256',
+                    state,
+                    ...extraParams,
+                });
+                window.location.assign(`${COGNITO_DOMAIN}${endpointPath}?${params.toString()}`);
+            } catch (error) {
+                resetAuthButtons();
+                showLoginError('Could not redirect to sign-in. Please check your connection and try again.');
+            }
+        };
+
+        const queryParams = new URLSearchParams(window.location.search);
+        const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+        const redirectError =
+            queryParams.get('error_description') ||
+            queryParams.get('error') ||
+            hashParams.get('error_description') ||
+            hashParams.get('error');
+        if (redirectError) {
+            showLoginError(`Sign-in could not be completed: ${redirectError}`);
+        }
+
+        window.addEventListener('pagehide', resetAuthButtons);
+
+        document.getElementById('loginBtn').addEventListener('click', () => {
+            startAuthRedirect('loginBtn', '/oauth2/authorize', GOOGLE_CLIENT_ID, { identity_provider: 'Google' });
         });
 
         document.getElementById('emailLoginBtn').addEventListener('click', () => {
-            const button = document.getElementById('emailLoginBtn');
-            button.disabled = true;
-            button.setAttribute('aria-busy', 'true');
-            button.classList.add('is-processing');
-            button.textContent = 'Redirecting…';
-            window.location.href = `${COGNITO_DOMAIN}/login?${emailAuthParams}`;
+            startAuthRedirect('emailLoginBtn', '/login', EMAIL_CLIENT_ID);
         });
 
         document.getElementById('emailSignUpBtn').addEventListener('click', () => {
-            const button = document.getElementById('emailSignUpBtn');
-            button.disabled = true;
-            button.setAttribute('aria-busy', 'true');
-            button.classList.add('is-processing');
-            button.textContent = 'Redirecting…';
-            window.location.href = `${COGNITO_DOMAIN}/signup?${emailAuthParams}`;
+            startAuthRedirect('emailSignUpBtn', '/signup', EMAIL_CLIENT_ID);
         });
     </script>
 </body>

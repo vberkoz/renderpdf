@@ -78,3 +78,46 @@ func TestGetUserBillingTierDefault(t *testing.T) {
 		t.Fatalf("getUserBillingTier(\"\") = %q, want \"free\"", tier)
 	}
 }
+
+func TestResolveBootstrapKeyValueCachesLookup(t *testing.T) {
+	prevFreeID, prevStarterID, prevProID := freeUsagePlanKeyID, starterUsagePlanKeyID, proUsagePlanKeyID
+	prevFreeVal, prevStarterVal, prevProVal := freeUsagePlanKeyValue, starterUsagePlanKeyValue, proUsagePlanKeyValue
+	prevFetch := fetchAPIGatewayKeyValue
+	t.Cleanup(func() {
+		freeUsagePlanKeyID, starterUsagePlanKeyID, proUsagePlanKeyID = prevFreeID, prevStarterID, prevProID
+		freeUsagePlanKeyValue, starterUsagePlanKeyValue, proUsagePlanKeyValue = prevFreeVal, prevStarterVal, prevProVal
+		fetchAPIGatewayKeyValue = prevFetch
+		bootstrapKeyCacheMu.Lock()
+		bootstrapKeyCache = map[string]string{}
+		bootstrapKeyCacheMu.Unlock()
+	})
+
+	freeUsagePlanKeyValue, starterUsagePlanKeyValue, proUsagePlanKeyValue = "", "", ""
+	freeUsagePlanKeyID = "apigw-key-free"
+	starterUsagePlanKeyID = "apigw-key-starter"
+	proUsagePlanKeyID = "apigw-key-pro"
+	bootstrapKeyCacheMu.Lock()
+	bootstrapKeyCache = map[string]string{}
+	bootstrapKeyCacheMu.Unlock()
+
+	calls := 0
+	fetchAPIGatewayKeyValue = func(keyID string) (string, error) {
+		calls++
+		return "secret-val-" + keyID, nil
+	}
+
+	got1 := resolveBootstrapKeyValue("starter")
+	got2 := resolveBootstrapKeyValue("starter")
+	if got1 != "secret-val-apigw-key-starter" || got2 != got1 {
+		t.Fatalf("resolveBootstrapKeyValue(starter) = %q / %q", got1, got2)
+	}
+	if calls != 1 {
+		t.Fatalf("expected 1 GetApiKey call due to caching, got %d", calls)
+	}
+
+	// Explicit value override takes precedence without calling GetApiKey
+	freeUsagePlanKeyValue = "explicit-free-override"
+	if gotFree := resolveBootstrapKeyValue("free"); gotFree != "explicit-free-override" || calls != 1 {
+		t.Fatalf("expected explicit override without extra GetApiKey call, got %q calls=%d", gotFree, calls)
+	}
+}

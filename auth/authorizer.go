@@ -6,7 +6,9 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -19,15 +21,68 @@ import (
 )
 
 var (
-	tableName          = os.Getenv("API_KEYS_TABLE")
-	usageTableName     = os.Getenv("TABLE_NAME")
-	freeUsagePlanID    = os.Getenv("FREE_USAGE_PLAN_ID")
-	starterUsagePlanID = os.Getenv("STARTER_USAGE_PLAN_ID")
-	proUsagePlanID     = os.Getenv("PRO_USAGE_PLAN_ID")
-	sess               = session.Must(session.NewSession())
-	ddb                = dynamodb.New(sess)
-	apigw              = apigateway.New(sess)
+	tableName                = os.Getenv("API_KEYS_TABLE")
+	usageTableName           = os.Getenv("TABLE_NAME")
+	freeUsagePlanID          = os.Getenv("FREE_USAGE_PLAN_ID")
+	starterUsagePlanID       = os.Getenv("STARTER_USAGE_PLAN_ID")
+	proUsagePlanID           = os.Getenv("PRO_USAGE_PLAN_ID")
+	freeUsagePlanKeyID       = os.Getenv("FREE_USAGE_PLAN_KEY_ID")
+	starterUsagePlanKeyID    = os.Getenv("STARTER_USAGE_PLAN_KEY_ID")
+	proUsagePlanKeyID        = os.Getenv("PRO_USAGE_PLAN_KEY_ID")
+	freeUsagePlanKeyValue    = os.Getenv("FREE_USAGE_PLAN_KEY_VALUE")
+	starterUsagePlanKeyValue = os.Getenv("STARTER_USAGE_PLAN_KEY_VALUE")
+	proUsagePlanKeyValue     = os.Getenv("PRO_USAGE_PLAN_KEY_VALUE")
+	sess                     = session.Must(session.NewSession())
+	ddb                      = dynamodb.New(sess)
+	apigw                    = apigateway.New(sess)
+	bootstrapKeyCacheMu      sync.RWMutex
+	bootstrapKeyCache        = map[string]string{}
+	fetchAPIGatewayKeyValue  = func(keyID string) (string, error) {
+		out, err := apigw.GetApiKey(&apigateway.GetApiKeyInput{
+			ApiKey:       aws.String(keyID),
+			IncludeValue: aws.Bool(true),
+		})
+		if err != nil {
+			return "", err
+		}
+		if out != nil && out.Value != nil {
+			return *out.Value, nil
+		}
+		return "", nil
+	}
 )
+
+func hasBootstrapKeyConfig() bool {
+	return freeUsagePlanKeyID != "" || starterUsagePlanKeyID != "" || proUsagePlanKeyID != "" ||
+		freeUsagePlanKeyValue != "" || starterUsagePlanKeyValue != "" || proUsagePlanKeyValue != ""
+}
+
+func resolveBootstrapKeyValue(tier string) string {
+	if val := resolveUsagePlanID(tier, freeUsagePlanKeyValue, starterUsagePlanKeyValue, proUsagePlanKeyValue); val != "" {
+		return val
+	}
+	keyID := resolveUsagePlanID(tier, freeUsagePlanKeyID, starterUsagePlanKeyID, proUsagePlanKeyID)
+	if keyID == "" {
+		return ""
+	}
+	bootstrapKeyCacheMu.RLock()
+	cached, ok := bootstrapKeyCache[keyID]
+	bootstrapKeyCacheMu.RUnlock()
+	if ok {
+		return cached
+	}
+	val, err := fetchAPIGatewayKeyValue(keyID)
+	if err != nil || val == "" {
+		if err != nil {
+			fmt.Printf("GetApiKey(%s) error: %v\n", keyID, err)
+		}
+		return ""
+	}
+	bootstrapKeyCacheMu.Lock()
+	bootstrapKeyCache[keyID] = val
+	bootstrapKeyCacheMu.Unlock()
+	return val
+}
 
 func handler(ctx context.Context, event events.APIGatewayCustomAuthorizerRequestTypeRequest) (events.APIGatewayCustomAuthorizerResponse, error) {
 	apiKey := bearerToken(event.Headers)
@@ -60,6 +115,7 @@ func handler(ctx context.Context, event events.APIGatewayCustomAuthorizerRequest
 		userId = *item["userId"].S
 	}
 
+	nowUnix := time.Now().Unix()
 	ddb.UpdateItem(&dynamodb.UpdateItemInput{
 		TableName: aws.String(tableName),
 		Key: map[string]*dynamodb.AttributeValue{
@@ -68,12 +124,11 @@ func handler(ctx context.Context, event events.APIGatewayCustomAuthorizerRequest
 		},
 		UpdateExpression: aws.String("SET lastUsed = :now"),
 		ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{
-			":now": {N: aws.String(fmt.Sprintf("%d", time.Now().Unix()))},
+			":now": {N: aws.String(fmt.Sprintf("%d", nowUnix))},
 		},
 	})
 
 	policy := generatePolicy(userId, "Allow", event.MethodArn)
-	policy.UsageIdentifierKey = hashedKey
 	if item["keyId"] != nil && item["keyId"].S != nil {
 		policy.Context["apiKeyId"] = *item["keyId"].S
 	}
@@ -85,7 +140,32 @@ func handler(ctx context.Context, event events.APIGatewayCustomAuthorizerRequest
 	if item["keyId"] != nil && item["keyId"].S != nil {
 		keyId = *item["keyId"].S
 	}
+	var createdAt int64
+	if item["createdAt"] != nil && item["createdAt"].N != nil {
+		if parsed, parseErr := strconv.ParseInt(*item["createdAt"].N, 10, 64); parseErr == nil {
+			createdAt = parsed
+		}
+	}
+	hadApiGatewayKey := item["apiGatewayKeyId"] != nil && item["apiGatewayKeyId"].S != nil && *item["apiGatewayKeyId"].S != ""
+
 	ensureApiKeyInUsagePlan(hashedKey, keyId, userId, item)
+
+	policy.UsageIdentifierKey = hashedKey
+	if (!hadApiGatewayKey || createdAt <= 0 || nowUnix-createdAt < apiKeyPropagationGraceSeconds) && hasBootstrapKeyConfig() {
+		tier := getUserBillingTier(userId)
+		if bootstrapVal := resolveBootstrapKeyValue(tier); bootstrapVal != "" {
+			policy.UsageIdentifierKey = resolveUsageIdentifierKey(
+				hashedKey,
+				createdAt,
+				nowUnix,
+				hadApiGatewayKey,
+				tier,
+				bootstrapVal,
+				bootstrapVal,
+				bootstrapVal,
+			)
+		}
+	}
 
 	return policy, nil
 }

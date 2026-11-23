@@ -13,7 +13,71 @@ import (
 var errAccountQuotaExceeded = errors.New("monthly account quota exceeded")
 
 type accountQuota struct {
-	Key string
+	Key       string
+	Limit     int
+	Used      int
+	Remaining int
+	Period    string
+}
+
+func parseQuotaAttrInt(attrs map[string]*dynamodb.AttributeValue, name string) (int, bool) {
+	if attrs == nil || attrs[name] == nil || attrs[name].N == nil {
+		return 0, false
+	}
+	var v int
+	if _, err := fmt.Sscanf(*attrs[name].N, "%d", &v); err != nil {
+		return 0, false
+	}
+	return v, true
+}
+
+func secondsUntilUTCMidnight(now time.Time) int {
+	u := now.UTC()
+	next := time.Date(u.Year(), u.Month(), u.Day()+1, 0, 0, 0, 0, time.UTC)
+	secs := int(next.Sub(u).Seconds())
+	if secs < 1 {
+		return 1
+	}
+	return secs
+}
+
+func secondsUntilNextUTCMonth(now time.Time) int {
+	u := now.UTC()
+	next := time.Date(u.Year(), u.Month()+1, 1, 0, 0, 0, 0, time.UTC)
+	secs := int(next.Sub(u).Seconds())
+	if secs < 1 {
+		return 1
+	}
+	return secs
+}
+
+func setAccountQuotaHeaders(q *accountQuota, headers map[string]string) {
+	if q == nil || headers == nil {
+		return
+	}
+	headers["X-Quota-Limit"] = fmt.Sprintf("%d", q.Limit)
+	headers["X-Quota-Remaining"] = fmt.Sprintf("%d", q.Remaining)
+}
+
+func restoreAccountQuotaRemainingHeader(q *accountQuota, headers map[string]string) {
+	if q == nil || headers == nil {
+		return
+	}
+	headers["X-Quota-Limit"] = fmt.Sprintf("%d", q.Limit)
+	headers["X-Quota-Remaining"] = fmt.Sprintf("%d", min(q.Limit, q.Remaining+1))
+}
+
+func setAccountQuotaExceededHeaders(customerID string, headers map[string]string, now time.Time) {
+	if headers == nil {
+		return
+	}
+	headers["Retry-After"] = fmt.Sprintf("%d", secondsUntilNextUTCMonth(now))
+	if customerID != "" {
+		if limit, err := accountMonthlyQuota(customerID); err == nil && limit > 0 {
+			headers["X-Quota-Limit"] = fmt.Sprintf("%d", limit)
+		}
+	}
+	headers["X-Quota-Remaining"] = "0"
 }
 
 func accountMonthlyQuota(customerID string) (int, error) {
@@ -46,15 +110,13 @@ func accountMonthlyQuota(customerID string) (int, error) {
 	return positiveEnvInt("FREE_MONTHLY_QUOTA", 25), nil
 }
 
-func checkAccountQuotaAvailable(customerID string, now time.Time) error {
-	if customerID == "" {
-		return nil
-	}
+func currentAccountQuota(customerID string, now time.Time) (*accountQuota, error) {
 	planLimit, err := accountMonthlyQuota(customerID)
 	if err != nil {
-		return fmt.Errorf("load account plan: %w", err)
+		return nil, fmt.Errorf("load account plan: %w", err)
 	}
-	key := fmt.Sprintf("USER_QUOTA#%s#%s", customerID, now.UTC().Format("2006-01"))
+	period := now.UTC().Format("2006-01")
+	key := fmt.Sprintf("USER_QUOTA#%s#%s", customerID, period)
 	result, err := ddbClient.GetItem(&dynamodb.GetItemInput{
 		TableName: aws.String(tableName),
 		Key: map[string]*dynamodb.AttributeValue{
@@ -64,24 +126,36 @@ func checkAccountQuotaAvailable(customerID string, now time.Time) error {
 		ConsistentRead: aws.Bool(true),
 	})
 	if err != nil {
-		return err
-	}
-	if result.Item == nil {
-		return nil
+		return nil, err
 	}
 	used := 0
 	storedLimit := 0
-	if result.Item["used"] != nil && result.Item["used"].N != nil {
-		fmt.Sscanf(*result.Item["used"].N, "%d", &used)
-	}
-	if result.Item["limit"] != nil && result.Item["limit"].N != nil {
-		fmt.Sscanf(*result.Item["limit"].N, "%d", &storedLimit)
+	if result.Item != nil {
+		used, _ = parseQuotaAttrInt(result.Item, "used")
+		storedLimit, _ = parseQuotaAttrInt(result.Item, "limit")
 	}
 	effectiveLimit := planLimit
 	if storedLimit > effectiveLimit {
 		effectiveLimit = storedLimit
 	}
-	if used >= effectiveLimit {
+	return &accountQuota{
+		Key:       key,
+		Limit:     effectiveLimit,
+		Used:      used,
+		Remaining: max(0, effectiveLimit-used),
+		Period:    period,
+	}, nil
+}
+
+func checkAccountQuotaAvailable(customerID string, now time.Time) error {
+	if customerID == "" {
+		return nil
+	}
+	q, err := currentAccountQuota(customerID, now)
+	if err != nil {
+		return err
+	}
+	if q.Used >= q.Limit {
 		return errAccountQuotaExceeded
 	}
 	return nil
@@ -164,7 +238,7 @@ func reserveAccountQuota(customerID, customerEmail string, now time.Time) (*acco
 			})
 			if upgradeErr == nil {
 				checkQuotaAfterReservation(customerID, customerEmail, key, upgradeRes.Attributes, now)
-				return &accountQuota{Key: key}, nil
+				return reservedQuotaFromAttrs(key, limit, upgradeRes.Attributes, now), nil
 			}
 			if upAwsErr, ok := upgradeErr.(awserr.Error); ok && upAwsErr.Code() == dynamodb.ErrCodeConditionalCheckFailedException {
 				// Monthly quota exceeded: trigger 100% alert check
@@ -176,7 +250,25 @@ func reserveAccountQuota(customerID, customerEmail string, now time.Time) (*acco
 		return nil, err
 	}
 	checkQuotaAfterReservation(customerID, customerEmail, key, updateRes.Attributes, now)
-	return &accountQuota{Key: key}, nil
+	return reservedQuotaFromAttrs(key, limit, updateRes.Attributes, now), nil
+}
+
+func reservedQuotaFromAttrs(key string, defaultLimit int, attrs map[string]*dynamodb.AttributeValue, now time.Time) *accountQuota {
+	used, hasUsed := parseQuotaAttrInt(attrs, "used")
+	if !hasUsed {
+		used = 1
+	}
+	actualLimit, hasLimit := parseQuotaAttrInt(attrs, "limit")
+	if !hasLimit || actualLimit <= 0 {
+		actualLimit = defaultLimit
+	}
+	return &accountQuota{
+		Key:       key,
+		Limit:     actualLimit,
+		Used:      used,
+		Remaining: max(0, actualLimit-used),
+		Period:    now.UTC().Format("2006-01"),
+	}
 }
 
 func refundAccountQuota(quota *accountQuota) {

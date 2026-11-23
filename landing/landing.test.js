@@ -56,7 +56,22 @@ function createMockElement(tagName = 'div') {
   return element;
 }
 
-test('attempting 4th render displays informative limit-reached message and CTA to register/log in', async () => {
+function flushMicrotasks() {
+  return new Promise((resolve) => setImmediate(resolve));
+}
+
+function createHeaders(entries = {}) {
+  const normalized = new Map(
+    Object.entries(entries).map(([k, v]) => [k.toLowerCase(), String(v)])
+  );
+  return {
+    get(name) {
+      return normalized.has(name.toLowerCase()) ? normalized.get(name.toLowerCase()) : null;
+    },
+  };
+}
+
+function setupLanding({ includeHero = true, mockFetch } = {}) {
   const elements = {
     pdfForm: createMockElement('form'),
     generateBtn: createMockElement('button'),
@@ -72,56 +87,35 @@ test('attempting 4th render displays informative limit-reached message and CTA t
     uptimeVal: createMockElement('strong'),
   };
 
+  if (includeHero) {
+    elements.heroQuotaStatus = createMockElement('p');
+    elements.heroQuotaRemaining = createMockElement('strong');
+    elements.heroQuotaLabel = createMockElement('span');
+    elements.heroQuotaRemaining.textContent = '3';
+    elements.heroQuotaLabel.textContent = 'free renders left today. No account or API key required.';
+  }
+
   elements.htmlInput.value = '<h1>Test Invoice</h1>';
-  elements.quotaRemaining.textContent = '0';
+  elements.quotaRemaining.textContent = '3';
+  elements.quotaLabel.textContent = 'free PDFs left today';
   elements.result.classList.add('hidden');
   elements.error.classList.add('hidden');
 
-  let fetchCalledWith = null;
-
-  const mockFetch = async (url, options = {}) => {
-    const urlStr = String(url);
-    if (urlStr.includes('/api/v1/trial/quota')) {
-      return {
-        ok: true,
-        json: async () => ({ limit: 3, remaining: 0 }),
-      };
-    }
-    if (urlStr.includes('/api/v1/public-stats')) {
-      return {
-        ok: true,
-        json: async () => ({ averageRenderMs: 420, successRate: 99.9 }),
-      };
-    }
-    if (urlStr.includes('/api/v1/trial/render')) {
-      fetchCalledWith = { url: urlStr, options };
-      // 4th render is blocked by the backend with HTTP 429
-      return {
-        ok: false,
-        status: 429,
-        headers: {
-          get(name) {
-            if (name.toLowerCase() === 'x-trial-remaining') return '0';
-            if (name.toLowerCase() === 'x-trial-limit') return '3';
-            return null;
-          },
-        },
-        json: async () => ({
-          code: 'rate_limited',
-          error: 'Daily trial limit reached',
-          requestId: 'req-trial-limit-4th',
-        }),
-      };
-    }
-    return { ok: true, json: async () => ({}) };
+  const windowListeners = {};
+  const windowObj = {
+    location: { protocol: 'https:', origin: 'https://renderpdf.vberkoz.com' },
+    matchMedia: () => ({ matches: true }),
+    addEventListener(type, fn) {
+      if (!windowListeners[type]) windowListeners[type] = [];
+      windowListeners[type].push(fn);
+    },
+    dispatchEvent(event) {
+      (windowListeners[event.type] || []).forEach((fn) => fn(event));
+    },
   };
 
   const sandbox = {
-    window: {
-      location: { protocol: 'https:', origin: 'https://renderpdf.vberkoz.com' },
-      matchMedia: () => ({ matches: true }),
-      addEventListener: () => {},
-    },
+    window: windowObj,
     document: {
       readyState: 'complete',
       getElementById: (id) => elements[id] || null,
@@ -151,18 +145,64 @@ test('attempting 4th render displays informative limit-reached message and CTA t
   vm.createContext(sandbox);
   vm.runInContext(landingCode, sandbox);
 
-  // Trigger form submit to attempt the 4th render
-  const submitListeners = elements.pdfForm.listeners['submit'] || [];
-  assert.ok(submitListeners.length > 0, 'Form should have submit listener registered');
+  async function submitForm() {
+    const submitListeners = elements.pdfForm.listeners['submit'] || [];
+    assert.ok(submitListeners.length > 0, 'Form should have submit listener registered');
+    let defaultPrevented = false;
+    await submitListeners[0]({
+      preventDefault: () => {
+        defaultPrevented = true;
+      },
+    });
+    return { defaultPrevented };
+  }
 
-  let defaultPrevented = false;
-  const event = {
-    preventDefault: () => {
-      defaultPrevented = true;
+  return { elements, windowObj, submitForm };
+}
+
+test('attempting 4th render displays informative limit-reached message and CTA to register/log in', async () => {
+  let fetchCalledWith = null;
+
+  const { elements, submitForm } = setupLanding({
+    includeHero: false,
+    mockFetch: async (url, options = {}) => {
+      const urlStr = String(url);
+      if (urlStr.includes('/api/v1/trial/quota')) {
+        return {
+          ok: true,
+          json: async () => ({ limit: 3, remaining: 0 }),
+        };
+      }
+      if (urlStr.includes('/api/v1/public-stats')) {
+        return {
+          ok: true,
+          json: async () => ({ averageRenderMs: 420, successRate: 99.9 }),
+        };
+      }
+      if (urlStr.includes('/api/v1/trial/render')) {
+        fetchCalledWith = { url: urlStr, options };
+        // 4th render is blocked by the backend with HTTP 429
+        return {
+          ok: false,
+          status: 429,
+          headers: createHeaders({
+            'x-trial-remaining': '0',
+            'x-trial-limit': '3',
+          }),
+          json: async () => ({
+            code: 'rate_limited',
+            error: 'Daily trial limit reached',
+            requestId: 'req-trial-limit-4th',
+          }),
+        };
+      }
+      return { ok: true, json: async () => ({}) };
     },
-  };
+  });
 
-  await submitListeners[0](event);
+  await flushMicrotasks();
+
+  const { defaultPrevented } = await submitForm();
 
   assert.ok(defaultPrevented, 'Form submit default should be prevented');
   assert.ok(fetchCalledWith, 'Trial render fetch should be called');
@@ -194,4 +234,288 @@ test('attempting 4th render displays informative limit-reached message and CTA t
   // Verify quota status reflects 0
   assert.strictEqual(String(elements.quotaRemaining.textContent), '0');
   assert.ok(elements.quotaStatus.classList.contains('quota-empty'));
+});
+
+test('initial loadQuota syncs hero and playground for plural, singular, and exhausted states', async () => {
+  const cases = [
+    {
+      remaining: 2,
+      playgroundLabel: 'free PDFs left today',
+      heroLabel: 'free renders left today. No account or API key required.',
+      empty: false,
+    },
+    {
+      remaining: 1,
+      playgroundLabel: 'free PDF left today',
+      heroLabel: 'free render left today. No account or API key required.',
+      empty: false,
+    },
+    {
+      remaining: 0,
+      playgroundLabel: 'free PDFs left today',
+      heroLabel: 'free renders left today. Sign in for 25 free PDFs/month.',
+      empty: true,
+    },
+  ];
+
+  for (const tc of cases) {
+    const { elements } = setupLanding({
+      mockFetch: async (url) => {
+        if (String(url).includes('/api/v1/trial/quota')) {
+          return {
+            ok: true,
+            json: async () => ({ limit: 3, remaining: tc.remaining }),
+          };
+        }
+        return { ok: true, json: async () => ({}) };
+      },
+    });
+
+    await flushMicrotasks();
+
+    assert.strictEqual(elements.quotaRemaining.textContent, String(tc.remaining));
+    assert.strictEqual(elements.quotaLabel.textContent, tc.playgroundLabel);
+    assert.strictEqual(elements.quotaStatus.classList.contains('quota-empty'), tc.empty);
+
+    assert.strictEqual(elements.heroQuotaRemaining.textContent, String(tc.remaining));
+    assert.strictEqual(elements.heroQuotaLabel.textContent, tc.heroLabel);
+    assert.strictEqual(elements.heroQuotaStatus.classList.contains('quota-empty'), tc.empty);
+  }
+});
+
+test('successful render updates hero and playground from X-Trial-Remaining and falls back to quota fetch when header is missing', async () => {
+  // Case 1: X-Trial-Remaining header present
+  {
+    const { elements, submitForm } = setupLanding({
+      mockFetch: async (url) => {
+        const urlStr = String(url);
+        if (urlStr.includes('/api/v1/trial/quota')) {
+          return { ok: true, json: async () => ({ limit: 3, remaining: 3 }) };
+        }
+        if (urlStr.includes('/api/v1/trial/render')) {
+          return {
+            ok: true,
+            status: 200,
+            headers: createHeaders({
+              'X-Trial-Remaining': '2',
+              'X-Trial-Limit': '3',
+            }),
+            json: async () => ({ url: 'https://cdn.example.com/out.pdf', size: 2048 }),
+          };
+        }
+        return { ok: true, json: async () => ({}) };
+      },
+    });
+
+    await flushMicrotasks();
+    await submitForm();
+
+    assert.strictEqual(elements.quotaRemaining.textContent, '2');
+    assert.strictEqual(elements.heroQuotaRemaining.textContent, '2');
+    assert.strictEqual(elements.quotaLabel.textContent, 'free PDFs left today');
+    assert.strictEqual(elements.heroQuotaLabel.textContent, 'free renders left today. No account or API key required.');
+  }
+
+  // Case 2: X-Trial-Remaining header stripped -> falls back to GET /api/v1/trial/quota
+  {
+    let quotaCalls = 0;
+    const { elements, submitForm } = setupLanding({
+      mockFetch: async (url) => {
+        const urlStr = String(url);
+        if (urlStr.includes('/api/v1/trial/quota')) {
+          quotaCalls += 1;
+          const remaining = quotaCalls === 1 ? 2 : 1;
+          return { ok: true, json: async () => ({ limit: 3, remaining }) };
+        }
+        if (urlStr.includes('/api/v1/trial/render')) {
+          return {
+            ok: true,
+            status: 200,
+            headers: createHeaders({}),
+            json: async () => ({ url: 'https://cdn.example.com/out.pdf', size: 2048 }),
+          };
+        }
+        return { ok: true, json: async () => ({}) };
+      },
+    });
+
+    await flushMicrotasks();
+    assert.strictEqual(elements.heroQuotaRemaining.textContent, '2');
+
+    await submitForm();
+    await flushMicrotasks();
+
+    assert.strictEqual(quotaCalls, 2);
+    assert.strictEqual(elements.quotaRemaining.textContent, '1');
+    assert.strictEqual(elements.quotaLabel.textContent, 'free PDF left today');
+    assert.strictEqual(elements.heroQuotaRemaining.textContent, '1');
+    assert.strictEqual(elements.heroQuotaLabel.textContent, 'free render left today. No account or API key required.');
+  }
+});
+
+test('stale initial loadQuota response does not overwrite newer render X-Trial-Remaining', async () => {
+  let resolveInitialQuota;
+  const initialQuotaPromise = new Promise((resolve) => {
+    resolveInitialQuota = resolve;
+  });
+
+  const { elements, submitForm } = setupLanding({
+    mockFetch: async (url) => {
+      const urlStr = String(url);
+      if (urlStr.includes('/api/v1/trial/quota')) {
+        return initialQuotaPromise;
+      }
+      if (urlStr.includes('/api/v1/trial/render')) {
+        return {
+          ok: true,
+          status: 200,
+          headers: createHeaders({
+            'X-Trial-Remaining': '2',
+            'X-Trial-Limit': '3',
+          }),
+          json: async () => ({ url: 'https://cdn.example.com/out.pdf', size: 1024 }),
+        };
+      }
+      return { ok: true, json: async () => ({}) };
+    },
+  });
+
+  // Render completes while initial loadQuota is still in flight
+  await submitForm();
+  assert.strictEqual(elements.quotaRemaining.textContent, '2');
+  assert.strictEqual(elements.heroQuotaRemaining.textContent, '2');
+
+  // Stale initial quota arrives afterwards saying remaining: 3
+  resolveInitialQuota({
+    ok: true,
+    json: async () => ({ limit: 3, remaining: 3 }),
+  });
+  await flushMicrotasks();
+
+  assert.strictEqual(elements.quotaRemaining.textContent, '2');
+  assert.strictEqual(elements.heroQuotaRemaining.textContent, '2');
+});
+
+test('malformed or failed loadQuota preserves current valid quota and singular labels', async () => {
+  let quotaAttempt = 0;
+  const { elements, windowObj } = setupLanding({
+    mockFetch: async (url) => {
+      if (String(url).includes('/api/v1/trial/quota')) {
+        quotaAttempt += 1;
+        if (quotaAttempt === 1) {
+          return { ok: true, json: async () => ({ limit: 3, remaining: 1 }) };
+        }
+        if (quotaAttempt === 2) {
+          return { ok: true, json: async () => ({ limit: 3, remaining: undefined }) };
+        }
+        throw new Error('Network unavailable');
+      }
+      return { ok: true, json: async () => ({}) };
+    },
+  });
+
+  await flushMicrotasks();
+  assert.strictEqual(elements.quotaRemaining.textContent, '1');
+  assert.strictEqual(elements.quotaLabel.textContent, 'free PDF left today');
+  assert.strictEqual(elements.heroQuotaRemaining.textContent, '1');
+  assert.strictEqual(elements.heroQuotaLabel.textContent, 'free render left today. No account or API key required.');
+
+  // Second quota check returns malformed remaining: undefined
+  windowObj.dispatchEvent({ type: 'pageshow', persisted: true });
+  await flushMicrotasks();
+
+  assert.strictEqual(elements.quotaRemaining.textContent, '1');
+  assert.strictEqual(elements.quotaLabel.textContent, 'free PDF left today');
+  assert.strictEqual(elements.quotaStatus.classList.contains('quota-empty'), false);
+  assert.strictEqual(elements.heroQuotaRemaining.textContent, '1');
+  assert.strictEqual(elements.heroQuotaStatus.classList.contains('quota-empty'), false);
+
+  // Third quota check fails completely
+  windowObj.dispatchEvent({ type: 'pageshow', persisted: true });
+  await flushMicrotasks();
+
+  assert.strictEqual(elements.quotaRemaining.textContent, '1');
+  assert.strictEqual(elements.quotaLabel.textContent, 'free PDF left today');
+  assert.strictEqual(elements.heroQuotaRemaining.textContent, '1');
+  assert.strictEqual(elements.heroQuotaLabel.textContent, 'free render left today. No account or API key required.');
+});
+
+test('pageshow with persisted true refreshes quota on bfcache restore', async () => {
+  let quotaCalls = 0;
+  const { elements, windowObj } = setupLanding({
+    mockFetch: async (url) => {
+      if (String(url).includes('/api/v1/trial/quota')) {
+        quotaCalls += 1;
+        return {
+          ok: true,
+          json: async () => ({ limit: 3, remaining: quotaCalls === 1 ? 2 : 0 }),
+        };
+      }
+      return { ok: true, json: async () => ({}) };
+    },
+  });
+
+  await flushMicrotasks();
+  assert.strictEqual(elements.quotaRemaining.textContent, '2');
+  assert.strictEqual(elements.heroQuotaRemaining.textContent, '2');
+
+  // Non-persisted pageshow should not trigger an extra fetch
+  windowObj.dispatchEvent({ type: 'pageshow', persisted: false });
+  await flushMicrotasks();
+  assert.strictEqual(quotaCalls, 1);
+
+  // Persisted pageshow (bfcache restore) should refresh both indicators
+  windowObj.dispatchEvent({ type: 'pageshow', persisted: true });
+  await flushMicrotasks();
+  assert.strictEqual(quotaCalls, 2);
+  assert.strictEqual(elements.quotaRemaining.textContent, '0');
+  assert.ok(elements.quotaStatus.classList.contains('quota-empty'));
+  assert.strictEqual(elements.heroQuotaRemaining.textContent, '0');
+  assert.ok(elements.heroQuotaStatus.classList.contains('quota-empty'));
+  assert.strictEqual(
+    elements.heroQuotaLabel.textContent,
+    'free renders left today. Sign in for 25 free PDFs/month.'
+  );
+});
+
+test('429 limit reached updates both hero and playground to 0 and uses X-Trial-Limit in error notice', async () => {
+  const { elements, submitForm } = setupLanding({
+    mockFetch: async (url) => {
+      const urlStr = String(url);
+      if (urlStr.includes('/api/v1/trial/quota')) {
+        return { ok: true, json: async () => ({ limit: 5, remaining: 1 }) };
+      }
+      if (urlStr.includes('/api/v1/trial/render')) {
+        return {
+          ok: false,
+          status: 429,
+          headers: createHeaders({
+            'X-Trial-Remaining': '0',
+            'X-Trial-Limit': '5',
+          }),
+          json: async () => ({
+            code: 'rate_limited',
+            error: 'Daily trial limit reached',
+          }),
+        };
+      }
+      return { ok: true, json: async () => ({}) };
+    },
+  });
+
+  await flushMicrotasks();
+  await submitForm();
+
+  assert.strictEqual(elements.quotaRemaining.textContent, '0');
+  assert.ok(elements.quotaStatus.classList.contains('quota-empty'));
+  assert.strictEqual(elements.heroQuotaRemaining.textContent, '0');
+  assert.ok(elements.heroQuotaStatus.classList.contains('quota-empty'));
+  assert.strictEqual(
+    elements.heroQuotaLabel.textContent,
+    'free renders left today. Sign in for 25 free PDFs/month.'
+  );
+  assert.ok(
+    elements.error.innerHTML.includes('limit of 5 free trial renders for today'),
+    'Error notice should reflect dynamic trial limit from X-Trial-Limit'
+  );
 });

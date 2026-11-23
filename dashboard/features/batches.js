@@ -193,6 +193,7 @@
         cancel.onclick = async () => {
           if (
             !(await callConfirmAction({
+              kicker: 'Batch job',
               title: `Cancel batch “${job.jobId}”?`,
               description: 'Pending PDFs in this batch will not be rendered.',
               confirmLabel: 'Cancel batch',

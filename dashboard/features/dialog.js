@@ -4,6 +4,7 @@
   function showDashboardDialog({
     title,
     description,
+    kicker,
     label = 'Name',
     value = '',
     confirmLabel = 'Save',
@@ -18,6 +19,10 @@
     const confirmButton = document.getElementById('dashboardDialogConfirm');
     if (!dialog || !form || !input || !confirmButton) return Promise.resolve(null);
 
+    const kickerEl = document.getElementById('dashboardDialogKicker');
+    if (kickerEl) {
+      kickerEl.textContent = kicker || (requiresText ? 'Saved source' : 'Confirm action');
+    }
     document.getElementById('dashboardDialogTitle').textContent = title;
     document.getElementById('dashboardDialogDescription').textContent = description;
     document.getElementById('dashboardDialogLabel').textContent = label;

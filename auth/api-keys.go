@@ -4,9 +4,11 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -40,8 +42,15 @@ type CreateKeyResponse struct {
 	Name   string `json:"name,omitempty"`
 }
 
+const (
+	defaultListKeysLimit int64 = 50
+	maxListKeysLimit     int64 = 100
+)
+
 type ListKeysResponse struct {
-	Keys []APIKeyInfo `json:"keys"`
+	Keys       []APIKeyInfo `json:"keys"`
+	NextCursor string       `json:"nextCursor,omitempty"`
+	Limit      int64        `json:"limit,omitempty"`
 }
 
 type APIKeyInfo struct {
@@ -85,7 +94,7 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		}
 		return createKey(userID, userEmail, req.Name, corsHeaders)
 	case "GET":
-		return listKeys(userID, corsHeaders)
+		return listKeys(userID, request.QueryStringParameters, corsHeaders)
 	case "DELETE":
 		keyId := request.PathParameters["id"]
 		return deleteKey(userID, keyId, corsHeaders)
@@ -254,15 +263,51 @@ func saveAnalyticsEvent(customerID, eventName string) {
 	}
 }
 
-func listKeys(userId string, headers map[string]string) (events.APIGatewayProxyResponse, error) {
-	result, err := ddb.Query(&dynamodb.QueryInput{
+func parseListKeysPagination(userId string, queryParams map[string]string) (int64, map[string]*dynamodb.AttributeValue, error) {
+	limit := defaultListKeysLimit
+	if rawLimit := strings.TrimSpace(queryParams["limit"]); rawLimit != "" {
+		parsed, err := strconv.ParseInt(rawLimit, 10, 64)
+		if err != nil || parsed <= 0 {
+			return 0, nil, fmt.Errorf("limit must be a positive integer")
+		}
+		if parsed > maxListKeysLimit {
+			parsed = maxListKeysLimit
+		}
+		limit = parsed
+	}
+
+	var startKey map[string]*dynamodb.AttributeValue
+	if rawCursor := strings.TrimSpace(queryParams["cursor"]); rawCursor != "" {
+		decoded, err := base64.RawURLEncoding.DecodeString(rawCursor)
+		if err != nil || !strings.HasPrefix(string(decoded), "APIKEY#") {
+			return 0, nil, fmt.Errorf("invalid cursor")
+		}
+		startKey = map[string]*dynamodb.AttributeValue{
+			"PK": {S: aws.String(fmt.Sprintf("USER#%s", userId))},
+			"SK": {S: aws.String(string(decoded))},
+		}
+	}
+
+	return limit, startKey, nil
+}
+
+func listKeys(userId string, queryParams map[string]string, headers map[string]string) (events.APIGatewayProxyResponse, error) {
+	limit, startKey, err := parseListKeysPagination(userId, queryParams)
+	if err != nil {
+		return apiErrorResponse(400, "invalid_pagination", err.Error(), headers), nil
+	}
+
+	input := &dynamodb.QueryInput{
 		TableName:              aws.String(tableName),
 		KeyConditionExpression: aws.String("PK = :pk AND begins_with(SK, :sk)"),
 		ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{
 			":pk": {S: aws.String(fmt.Sprintf("USER#%s", userId))},
 			":sk": {S: aws.String("APIKEY#")},
 		},
-	})
+		Limit:             aws.Int64(limit),
+		ExclusiveStartKey: startKey,
+	}
+	result, err := ddb.Query(input)
 
 	if err != nil {
 		fmt.Printf("API key list failed: %v\n", err)
@@ -287,7 +332,12 @@ func listKeys(userId string, headers map[string]string) (events.APIGatewayProxyR
 		keys = append(keys, key)
 	}
 
-	resp := ListKeysResponse{Keys: keys}
+	var nextCursor string
+	if result.LastEvaluatedKey != nil && result.LastEvaluatedKey["SK"] != nil && result.LastEvaluatedKey["SK"].S != nil {
+		nextCursor = base64.RawURLEncoding.EncodeToString([]byte(*result.LastEvaluatedKey["SK"].S))
+	}
+
+	resp := ListKeysResponse{Keys: keys, NextCursor: nextCursor, Limit: limit}
 	body, _ := json.Marshal(resp)
 
 	return events.APIGatewayProxyResponse{

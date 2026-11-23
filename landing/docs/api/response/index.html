@@ -3,14 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="dark">
+    <script>try{document.querySelector('meta[name="color-scheme"]').content=localStorage.getItem('ds-scheme')||'dark';}catch(e){}</script>
     <meta name="description" content="API response structure, signed S3 download URLs, and requestId tracking.">
     <title>Response Format | RenderPDF API</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter+Tight:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <link href="/styles/base.css" rel="stylesheet">
     <link href="/styles/docs.css" rel="stylesheet">
+    <script src="/theme.js" defer></script>
 </head>
 <body data-enhance-code-snippets>
     <a class="skip-link" href="#main-content">Skip to main content</a>
@@ -27,6 +30,7 @@
                 <a href="/app/">Dashboard</a>
                 <a href="https://github.com/vberkoz/renderpdf">GitHub</a>
             </nav>
+            <button type="button" class="theme-toggle" data-action="theme" aria-label="Toggle color theme" title="Toggle light/dark theme"><svg class="lucide when-dark" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg><svg class="lucide when-light" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg></button>
         </header>
 
         <main id="main-content" tabindex="-1">
@@ -96,8 +100,13 @@
                                     <thead><tr><th scope="col">Field</th><th scope="col">Description</th></tr></thead>
                                     <tbody>
                                         <tr><td><code>requestId</code></td><td>Unique identifier for this render.</td></tr>
-                                        <tr><td><code>url</code></td><td>15-minute signed private download URL for the PDF.</td></tr>
+                                        <tr><td><code>fileId</code></td><td>Stored file identifier for <code>GET /files/{id}</code> (present on authenticated non-zero-retention renders).</td></tr>
+                                        <tr><td><code>url</code></td><td>15-minute signed private download URL for the PDF (omitted when <code>zeroRetention</code> is <code>true</code>).</td></tr>
                                         <tr><td><code>size</code></td><td>Generated file size in bytes.</td></tr>
+                                        <tr><td><code>pageCount</code></td><td>Number of pages in the rendered PDF.</td></tr>
+                                        <tr><td><code>data</code></td><td>Base64-encoded PDF bytes (returned only when <code>options.zeroRetention: true</code> with JSON).</td></tr>
+                                        <tr><td><code>zeroRetention</code></td><td>Present as <code>true</code> when S3 and DynamoDB storage were skipped.</td></tr>
+                                        <tr><td><code>warnings</code></td><td>Optional array of non-fatal render diagnostics (for example blocked SSRF subresources: <code>{"code": "ssrf_blocked", "message": "...", "url": "..."}</code>).</td></tr>
                                     </tbody>
                                 </table>
                             </div>
@@ -105,10 +114,21 @@
                                 <div class="code-header"><span>200 / application/json</span></div>
                                 <pre><code class="language-json">{
   "requestId": "7db7...",
+  "fileId": "file_7db7...",
   "url": "https://.../7db7.pdf",
-  "size": 29827
+  "size": 29827,
+  "pageCount": 2
 }</code></pre>
                             </div>
+                        </div>
+                        <h2>Response headers</h2>
+                        <div class="headers-list">
+                            <div><code>X-Request-Id</code><span>Unique request identifier matching <code>requestId</code>.</span></div>
+                            <div><code>X-File-Id</code><span>Stored file identifier (present on authenticated non-zero-retention renders).</span></div>
+                            <div><code>X-Quota-Limit</code><span>Account monthly PDF render limit.</span></div>
+                            <div><code>X-Quota-Remaining</code><span>Remaining monthly PDF renders in the current UTC month.</span></div>
+                            <div><code>X-Retention-Policy</code><span>Set to <code>zero-retention</code> when <code>options.zeroRetention</code> is <code>true</code>.</span></div>
+                            <div><code>X-Idempotent-Replay</code><span>Set to <code>true</code> when replaying an earlier <code>Idempotency-Key</code> response.</span></div>
                         </div>
                         <p class="section-footnote">Store <code>requestId</code> with your job or invoice record. It is the best identifier to include when reporting a rendering issue.</p>
                     </section>

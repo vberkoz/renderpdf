@@ -45,6 +45,7 @@ type batchItemReply struct {
 	Status       string `json:"status"`
 	OutputFileID string `json:"outputFileId,omitempty"`
 	ErrorCode    string `json:"errorCode,omitempty"`
+	ErrorMessage string `json:"errorMessage,omitempty"`
 }
 
 func batchTable() string { return os.Getenv("DOCUMENT_STORE_TABLE_NAME") }
@@ -159,6 +160,26 @@ func sortBatchJobsNewestFirst(jobs []batchJobReply) {
 }
 
 func createBatch(ctx context.Context, r events.APIGatewayProxyRequest, owner string, h map[string]string, db *dynamodb.DynamoDB) events.APIGatewayProxyResponse {
+	if h == nil {
+		h = map[string]string{}
+	}
+	idemKey, idemErr := extractIdempotencyKey(r.Headers)
+	if idemErr != nil {
+		return renderErrorResponse(idemErr, h)
+	}
+	now := time.Now().UTC()
+	var idemLocked bool
+	if replayed, handled, acquired := claimIdempotencyKey(owner, "POST:/api/v1/batches", idemKey, r.Body, h, now); handled {
+		return *replayed
+	} else if acquired {
+		idemLocked = true
+		defer func() {
+			if idemLocked {
+				releaseIdempotencyLock(owner, "POST:/api/v1/batches", idemKey)
+			}
+		}()
+	}
+
 	req, err := parseBatchRenderRequest(r.Body)
 	if err != nil {
 		return renderErrorResponse(err, h)
@@ -168,12 +189,16 @@ func createBatch(ctx context.Context, r events.APIGatewayProxyRequest, owner str
 			return errorResponse(404, "Stored source not found", h)
 		}
 	}
-	if err := checkAccountQuotaAvailable(owner, time.Now().UTC()); err != nil {
+	if err := checkAccountQuotaAvailable(owner, now); err != nil {
 		if errors.Is(err, errAccountQuotaExceeded) {
+			setAccountQuotaExceededHeaders(owner, h, now)
 			return errorResponse(http.StatusTooManyRequests, "Monthly PDF quota reached", h)
 		}
 		fmt.Printf("Account quota error during batch submission: %v\n", err)
 		return errorResponse(http.StatusServiceUnavailable, "Account quota is temporarily unavailable", h)
+	}
+	if q, qErr := currentAccountQuota(owner, now); qErr == nil {
+		setAccountQuotaHeaders(q, h)
 	}
 	active, quotaErr := activeBatchJobCount(owner, db)
 	if quotaErr != nil {
@@ -189,7 +214,6 @@ func createBatch(ctx context.Context, r events.APIGatewayProxyRequest, owner str
 		}
 		req.Options.WebhookURL = validated
 	}
-	now := time.Now().UTC()
 	id := "job_" + uuid.NewString()
 	job := batchJobReply{JobID: id, Status: "queued", ItemCount: len(req.Items), QueuedCount: len(req.Items), EnqueuePendingCount: len(req.Items), CreatedAt: now, UpdatedAt: now}
 	writes := make([]*dynamodb.TransactWriteItem, 0, len(req.Items)+1)
@@ -207,7 +231,11 @@ func createBatch(ctx context.Context, r events.APIGatewayProxyRequest, owner str
 	// successful batch submission to queue availability; the durable items are
 	// retried autonomously. The read-triggered recovery path remains only for
 	// batches created before the dispatcher was enabled.
-	return sourceJSON(http.StatusCreated, job, h)
+	resp := sourceJSON(http.StatusCreated, job, h)
+	if saveIdempotencyResponse(owner, "POST:/api/v1/batches", idemKey, r.Body, resp, now) {
+		idemLocked = false
+	}
+	return resp
 }
 
 func activeBatchJobCount(owner string, db *dynamodb.DynamoDB) (int, error) {
@@ -293,7 +321,13 @@ func derivedBatchStatus(job batchJobReply) string {
 		}
 		return "cancelling"
 	}
-	if job.SucceededCount+job.FailedCount+job.CancelledCount == job.ItemCount {
+	if job.ItemCount > 0 && job.SucceededCount+job.FailedCount+job.CancelledCount == job.ItemCount {
+		if job.FailedCount == job.ItemCount {
+			return "failed"
+		}
+		if job.FailedCount > 0 && job.SucceededCount > 0 {
+			return "completed_with_errors"
+		}
 		return "completed"
 	}
 	if job.RunningCount > 0 {
@@ -302,20 +336,45 @@ func derivedBatchStatus(job batchJobReply) string {
 	return "queued"
 }
 
-func listBatchItems(id string, h map[string]string, db *dynamodb.DynamoDB) events.APIGatewayProxyResponse {
+func isTerminalBatchStatus(status string) bool {
+	switch status {
+	case "completed", "completed_with_errors", "failed", "cancelled":
+		return true
+	default:
+		return false
+	}
+}
+
+func batchString(item map[string]*dynamodb.AttributeValue, name string) string {
+	if v := item[name]; v != nil && v.S != nil {
+		return *v.S
+	}
+	return ""
+}
+
+func listBatchItems(id string, h map[string]string, db interface {
+	Query(*dynamodb.QueryInput) (*dynamodb.QueryOutput, error)
+}) events.APIGatewayProxyResponse {
 	o, e := db.Query(&dynamodb.QueryInput{TableName: aws.String(batchTable()), KeyConditionExpression: aws.String("PK = :pk"), ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{":pk": {S: aws.String("JOB#" + id)}}})
 	if e != nil {
 		return errorResponse(503, "Batch storage is temporarily unavailable", h)
 	}
 	items := make([]batchItemReply, 0, len(o.Items))
 	for _, x := range o.Items {
-		items = append(items, batchItemReply{ItemID: aws.StringValue(x["itemId"].S), Ordinal: batchNumber(x, "ordinal", 0), Status: aws.StringValue(x["status"].S), OutputFileID: aws.StringValue(x["outputFileId"].S), ErrorCode: aws.StringValue(x["errorCode"].S)})
+		items = append(items, batchItemReply{
+			ItemID:       batchString(x, "itemId"),
+			Ordinal:      batchNumber(x, "ordinal", 0),
+			Status:       batchString(x, "status"),
+			OutputFileID: batchString(x, "outputFileId"),
+			ErrorCode:    batchString(x, "errorCode"),
+			ErrorMessage: batchString(x, "errorMessage"),
+		})
 	}
 	return sourceJSON(200, map[string]any{"items": items}, h)
 }
 
 func cancelBatch(owner string, job batchJobReply, h map[string]string, db *dynamodb.DynamoDB) events.APIGatewayProxyResponse {
-	if job.CancelRequested || job.Status == "completed" || job.Status == "cancelled" {
+	if job.CancelRequested || isTerminalBatchStatus(job.Status) {
 		return sourceJSON(200, job, h)
 	}
 	_, e := db.UpdateItem(&dynamodb.UpdateItemInput{TableName: aws.String(batchTable()), Key: batchJobKey(owner, job.JobID), UpdateExpression: aws.String("SET cancelRequested = :true, updatedAt = :now"), ConditionExpression: aws.String("attribute_not_exists(cancelRequested)"), ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{":true": {BOOL: aws.Bool(true)}, ":now": {S: aws.String(time.Now().UTC().Format(time.RFC3339Nano))}}})

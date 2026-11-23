@@ -3,6 +3,7 @@
 package main
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"testing"
 
@@ -113,5 +114,34 @@ func TestGetUserBillingTierFallback(t *testing.T) {
 	tier := getUserBillingTier("")
 	if tier != "free" {
 		t.Fatalf("getUserBillingTier(\"\") = %q, want \"free\"", tier)
+	}
+}
+
+func TestParseListKeysPagination(t *testing.T) {
+	limit, startKey, err := parseListKeysPagination("user-1", nil)
+	if err != nil {
+		t.Fatalf("default pagination failed: %v", err)
+	}
+	if limit != defaultListKeysLimit || startKey != nil {
+		t.Fatalf("got limit=%d startKey=%v, want %d nil", limit, startKey, defaultListKeysLimit)
+	}
+
+	cursor := base64.RawURLEncoding.EncodeToString([]byte("APIKEY#key-50"))
+	limit, startKey, err = parseListKeysPagination("user-1", map[string]string{"limit": "200", "cursor": cursor})
+	if err != nil {
+		t.Fatalf("valid pagination failed: %v", err)
+	}
+	if limit != maxListKeysLimit {
+		t.Fatalf("clamped limit = %d, want %d", limit, maxListKeysLimit)
+	}
+	if startKey["PK"].S == nil || *startKey["PK"].S != "USER#user-1" || *startKey["SK"].S != "APIKEY#key-50" {
+		t.Fatalf("unexpected startKey: %#v", startKey)
+	}
+
+	if _, _, err := parseListKeysPagination("user-1", map[string]string{"limit": "0"}); err == nil {
+		t.Fatal("expected error for non-positive limit")
+	}
+	if _, _, err := parseListKeysPagination("user-1", map[string]string{"cursor": "not-valid-key"}); err == nil {
+		t.Fatal("expected error for invalid cursor")
 	}
 }

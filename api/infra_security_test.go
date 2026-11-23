@@ -276,7 +276,15 @@ func TestCloudFormationBatchLightweightZipFunctions(t *testing.T) {
 			if strings.Contains(block, "PackageType: Image") {
 				t.Fatalf("%s must not use PackageType: Image:\n%s", fnName, block)
 			}
-			for _, want := range []string{"Runtime: provided.al2023", "Handler: bootstrap"} {
+			if strings.Contains(block, "ZipFile:") {
+				t.Fatalf("%s must not use inline ZipFile with provided.al2023:\n%s", fnName, block)
+			}
+			for _, want := range []string{
+				"Runtime: provided.al2023",
+				"Handler: bootstrap",
+				"S3Bucket: !Ref PdfBucket",
+				"S3Key: lambda/batch-bootstrap.zip",
+			} {
 				if !strings.Contains(block, want) {
 					t.Fatalf("%s missing %q:\n%s", fnName, want, block)
 				}
@@ -337,6 +345,133 @@ func TestCloudFormationP2FeatureFlags(t *testing.T) {
 			} {
 				if !strings.Contains(block, envLine) {
 					t.Fatalf("%s missing %q:\n%s", fnName, envLine, block)
+				}
+			}
+		})
+	}
+}
+
+func TestCloudFormationUsagePlanBootstrapKeys(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Join("..", "infra", "cloudformation.yaml"))
+	if err != nil {
+		t.Fatalf("read cloudformation.yaml: %v", err)
+	}
+	template := string(raw)
+
+	authBlock := extractCFNResourceBlock(t, template, "AuthorizerFunction")
+	for _, want := range []string{
+		"FREE_USAGE_PLAN_KEY_ID: !Ref FreeUsagePlanBootstrapKey",
+		"STARTER_USAGE_PLAN_KEY_ID: !Ref StarterUsagePlanBootstrapKey",
+		"PRO_USAGE_PLAN_KEY_ID: !Ref ProUsagePlanBootstrapKey",
+	} {
+		if !strings.Contains(authBlock, want) {
+			t.Fatalf("AuthorizerFunction missing %q:\n%s", want, authBlock)
+		}
+	}
+	for _, forbidden := range []string{
+		"FREE_USAGE_PLAN_KEY_VALUE:",
+		"STARTER_USAGE_PLAN_KEY_VALUE:",
+		"PRO_USAGE_PLAN_KEY_VALUE:",
+		"-bootstrap'",
+	} {
+		if strings.Contains(authBlock, forbidden) {
+			t.Fatalf("AuthorizerFunction must not contain predictable bootstrap value %q:\n%s", forbidden, authBlock)
+		}
+	}
+
+	bootstrapPlanBlock := extractCFNResourceBlock(t, template, "BootstrapPropagationUsagePlan")
+	for _, want := range []string{
+		"Type: AWS::ApiGateway::UsagePlan",
+		"RateLimit: 100",
+		"BurstLimit: 200",
+		"Stage: prod",
+	} {
+		if !strings.Contains(bootstrapPlanBlock, want) {
+			t.Fatalf("BootstrapPropagationUsagePlan missing %q:\n%s", want, bootstrapPlanBlock)
+		}
+	}
+
+	tiers := []struct {
+		keyRes string
+		attRes string
+	}{
+		{
+			keyRes: "FreeUsagePlanBootstrapKey",
+			attRes: "FreeUsagePlanBootstrapKeyAttachment",
+		},
+		{
+			keyRes: "StarterUsagePlanBootstrapKey",
+			attRes: "StarterUsagePlanBootstrapKeyAttachment",
+		},
+		{
+			keyRes: "ProUsagePlanBootstrapKey",
+			attRes: "ProUsagePlanBootstrapKeyAttachment",
+		},
+	}
+
+	for _, tier := range tiers {
+		t.Run(tier.keyRes, func(t *testing.T) {
+			keyBlock := extractCFNResourceBlock(t, template, tier.keyRes)
+			for _, want := range []string{
+				"Type: AWS::ApiGateway::ApiKey",
+				"Enabled: true",
+			} {
+				if !strings.Contains(keyBlock, want) {
+					t.Fatalf("%s missing %q:\n%s", tier.keyRes, want, keyBlock)
+				}
+			}
+			if strings.Contains(keyBlock, "Value:") {
+				t.Fatalf("%s must let API Gateway auto-generate a non-predictable Value:\n%s", tier.keyRes, keyBlock)
+			}
+
+			attBlock := extractCFNResourceBlock(t, template, tier.attRes)
+			for _, want := range []string{
+				"Type: AWS::ApiGateway::UsagePlanKey",
+				"KeyId: !Ref " + tier.keyRes,
+				"KeyType: API_KEY",
+				"UsagePlanId: !Ref BootstrapPropagationUsagePlan",
+			} {
+				if !strings.Contains(attBlock, want) {
+					t.Fatalf("%s missing %q:\n%s", tier.attRes, want, attBlock)
+				}
+			}
+		})
+	}
+}
+
+func TestCloudFormationAXUpgrades(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Join("..", "infra", "cloudformation.yaml"))
+	if err != nil {
+		t.Fatalf("read cloudformation.yaml: %v", err)
+	}
+	template := string(raw)
+
+	for _, resName := range []string{
+		"QuotaResource",
+		"QuotaGetMethod",
+		"DashboardQuotaResource",
+		"DashboardQuotaGetMethod",
+		"FileGetMethod",
+		"DashboardFileGetMethod",
+	} {
+		_ = extractCFNResourceBlock(t, template, resName)
+	}
+
+	gatewayChecks := []struct {
+		resName string
+		want    []string
+	}{
+		{"GatewayResponseUnauthorized", []string{"ResponseType: UNAUTHORIZED", "StatusCode: '401'", "Authorization: Bearer <API_KEY>", `"retryable":false`}},
+		{"GatewayResponseAccessDenied", []string{"ResponseType: ACCESS_DENIED", "StatusCode: '403'", "Authorization: Bearer <API_KEY>", `"retryable":false`}},
+		{"GatewayResponseThrottled", []string{"ResponseType: THROTTLED", "StatusCode: '429'", "Retry-After", `"retryable":true`}},
+		{"GatewayResponseQuotaExceeded", []string{"ResponseType: QUOTA_EXCEEDED", "StatusCode: '429'", "Retry-After", `"retryable":true`}},
+	}
+	for _, tc := range gatewayChecks {
+		t.Run(tc.resName, func(t *testing.T) {
+			block := extractCFNResourceBlock(t, template, tc.resName)
+			for _, w := range tc.want {
+				if !strings.Contains(block, w) {
+					t.Fatalf("%s missing %q:\n%s", tc.resName, w, block)
 				}
 			}
 		})

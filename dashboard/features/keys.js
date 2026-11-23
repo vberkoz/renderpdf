@@ -1,13 +1,8 @@
 (function (global) {
   'use strict';
 
-  let currentLiveApiKey = (() => {
-    try {
-      return (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('renderpdf_live_api_key')) || '';
-    } catch {
-      return '';
-    }
-  })();
+  let currentLiveApiKey = '';
+  let keysNextCursor = '';
 
   function getAuthHeaders() {
     if (typeof global.authHeaders === 'function') {
@@ -205,6 +200,107 @@ func main() {
     return { curl, node, python, go };
   }
 
+  function escapeQuickstartHtml(value) {
+    return String(value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+
+  const quickstartHighlightRules = {
+    curl: [
+      { className: 'hljs-string', pattern: /"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'/ },
+      { className: 'hljs-number', pattern: /https?:\/\/[^\s'"]+/ },
+      { className: 'hljs-attr', pattern: /(?<=^|\s)--?[A-Za-z0-9-]+/ },
+      { className: 'hljs-comment', pattern: /\\(?=\s*(?:\r?\n|$))/ },
+      { className: 'hljs-title', pattern: /\bcurl\b/ },
+      { className: 'hljs-keyword', pattern: /\b(?:POST|GET|PUT|PATCH|DELETE)\b/ },
+    ],
+    node: [
+      { className: 'hljs-comment', pattern: /\/\/[^\n]*/ },
+      { className: 'hljs-string', pattern: /"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`/ },
+      { className: 'hljs-attr', pattern: /\b[A-Za-z_]\w*(?=\s*:)/ },
+      { className: 'hljs-keyword', pattern: /\b(?:const|let|var|await|async|if|else|throw|new|return|import|from|true|false|null|undefined)\b/ },
+      { className: 'hljs-built_in', pattern: /\b(?:JSON|Error|console)\b/ },
+      { className: 'hljs-title', pattern: /\b[A-Za-z_]\w*(?=\s*\()/ },
+      { className: 'hljs-number', pattern: /\b\d+(?:\.\d+)?\b/ },
+    ],
+    python: [
+      { className: 'hljs-comment', pattern: /#[^\n]*/ },
+      { className: 'hljs-keyword', pattern: /\b(?:f|r|b|fr|rf|rb|br)(?=["'])/ },
+      { className: 'hljs-string', pattern: /"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'/ },
+      { className: 'hljs-keyword', pattern: /\b(?:import|from|if|else|elif|not|and|or|raise|return|def|True|False|None)\b/ },
+      { className: 'hljs-built_in', pattern: /\b(?:RuntimeError|print)\b/ },
+      { className: 'hljs-title', pattern: /\b[A-Za-z_]\w*(?=\s*\()/ },
+      { className: 'hljs-number', pattern: /\b\d+(?:\.\d+)?\b/ },
+    ],
+    go: [
+      { className: 'hljs-comment', pattern: /\/\/[^\n]*/ },
+      { className: 'hljs-string', pattern: /"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`[^`]*`/ },
+      { className: 'hljs-keyword', pattern: /\b(?:package|import|func|map|string|any|defer|if|else|return|nil|true|false)\b/ },
+      { className: 'hljs-built_in', pattern: /\b(?:panic|main|http|json|fmt|io|bytes)\b/ },
+      { className: 'hljs-title', pattern: /\b[A-Za-z_]\w*(?=\s*\()/ },
+      { className: 'hljs-number', pattern: /\b\d+(?:\.\d+)?\b/ },
+    ],
+  };
+
+  const compiledQuickstartHighlighters = Object.fromEntries(
+    Object.entries(quickstartHighlightRules).map(([lang, rules]) => {
+      const combined = rules.map((rule, index) => `(?<t${index}>${rule.pattern.source})`).join('|');
+      return [lang, { regex: new RegExp(combined, 'g'), rules }];
+    })
+  );
+
+  /** Highlight a quickstart code snippet into safe HTML spans in a single pass. */
+  function highlightQuickstartCode(code, lang) {
+    const source = String(code ?? '');
+    if (!source) return '';
+
+    const highlighter = compiledQuickstartHighlighters[lang];
+    if (!highlighter) {
+      return escapeQuickstartHtml(source);
+    }
+
+    const { regex, rules } = highlighter;
+    regex.lastIndex = 0;
+
+    let result = '';
+    let cursor = 0;
+    let match;
+
+    while ((match = regex.exec(source)) !== null) {
+      if (match.index > cursor) {
+        result += escapeQuickstartHtml(source.slice(cursor, match.index));
+      }
+
+      let className = '';
+      if (match.groups) {
+        for (let i = 0; i < rules.length; i += 1) {
+          if (match.groups[`t${i}`] !== undefined) {
+            className = rules[i].className;
+            break;
+          }
+        }
+      }
+
+      const tokenText = match[0];
+      result += className
+        ? `<span class="${className}">${escapeQuickstartHtml(tokenText)}</span>`
+        : escapeQuickstartHtml(tokenText);
+      cursor = match.index + tokenText.length;
+
+      if (tokenText.length === 0) {
+        regex.lastIndex += 1;
+      }
+    }
+
+    if (cursor < source.length) {
+      result += escapeQuickstartHtml(source.slice(cursor));
+    }
+
+    return result;
+  }
+
   function updateQuickstartCode(apiKey) {
     const key = apiKey && apiKey.trim() ? apiKey.trim() : 'YOUR_API_KEY';
     const keyValueEl = document.getElementById('quickstartKeyValue');
@@ -213,15 +309,14 @@ func main() {
     }
 
     const snippets = generateQuickstartSnippets(key);
-    const curlEl = document.getElementById('quickstartCodeCurl');
-    const nodeEl = document.getElementById('quickstartCodeNode');
-    const pythonEl = document.getElementById('quickstartCodePython');
-    const goEl = document.getElementById('quickstartCodeGo');
-
-    if (curlEl) curlEl.textContent = snippets.curl;
-    if (nodeEl) nodeEl.textContent = snippets.node;
-    if (pythonEl) pythonEl.textContent = snippets.python;
-    if (goEl) goEl.textContent = snippets.go;
+    quickstartLanguages.forEach(({ id, codeId }) => {
+      const codeEl = document.getElementById(codeId);
+      const rawSnippet = snippets[id];
+      if (codeEl && typeof rawSnippet === 'string') {
+        codeEl.textContent = rawSnippet;
+        codeEl.innerHTML = highlightQuickstartCode(rawSnippet, id);
+      }
+    });
   }
 
   function switchQuickstartTab(activeLangId) {
@@ -247,9 +342,6 @@ func main() {
 
     if (apiKey) {
       currentLiveApiKey = apiKey;
-      try {
-        sessionStorage.setItem('renderpdf_live_api_key', apiKey);
-      } catch (e) {}
     }
     updateQuickstartCode(currentLiveApiKey);
     switchQuickstartTab('curl');
@@ -262,9 +354,6 @@ func main() {
     if (!data || !data.apiKey) return;
 
     currentLiveApiKey = data.apiKey;
-    try {
-      sessionStorage.setItem('renderpdf_live_api_key', data.apiKey);
-    } catch (e) {}
 
     const newKeyValue = document.getElementById('newKeyValue');
     const newKeyCard = document.getElementById('newKeyCard');
@@ -374,8 +463,12 @@ func main() {
     return callApiRequest('/api-keys', options);
   }
 
-  function listKeys() {
-    return callApiRequest('/api-keys', { headers: getAuthHeaders() });
+  function listKeys(options = {}) {
+    const params = new URLSearchParams();
+    if (options && options.limit != null) params.set('limit', String(options.limit));
+    if (options && options.cursor) params.set('cursor', String(options.cursor));
+    const qs = params.toString();
+    return callApiRequest(qs ? `/api-keys?${qs}` : '/api-keys', { headers: getAuthHeaders() });
   }
 
   function deleteKey(keyId) {
@@ -385,9 +478,109 @@ func main() {
     });
   }
 
+  function renderKeys(keys) {
+    const container = document.getElementById('keysList');
+    if (!container) return;
+    const status = document.getElementById('keysStatus');
+    const notify = (message, state) => {
+      if (typeof global.setNotice === 'function') global.setNotice(status, message, state);
+    };
+    const active = (keys || []).filter((key) => key && key.isActive !== false);
+    global.currentKeys = active.slice();
+    if (typeof global.renderTable !== 'function') return;
+    global.renderTable(container, {
+      caption: 'API keys',
+      empty: 'No API keys yet. Create one to start rendering PDFs.',
+      columns: [
+        { label: 'Name' },
+        { label: 'Key ID' },
+        { label: 'Created' },
+        { label: 'Last used' },
+        { label: 'Action' },
+      ],
+      rows: active.map((key) => {
+        const name = document.createElement('span');
+        name.textContent = key.name || 'Untitled key';
+        const id = document.createElement('code');
+        id.textContent = String(key.keyId || '').slice(0, 8);
+        const created = document.createElement('span');
+        created.textContent = global.formatDate ? global.formatDate(key.createdAt) : '—';
+        const used = document.createElement('span');
+        used.textContent = key.lastUsed && global.formatDate ? global.formatDate(key.lastUsed) : 'Never';
+        const revoke = document.createElement('button');
+        revoke.type = 'button';
+        revoke.className = 'dashboard-button dashboard-button-secondary';
+        revoke.textContent = 'Revoke';
+        revoke.setAttribute('aria-label', `Revoke key ${key.name || String(key.keyId || '').slice(0, 8)}`);
+        revoke.addEventListener('click', async () => {
+          const confirmed =
+            typeof global.confirmDashboardAction === 'function'
+              ? await global.confirmDashboardAction({
+                  kicker: 'API key',
+                  title: 'Revoke API key?',
+                  description: 'Requests using this key will stop working immediately. This cannot be undone.',
+                  confirmLabel: 'Revoke key',
+                })
+              : false;
+          if (!confirmed) return;
+          revoke.disabled = true;
+          try {
+            await deleteKey(key.keyId);
+            notify('API key revoked.', 'success');
+            await loadKeys();
+          } catch (error) {
+            revoke.disabled = false;
+            notify(`Could not revoke the API key. ${error.message}`, 'error');
+          }
+        });
+        return { cells: [name, id, created, used, revoke] };
+      }),
+    });
+    if (keysNextCursor) {
+      const loadMoreWrap = document.createElement('div');
+      loadMoreWrap.className = 'logs-pagination';
+      const loadMoreBtn = document.createElement('button');
+      loadMoreBtn.type = 'button';
+      loadMoreBtn.className = 'dashboard-button dashboard-button-secondary';
+      loadMoreBtn.dataset.action = 'load-more-keys';
+      loadMoreBtn.textContent = 'Load more keys';
+      loadMoreBtn.addEventListener('click', async () => {
+        loadMoreBtn.disabled = true;
+        loadMoreBtn.setAttribute('aria-busy', 'true');
+        await loadKeys({ cursor: keysNextCursor, append: true });
+      });
+      loadMoreWrap.appendChild(loadMoreBtn);
+      container.appendChild(loadMoreWrap);
+    }
+  }
+
+  async function loadKeys(options = {}) {
+    const container = document.getElementById('keysList');
+    const append = Boolean(options && options.append);
+    try {
+      const data = await listKeys(
+        options && (options.cursor || options.limit != null)
+          ? { cursor: options.cursor, limit: options.limit }
+          : {}
+      );
+      const fetched = (data && data.keys) || [];
+      keysNextCursor = (data && data.nextCursor) || '';
+      const combined =
+        append && Array.isArray(global.currentKeys) ? [...global.currentKeys, ...fetched] : fetched;
+      renderKeys(combined);
+    } catch (error) {
+      if (container) {
+        container.textContent = `Could not load API keys. ${error.message}`;
+      }
+    }
+  }
+
   const moduleExports = {
+    renderKeys,
+    loadKeys,
     quickstartLanguages,
     generateQuickstartSnippets,
+    highlightQuickstartCode,
     updateQuickstartCode,
     switchQuickstartTab,
     openQuickstartModal,

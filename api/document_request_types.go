@@ -253,6 +253,14 @@ func (o documentRenderOptions) getTimeoutMs() int {
 	return o.TimeoutMs
 }
 
+func (o documentRenderOptions) hasExplicitWaitForTrigger() bool {
+	if o.getWaitForSelector() != "" || o.getWaitForFunction() != "" {
+		return true
+	}
+	idleMode := strings.ToLower(strings.TrimSpace(o.getNetworkIdle()))
+	return idleMode == "networkidle0" || idleMode == "networkidle2"
+}
+
 func (o documentRenderOptions) isZero() bool {
 	return o.Format == "" &&
 		o.Margin == "" &&
