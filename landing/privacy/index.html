@@ -81,8 +81,8 @@
                         <h2 id="data-collected-heading">2. Information We Collect and Process</h2>
                         <p>We adhere strictly to the principle of data minimization. We collect only the information necessary to provide, secure, and bill for the Service:</p>
                         <ul>
-                            <li><strong>Account &amp; Identity Data:</strong> When you register and sign in via Google OAuth, we receive your verified primary email address, your display name, and a persistent unique identifier (<code>sub</code> claim). We never receive, store, or have access to your Google account password.</li>
-                            <li><strong>API Request &amp; Rendering Data:</strong> When you send documents to our API, we process the supplied HTML, Markdown, CSS, dynamic JSON variables, URL parameters, or ZIP package archives to execute Chromium headless rendering. Rendered PDFs are stored in encrypted, private Amazon S3 buckets accessible only via signed, expiring download URLs.</li>
+                            <li><strong>Account &amp; Identity Data:</strong> When you register and sign in via Google OAuth or email and password (managed by Amazon Cognito), we store your verified primary email address, optional display name, and a persistent unique identifier (<code>sub</code> claim). When using Google OAuth, we never receive, store, or have access to your Google account password; email/password credentials are hashed and managed solely by Amazon Cognito.</li>
+                            <li><strong>API Request &amp; Rendering Data:</strong> When you send documents to our API, we process the supplied HTML, Markdown, CSS, dynamic JSON variables, URL parameters, or ZIP package archives to execute Chromium headless rendering. Rendered PDFs are stored in encrypted, private Amazon S3 buckets accessible only via signed, expiring download URLs. When <code>options.zeroRetention: true</code> is enabled on <code>POST /render</code>, the generated PDF is returned directly in the response with zero S3 object writes and zero file-store records.</li>
                             <li><strong>Usage &amp; Telemetry Data:</strong> We record timestamped event records in Amazon DynamoDB capturing request ID, HTTP method, source type, byte count, render duration, and account quota utilization. For anonymous trial requests, we compute a one-way privacy-preserving SHA-256 hash of the client IP address to enforce daily rate limits; raw IP addresses are never persisted.</li>
                             <li><strong>Billing &amp; Payment Data:</strong> All financial transactions are processed by our Merchant of Record, Paddle.com Market Ltd. RenderPDF does not collect, process, or store full credit card numbers, CVVs, or bank account details. We receive only non-sensitive transaction tokens, subscription status, and customer identifiers required to allocate account quotas.</li>
                         </ul>
@@ -113,6 +113,24 @@
                                         <td>24 hours (1 day)</td>
                                         <td>Isolated Amazon S3 bucket</td>
                                         <td>Automated S3 lifecycle rule permanently deletes uploaded source archives 24 hours after upload.</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Abandoned Batch Artifacts</strong></td>
+                                        <td>7 calendar days</td>
+                                        <td>Private Amazon S3 (us-east-1)</td>
+                                        <td>Automated S3 lifecycle policy permanently purges intermediate or abandoned batch artifacts after 7 days.</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Zero-Retention Renders (<code>options.zeroRetention: true</code>)</strong></td>
+                                        <td>0 seconds (in-memory only)</td>
+                                        <td>Not persisted</td>
+                                        <td>Skipped from S3 and file-store metadata; PDF bytes are returned inline in the API response.</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Idempotency Replay Records (<code>Idempotency-Key</code>)</strong></td>
+                                        <td>24 hours (1 day)</td>
+                                        <td>Amazon DynamoDB</td>
+                                        <td>DynamoDB native Time-to-Live (TTL) automatically purges idempotency keys and cached responses 24 hours after creation.</td>
                                     </tr>
                                     <tr>
                                         <td><strong>Usage Analytics &amp; Activity Logs</strong></td>
@@ -148,7 +166,7 @@
                             <div class="legal-card">
                                 <span class="legal-card-title">Google LLC</span>
                                 <p><strong>Region:</strong> United States &amp; Global</p>
-                                <p><strong>Purpose:</strong> Single Sign-On (SSO) identity provider via Google OAuth 2.0 to authenticate developers accessing the RenderPDF dashboard.</p>
+                                <p><strong>Purpose:</strong> Optional Single Sign-On (SSO) identity provider via Google OAuth 2.0 to authenticate developers who sign in to the RenderPDF dashboard with Google.</p>
                             </div>
                         </div>
                     </section>

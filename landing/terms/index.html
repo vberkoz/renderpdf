@@ -101,9 +101,10 @@
                         <h2 id="usage-limits-heading">4. Usage Limits and Quotas</h2>
                         <p>To ensure system stability, fair resource sharing, and reliable performance across all customers, RenderPDF enforces specific technical and account-level limits:</p>
                         <ul>
-                            <li><strong>Free tier:</strong> 25 PDF renders per calendar month.</li>
-                            <li><strong>Starter tier:</strong> 5,000 PDF renders per monthly billing period.</li>
-                            <li><strong>Professional tier:</strong> 20,000 PDF renders per monthly billing period.</li>
+                            <li><strong>Free tier:</strong> 25 PDF renders per UTC calendar month.</li>
+                            <li><strong>Starter tier:</strong> 5,000 PDF renders per UTC calendar month.</li>
+                            <li><strong>Professional tier:</strong> 20,000 PDF renders per UTC calendar month.</li>
+                            <li><strong>Business tier:</strong> Custom monthly PDF volume and rate limits governed by a separate written agreement or invoice.</li>
                             <li><strong>Trial endpoint:</strong> 3 renders per UTC day per source IP address hash without an API key.</li>
                             <li><strong>Payload constraints:</strong> Maximum 1 MiB request JSON, 768 KiB HTML body, 128 KiB CSS, 256 KiB dynamic variable data, 10 data nesting levels, and 1 MiB final rendered input. Uploaded ZIP packages are limited to 25 MB compressed, 50 MB uncompressed, and 500 files.</li>
                             <li><strong>Template constraints:</strong> Up to 100 stored customer templates per account, with a maximum of 1 MiB per template.</li>
@@ -116,11 +117,12 @@
                         <ul>
                             <li><strong>Recurring Billing:</strong> Paid subscriptions are billed automatically on a recurring <strong>monthly or annual</strong> interval from your initial purchase date until you cancel:
                                 <ul>
-                                    <li><strong>Starter:</strong> $19 USD / month, or $190 USD / year (saves $38/year with 20% annual discount).</li>
-                                    <li><strong>Professional:</strong> $49 USD / month, or $490 USD / year (saves $98/year with 20% annual discount).</li>
+                                    <li><strong>Starter:</strong> $19 USD / month, or $190 USD / year (saves $38/year — 2 months free).</li>
+                                    <li><strong>Professional:</strong> $49 USD / month, or $490 USD / year (saves $98/year — 2 months free).</li>
+                                    <li><strong>Business:</strong> Custom USD pricing, invoiced monthly or annually per written agreement.</li>
                                 </ul>
                             </li>
-                            <li><strong>Quota Exhaustion:</strong> When your account consumes 100% of its monthly PDF allowance, subsequent render requests will immediately return an <code>HTTP 429 Too Many Requests</code> status code. This hard cap prevents unexpected bill shocks or runaway charges. Rendering access automatically resets at the beginning of the next monthly billing cycle.</li>
+                            <li><strong>Quota Exhaustion:</strong> When your account consumes 100% of its monthly PDF allowance, subsequent render requests will immediately return an <code>HTTP 429 Too Many Requests</code> status code. This hard cap prevents unexpected bill shocks or runaway charges. Monthly PDF quotas automatically reset at 00:00 UTC on the first day of each calendar month.</li>
                             <li><strong>Resuming Service Immediately:</strong> If your quota is exhausted before your renewal date, you can resume rendering immediately through two self-serve options in your dashboard:
                                 <ol>
                                     <li><strong>Upgrade Plan:</strong> Upgrade from Starter to Professional at any time; changes are prorated immediately.</li>

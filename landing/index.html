@@ -68,12 +68,13 @@
               "name": "Professional",
               "price": "49.00",
               "priceCurrency": "USD",
-              "description": "20,000 PDFs each month with priority queueing and high throughput."
+              "description": "20,000 PDFs each month with higher API rate limits (50 RPS steady, 100 RPS burst) and high throughput."
             }
           ],
           "featureList": [
             "HTML, Markdown, and URL to PDF conversion via Headless Chromium",
-            "PDF/A and Hybrid E-Invoicing (Factur-X / ZUGFeRD EN 16931)",
+            "PDF/A, PDF/UA-1 Accessibility, and Hybrid E-Invoicing (Factur-X / ZUGFeRD EN 16931)",
+            "Zero-Retention Rendering Mode (0 S3/DB writes) and Idempotency-Key Replay",
             "Dynamic Vector Barcodes (Code 128, QR Code, DataMatrix, EAN)",
             "AES-256 PDF Password Protection and Permissions",
             "Native Multi-Document PDF Merging",
@@ -98,7 +99,7 @@
               "name": "Is my document data stored or shared?",
               "acceptedAnswer": {
                 "@type": "Answer",
-                "text": "Your documents are completely private. We never share, sell, or use your data to train AI models. Rendered PDFs are stored in private, AES-256 encrypted AWS S3 buckets and can only be downloaded via short-lived presigned URLs that expire after 15 minutes. All generated PDFs and temporary upload packages are governed by automatic 30-day deletion lifecycle policies—once the 30-day window passes, objects are permanently removed."
+                "text": "Your documents are completely private. We never share, sell, or use your data to train AI models. Rendered PDFs are stored in private, AES-256 encrypted AWS S3 buckets and can only be downloaded via short-lived presigned URLs that expire after 15 minutes. Generated PDFs are governed by automatic 30-day deletion lifecycle policies and temporary upload packages are automatically deleted after 24 hours—once each window passes, objects are permanently removed. For strict privacy workloads, set options.zeroRetention: true to return the PDF inline without writing files to S3 or DynamoDB."
               }
             },
             {
@@ -136,12 +137,10 @@
             </a>
             <nav id="landing-primary-navigation" class="topnav" data-carbon-header-nav aria-label="Primary navigation">
                 <a href="/" aria-current="page">Home</a>
-                <a href="#features">Features</a>
-                <a href="#developers">Quickstart</a>
-                <a href="#pricing">Pricing</a>
+                <a href="/#pricing">Pricing</a>
                 <a href="/docs/api/">API docs</a>
+                <a href="/app/">Dashboard</a>
                 <a href="https://github.com/vberkoz/renderpdf">GitHub</a>
-                <a href="/app/" class="topnav-cta">Get API Key</a>
             </nav>
             <button type="button" class="theme-toggle" data-action="theme" aria-label="Toggle color theme" title="Toggle light/dark theme"><svg class="lucide when-dark" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg><svg class="lucide when-light" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg></button>
         </header>
@@ -262,7 +261,7 @@
                             <svg class="lucide lucide-file-check" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="m9 15 2 2 4-4"/></svg>
                         </div>
                         <h3>Factur-X &amp; EU E-Invoicing</h3>
-                        <p>Meet European 2024–2026 e-invoicing mandates (EN 16931). Embed cross-industry XML and ISO 19005 (PDF/A-3b) compliance profiles automatically.</p>
+                        <p>Meet European 2024–2026 e-invoicing mandates (EN 16931) and accessibility standards. Embed cross-industry XML alongside ISO 19005 (PDF/A-1b/2b/3b) and ISO 14289-1 (PDF/UA-1) compliance profiles automatically.</p>
                         <a class="feature-link" href="/docs/api/compliance/">E-invoicing docs <svg class="lucide lucide-arrow-up-right" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg></a>
                     </article>
 
@@ -445,10 +444,10 @@ print(f<span class="code-string">"Generated PDF: {download_url}"</span>)</code><
                         <button type="button" class="pricing-billing-toggle-btn is-active" data-billing="monthly" aria-pressed="true">Billed monthly</button>
                         <button type="button" class="pricing-billing-toggle-btn" data-billing="annual" aria-pressed="false">
                             <span>Billed annually</span>
-                            <span class="pricing-save-badge">Save 20%</span>
+                            <span class="pricing-save-badge">2 months free</span>
                         </button>
                     </div>
-                    <span class="pricing-billing-caption">Save 20% with annual billing — 2 months free on Starter and Professional plans.</span>
+                    <span class="pricing-billing-caption">Get 2 months free with annual billing (~17% off Starter and Professional plans).</span>
                 </div>
 
                 <div class="pricing-grid">
@@ -529,7 +528,7 @@ print(f<span class="code-string">"Generated PDF: {download_url}"</span>)</code><
                         </summary>
                         <div class="faq-answer">
                             <p><strong>Your documents are completely private. We never share, sell, or use your data to train AI models.</strong></p>
-                            <p>Rendered PDFs are stored in private, AES-256 encrypted AWS S3 buckets and can only be downloaded via short-lived presigned URLs that expire after 15 minutes. All generated PDFs and temporary upload packages are governed by automatic 30-day deletion lifecycle policies—once the 30-day window passes, objects are permanently removed.</p>
+                            <p>Rendered PDFs are stored in private, AES-256 encrypted AWS S3 buckets and can only be downloaded via short-lived presigned URLs that expire after 15 minutes. Generated PDFs are governed by automatic 30-day deletion lifecycle policies and temporary upload packages are automatically deleted after 24 hours—once each window passes, objects are permanently removed. For strict privacy workloads, set <code>options.zeroRetention: true</code> to return the PDF inline without writing files to S3 or DynamoDB.</p>
                         </div>
                     </details>
 

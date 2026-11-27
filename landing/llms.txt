@@ -53,6 +53,16 @@ Request shape:
 - Zero retention (`options.zeroRetention: true`): skips S3 and DynamoDB file storage (`0` writes), sets `X-Retention-Policy: zero-retention`, and returns base64 `data` in JSON (`{"requestId", "size", "pageCount", "data", "zeroRetention": true}`) or binary bytes when combined with `Accept: application/pdf` / `options.responseFormat: "binary"`.
 - Direct binary PDF: send `Accept: application/pdf` or `"responseFormat": "binary"` to receive `application/pdf` bytes directly with `X-File-Id` and `X-Request-Id`.
 
+## Options, Security, Compliance & Webhooks
+
+- Watermarks (`options.watermark`): `text`, `diagonal`, `rotation`, `opacity`, `color`, `fontSize`, `font` (`Helvetica|Times-Roman|Courier`), `position`, `pages` (`all|odd|even|1|2-`), `onTop`.
+- Encryption (`options.password`, `options.ownerPassword`, `options.permissions`): AES-256 PDF password protection and permissions (`all|print|none`). Cannot be combined with PDF/A `compliance`.
+- Page numbers (`options.pageNumbers`): `format` (supports `{page}` and `{total}`), `position`, `startPage`, `excludeCover`, `startNumber`, `fontSize`, `color`.
+- Compliance (`options.compliance`): `profile` (`pdfa-1b|pdfa-2b|pdfa-3b|pdfua-1|factur-x|zugferd`), `pdfua` (`true|false`), `invoiceProfile` (`MINIMUM|BASIC WL|BASIC|EN 16931|EXTENDED`), `invoiceXml` (UN/CEFACT CII XML).
+- Wait conditions (`options.waitFor`): `selector`, `function`, `networkIdle` (`networkidle0|networkidle2`), `timeoutMs`, `fonts`.
+- Templates & vectors: `{{#each}}`, `{{#if}}`, `{{#unless}}` control blocks; server-side vector barcodes and QR codes via `{{qrcode}}`, `{{barcode}}`, `<qrcode>`, and `<barcode>`.
+- Webhooks: pass `webhookUrl` and optional `webhookSecret` on `POST /render`, `POST /merge`, or `POST /batches` `options` (unsupported when `options.zeroRetention: true`).
+
 ## Idempotency (`Idempotency-Key`)
 
 - Pass `Idempotency-Key: <1-256 printable ASCII chars>` on billable `POST /render`, `POST /merge`, and `POST /batches`.
