@@ -266,14 +266,31 @@
 
 @media (max-width: 980px) {
   .auth-main { grid-template-columns: 1fr; gap: 16px; padding: 16px 12px; }
+  .auth-card, .auth-intro { width: 100%; max-width: 440px; margin-inline: auto; }
 }
 @media (max-width: 760px) {
   .auth-main { gap: 12px; padding: 12px 10px; }
   .auth-card { grid-row: 1; padding: 14px; }
   .auth-intro { grid-row: 2; gap: 8px; }
+  .auth-lead, .handoff-card p, .callback-card p { font-size: 14.5px; line-height: 1.5; }
+  .auth-alternate-action { font-size: 14px; }
+  .auth-steps p, .auth-fineprint, .callback-fineprint { font-size: 13px; }
+  .auth-steps span, .auth-divider, .auth-points li, .auth-points > span { font-size: 12px; }
+  .auth-points li, .auth-points > span { height: auto; min-height: 22px; padding: 3px 8px; }
+  .google-button, .email-button, .recovery-action, .callback-action {
+    min-height: 44px;
+    height: auto;
+    padding: 10px 14px;
+    font-size: 14.5px;
+  }
+  .auth-text-link { min-height: 40px; padding: 6px 8px; font-size: 14px; }
   .callback-main:not(.auth-main) { padding: 16px 10px; }
   .handoff-card, .callback-card { padding: 16px; }
 }
 @media (max-width: 480px) {
   .recovery-action, .callback-action { width: 100%; }
+}
+@media (pointer: coarse) {
+  .google-button, .email-button, .recovery-action, .callback-action { min-height: 44px; height: auto; }
+  .auth-text-link { min-height: 40px; }
 }

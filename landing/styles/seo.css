@@ -236,3 +236,25 @@
 .seo-related-card:hover { border-color: var(--ln-3); background: var(--bg-2); }
 .seo-related-card strong { font-size: 12.5px; color: var(--fg-0); }
 .seo-related-card span { font-size: 11.5px; color: var(--fg-1); }
+
+@media (max-width: 760px) {
+  .seo-shell { padding: 10px 10px 20px; }
+  .seo-hero { padding: 14px; }
+  .seo-breadcrumb, .seo-pill, .badge-winner, .code-header, .comparison-table th { font-size: 12px; }
+  .seo-pill, .badge-winner { height: auto; min-height: 22px; padding: 3px 8px; }
+  .seo-hero .lead, .step-description, .faq-header p, .faq-content, .seo-cta-content p {
+    font-size: 14.5px;
+    line-height: 1.55;
+  }
+  .seo-card h2, .seo-card h3, .step-header h2, .step-header h3 { font-size: 15px; }
+  .seo-card p, .comparison-table, .seo-related-card strong { font-size: 13.5px; }
+  .seo-related-card span, .code-block pre { font-size: 13px; }
+  .seo-hero-actions .button, .seo-cta-actions .button {
+    min-height: 44px;
+    height: auto;
+    padding: 10px 14px;
+    font-size: 14.5px;
+  }
+  .faq-item summary { min-height: 44px; padding: 12px; font-size: 14.5px; }
+  .seo-related-card { padding: 12px; }
+}

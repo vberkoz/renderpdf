@@ -177,7 +177,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    min-height: 32px;
+    min-height: 40px;
     padding: 0 10px;
     color: var(--fg-0);
     cursor: pointer;
@@ -228,7 +228,7 @@
     outline: 2px solid var(--ac);
     outline-offset: -2px;
   }
-  .dashboard-mobile-navigation .dashboard-app-nav a { height: 30px; min-height: 30px; padding: 0 10px; font-size: 12px; border-radius: var(--r); }
+  .dashboard-mobile-navigation .dashboard-app-nav a { height: auto; min-height: 36px; padding: 6px 10px; font-size: 12px; border-radius: var(--r); }
   .dashboard-mobile-navigation .dashboard-app-nav a.is-active,
   .dashboard-mobile-navigation .dashboard-app-nav a[aria-current="page"] {
     background: var(--ac-bg);
@@ -239,6 +239,7 @@
 
   .source-choice { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .template-editor, .document-json-workspace, .workflow-stage-grid { grid-template-columns: 1fr; }
+  .dashboard-table-wrap { -webkit-overflow-scrolling: touch; }
   .dashboard-table { min-width: 560px; }
   #keysList .dashboard-table th:nth-child(1), #keysList .dashboard-table td:nth-child(1) { min-width: 180px; width: auto; }
   #keysList .dashboard-table th:nth-child(2), #keysList .dashboard-table td:nth-child(2) { min-width: 120px; width: auto; }
@@ -248,6 +249,7 @@
 }
 
 @media (max-width: 760px) {
+  body.dashboard-page { font-size: 14px; line-height: 1.45; }
   .dashboard-page .dashboard-topbar { height: auto; }
   .dashboard-topbar-inner {
     display: grid;
@@ -256,18 +258,93 @@
     column-gap: 8px;
     padding: 6px 10px;
   }
+  .dashboard-brand-title { font-size: 15.5px; }
+  .dashboard-badge-app { font-size: 11px; height: 20px; padding: 0 6px; }
+  .dashboard-topbar-inner > .theme-toggle {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: end;
+  }
   .dashboard-marketing-nav {
     grid-column: 1 / -1;
+    grid-row: 2;
     margin-left: 0;
     overflow-x: auto;
     width: 100%;
     flex-wrap: nowrap;
     scrollbar-width: none;
-    gap: 2px;
+    gap: 4px;
   }
   .dashboard-marketing-nav::-webkit-scrollbar { display: none; }
-  .dashboard-marketing-nav a { white-space: nowrap; padding: 0 7px; font-size: 11.5px; flex-shrink: 0; }
-  .batch-step { grid-template-columns: 1fr; gap: 8px; }
+  .dashboard-marketing-nav a,
+  .dashboard-marketing-nav .dashboard-nav-link-btn {
+    white-space: nowrap;
+    min-height: 38px;
+    height: auto;
+    padding: 6px 10px;
+    font-size: 13.5px;
+    flex-shrink: 0;
+  }
+  .dashboard-mobile-navigation summary { min-height: 44px; padding: 8px 12px; font-size: 14px; }
+  .dashboard-mobile-navigation summary .mobile-nav-current-badge { height: 22px; padding: 0 8px; font-size: 12px; }
+  .dashboard-mobile-navigation .dashboard-app-nav a { min-height: 40px; padding: 8px 12px; font-size: 14px; }
+  .dashboard-nav-group p { font-size: 11.5px; }
+  .sidebar-quickstart-title { font-size: 12.5px; }
+  .sidebar-quickstart-text { font-size: 13px; }
+  .sidebar-quickstart-btn { min-height: 40px; height: auto; padding: 8px 12px; font-size: 13.5px; }
+  .dashboard-page input[type="text"],
+  .dashboard-page input[type="password"],
+  .dashboard-page input[type="email"],
+  .dashboard-page input[type="number"],
+  .dashboard-page input[type="url"],
+  .dashboard-page select,
+  .dashboard-select,
+  .dashboard-page textarea {
+    font-size: 16px;
+  }
+  .dashboard-page input[type="text"],
+  .dashboard-page input[type="password"],
+  .dashboard-page input[type="email"],
+  .dashboard-page input[type="number"],
+  .dashboard-page input[type="url"],
+  .dashboard-page select,
+  .dashboard-select {
+    min-height: 40px;
+    height: auto;
+    padding: 8px 10px;
+  }
+  .dashboard-button { min-height: 40px; height: auto; padding: 8px 12px; font-size: 14px; }
+  .table-action { min-height: 38px; height: auto; padding: 6px 10px; font-size: 13px; }
+  .quickstart-tab, .dashboard-interval-btn { min-height: 38px; height: auto; padding: 6px 12px; font-size: 13px; }
+  .quickstart-copy-btn { min-height: 36px; height: auto; padding: 6px 10px; font-size: 13px; }
+  .batch-composer > summary { min-height: 42px; padding: 8px 10px; font-size: 14px; }
+  .dashboard-page-intro h1 { font-size: 22px; }
+  .panel-header h2, .workflow-stage-heading h2 { font-size: 15px; }
+  .dashboard-dialog-heading h2 { font-size: 18px; }
+  .new-key-header h2, .new-key-header h3, .billing-info-card h3, .plan-option-copy strong { font-size: 14.5px; }
+  .dashboard-next-action strong, .source-choice-option strong, .plan-overage-card strong { font-size: 14px; }
+  .dashboard-notice, .dashboard-result, .empty-state, .reusable-empty-state, .dashboard-loading-state,
+  .panel-header > div > p, .dashboard-dialog-heading p, .workflow-stage-heading p,
+  .new-key-header p, .billing-info-card p, .dashboard-next-action span, .source-choice-option span,
+  .plan-option-copy span, .plan-option-price span, .plan-overage-card span,
+  .batch-composer > summary small, .billing-usage-detail, .dashboard-table-primary span,
+  .usage-summary small, .daily-activity small, #logsPageStatus, .dashboard-table code, .key-display {
+    font-size: 13px;
+  }
+  .dashboard-table th { font-size: 12px; }
+  .dashboard-page .dashboard-footer .footer-entity,
+  .dashboard-page .dashboard-footer .footer-address,
+  .dashboard-page .dashboard-footer .footer-contact,
+  .dashboard-page .dashboard-footer .footer-col nav a {
+    font-size: 13px;
+  }
+  .dashboard-page .dashboard-footer .footer-col nav a { min-height: 36px; padding: 6px 0; }
+  .dashboard-page .dashboard-footer .footer-col-title,
+  .dashboard-page .dashboard-footer .footer-bottom p {
+    font-size: 12px;
+  }
+  .batch-field-row { grid-template-columns: 1fr; gap: 6px; }
+  .batch-source-hint { margin: 0; }
 }
 
 @media (max-width: 680px) {
@@ -276,9 +353,12 @@
   .new-key-header { flex-direction: column; align-items: stretch; gap: 8px; }
   .new-key-actions { width: 100%; display: flex; flex-wrap: wrap; gap: 6px; }
   .new-key-actions .dashboard-button { flex: 1 1 auto; justify-content: center; }
-  .template-preview-stage, .document-json-preview-stage { padding: 8px 4px; height: min(52vh, 460px); }
+  .template-preview-stage, .document-json-preview-stage { padding: 8px 4px; height: min(52vh, 460px); height: min(52dvh, 460px); }
+  #documentJsonField .CodeMirror { height: min(320px, 50vh); height: min(320px, 50dvh); min-height: 220px; }
+  .stored-source-picker-row > * { flex: 1 1 100%; min-width: 0; }
   .workflow-primary-actions { width: 100%; gap: 6px; }
   .workflow-primary-actions .dashboard-button { flex: 1 1 calc(50% - 4px); justify-content: center; }
+  .batch-data-header { flex-wrap: wrap; }
   .batch-submit-bar { flex-direction: column; align-items: stretch; gap: 8px; }
   .batch-submit-bar button { width: 100%; }
   .billing-panel .panel-header { flex-direction: column; align-items: stretch; gap: 8px; }
@@ -294,8 +374,12 @@
 
 @media (max-width: 480px) {
   .workflow-primary-actions .dashboard-button { flex: 1 1 100%; width: 100%; }
+  .overview-recent-activity .log-item, .logs-list .log-item { grid-template-columns: 1fr; gap: 4px; }
+  .batch-composer > summary { flex-wrap: wrap; }
+  .batch-composer > summary small { margin-left: 0; }
+  .workflow-secondary-actions > div { left: 0; right: auto; max-width: calc(100vw - 24px); }
   .dashboard-dialog { padding: 8px; }
-  .dashboard-dialog-card, .billing-plan-dialog, .quickstart-dialog { padding: 12px; width: 100%; }
+  .dashboard-dialog-card, .billing-plan-dialog, .quickstart-dialog { padding: 12px; width: 100%; max-width: calc(100vw - 16px); }
   .plan-option { flex-direction: column; align-items: flex-start; gap: 6px; min-height: auto; }
   .plan-option-price { text-align: left; }
   .plan-overage-card { flex-direction: column; align-items: flex-start; gap: 8px; }
@@ -304,6 +388,18 @@
   .dashboard-dialog-actions { flex-direction: column; align-items: stretch; gap: 6px; }
   .dashboard-dialog-actions .dashboard-button { width: 100%; justify-content: center; }
   .dashboard-page .dashboard-footer .footer-links-grid { grid-template-columns: 1fr; gap: 12px; }
+}
+
+@media (pointer: coarse) {
+  .dashboard-mobile-navigation summary { min-height: 44px; }
+  .dashboard-mobile-navigation .dashboard-app-nav a,
+  .dashboard-button,
+  .quickstart-tab,
+  .dashboard-interval-btn {
+    min-height: 40px;
+    height: auto;
+  }
+  .table-action { min-height: 34px; height: auto; padding: 4px 8px; }
 }
 
 /* Loading States, Spinners & Skeletons */

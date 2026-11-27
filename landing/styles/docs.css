@@ -42,7 +42,7 @@
 .base-url-heading { display: flex; justify-content: space-between; align-items: center; gap: 8px; color: var(--fg-2); font-size: 11px; }
 .base-url-heading a { color: var(--ac); font-size: 11px; font-weight: 600; text-decoration: none; }
 .base-url-heading a:hover { text-decoration: underline; }
-.base-url-card > code { overflow: auto; color: var(--ac); font: 500 11.5px/1.3 var(--f-mono); white-space: nowrap; }
+.base-url-card > code { display: block; max-width: 100%; overflow: auto; color: var(--ac); font: 500 11.5px/1.3 var(--f-mono); white-space: nowrap; }
 .quickstart-call {
   display: flex;
   flex-wrap: wrap;
@@ -53,7 +53,7 @@
   border-radius: var(--r);
   background: var(--bg-1);
 }
-.quickstart-call code { color: var(--fg-0); font-size: 11.5px; }
+.quickstart-call code { color: var(--fg-0); font-size: 11.5px; min-width: 0; overflow-wrap: anywhere; }
 .method-badge, .trial-badge {
   display: inline-flex;
   align-items: center;
@@ -166,6 +166,7 @@
 
 .content { display: grid; gap: 12px; min-width: 0; width: 100%; }
 .doc-section {
+  --doc-prose-max: 68ch;
   display: grid;
   gap: 12px;
   scroll-margin-top: 48px;
@@ -175,7 +176,7 @@
   padding: 16px;
   min-width: 0;
 }
-.section-heading { display: grid; gap: 4px; max-width: none; }
+.section-heading { display: grid; gap: 4px; max-inline-size: var(--doc-prose-max); }
 .section-heading p { margin: 0; color: var(--fg-1); font-size: 12.5px; line-height: 1.5; }
 .section-heading h1, .endpoint-heading h1 {
   margin: 0;
@@ -193,14 +194,31 @@
 }
 .doc-section p, .doc-section li { font-size: 12.5px; line-height: 1.5; color: var(--fg-1); }
 .doc-section strong { color: var(--fg-0); }
+.doc-section > :is(p, ul, ol, dl, blockquote, hr, h1, h2, h3, h4, h5, h6, .callout),
+.endpoint-heading p {
+  max-inline-size: var(--doc-prose-max);
+}
+.doc-section > :is(h1, h2, h3, h4, h5, h6),
+.section-heading :is(h1, h2) {
+  text-wrap: balance;
+}
+.doc-section > :is(p, ul, ol, dl, blockquote),
+.section-heading p,
+.callout p {
+  text-wrap: pretty;
+}
+.doc-section > :is(.code-block, pre, table, .error-table, .response-fields-table-wrap, .response-grid, .property-row, .headers-list, .endpoint-list, .limits-grid, .endpoint-heading, figure, iframe) {
+  inline-size: 100%;
+  max-inline-size: 100%;
+  min-inline-size: 0;
+}
 .request-basics { gap: 12px; }
-.request-basics .section-heading { max-width: none; }
 .request-basics .headers-list code { white-space: nowrap; }
 .request-basics .callout { margin-top: 2px; }
 
 /* Code Blocks & Highlight.js */
 .code-block { overflow: hidden; background: var(--bg-0); border: 1px solid var(--ln); border-radius: var(--r); min-width: 0; }
-.code-block pre { margin: 0; padding: 10px 12px; overflow: auto; white-space: pre-wrap; font: 400 11.5px/1.5 var(--f-mono); color: var(--fg-0); }
+.code-block pre { margin: 0; padding: 10px 12px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font: 400 11.5px/1.5 var(--f-mono); color: var(--fg-0); }
 .code-block .hljs, .hero-aside .hljs { display: block; overflow-x: auto; padding: 0; background: transparent; color: var(--fg-0); }
 .code-block .hljs-comment, .code-block .hljs-quote, .hero-aside .hljs-comment, .hero-aside .hljs-quote { color: var(--fg-2); font-style: italic; }
 .code-block .hljs-keyword, .code-block .hljs-selector-tag, .code-block .hljs-type, .code-block .hljs-literal,
@@ -440,6 +458,7 @@
     align-items: center;
     justify-content: space-between;
     width: 100%;
+    min-height: 42px;
     padding: 8px 10px;
     background: transparent;
     border: 0;
@@ -448,7 +467,7 @@
     font: 500 12px/1.2 var(--f-ui);
     text-align: left;
   }
-  .sidebar-toggle-label { display: flex; align-items: center; gap: 6px; color: var(--fg-1); font-size: 12px; }
+  .sidebar-toggle-label { display: flex; align-items: center; gap: 6px; min-width: 0; flex-wrap: wrap; color: var(--fg-1); font-size: 12px; }
   .sidebar-toggle-icon { color: var(--ac); flex-shrink: 0; }
   .sidebar-toggle-active { color: var(--fg-0); font-weight: 600; }
   .sidebar-toggle-chevron { color: var(--fg-2); font-size: 11px; transition: transform .15s ease; }
@@ -464,12 +483,26 @@
   .sidebar.is-expanded > nav { display: grid; padding: 4px 8px 8px; border-top: 1px solid var(--ln); }
   .sidebar.is-expanded > .sidebar-title { display: block; padding: 8px 10px 2px; border-top: 1px solid var(--ln); }
   .sidebar.is-expanded > .sidebar-note { display: grid; margin: 8px; }
+  .sidebar nav a, .sidebar-group summary { min-height: 36px; }
 }
 
 @media (max-width: 760px) {
   .docs-hero, .doc-section { padding: 12px; }
+  .doc-section { scroll-margin-top: 96px; }
+  .sidebar-mobile-toggle { min-height: 44px; padding: 10px 12px; font-size: 14px; }
+  .sidebar-toggle-label { font-size: 14px; }
+  .sidebar nav a, .sidebar-group summary { min-height: 40px; font-size: 14px; padding: 8px 10px; }
+  .doc-section p, .doc-section li, .property-row, .headers-list > div, .endpoint-list > div, .pagination-title {
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  .code-block pre { font-size: 13px; }
+  .copy-button { min-height: 38px; height: auto; padding: 6px 12px; font-size: 13px; }
+  .section-footnote, .pagination-label, .limits-grid span, .response-fields-table th, .error-table th { font-size: 12px; }
+  .response-fields-table-wrap, .error-table { -webkit-overflow-scrolling: touch; }
+  .response-fields-table, .error-table table { min-width: 480px; table-layout: auto; }
   .endpoint-heading { flex-direction: column; align-items: flex-start; gap: 6px; }
-  .route, .endpoint-route { flex-wrap: wrap; font-size: 11px; }
+  .route, .endpoint-route { flex-wrap: wrap; font-size: 13px; }
   .route code, .endpoint-route code { overflow-wrap: anywhere; word-break: break-word; }
   .property-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding: 8px; }
   .property-row > p { width: 100%; margin-top: 2px; grid-column: auto; }
@@ -482,4 +515,8 @@
 }
 @media (max-width: 480px) {
   .limits-grid { grid-template-columns: 1fr; }
+}
+@media (pointer: coarse) {
+  .sidebar-mobile-toggle { min-height: 44px; }
+  .sidebar nav a, .sidebar-group summary, .copy-button { min-height: 40px; height: auto; }
 }

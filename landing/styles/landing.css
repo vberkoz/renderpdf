@@ -90,6 +90,7 @@
   color: var(--fg-0);
   font: 400 11.5px/1.55 var(--f-mono);
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
   margin: 0;
 }
 .code-key { color: var(--ok); font-weight: 600; }
@@ -116,7 +117,8 @@
   border: 1px solid color-mix(in srgb, var(--ac) 30%, transparent);
   font: 600 10px/1 var(--f-mono);
 }
-.hero-result strong, .hero-result span { display: block; }
+.hero-result > div { min-width: 0; }
+.hero-result strong, .hero-result span { display: block; overflow-wrap: anywhere; }
 .hero-result strong { font-size: 12px; color: var(--fg-0); }
 .hero-result div > span {
   margin-top: 1px;
@@ -643,20 +645,6 @@ a.hero-live-counter:hover {
   color: var(--fg-0);
 }
 
-/* Topnav CTA */
-.topnav a.topnav-cta {
-  background: var(--ac-solid);
-  border-color: var(--ac-solid);
-  color: var(--on-ac);
-  font-weight: 600;
-  padding: 0 10px;
-}
-.topnav a.topnav-cta:hover, .topnav a.topnav-cta:focus-visible {
-  background: color-mix(in srgb, var(--ac-solid) 86%, #fff);
-  border-color: color-mix(in srgb, var(--ac-solid) 86%, #fff);
-  color: var(--on-ac);
-}
-
 /* Closing Pre-Footer CTA */
 .closing-cta {
   border: 1px solid var(--ln-2);
@@ -698,13 +686,52 @@ a.hero-live-counter:hover {
   .pricing-exhaustion-options { border-left: 0; padding-left: 0; border-top: 1px solid var(--ln); padding-top: 10px; }
 }
 @media (max-width: 760px) {
+  .playground, .features, .code-showcase, .pricing, .faq,
+  #playground, #features, #developers, #pricing, #faq {
+    scroll-margin-top: 96px;
+  }
+  .hero-copy .lead, .playground-copy, .features-header p, .code-showcase-header p, .faq-header > p, .closing-cta-content .lead {
+    font-size: 14.5px;
+    line-height: 1.5;
+  }
+  .capabilities h2, .feature-card h3, .pricing-exhaustion-card h3, .faq-question h3 { font-size: 15px; }
+  .capabilities p, .pricing-header > p, .pricing-card p, .feature-card p,
+  .pricing-exhaustion-card p, .pricing-exhaustion-options strong, .faq-answer, .faq-answer p {
+    font-size: 13.5px;
+    line-height: 1.5;
+  }
+  .hero-live-counter, .hero-result strong, .hero-result div > span,
+  .pricing-billing-caption, .pricing-exhaustion-options span,
+  .closing-cta-note, .code-panel-footer, .feature-card-link, .faq-answer code {
+    font-size: 13px;
+  }
+  .pricing-savings { font-size: 13px !important; }
+  .pricing-badge { font-size: 12px !important; }
+  .hero-aside-heading, .hero-status, .playground-input-header span, .code-tab-lang-label, .pricing-save-badge { font-size: 12px; }
+  .hero-aside pre, .code-panel pre { font-size: 13px; }
+  .hero-actions .button, .generate-button, .pricing-card .button, .closing-cta-actions .button {
+    min-height: 44px;
+    height: auto;
+    padding: 10px 14px;
+    font-size: 14.5px;
+  }
+  .code-tab, .code-copy-btn, .pricing-billing-toggle-btn {
+    min-height: 38px;
+    height: auto;
+    padding: 6px 12px;
+    font-size: 13px;
+  }
+  .faq-question { min-height: 44px; padding: 12px; }
+  .code-tabs { max-width: 100%; min-width: 0; }
+  .code-tabs-header { align-items: flex-start; }
   .playground-header, .pricing-header { align-items: start; flex-direction: column; gap: 8px; }
   .hero-copy, .hero-aside, .playground, .faq { padding: 12px; }
   .hero-live-counter { white-space: normal; flex-wrap: wrap; gap: 4px 8px; }
   .counter-divider { display: none; }
   .playground-input-header { flex-direction: column; align-items: flex-start; gap: 6px; }
   .playground-template-switcher, .template-custom-select { width: 100%; justify-content: space-between; }
-  .template-select, .template-custom-select .custom-select-trigger { flex: 1; max-width: 220px; }
+  .template-select, .template-custom-select .custom-select-trigger { flex: 1; max-width: 220px; min-height: 40px; height: auto; font-size: 14px; }
+  .template-custom-select .custom-select-option { min-height: 40px; font-size: 14px; padding: 8px 10px; }
   .generate-button { width: 100%; }
   .features-grid, .capabilities, .pricing-grid { grid-template-columns: 1fr; }
   .code-panel-footer { flex-direction: column; align-items: flex-start; gap: 6px; }
@@ -717,6 +744,18 @@ a.hero-live-counter:hover {
 @media (max-width: 480px) {
   .hero-actions { width: 100%; flex-direction: column; gap: 6px; }
   .hero-actions .button { width: 100%; justify-content: center; }
-  .template-custom-select .custom-select-trigger { min-width: 120px; }
+  .playground-input-wrap .CodeMirror, .playground-preview-wrap .html-preview {
+    height: min(300px, 50vh);
+    height: min(300px, 50dvh);
+    min-height: 240px;
+  }
+  .template-select, .template-custom-select .custom-select-trigger { max-width: none; width: 100%; min-width: 120px; }
   .template-custom-select .custom-select-menu { max-width: calc(100vw - 24px); min-width: 150px; }
+  .pricing-billing-toggle { max-width: 100%; flex-wrap: wrap; }
+}
+@media (pointer: coarse) {
+  .code-tab, .code-copy-btn, .pricing-billing-toggle-btn, .faq-question {
+    min-height: 40px;
+    height: auto;
+  }
 }
