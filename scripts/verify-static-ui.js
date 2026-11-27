@@ -11,6 +11,13 @@ const path = require('node:path');
 const ROOT = path.resolve(__dirname, '..');
 const PAGE_ROOTS = [path.join(ROOT, 'landing'), path.join(ROOT, 'dashboard')];
 const SECTION_NUMBER = /^\s*(\d+(?:\.\d+)*\.?)(?:\s|$)/;
+const CANONICAL_HEADER_NAV = [
+  { text: 'Home', href: '/' },
+  { text: 'Pricing', href: '/#pricing' },
+  { text: 'API docs', href: '/docs/api/' },
+  { text: 'Dashboard', href: '/app/' },
+  { text: 'GitHub', href: 'https://github.com/vberkoz/renderpdf' },
+];
 
 function decode(value) {
   try {
@@ -56,12 +63,21 @@ function parsePage(source) {
     navigation: [],
     targets: new Set(),
     headings: [],
+    isRedirect: false,
+    hasHeaderNav: false,
+    headerNavLinks: [],
   };
   let heading = null;
+  let headerDepth = 0;
+  let inHeaderNav = false;
+  let checkedHeaderNav = false;
+  let headerNavLink = null;
+  let svgDepth = 0;
   let index = 0;
 
   function text(value) {
     if (heading) heading.parts.push(value);
+    if (headerNavLink && svgDepth === 0) headerNavLink.parts.push(value);
   }
 
   while (index < source.length) {
@@ -81,6 +97,7 @@ function parsePage(source) {
     const end = tagEnd(source, start + 1);
     const rawTag = source.slice(start + 1, end).trim();
     const closing = rawTag.startsWith('/');
+    const selfClosing = rawTag.endsWith('/');
     const tagMatch = rawTag.match(/^\/?\s*([\w:-]+)/);
     const tag = tagMatch ? tagMatch[1].toLowerCase() : '';
     const line = lineNumber(source, start);
@@ -94,10 +111,42 @@ function parsePage(source) {
         });
         heading = null;
       }
+      if (tag === 'svg' && svgDepth > 0) svgDepth -= 1;
+      if (tag === 'a' && headerNavLink) {
+        facts.headerNavLinks.push({
+          href: headerNavLink.href,
+          ariaCurrent: headerNavLink.ariaCurrent,
+          line: headerNavLink.line,
+          text: headerNavLink.parts.join('').replace(/\s+/g, ' ').trim(),
+        });
+        headerNavLink = null;
+        svgDepth = 0;
+      }
+      if (tag === 'nav' && inHeaderNav) {
+        inHeaderNav = false;
+        checkedHeaderNav = true;
+      }
+      if (tag === 'header' && headerDepth > 0) {
+        headerDepth -= 1;
+        if (headerDepth === 0 && inHeaderNav) {
+          inHeaderNav = false;
+          checkedHeaderNav = true;
+        }
+      }
     } else if (tag) {
       const attrs = attributes(rawTag.slice(tagMatch[0].length));
       const id = attrs.get('id');
       if (id) facts.ids.push({ value: id, line });
+
+      if (tag === 'meta' && (attrs.get('http-equiv') ?? '').toLowerCase() === 'refresh') {
+        facts.isRedirect = true;
+      }
+      if (tag === 'header' && !selfClosing) headerDepth += 1;
+      if (tag === 'nav' && headerDepth > 0 && !inHeaderNav && !checkedHeaderNav && !selfClosing) {
+        inHeaderNav = true;
+        facts.hasHeaderNav = true;
+      }
+      if (tag === 'svg' && headerNavLink && !selfClosing) svgDepth += 1;
 
       if (tag === 'a') {
         const href = attrs.get('href') ?? '';
@@ -106,6 +155,14 @@ function parsePage(source) {
         }
         if (attrs.has('data-dashboard-nav')) {
           facts.navigation.push({ value: attrs.get('data-dashboard-nav'), line });
+        }
+        if (inHeaderNav && !selfClosing) {
+          headerNavLink = {
+            href,
+            ariaCurrent: attrs.has('aria-current') ? attrs.get('aria-current') : null,
+            line,
+            parts: [],
+          };
         }
       }
 
@@ -146,11 +203,61 @@ function isFile(target) {
   }
 }
 
+function expectedHeaderNavCurrent(label) {
+  const normalized = label.split(path.sep).join('/');
+  if (normalized === 'landing/index.html') return '/';
+  if (normalized.startsWith('landing/docs/api/')) return '/docs/api/';
+  if (normalized === 'dashboard/index.html') return '/app/';
+  return null;
+}
+
+function checkHeaderNav(facts, label) {
+  if (facts.isRedirect) return [];
+  if (!facts.hasHeaderNav) return [`${label}: missing header <nav>`];
+
+  const errors = [];
+  const links = facts.headerNavLinks;
+  const expectedCurrent = expectedHeaderNavCurrent(label);
+
+  if (links.length !== CANONICAL_HEADER_NAV.length) {
+    errors.push(
+      `${label}: header <nav> has ${links.length} links, expected ${CANONICAL_HEADER_NAV.length}`
+    );
+  }
+
+  const count = Math.min(links.length, CANONICAL_HEADER_NAV.length);
+  for (let i = 0; i < count; i += 1) {
+    const actual = links[i];
+    const expected = CANONICAL_HEADER_NAV[i];
+    if (actual.text !== expected.text || actual.href !== expected.href) {
+      errors.push(
+        `${label}:${actual.line}: header <nav> item ${i + 1} is ${JSON.stringify(actual.text)} -> ${JSON.stringify(actual.href)}, expected ${JSON.stringify(expected.text)} -> ${JSON.stringify(expected.href)}`
+      );
+    }
+  }
+
+  for (const link of links) {
+    const isCurrent = link.ariaCurrent === 'page';
+    const shouldBeCurrent = link.href === expectedCurrent;
+    if (link.ariaCurrent !== null && !isCurrent) {
+      errors.push(
+        `${label}:${link.line}: header <nav> link ${JSON.stringify(link.href)} has unexpected aria-current=${JSON.stringify(link.ariaCurrent)}`
+      );
+    } else if (isCurrent !== shouldBeCurrent) {
+      errors.push(
+        `${label}:${link.line}: header <nav> link ${JSON.stringify(link.href)} ${shouldBeCurrent ? 'must have' : 'must not have'} aria-current="page"`
+      );
+    }
+  }
+
+  return errors;
+}
+
 function checkPage(page) {
   const source = fs.readFileSync(page, 'utf8');
   const facts = parsePage(source);
   const label = path.relative(ROOT, page);
-  const errors = [];
+  const errors = checkHeaderNav(facts, label);
   const idLines = new Map();
 
   for (const id of facts.ids) {
