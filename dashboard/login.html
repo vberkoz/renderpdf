@@ -176,13 +176,15 @@
 
         const startAuthRedirect = async (buttonId, endpointPath, clientId, extraParams = {}) => {
             const button = document.getElementById(buttonId);
-            if (!button) return;
+            if (!button || button.disabled) return;
             showLoginError('');
             const textNode = findButtonTextNode(button);
             if (textNode && !button.dataset.originalLabel) {
                 button.dataset.originalLabel = textNode.textContent;
             }
-            button.disabled = true;
+            authButtons.forEach((btn) => {
+                btn.disabled = true;
+            });
             button.setAttribute('aria-busy', 'true');
             button.classList.add('is-processing');
             if (textNode) {
@@ -228,6 +230,9 @@
         }
 
         window.addEventListener('pagehide', resetAuthButtons);
+        window.addEventListener('pageshow', (event) => {
+            if (event.persisted) resetAuthButtons();
+        });
 
         document.getElementById('loginBtn').addEventListener('click', () => {
             startAuthRedirect('loginBtn', '/oauth2/authorize', GOOGLE_CLIENT_ID, { identity_provider: 'Google' });

@@ -236,11 +236,19 @@ img { max-width: 100%; box-sizing: content-box; background-color: #fff; }
       const wm = document.getElementById('optionWatermarkText')?.value?.trim();
       const pw = document.getElementById('optionPassword')?.value;
       const pnf = document.getElementById('optionPageNumberFormat')?.value?.trim();
-      if (wm || pw || pnf) {
+      const compProfile = document.getElementById('optionComplianceProfile')?.value?.trim();
+      const zeroRetention = Boolean(document.getElementById('optionZeroRetention')?.checked);
+      if (wm || pw || pnf || compProfile || zeroRetention) {
         request.options = { ...(request.options || {}) };
         if (wm && !request.options.watermark) request.options.watermark = { text: wm };
         if (pw && !request.options.password) request.options.password = pw;
         if (pnf && !request.options.pageNumbers) request.options.pageNumbers = { format: pnf };
+        if (compProfile && !request.options.compliance) {
+          request.options.compliance = { profile: compProfile };
+        }
+        if (zeroRetention && request.options.zeroRetention === undefined) {
+          request.options.zeroRetention = true;
+        }
       }
     }
     return request;
@@ -503,6 +511,455 @@ img { max-width: 100%; box-sizing: content-box; background-color: #fff; }
     return escHtml(value).replace(/[\\`*_{}\[\]()<>#+\-.!|~]/g, '\\$&');
   }
 
+  function renderPdfDownloadResult(container, result, { title = 'PDF ready', linkLabel = 'Download PDF →', showSummary = true } = {}) {
+    if (!container) return;
+    container.dataset.state = 'success';
+    container.replaceChildren();
+    if (showSummary) {
+      const summary = document.createElement('div');
+      const heading = document.createElement('strong');
+      heading.textContent = title;
+      const detail = document.createElement('span');
+      const sizeText = `${((result?.size || 0) / 1024).toFixed(1)} KB`;
+      detail.textContent = result?.requestId ? `${sizeText} · request ${result.requestId}` : sizeText;
+      summary.append(heading, detail);
+      container.append(summary);
+    }
+    const link = document.createElement('a');
+    if (!result?.url && result?.data) {
+      link.href = `data:application/pdf;base64,${result.data}`;
+      link.download = 'document.pdf';
+    } else {
+      link.href = result?.url || '#';
+      link.download = '';
+    }
+    link.target = '_blank';
+    link.rel = 'noopener';
+    link.textContent = linkLabel;
+    container.append(link);
+    container.hidden = false;
+  }
+
+  function closeSecondaryActions(element) {
+    const details = element?.closest?.('.workflow-secondary-actions');
+    if (details) details.open = false;
+  }
+
+  function initCreateRenderHandlers(deps = {}) {
+    if (typeof document === 'undefined') return null;
+
+    const fn = (name, fallback) =>
+      typeof deps[name] === 'function'
+        ? deps[name]
+        : typeof global[name] === 'function'
+          ? global[name]
+          : fallback;
+
+    const setNoticeFn = fn('setNotice', (el, msg = '', state = '') => {
+      if (!el) return;
+      el.textContent = msg;
+      if (el.dataset) el.dataset.state = state;
+      el.hidden = !msg;
+    });
+    const setPendingFn = fn('setButtonPending', (btn, pending, label) => {
+      if (!btn) return;
+      if (pending) {
+        if (btn.dataset) btn.dataset.originalText = btn.textContent;
+        btn.textContent = label || 'Working...';
+        btn.disabled = true;
+      } else {
+        btn.textContent = btn.dataset?.originalText || btn.textContent;
+        btn.disabled = false;
+      }
+    });
+    const isLocal = () => Boolean(deps.isLocalPreview ?? global.IS_LOCAL_PREVIEW);
+
+    const templatesStatus = document.getElementById('templatesStatus');
+    const templateForm = document.getElementById('templateForm');
+    const templateRenderResult = document.getElementById('templateRenderResult');
+    const saveTemplateBtn = document.getElementById('saveTemplateBtn');
+    const previewTemplateBtn = document.getElementById('previewTemplateBtn');
+    const renderTemplateBtn = document.getElementById('renderTemplateBtn');
+    const deleteTemplateBtn = document.getElementById('deleteTemplateBtn');
+
+    // 1. Template mode (#templateWorkspace)
+    const onTemplateInput = () => {
+      const previewVars = fn('previewTemplateWithVariables');
+      if (previewVars) previewVars();
+    };
+    document.getElementById('templateHtmlInput')?.addEventListener('input', onTemplateInput);
+    document.getElementById('templateVariablesInput')?.addEventListener('input', onTemplateInput);
+
+    previewTemplateBtn?.addEventListener('click', () => {
+      const parseVars = fn('templateVariablesFromEditor');
+      const previewVars = fn('previewTemplateWithVariables');
+      const previewHtml = fn('previewTemplateHTML');
+      const getVal = fn('templateEditorValue', getEditorValue);
+      const reveal = fn('revealWorkflowPreview');
+      try {
+        if (parseVars) parseVars();
+        if (previewVars) previewVars();
+        if (reveal) reveal('templatePreviewDetails');
+        setNoticeFn(
+          templatesStatus,
+          'Preview updated with the current template and variable data.',
+          'success'
+        );
+      } catch (error) {
+        if (previewHtml) previewHtml(getVal('templateHtmlInput'));
+        if (reveal) reveal('templatePreviewDetails');
+        setNoticeFn(
+          templatesStatus,
+          `Preview uses template HTML only: Variable JSON is invalid. ${error.message}`,
+          'error'
+        );
+      }
+    });
+
+    templateForm?.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      if (saveTemplateBtn?.disabled) return;
+      setNoticeFn(templatesStatus);
+      const buildPayload = fn('templatePayloadFromForm');
+      let template;
+      try {
+        template = buildPayload ? buildPayload() : null;
+      } catch (error) {
+        setNoticeFn(templatesStatus, `Variable JSON is invalid. ${error.message}`, 'error');
+        return;
+      }
+      if (!template?.name || !template?.html) {
+        setNoticeFn(templatesStatus, 'Template name and HTML are required.', 'error');
+        return;
+      }
+      setPendingFn(saveTemplateBtn, true, 'Saving...');
+      try {
+        const templateId = document.getElementById('templateId')?.value;
+        const saveFn = templateId ? fn('updateTemplate') : fn('createTemplate');
+        const saved = templateId ? await saveFn(templateId, template) : await saveFn(template);
+        const populate = fn('populateTemplateEditor');
+        if (populate && saved) populate(saved, `saved:${saved.id}`);
+        const reload = fn('loadTemplates');
+        if (reload && saved) await reload(`saved:${saved.id}`);
+        setNoticeFn(templatesStatus, 'Template saved.', 'success');
+      } catch (error) {
+        setNoticeFn(templatesStatus, `Could not save template. ${error.message}`, 'error');
+      } finally {
+        setPendingFn(saveTemplateBtn, false);
+      }
+    });
+
+    deleteTemplateBtn?.addEventListener('click', async () => {
+      const templateId = document.getElementById('templateId')?.value;
+      if (!templateId || deleteTemplateBtn.disabled) return;
+      const confirmAction = fn('confirmDashboardAction');
+      if (
+        confirmAction &&
+        !(await confirmAction({
+          kicker: 'Template',
+          title: 'Delete this template?',
+          description: 'This cannot be undone.',
+          confirmLabel: 'Delete template',
+        }))
+      ) {
+        return;
+      }
+      setNoticeFn(templatesStatus);
+      setNoticeFn(templateRenderResult);
+      setPendingFn(deleteTemplateBtn, true, 'Deleting...');
+      try {
+        const removeFn = fn('removeTemplate');
+        if (removeFn) await removeFn(templateId);
+        const resetFn = fn('resetTemplateEditor');
+        if (resetFn) resetFn();
+        const reload = fn('loadTemplates');
+        if (reload) await reload();
+        setNoticeFn(templatesStatus, 'Template deleted.', 'success');
+      } catch (error) {
+        setNoticeFn(templatesStatus, `Could not delete template. ${error.message}`, 'error');
+      } finally {
+        setPendingFn(deleteTemplateBtn, false);
+      }
+    });
+
+    renderTemplateBtn?.addEventListener('click', async () => {
+      if (renderTemplateBtn.disabled) return;
+      setNoticeFn(templatesStatus);
+      const templateId = document.getElementById('templateId')?.value;
+      if (!templateId) {
+        setNoticeFn(templateRenderResult, 'Save this template before rendering a test PDF.', 'error');
+        return;
+      }
+      const parseVars = fn('templateVariablesFromEditor');
+      let variables = {};
+      try {
+        variables = parseVars ? parseVars() : {};
+      } catch (error) {
+        setNoticeFn(templateRenderResult, `Variable JSON is invalid. ${error.message}`, 'error');
+        return;
+      }
+      if (isLocal()) {
+        setNoticeFn(templateRenderResult, 'PDF rendering requires a signed-in dashboard session.', 'error');
+        return;
+      }
+      setPendingFn(renderTemplateBtn, true, 'Rendering PDF...');
+      setNoticeFn(templateRenderResult, 'Resolving template variables and rendering PDF...', 'pending');
+      try {
+        const renderStored = fn('renderStoredTemplate');
+        const result = await renderStored(templateId, variables);
+        renderPdfDownloadResult(templateRenderResult, result, {
+          linkLabel: `Download test PDF (${((result?.size || 0) / 1024).toFixed(1)} KB) →`,
+          showSummary: false,
+        });
+      } catch (error) {
+        setNoticeFn(templateRenderResult, `Could not render template. ${error.message}`, 'error');
+      } finally {
+        setPendingFn(renderTemplateBtn, false);
+      }
+    });
+
+    // 2. Saved source mode (#storedSourceWorkspace)
+    document.getElementById('continueSavedSourceBtn')?.addEventListener('click', () => {
+      const getSources = fn('getSavedSources');
+      const sourceMap = getSources ? getSources() : new Map();
+      const selectedId = document.getElementById('storedSourcePickerInput')?.value;
+      const source = sourceMap?.get?.(selectedId);
+      const statusEl = document.getElementById('storedSourceStatus');
+      if (!source) {
+        setNoticeFn(statusEl, 'Choose a saved source first.', 'error');
+        return;
+      }
+      if (typeof window !== 'undefined' && window.customSelect?.replaceOptions) {
+        window.customSelect.replaceOptions(
+          'batchSourceSelect',
+          [
+            {
+              label: 'Saved sources',
+              options: [...sourceMap.values()].map((savedSource) => ({
+                value: savedSource.id,
+                label: savedSource.name,
+              })),
+            },
+          ],
+          source.id
+        );
+      } else {
+        const batchSelect = document.getElementById('batchSourceSelect');
+        if (batchSelect) batchSelect.value = source.id;
+      }
+      const updateBatch = fn('updateBatchReview');
+      if (updateBatch) updateBatch();
+      const switchView = fn('setDashboardView');
+      if (switchView) switchView('batches', { history: 'push', focus: true });
+      if (typeof CustomEvent === 'function') {
+        document.dispatchEvent?.(new CustomEvent('dashboardviewchange', { detail: { view: 'batches' } }));
+      }
+      const composer = document.querySelector?.('.batch-composer');
+      if (composer) composer.open = true;
+      const focusBatchData = () => document.getElementById('batchItemsInput')?.focus?.();
+      if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+        window.requestAnimationFrame(focusBatchData);
+      } else {
+        focusBatchData();
+      }
+    });
+
+    // 3. Public URL mode (#urlWorkspace)
+    const urlForm = document.getElementById('urlForm');
+    const renderUrlBtn = document.getElementById('renderUrlBtn');
+    const urlStatus = document.getElementById('urlStatus');
+    const urlRenderResult = document.getElementById('urlRenderResult');
+
+    async function handleUrlRender(event) {
+      event?.preventDefault?.();
+      if (renderUrlBtn?.disabled) return;
+      setNoticeFn(urlStatus);
+      setNoticeFn(urlRenderResult);
+
+      const urlInput = document.getElementById('urlInput');
+      const rawUrl = (urlInput?.value || '').trim();
+      let parsedUrl;
+      try {
+        if (!/^https?:\/\//i.test(rawUrl)) throw new Error('missing protocol');
+        parsedUrl = new URL(rawUrl);
+        if (!['http:', 'https:'].includes(parsedUrl.protocol)) throw new Error('invalid protocol');
+      } catch (_) {
+        setNoticeFn(urlStatus, 'Enter a valid public URL starting with http:// or https://.', 'error');
+        urlInput?.focus?.();
+        return;
+      }
+
+      const format = document.getElementById('urlFormatSelect')?.value || 'A4';
+      const marginInput = document.getElementById('urlMarginInput');
+      const margin = (marginInput?.value || '').trim() || '18mm';
+      const marginMatch = margin.match(/^([0-9]+(?:\.[0-9]+)?)(mm|in)$/);
+      if (!marginMatch || Number(marginMatch[1]) > (marginMatch[2] === 'in' ? 2 : 50)) {
+        setNoticeFn(urlStatus, 'Margin must be a value from 0mm to 50mm or 0in to 2in.', 'error');
+        marginInput?.focus?.();
+        return;
+      }
+
+      if (isLocal()) {
+        setNoticeFn(urlRenderResult, 'PDF rendering requires a signed-in dashboard session.', 'error');
+        return;
+      }
+
+      setPendingFn(renderUrlBtn, true, 'Rendering PDF...');
+      setNoticeFn(urlRenderResult, 'Loading webpage and rendering PDF...', 'pending');
+      try {
+        const renderDoc = fn('renderDocumentRequest', renderInlineDocument);
+        const result = await renderDoc({
+          version: '1',
+          source: { type: 'url', url: rawUrl },
+          options: { format, margin },
+        });
+        renderPdfDownloadResult(urlRenderResult, result);
+      } catch (error) {
+        setNoticeFn(urlRenderResult, `Could not render URL. ${error.message}`, 'error');
+      } finally {
+        setPendingFn(renderUrlBtn, false);
+      }
+    }
+
+    urlForm?.addEventListener('submit', handleUrlRender);
+    renderUrlBtn?.addEventListener('click', handleUrlRender);
+
+    // 4. Inline HTML/CSS & Markdown mode (#documentWorkspace)
+    const documentJsonStatus = document.getElementById('documentJsonStatus');
+    const documentJsonResult = document.getElementById('documentJsonResult');
+    const previewDocumentJsonBtn = document.getElementById('previewDocumentJsonBtn');
+    const renderDocumentJsonBtn = document.getElementById('renderDocumentJsonBtn');
+    const saveDocumentSourceBtn = document.getElementById('saveDocumentSourceBtn');
+    const resetDocumentJsonBtn = document.getElementById('resetDocumentJsonBtn');
+
+    ['documentJsonInput', 'documentMarkdownInput', 'documentMarkdownSettingsInput'].forEach((id) => {
+      document.getElementById(id)?.addEventListener('input', () => {
+        const parseDoc = fn('parseDocumentEditor', parseDocumentEditor);
+        try {
+          parseDoc();
+          setNoticeFn(documentJsonStatus);
+        } catch (error) {
+          setNoticeFn(documentJsonStatus, error.message, 'error');
+        }
+        setNoticeFn(documentJsonResult);
+      });
+    });
+
+    previewDocumentJsonBtn?.addEventListener('click', () => {
+      const previewDoc = fn('previewDocumentJson');
+      const reveal = fn('revealWorkflowPreview');
+      try {
+        if (previewDoc) previewDoc();
+        if (reveal) reveal('documentPreviewDetails');
+        setNoticeFn(
+          documentJsonStatus,
+          'Preview updated. Values are HTML-escaped and network access is disabled.',
+          'success'
+        );
+      } catch (error) {
+        setNoticeFn(documentJsonStatus, error.message, 'error');
+      }
+    });
+
+    renderDocumentJsonBtn?.addEventListener('click', async () => {
+      if (renderDocumentJsonBtn.disabled) return;
+      setNoticeFn(documentJsonStatus);
+      setNoticeFn(documentJsonResult);
+      const previewDoc = fn('previewDocumentJson');
+      const parseDoc = fn('parseDocumentEditor', parseDocumentEditor);
+      let request;
+      try {
+        request = previewDoc ? previewDoc() : parseDoc().request;
+      } catch (error) {
+        setNoticeFn(documentJsonStatus, error.message, 'error');
+        return;
+      }
+      if (isLocal()) {
+        setNoticeFn(documentJsonResult, 'PDF rendering requires a signed-in dashboard session.', 'error');
+        return;
+      }
+      setPendingFn(renderDocumentJsonBtn, true, 'Rendering PDF...');
+      setNoticeFn(documentJsonResult, 'Validating the document and rendering its PDF...', 'pending');
+      try {
+        const renderDoc = fn('renderDocumentRequest', renderInlineDocument);
+        const result = await renderDoc(request);
+        renderPdfDownloadResult(documentJsonResult, result);
+      } catch (error) {
+        setNoticeFn(documentJsonResult, `Could not render document. ${error.message}`, 'error');
+      } finally {
+        setPendingFn(renderDocumentJsonBtn, false);
+      }
+    });
+
+    saveDocumentSourceBtn?.addEventListener('click', async () => {
+      if (saveDocumentSourceBtn.disabled) return;
+      setNoticeFn(documentJsonStatus);
+      const previewDoc = fn('previewDocumentJson');
+      const parseDoc = fn('parseDocumentEditor', parseDocumentEditor);
+      let definition;
+      try {
+        definition = previewDoc ? previewDoc() : parseDoc().request;
+        if (definition?.html) {
+          definition = { ...definition, source: { type: 'html', content: definition.html } };
+          delete definition.html;
+        }
+      } catch (error) {
+        setNoticeFn(documentJsonStatus, error.message, 'error');
+        return;
+      }
+      const promptText = fn('promptDashboardText');
+      const name = promptText
+        ? await promptText({
+            title: 'Name this source',
+            description: 'Choose a name you will recognize when selecting it for a batch.',
+            label: 'Source name',
+            confirmLabel: 'Save source',
+          })
+        : null;
+      if (!name) {
+        closeSecondaryActions(saveDocumentSourceBtn);
+        return;
+      }
+      setPendingFn(saveDocumentSourceBtn, true, 'Saving source…');
+      try {
+        const req = fn('dashboardTemplateRequest');
+        const saved = await req('/dashboard/sources', {
+          method: 'POST',
+          body: JSON.stringify({ name, definition }),
+        });
+        const reloadSources = fn('loadSavedSources');
+        if (reloadSources) await reloadSources(saved?.id);
+        setNoticeFn(
+          documentJsonStatus,
+          'Source saved. It is ready to use from Saved sources or batch rendering.',
+          'success'
+        );
+      } catch (error) {
+        setNoticeFn(documentJsonStatus, `Could not save source. ${error.message}`, 'error');
+      } finally {
+        setPendingFn(saveDocumentSourceBtn, false);
+        closeSecondaryActions(saveDocumentSourceBtn);
+      }
+    });
+
+    resetDocumentJsonBtn?.addEventListener('click', () => {
+      const type = document.getElementById('documentSourceTypeInput')?.value || 'html';
+      const loadSample = fn('loadDocumentEditorSample');
+      const previewDoc = fn('previewDocumentJson');
+      if (loadSample) loadSample(type);
+      if (previewDoc) previewDoc();
+      setNoticeFn(
+        documentJsonStatus,
+        `${type === 'markdown' ? 'Markdown' : 'HTML/CSS JSON'} sample restored.`,
+        'success'
+      );
+      setNoticeFn(documentJsonResult);
+      closeSecondaryActions(resetDocumentJsonBtn);
+    });
+
+    return { handleUrlRender };
+  }
+
   const moduleExports = {
     markdownDocumentDefaultCSS,
     sampleDocumentRequest,
@@ -513,6 +970,9 @@ img { max-width: 100%; box-sizing: content-box; background-color: #fff; }
     documentByteLength,
     flattenDocumentData,
     renderInlineDocument,
+    renderDocumentRequest: renderInlineDocument,
+    renderPdfDownloadResult,
+    initCreateRenderHandlers,
     parseDocumentEditor,
     documentRequestFromEditor,
     parseDocumentSettingsEditor,

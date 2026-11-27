@@ -344,6 +344,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined' && checkAut
       setNotice(templatesStatus, `Could not load template. ${error.message}`, 'error');
     }
   }
+  window.openStoredTemplate = openStoredTemplate;
 
   async function loadTemplates(selectedValue = templatePickerInput?.value) {
     if (!templatePickerInput || typeof listTemplates !== 'function') return;
@@ -382,10 +383,30 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined' && checkAut
     }
   }
 
+  window.loadTemplates = loadTemplates;
+
   if (IS_LOCAL_PREVIEW) {
     if (typeof renderKeys === 'function') renderKeys([]);
     if (typeof setSavedSourceInventory === 'function') {
       setSavedSourceInventory([], '');
+    }
+    if (typeof renderBatchJobs === 'function') renderBatchJobs([]);
+    if (typeof renderManagerEmpty === 'function') {
+      renderManagerEmpty(
+        document.getElementById('templatesManager'),
+        'No templates yet',
+        'Create a reusable layout for individual PDFs.'
+      );
+      renderManagerEmpty(
+        document.getElementById('sourcesManager'),
+        'No saved sources yet',
+        'Save a document definition for repeat renders and batches.'
+      );
+      renderManagerEmpty(
+        document.getElementById('filesManager'),
+        'No private files yet',
+        'Uploaded packages and rendered PDFs will appear here.'
+      );
     }
     renderDashboard({
       usage: { usedThisMonth: 0, quota: 25, remaining: 25, pdfsToday: 0 },
@@ -422,8 +443,22 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined' && checkAut
   if (typeof initQuickstartModal === 'function') initQuickstartModal();
   if (typeof initBillingListeners === 'function') initBillingListeners();
   if (typeof initializeLogExplorer === 'function') initializeLogExplorer();
+  if (typeof initBatchesFeature === 'function') initBatchesFeature();
 
   const mergeFeature = typeof initMergeFeature === 'function' ? initMergeFeature() : null;
+  if (!IS_LOCAL_PREVIEW) {
+    const initialView = window.activeDashboardView || 'overview';
+    if (['sources', 'files', 'batches', 'merge'].includes(initialView)) {
+      if (typeof refreshManagers === 'function') refreshManagers();
+      if (initialView === 'merge' && mergeFeature?.loadMergeFiles) mergeFeature.loadMergeFiles();
+    }
+  }
+  if (typeof initCreateRenderHandlers === 'function') {
+    initCreateRenderHandlers({
+      loadTemplates,
+      isLocalPreview: IS_LOCAL_PREVIEW,
+    });
+  }
 
   document.getElementById('copyOverviewDefaultKeyBtn')?.addEventListener('click', (event) => {
     const key = document.getElementById('overviewDefaultKeyValue')?.textContent?.trim();
@@ -536,8 +571,8 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined' && checkAut
     }
   });
 
-  document.addEventListener('dashboardviewchange', () => {
-    const curView = window.activeDashboardView || 'overview';
+  document.addEventListener('dashboardviewchange', (event) => {
+    const curView = event?.detail?.view || window.activeDashboardView || 'overview';
     if (['sources', 'files', 'batches', 'merge'].includes(curView)) {
       if (typeof refreshManagers === 'function') refreshManagers();
       if (curView === 'merge' && mergeFeature?.loadMergeFiles) mergeFeature.loadMergeFiles();

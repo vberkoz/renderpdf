@@ -75,7 +75,7 @@
             input.focus();
             input.select();
           } else {
-            confirmButton.focus();
+            (destructive && cancelButton ? cancelButton : confirmButton).focus();
           }
         });
       }

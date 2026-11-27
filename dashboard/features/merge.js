@@ -7,6 +7,7 @@
     const mergeResult = document.getElementById('mergeResult');
     const refreshMergeFilesBtn = document.getElementById('refreshMergeFilesBtn');
     const submitMergeBtn = document.getElementById('submitMergeBtn');
+    const mergeOptionsForm = document.getElementById('mergeOptionsForm');
 
     async function loadMergeFiles() {
       if (!mergeFilesContainer) return;
@@ -30,33 +31,20 @@
         files.forEach((file) => {
           const item = document.createElement('label');
           item.className = 'merge-file-item';
-          item.style.display = 'flex';
-          item.style.alignItems = 'center';
-          item.style.gap = '10px';
-          item.style.padding = '10px 14px';
-          item.style.border = '1px solid var(--line, #1e2d44)';
-          item.style.borderRadius = 'var(--radius-sm, 6px)';
-          item.style.marginBottom = '8px';
-          item.style.cursor = 'pointer';
-          item.style.background = 'var(--card-bg, #151f33)';
 
           const cb = document.createElement('input');
           cb.type = 'checkbox';
+          cb.className = 'merge-file-checkbox';
           cb.dataset.mergeFileId = file.id;
-          cb.style.width = '16px';
-          cb.style.height = '16px';
-          cb.style.accentColor = 'var(--accent, #3b82f6)';
           cb.addEventListener('change', updateMergeSubmitState);
 
           const info = document.createElement('div');
-          info.style.flex = '1';
+          info.className = 'merge-file-info';
           const name = document.createElement('strong');
-          name.style.display = 'block';
-          name.style.fontSize = '14px';
+          name.className = 'merge-file-name';
           name.textContent = file.displayName || file.id;
           const meta = document.createElement('span');
-          meta.style.fontSize = '12px';
-          meta.style.color = 'var(--muted, #94a3b8)';
+          meta.className = 'merge-file-meta';
           meta.textContent = `${(file.sizeBytes / 1024).toFixed(1)} KB · ${file.createdAt ? new Date(file.createdAt).toLocaleDateString() : ''}`;
           info.append(name, meta);
 
@@ -80,6 +68,15 @@
 
     if (refreshMergeFilesBtn) {
       refreshMergeFilesBtn.addEventListener('click', loadMergeFiles);
+    }
+
+    if (mergeOptionsForm) {
+      mergeOptionsForm.addEventListener('submit', (event) => {
+        event.preventDefault();
+        if (submitMergeBtn && !submitMergeBtn.disabled) {
+          submitMergeBtn.click();
+        }
+      });
     }
 
     if (submitMergeBtn) {

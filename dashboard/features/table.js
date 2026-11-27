@@ -33,12 +33,24 @@
       return;
     }
     if (!rows.length) {
-      const message = document.createElement('p');
-      message.className = 'dashboard-table-empty';
-      message.setAttribute('role', 'status');
-      message.setAttribute('aria-live', 'polite');
-      message.textContent = empty;
-      container.replaceChildren(message);
+      const isDomNode =
+        (typeof Node !== 'undefined' && empty instanceof Node) ||
+        (empty && typeof empty === 'object' && ('nodeType' in empty || 'tagName' in empty));
+      if (isDomNode) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'dashboard-table-empty';
+        wrapper.setAttribute('role', 'status');
+        wrapper.setAttribute('aria-live', 'polite');
+        wrapper.appendChild(empty);
+        container.replaceChildren(wrapper);
+      } else {
+        const message = document.createElement('p');
+        message.className = 'dashboard-table-empty';
+        message.setAttribute('role', 'status');
+        message.setAttribute('aria-live', 'polite');
+        message.textContent = empty || '';
+        container.replaceChildren(message);
+      }
       return;
     }
 

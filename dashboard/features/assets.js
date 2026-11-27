@@ -138,6 +138,26 @@
     callRenderTable(container, { loading: `Loading ${label}` });
   }
 
+  function renderManagerError(container, label, message, onRetry) {
+    if (!container) return;
+    const empty = document.createElement('div');
+    empty.className = 'reusable-empty-state';
+    const heading = document.createElement('strong');
+    heading.textContent = `Could not load ${label}`;
+    const detail = document.createElement('span');
+    detail.textContent = message || 'Please try again.';
+    empty.append(heading, detail);
+    if (typeof onRetry === 'function') {
+      const retry = document.createElement('button');
+      retry.className = 'dashboard-button dashboard-button-secondary';
+      retry.type = 'button';
+      retry.textContent = 'Retry';
+      retry.onclick = () => onRetry();
+      empty.append(retry);
+    }
+    callRenderTable(container, { caption: container.getAttribute('aria-label') || label, empty });
+  }
+
   function openReusableAsset(assetType, asset) {
     if (typeof global.setDashboardView === 'function') {
       global.setDashboardView('create-render', { history: 'push', focus: true });
@@ -174,14 +194,21 @@
       renderManagerLoading(filesManager, 'private files');
       renderManagerLoading(batchesManager, 'batch jobs');
     }
-    try {
-      const [templateResult, sourceResult, fileResult, batchResult] = await Promise.all([
-        typeof global.listTemplates === 'function' ? global.listTemplates() : callApiRequest('/dashboard/templates'),
-        callApiRequest('/dashboard/sources'),
-        callApiRequest('/dashboard/files'),
-        callApiRequest('/dashboard/batches'),
-      ]);
 
+    const [templateSettled, sourceSettled, fileSettled, batchSettled] = await Promise.allSettled([
+      typeof global.listTemplates === 'function' ? global.listTemplates() : callApiRequest('/dashboard/templates'),
+      callApiRequest('/dashboard/sources'),
+      callApiRequest('/dashboard/files'),
+      callApiRequest('/dashboard/batches'),
+    ]);
+
+    const sourcesStatusEl = document.getElementById('sourcesStatus');
+    const filesStatusEl = document.getElementById('filesStatus');
+    const batchesStatusEl = document.getElementById('batchesStatus');
+    const sourceErrors = [];
+
+    if (templateSettled.status === 'fulfilled') {
+      const templateResult = templateSettled.value || {};
       if (typeof global.setSavedTemplatesState === 'function') {
         global.setSavedTemplatesState(templateResult.templates || [], templateResult.starters || []);
       }
@@ -259,7 +286,14 @@
           rows: templateRows,
         });
       }
+    } else {
+      const msg = templateSettled.reason?.message || 'Request failed';
+      sourceErrors.push(`Could not load templates. ${msg}`);
+      renderManagerError(templatesManager, 'templates', msg, refreshManagers);
+    }
 
+    if (sourceSettled.status === 'fulfilled') {
+      const sourceResult = sourceSettled.value || {};
       const sourceList = sourceResult.sources || [];
       setSavedSourceInventory(sourceList);
       const batchOptions = sourceList.map((source) => ({ value: source.id, label: source.name }));
@@ -348,10 +382,26 @@
             : batchOptions[0]?.value || ''
         );
       }
-      if (typeof global.updateBatchReview === 'function') {
-        global.updateBatchReview();
-      }
+    } else {
+      const msg = sourceSettled.reason?.message || 'Request failed';
+      sourceErrors.push(`Could not load saved sources. ${msg}`);
+      renderManagerError(sourcesManager, 'saved sources', msg, refreshManagers);
+    }
 
+    if (typeof global.updateBatchReview === 'function') {
+      global.updateBatchReview();
+    }
+
+    if (sourcesStatusEl) {
+      if (sourceErrors.length) {
+        callSetNotice(sourcesStatusEl, sourceErrors[0], 'error');
+      } else if (sourcesStatusEl.dataset?.state === 'error') {
+        callSetNotice(sourcesStatusEl);
+      }
+    }
+
+    if (fileSettled.status === 'fulfilled') {
+      const fileResult = fileSettled.value || {};
       const files = fileResult.files || [];
       if (!files.length) {
         renderManagerEmpty(
@@ -485,27 +535,34 @@
           rows: fileRows,
         });
       }
+      if (filesStatusEl && filesStatusEl.dataset?.state === 'error') {
+        callSetNotice(filesStatusEl);
+      }
+    } else {
+      const msg = fileSettled.reason?.message || 'Request failed';
+      renderManagerError(filesManager, 'private files', msg, refreshManagers);
+      if (filesStatusEl) {
+        callSetNotice(filesStatusEl, `Could not load private files. ${msg}`, 'error');
+      }
+    }
 
+    if (batchSettled.status === 'fulfilled') {
+      const batchResult = batchSettled.value || {};
       if (typeof global.renderBatchJobs === 'function') {
         global.renderBatchJobs(batchResult.jobs || [], { onRefreshManagers: refreshManagers });
       }
-      managersLoaded = true;
-    } catch (error) {
-      const activeView = typeof global.activeDashboardView !== 'undefined' ? global.activeDashboardView : 'sources';
-      const managerView = ['sources', 'files', 'batches'].includes(activeView)
-        ? activeView
-        : 'sources';
-      const status = document.getElementById(`${managerView}Status`);
-      const resource =
-        managerView === 'files'
-          ? 'private files'
-          : managerView === 'batches'
-            ? 'batch jobs'
-            : 'saved sources';
-      if (status) {
-        callSetNotice(status, `Could not load ${resource}. ${error.message}`, 'error');
+      if (batchesStatusEl && batchesStatusEl.dataset?.state === 'error') {
+        callSetNotice(batchesStatusEl);
+      }
+    } else {
+      const msg = batchSettled.reason?.message || 'Request failed';
+      renderManagerError(batchesManager, 'batch jobs', msg, refreshManagers);
+      if (batchesStatusEl) {
+        callSetNotice(batchesStatusEl, `Could not load batch jobs. ${msg}`, 'error');
       }
     }
+
+    managersLoaded = true;
   }
 
   const moduleExports = {
@@ -516,6 +573,7 @@
     loadSavedSources,
     renderManagerEmpty,
     renderManagerLoading,
+    renderManagerError,
     openReusableAsset,
     refreshManagers,
   };

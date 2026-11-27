@@ -93,6 +93,7 @@
   function setDashboardView(view, { history = 'none', focus = false } = {}) {
     const nextView = dashboardViewNames.has(view) ? view : 'overview';
     activeDashboardView = nextView;
+    global.activeDashboardView = nextView;
     if (document.documentElement) document.documentElement.dataset.dashboardCurrentView = nextView;
     if (document.body) document.body.dataset.dashboardCurrentView = nextView;
 
@@ -133,7 +134,7 @@
         if (navigation instanceof HTMLDetailsElement) navigation.open = !navigation.open;
       });
     });
-    document.querySelectorAll('[data-dashboard-nav]').forEach((item) => {
+    document.querySelectorAll('[data-dashboard-nav], [data-dashboard-view-link]').forEach((item) => {
       item.addEventListener('click', (event) => {
         if (
           event.defaultPrevented ||
@@ -147,7 +148,7 @@
         const url = new URL(item.href, window.location.href);
         if (url.origin !== window.location.origin || url.pathname !== window.location.pathname)
           return;
-        const view = url.searchParams.get('view');
+        const view = item.dataset.dashboardViewLink || url.searchParams.get('view');
         if (!dashboardViewNames.has(view)) return;
         event.preventDefault();
         setDashboardView(view, { history: 'push', focus: true });

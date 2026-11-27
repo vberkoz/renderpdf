@@ -2,6 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import appModule from './app.js';
 import logsModule from './features/logs.js';
+import tableModule from './features/table.js';
+import assetsModule from './features/assets.js';
+import batchesModule from './features/batches.js';
 
 test('loadDashboard calls apiRequest with /dashboard and authHeaders', async () => {
   const calls = [];
@@ -366,4 +369,160 @@ test('initializeLogExplorer recovers pagination buttons and shows error on fetch
   assert.strictEqual(elements.logsPreviousPage.disabled, false);
   assert.strictEqual(elements.logsNextPage.disabled, false);
   assert.strictEqual(elements.logsList.children[0].dataset.state, 'error');
+});
+
+test('renderTable renders a DOM Node empty state instead of stringifying it', () => {
+  const makeNode = (tag) => ({
+    nodeType: 1,
+    tagName: tag.toUpperCase(),
+    className: '',
+    textContent: '',
+    attributes: {},
+    children: [],
+    replaceChildren(...args) { this.children = args; },
+    append(...args) { this.children.push(...args); },
+    appendChild(child) { this.children.push(child); },
+    setAttribute(k, v) { this.attributes[k] = v; },
+    getAttribute(k) { return this.attributes[k] ?? null; },
+  });
+
+  global.document = {
+    createElement: (tag) => makeNode(tag),
+  };
+
+  const container = makeNode('DIV');
+  const emptyNode = makeNode('DIV');
+  emptyNode.textContent = 'No batch jobs yet';
+
+  tableModule.renderTable(container, { rows: [], empty: emptyNode });
+  assert.strictEqual(container.children.length, 1);
+  assert.strictEqual(container.children[0].className, 'dashboard-table-empty');
+  assert.strictEqual(container.children[0].children[0], emptyNode);
+  assert.strictEqual(container.children[0].textContent, '');
+});
+
+test('refreshManagers clears batches spinner and renders Retry on batch fetch failure', async () => {
+  const makeNode = (tag) => ({
+    nodeType: 1,
+    tagName: tag.toUpperCase(),
+    className: '',
+    textContent: '',
+    dataset: {},
+    hidden: false,
+    attributes: {},
+    children: [],
+    replaceChildren(...args) { this.children = args; },
+    append(...args) { this.children.push(...args); },
+    appendChild(child) { this.children.push(child); },
+    setAttribute(k, v) { this.attributes[k] = v; },
+    getAttribute(k) { return this.attributes[k] ?? null; },
+  });
+
+  const elements = {
+    templatesManager: makeNode('DIV'),
+    sourcesManager: makeNode('DIV'),
+    filesManager: makeNode('DIV'),
+    batchesManager: makeNode('DIV'),
+    batchesStatus: makeNode('DIV'),
+    sourcesStatus: makeNode('DIV'),
+    filesStatus: makeNode('DIV'),
+    batchSourceSelect: { value: '' },
+  };
+
+  global.document = {
+    getElementById: (id) => elements[id] || null,
+    createElement: (tag) => makeNode(tag),
+    querySelectorAll: () => [],
+    querySelector: () => null,
+  };
+  global.renderTable = tableModule.renderTable;
+  global.renderBatchJobs = batchesModule.renderBatchJobs;
+  global.updateBatchReview = batchesModule.updateBatchReview;
+  global.setNotice = appModule.setNotice;
+  global.apiRequest = async (path) => {
+    if (path === '/dashboard/batches') throw new Error('503 Batch unavailable');
+    if (path === '/dashboard/templates') return { templates: [], starters: [] };
+    if (path === '/dashboard/sources') return { sources: [] };
+    if (path === '/dashboard/files') return { files: [] };
+    return {};
+  };
+
+  await assetsModule.refreshManagers();
+
+  assert.strictEqual(elements.batchesStatus.dataset.state, 'error');
+  assert.match(elements.batchesStatus.textContent, /Could not load batch jobs/);
+  const renderedEmpty = elements.batchesManager.children[0];
+  assert.strictEqual(renderedEmpty.className, 'dashboard-table-empty');
+  const errorBox = renderedEmpty.children[0];
+  assert.strictEqual(errorBox.children[0].textContent, 'Could not load batch jobs');
+  assert.strictEqual(errorBox.children[2].tagName, 'BUTTON');
+  assert.strictEqual(errorBox.children[2].textContent, 'Retry');
+});
+
+test('initBatchesFeature wires refresh, input review, and batch submission payload', async () => {
+  const makeNode = (tag, initial = {}) => ({
+    nodeType: 1,
+    tagName: tag.toUpperCase(),
+    value: '',
+    checked: false,
+    disabled: false,
+    hidden: false,
+    textContent: '',
+    dataset: {},
+    attributes: {},
+    listeners: {},
+    addEventListener(type, fn) { this.listeners[type] = fn; },
+    setAttribute(k, v) { this.attributes[k] = v; },
+    removeAttribute(k) { delete this.attributes[k]; },
+    classList: { add() {}, remove() {}, toggle() {} },
+    ...initial,
+  });
+
+  const elements = {
+    refreshBatchesBtn: makeNode('BUTTON', { textContent: 'Refresh jobs' }),
+    batchSourceSelect: makeNode('INPUT', { value: 'src_1' }),
+    batchItemsInput: makeNode('TEXTAREA', { value: '[{"data":{"customer":{"name":"Ada"}}}]' }),
+    batchDataUpload: makeNode('INPUT'),
+    batchMergeOutput: makeNode('INPUT', { checked: true }),
+    batchReview: makeNode('P'),
+    submitBatchBtn: makeNode('BUTTON', { textContent: 'Submit batch', disabled: true }),
+    batchesStatus: makeNode('DIV'),
+  };
+
+  const optionNode = { dataset: { value: 'src_1' }, textContent: 'Invoice' };
+  global.document = {
+    getElementById: (id) => elements[id] || null,
+    querySelectorAll: (sel) => (sel === '#batchSourceSelect-menu [data-custom-select-option]' ? [optionNode] : []),
+    querySelector: () => null,
+  };
+
+  let refreshCount = 0;
+  const apiCalls = [];
+  global.refreshManagers = async () => { refreshCount += 1; };
+  global.setNotice = appModule.setNotice;
+  global.setButtonPending = appModule.setButtonPending;
+  global.apiRequest = async (path, options) => {
+    apiCalls.push({ path, options });
+    return { jobId: 'job_42' };
+  };
+
+  batchesModule.initBatchesFeature();
+  assert.strictEqual(elements.submitBatchBtn.disabled, false);
+  assert.strictEqual(elements.batchReview.dataset.state, 'success');
+
+  await elements.refreshBatchesBtn.listeners.click();
+  assert.strictEqual(refreshCount, 1);
+
+  await elements.submitBatchBtn.listeners.click();
+  assert.strictEqual(apiCalls.length, 1);
+  assert.strictEqual(apiCalls[0].path, '/dashboard/batches');
+  assert.strictEqual(apiCalls[0].options.method, 'POST');
+  assert.deepStrictEqual(JSON.parse(apiCalls[0].options.body), {
+    version: '1',
+    source: { type: 'stored', id: 'src_1' },
+    items: [{ data: { customer: { name: 'Ada' } } }],
+    options: { mergeOutput: true },
+  });
+  assert.strictEqual(elements.batchesStatus.dataset.state, 'success');
+  assert.strictEqual(refreshCount, 2);
 });

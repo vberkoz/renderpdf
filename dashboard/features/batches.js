@@ -34,6 +34,17 @@
     if (button) button.disabled = pending;
   }
 
+  function callSetNotice(element, message = '', state = '') {
+    if (typeof global.setNotice === 'function') {
+      return global.setNotice(element, message, state);
+    }
+    if (element) {
+      element.textContent = message;
+      element.dataset.state = state;
+      element.hidden = !message;
+    }
+  }
+
   let batchDataUploadError = '';
 
   function setBatchDataUploadError(err) {
@@ -227,12 +238,112 @@
     });
   }
 
+  function initBatchesFeature() {
+    const refreshBtn = document.getElementById('refreshBatchesBtn');
+    const sourceSelect = document.getElementById('batchSourceSelect');
+    const itemsInput = document.getElementById('batchItemsInput');
+    const dataUpload = document.getElementById('batchDataUpload');
+    const mergeOutput = document.getElementById('batchMergeOutput');
+    const submitBtn = document.getElementById('submitBatchBtn');
+    const statusEl = document.getElementById('batchesStatus');
+
+    refreshBtn?.addEventListener('click', async () => {
+      callSetButtonPending(refreshBtn, true, 'Refreshing...');
+      try {
+        if (typeof global.refreshManagers === 'function') {
+          await global.refreshManagers();
+        }
+      } finally {
+        callSetButtonPending(refreshBtn, false);
+      }
+    });
+
+    sourceSelect?.addEventListener('change', () => updateBatchReview());
+    mergeOutput?.addEventListener('change', () => updateBatchReview());
+    itemsInput?.addEventListener('input', () => {
+      setBatchDataUploadError('');
+      updateBatchReview();
+    });
+
+    dataUpload?.addEventListener('change', async () => {
+      const file = dataUpload.files?.[0];
+      if (!file) return;
+      try {
+        const text =
+          typeof file.text === 'function'
+            ? await file.text()
+            : await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(String(reader.result || ''));
+                reader.onerror = () => reject(new Error('Could not read the selected file.'));
+                reader.readAsText(file);
+              });
+        let parsed;
+        try {
+          parsed = JSON.parse(text);
+        } catch {
+          throw new Error('Uploaded file must contain valid JSON.');
+        }
+        if (!Array.isArray(parsed) || parsed.length < 1 || parsed.length > 99) {
+          throw new Error('Uploaded JSON must be an array with 1–99 items.');
+        }
+        if (itemsInput) {
+          itemsInput.value = JSON.stringify(parsed, null, 2);
+        }
+        setBatchDataUploadError('');
+      } catch (error) {
+        setBatchDataUploadError(error.message);
+      } finally {
+        dataUpload.value = '';
+        updateBatchReview();
+      }
+    });
+
+    submitBtn?.addEventListener('click', async () => {
+      callSetNotice(statusEl);
+      let submission;
+      try {
+        submission = batchSubmission();
+      } catch (error) {
+        callSetNotice(statusEl, error.message, 'error');
+        updateBatchReview();
+        return;
+      }
+
+      callSetButtonPending(submitBtn, true, 'Submitting...');
+      try {
+        const result = await callApiRequest('/dashboard/batches', {
+          method: 'POST',
+          body: JSON.stringify({
+            version: '1',
+            source: { type: 'stored', id: submission.sourceID },
+            items: submission.items,
+            options: { mergeOutput: submission.mergeOutput },
+          }),
+        });
+        const jobLabel = result?.jobId ? ` ${result.jobId}` : '';
+        callSetNotice(statusEl, `Batch job${jobLabel} queued.`, 'success');
+        if (typeof global.refreshManagers === 'function') {
+          await global.refreshManagers();
+        }
+      } catch (error) {
+        callSetNotice(statusEl, `Could not submit batch. ${error.message}`, 'error');
+      } finally {
+        callSetButtonPending(submitBtn, false);
+        updateBatchReview();
+      }
+    });
+
+    updateBatchReview();
+  }
+
   const moduleExports = {
     batchSubmission,
     updateBatchReview,
     renderBatchJobs,
     setBatchDataUploadError,
     getBatchDataUploadError,
+    initBatchesFeature,
   };
 
   Object.assign(global, moduleExports);

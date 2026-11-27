@@ -1,7 +1,14 @@
 /* ==========================================================================
    Create PDF / Authoring & Merge Workflow — DENSE//DS
    ========================================================================== */
-.create-render-panel { display: grid; gap: 10px; }
+.create-render-panel {
+  display: grid;
+  gap: 10px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  box-shadow: none;
+}
 
 .workflow-stage-grid {
   display: grid;
@@ -88,7 +95,17 @@
   gap: 10px;
   align-items: start;
 }
-.template-form, .document-json-editor {
+.template-form {
+  display: grid;
+  max-width: 100%;
+  min-width: 0;
+  gap: 10px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+}
+.document-json-editor {
   display: grid;
   max-width: 100%;
   min-width: 0;
@@ -106,10 +123,11 @@
 }
 
 .editor-secondary, .workflow-preview-details {
-  border: 1px solid var(--ln);
-  border-radius: var(--r);
-  background: var(--bg-2);
-  padding: 8px 10px;
+  border: 0;
+  border-top: 1px solid var(--ln);
+  border-radius: 0;
+  background: transparent;
+  padding: 10px 0 0;
   min-width: 0;
 }
 .editor-secondary > summary, .workflow-preview-details > summary {
@@ -150,11 +168,11 @@
   align-items: flex-start;
   justify-content: center;
   min-height: 0;
-  padding: 12px;
+  padding: 8px 0 0;
   overflow: auto;
-  background: var(--bg-2);
-  border: 1px solid var(--ln);
-  border-radius: var(--r);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
   height: min(66vh, 720px);
 }
 .template-preview, .document-json-preview {
@@ -208,4 +226,52 @@
   border-radius: var(--r-2);
   background: var(--bg-2);
   box-shadow: var(--sh);
+}
+
+.merge-files-list {
+  display: grid;
+  gap: 6px;
+}
+.merge-file-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border: 1px solid var(--ln);
+  border-radius: var(--r);
+  background: var(--bg-2);
+  color: var(--fg-0);
+  cursor: pointer;
+  transition: border-color .1s, background-color .1s;
+}
+.merge-file-item:hover {
+  border-color: var(--ln-3);
+  background: var(--bg-3);
+}
+.merge-file-item:has(.merge-file-checkbox:checked) {
+  border-color: var(--ac);
+  background: var(--ac-bg);
+}
+.merge-file-checkbox {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  accent-color: var(--ac);
+  cursor: pointer;
+}
+.merge-file-info {
+  flex: 1;
+  min-width: 0;
+}
+.merge-file-name {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--fg-0);
+  overflow-wrap: anywhere;
+}
+.merge-file-meta {
+  display: block;
+  font-size: 11px;
+  color: var(--fg-1);
 }
